@@ -1,0 +1,30 @@
+{
+  "name": "travel-footprints-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build && node scripts/write-precache.mjs",
+    "preview": "vite preview --host 127.0.0.1",
+    "check": "tsc --noEmit",
+    "test:maps": "node scripts/validate-maps.mjs",
+    "test:web": "node scripts/smoke.mjs",
+    "test:migration": "node scripts/migration-smoke.mjs",
+    "test:finance": "node scripts/finance-smoke.mjs"
+  },
+  "dependencies": {
+    "@zip.js/zip.js": "^2.8.0",
+    "echarts": "^6.1.0",
+    "exifr": "^7.1.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "playwright-core": "^1.63.0",
+    "typescript": "^5.9.2",
+    "vite": "^8.3.1"
+  }
+}
