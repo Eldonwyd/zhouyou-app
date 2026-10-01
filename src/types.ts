@@ -1,5 +1,5 @@
 export type PageName = 'map' | 'detail' | 'plan' | 'achievements' | 'profile';
-export type VisitStatus = 'empty' | 'planned' | 'visited';
+export type VisitStatus = 'empty' | 'visited';
 export type DayPeriod = 'morning' | 'afternoon' | 'evening' | 'all-day';
 export type MediaKind = 'photo' | 'video' | 'audio';
 export type BudgetCategory = 'transport' | 'lodging' | 'tickets' | 'food' | 'other';

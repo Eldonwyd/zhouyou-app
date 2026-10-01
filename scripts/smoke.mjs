@@ -20,7 +20,7 @@ try {
   await page.getByRole('button', { name: '返回全国' }).click();
   await page.locator('.province-list button').filter({ hasText: '贵州' }).click();
   await page.locator('.city-list button').filter({ hasText: '安顺市' }).click();
-  await page.getByRole('button', { name: '标记为已去过' }).click();
+  await page.getByRole('button', { name: '确认', exact: true }).click();
   await page.getByRole('heading', { name: '安顺市 · 旅行手账' }).waitFor();
 
   await page.getByRole('button', { name: '＋ 新建旅行' }).click();

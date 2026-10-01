@@ -24,7 +24,7 @@ interface DetailViewProps {
   onSaveMediaGroup: (items: Array<{ media: TravelMedia; blob: Blob }>, entries: DayEntry[]) => Promise<void>;
   onUpdateMedia: (media: TravelMedia) => Promise<void>;
   onDeleteMedia: (id: string) => Promise<void>;
-  onUpdateMark: (visited: boolean, planned: boolean) => Promise<void>;
+  onUpdateMark: (visited: boolean) => Promise<void>;
   onSaveCityMark: (mark: CityMark) => Promise<void>;
   onError: (message: string) => void;
   onNotice: (message: string) => void;
@@ -105,8 +105,7 @@ function JourneyEditor({ initial, initialCity, onSave, onCancel, onError, locked
   lockedCityCodes: string[];
 }) {
   const [title, setTitle] = useState(initial?.title ?? '');
-  const [status, setStatus] = useState<NonNullable<Journey['status']>>(initial?.status
-    ?? (initialCity?.planned && !initialCity.visited ? 'planned' : 'visited'));
+  const [status, setStatus] = useState<NonNullable<Journey['status']>>(initial?.status ?? 'visited');
   const [startDate, setStartDate] = useState(initial?.startDate ?? localDay(new Date()));
   const [endDate, setEndDate] = useState(initial?.endDate ?? localDay(new Date()));
   const [companions, setCompanions] = useState(initial?.companions.join('、') ?? '');
@@ -154,7 +153,7 @@ function JourneyEditor({ initial, initialCity, onSave, onCancel, onError, locked
       <label>开始日期<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} required /></label>
       <label>结束日期<input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} required /></label>
       <label>同行者（可选）<input value={companions} onChange={(event) => setCompanions(event.target.value)} placeholder="用顿号分隔姓名" /></label>
-      <label>旅行状态<select value={status} onChange={(event) => setStatus(event.target.value as NonNullable<Journey['status']>)}><option value="visited">已去过</option><option value="planned">将要去</option></select></label>
+      <label>旅行状态<select value={status} onChange={(event) => setStatus(event.target.value as NonNullable<Journey['status']>)}><option value="visited">已去过</option><option value="planned">计划中</option></select></label>
     </div>
     <div className="city-picker"><strong>这次旅行包含的城市</strong><div className="city-picker-selected">{cities.map((city) => <span key={city.code}>{city.name}<button aria-label={`移除 ${city.name}`} onClick={() => {
       if (lockedCityCodes.includes(city.code)) onError('这个城市已有地点，请先保留它');
@@ -296,7 +295,7 @@ export default function DetailView(props: DetailViewProps) {
       // A city chosen from the province catalogue may have no map mark yet.
       // Starting its collection also lights it as visited on the map.
       if (!selectedTrip && scopeCityMark && !scopeCityMark.visited) {
-        await onSaveCityMark({ ...scopeCityMark, visited: true, updatedAt: new Date().toISOString() });
+        await onSaveCityMark({ ...scopeCityMark, visited: true, planned: false, updatedAt: new Date().toISOString() });
       }
       setUploadPlaceId(place.id);
       setNewPlaceName('');
@@ -424,7 +423,7 @@ export default function DetailView(props: DetailViewProps) {
     <div className="section-heading"><div><span className="eyebrow">MEMORY JOURNAL</span><h1>{scopeCity ? `${scopeCity.name} · 旅行手账` : '我的旅行手账'}</h1><p>一段旅程、几座城市，把每个地点的照片和故事收在一起。</p></div>
       <div className="heading-actions"><button className="secondary" onClick={() => { setCityBrowserOpen(!cityBrowserOpen); setSelectedTripId(null); setSelectedPlaceId(null); }}>{cityBrowserOpen ? '收起城市选择' : '按省份选择城市'}</button>{scopeCity && <button className="secondary" onClick={() => { setShowAll(true); setBrowseCity(null); setCityBrowserOpen(true); setSelectedTripId(null); setSelectedPlaceId(null); }}>查看全部旅行</button>}<button className="primary" onClick={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }}>＋ 新建旅行</button></div></div>
     {cityBrowserOpen && !selectedTrip && !editingTrip && <TravelCityBrowser trips={trips} selectedCityCode={scopeCityCode} onSelectCity={(pickedCity) => { setBrowseCity(pickedCity); setShowAll(false); setSelectedTripId(null); }} onShowAll={() => { setShowAll(true); setBrowseCity(null); setSelectedTripId(null); }} onError={onError} />}
-    {city && !browseCity && !showAll && !selectedTrip && <div className="card status-card"><div><strong>{city.name}的城市状态</strong><p>{trips.some((trip) => trip.cities.some((item) => item.code === city.id)) ? '这座城市已包含在旅行中，地图会按旅行状态点亮。' : '旅行记录会自动点亮城市，也可以手动标记。'}</p></div><label className="checkbox"><input type="checkbox" checked={city.visited} disabled={trips.some((trip) => trip.status !== 'planned' && trip.cities.some((item) => item.code === city.id))} onChange={(event) => void onUpdateMark(event.target.checked, city.planned)} />已去过</label><label className="checkbox"><input type="checkbox" checked={city.planned} onChange={(event) => void onUpdateMark(city.visited, event.target.checked)} />将要去</label></div>}
+    {city && !browseCity && !showAll && !selectedTrip && <div className="card status-card"><div><strong>{city.name}的城市状态</strong><p>{trips.some((trip) => trip.cities.some((item) => item.code === city.id && trip.status !== 'planned')) ? '这座城市已包含在去过的旅行中，地图会保持点亮。' : '确认去过的城市会点亮地图，也可以在这里取消手动标记。'}</p></div><label className="checkbox"><input type="checkbox" checked={city.visited} disabled={trips.some((trip) => trip.status !== 'planned' && trip.cities.some((item) => item.code === city.id))} onChange={(event) => void onUpdateMark(event.target.checked)} />已去过</label></div>}
     {editingTrip && <JourneyEditor key={editingTrip === 'new' ? 'new' : editingTrip.id} initial={editingTrip === 'new' ? null : editingTrip} initialCity={scopeCityMark} lockedCityCodes={editingTrip === 'new' ? [] : places.filter((place) => place.tripId === editingTrip.id).map((place) => place.cityCode)} onSave={saveTrip} onCancel={() => setEditingTrip(null)} onError={onError} />}
     {(selectedTrip || scopeCity) && !editingTrip && <>
       {selectedTrip ? <div className="journal-trip-hero"><button className="text-button" onClick={() => { setSelectedTripId(null); setSelectedPlaceId(null); }}>← 返回城市记录与旅行列表</button><span className="eyebrow">{selectedTrip.startDate} — {selectedTrip.endDate}</span><h2>{selectedTrip.title}</h2><p>{selectedTrip.cities.map((item) => item.name).join(' · ')}</p>{selectedTrip.companions.length > 0 && <small>与 {selectedTrip.companions.join('、')} 同行</small>}<button className="secondary" onClick={() => setEditingTrip(selectedTrip)}>编辑旅行</button></div>

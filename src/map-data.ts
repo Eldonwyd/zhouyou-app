@@ -16,32 +16,23 @@ export function provinceColor(provinceCode: string): string {
   return PROVINCE_COLORS[ordinal % PROVINCE_COLORS.length];
 }
 
-/** Mix a province hue with white so a planned area keeps its geographic identity. */
-export function plannedColor(hexColor: string): string {
-  const channels = [1, 3, 5].map((index) => Number.parseInt(hexColor.slice(index, index + 2), 16));
-  return `rgb(${channels.map((channel) => Math.round(channel * 0.42 + 255 * 0.58)).join(', ')})`;
-}
-
 export function provinceCodeForCity(cityCode: string): string {
   return `${cityCode.slice(0, 2)}0000`;
 }
 
 export function statusForCity(mark: CityMark | undefined): VisitStatus {
   if (mark?.visited) return 'visited';
-  if (mark?.planned) return 'planned';
   return 'empty';
 }
 
 export function statusForProvince(provinceCode: string, marks: CityMark[]): VisitStatus {
   const provinceMarks = marks.filter((mark) => mark.provinceCode === provinceCode);
   if (provinceMarks.some((mark) => mark.visited)) return 'visited';
-  if (provinceMarks.some((mark) => mark.planned)) return 'planned';
   return 'empty';
 }
 
 export function fillForStatus(status: VisitStatus, provinceCode: string): string {
   if (status === 'visited') return provinceColor(provinceCode);
-  if (status === 'planned') return plannedColor(provinceColor(provinceCode));
   return '#d7dee2';
 }
 

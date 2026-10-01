@@ -101,7 +101,7 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
       return {
         name: feature.properties.name,
         adcode: code,
-        value: status === 'visited' ? 2 : status === 'planned' ? 1 : 0,
+        value: status === 'visited' ? 2 : 0,
         itemStyle: { areaColor: fillForStatus(status, provinceCode) },
       };
     });
@@ -187,7 +187,7 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
           <div ref={containerRef} className="map-canvas" role="img" aria-label={activeProvince ? `${activeProvince.properties.name}城市地图` : '中国省级地图'} />
           {loading && <div className="map-overlay">正在加载地图…</div>}
           {!loading && !currentMap && <div className="map-overlay error">{notice}<button onClick={() => activeProvinceCode ? setActiveProvinceCode(null) : loadNationalMap().then(setNationalMap)}>返回或重试</button></div>}
-          <div className="map-bottom"><span>{notice}</span><div className="map-legend"><span><i className="legend-dot visited" />已去过</span><span><i className="legend-dot planned" />将要去</span><span><i className="legend-dot empty" />未标记</span></div></div>
+          <div className="map-bottom"><span>{notice}</span><div className="map-legend"><span><i className="legend-dot visited" />已去过</span><span><i className="legend-dot empty" />未标记</span></div></div>
         </div>
         <aside className="map-side card">
           {activeProvince ? <>
@@ -201,7 +201,6 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
           </> : <>
             <div className="side-top"><span className="eyebrow">YOUR FOOTPRINTS</span><h2>从一座城市开始</h2><p>点击地图上的省份，下钻查看城市。标记后，颜色会同步到全国地图。</p></div>
             <div className="side-stat"><strong>{marks.filter((mark) => mark.visited).length}</strong><span>已去城市</span></div>
-            <div className="side-stat"><strong>{marks.filter((mark) => mark.planned).length}</strong><span>计划城市</span></div>
             <div className="province-list">{nationalMap?.features.map((feature) => <button key={String(feature.properties.adcode)} onClick={() => setActiveProvinceCode(String(feature.properties.adcode))}><i style={{ background: provinceColor(String(feature.properties.adcode)) }} />{labelForFeature(feature)}</button>)}</div>
           </>}
         </aside>

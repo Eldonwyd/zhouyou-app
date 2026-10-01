@@ -48,7 +48,7 @@ try {
       // A phone user can mark a city, upload a photo and open both memory views.
       await page.locator('.province-list button').filter({ hasText: '贵州' }).click();
       await page.locator('.city-list button').filter({ hasText: '安顺市' }).click();
-      await page.getByRole('button', { name: '标记为已去过' }).click();
+      await page.getByRole('button', { name: '确认', exact: true }).click();
       await page.getByRole('heading', { name: '安顺市 · 旅行手账' }).waitFor();
       const toast = await page.locator('.toast').boundingBox();
       const navigation = await page.locator('.sidebar').boundingBox();

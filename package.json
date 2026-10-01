@@ -14,7 +14,8 @@
     "test:migration": "node scripts/migration-smoke.mjs",
     "test:finance": "node scripts/finance-smoke.mjs",
     "test:city-record": "node scripts/city-record-smoke.mjs",
-    "test:mobile": "node scripts/mobile-smoke.mjs"
+    "test:mobile": "node scripts/mobile-smoke.mjs",
+    "test:visit-confirm": "node scripts/visit-confirm-smoke.mjs"
   },
   "dependencies": {
     "@zip.js/zip.js": "^2.8.0",

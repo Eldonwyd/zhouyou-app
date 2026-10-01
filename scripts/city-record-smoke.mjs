@@ -31,7 +31,7 @@ try {
   await page.goto('http://127.0.0.1:5173/', { waitUntil: 'networkidle' });
   await page.locator('.province-list button').filter({ hasText: '贵州' }).click();
   await page.locator('.city-list button').filter({ hasText: '安顺市' }).click();
-  await page.getByRole('button', { name: '标记为已去过' }).click();
+  await page.getByRole('button', { name: '确认', exact: true }).click();
   await page.getByRole('heading', { name: '安顺市的城市记录' }).waitFor();
 
   await page.getByPlaceholder('例如：黄果树瀑布').fill('黄果树瀑布');

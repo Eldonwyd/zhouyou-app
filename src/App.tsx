@@ -107,8 +107,8 @@ export default function App() {
     catch (error) { showError(describeStorageError(error)); throw error; }
   }, [reload, showError]);
 
-  // Planned journeys keep the lighter map color until they become visited.
-  // Existing journeys without status are treated as visited for compatibility.
+  // Only confirmed visits light the map. Keep legacy planned data and future
+  // journey budgets intact, but never count them as a completed city visit.
   const effectiveMarks = useMemo(() => {
     const byCode = new Map(snapshot.marks.map((mark) => [mark.id, mark]));
     for (const trip of snapshot.trips) for (const city of trip.cities) {
@@ -116,18 +116,18 @@ export default function App() {
       byCode.set(city.code, {
         id: city.code, name: city.name, provinceCode: city.provinceCode,
         visited: Boolean(old?.visited || trip.status !== 'planned'),
-        planned: Boolean(old?.planned || trip.status === 'planned'),
+        planned: false,
         updatedAt: old?.updatedAt ?? trip.createdAt,
       });
     }
-    return [...byCode.values()];
+    return [...byCode.values()].map((mark) => ({ ...mark, planned: false }));
   }, [snapshot.marks, snapshot.trips]);
   const selectedCity = effectiveMarks.find((mark) => mark.id === selectedCityCode) ?? null;
 
   const selectCity = useCallback((feature: AdministrativeFeature, province: AdministrativeFeature) => {
     const code = String(feature.properties.adcode);
     const existing = effectiveMarks.find((mark) => mark.id === code);
-    if (existing?.visited || existing?.planned) {
+    if (existing?.visited) {
       setSelectedCityCode(code);
       setTargetEntryId(null);
       setPage('detail');
@@ -136,25 +136,25 @@ export default function App() {
     setPendingCity({ code, name: feature.properties.name, provinceCode: String(province.properties.adcode) });
   }, [effectiveMarks]);
 
-  async function markPending(kind: 'visited' | 'planned'): Promise<void> {
+  async function confirmVisit(): Promise<void> {
     if (!pendingCity) return;
     const mark: CityMark = {
       id: pendingCity.code, name: pendingCity.name,
       provinceCode: pendingCity.provinceCode || provinceCodeForCity(pendingCity.code),
-      visited: kind === 'visited', planned: kind === 'planned', updatedAt: new Date().toISOString(),
+      visited: true, planned: false, updatedAt: new Date().toISOString(),
     };
     try {
       await saveMark(mark);
       setSelectedCityCode(mark.id);
       setPendingCity(null);
-      setPage(kind === 'visited' ? 'detail' : 'plan');
-      showNotice(`${mark.name}已标记为${kind === 'visited' ? '已去过' : '将要去'}。`);
+      setPage('detail');
+      showNotice(`${mark.name}已保存为已去过。`);
     } catch { /* saveMark reports the storage error and keeps the choice visible. */ }
   }
 
-  async function updateSelectedMark(visited: boolean, planned: boolean): Promise<void> {
+  async function updateSelectedMark(visited: boolean): Promise<void> {
     if (!selectedCity) return;
-    await saveMark({ ...selectedCity, visited, planned, updatedAt: new Date().toISOString() });
+    await saveMark({ ...selectedCity, visited, planned: false, updatedAt: new Date().toISOString() });
     showNotice('城市状态已更新。');
   }
 
@@ -175,7 +175,7 @@ export default function App() {
         {page === 'profile' && <ProfileView snapshot={snapshot} onSaveProfile={saveProfile} onImported={(data) => { setSnapshot(data); setSelectedCityCode(null); setPage('map'); }} onError={showError} onNotice={showNotice} />}
       </Suspense>}</main>
     </div>
-    {pendingCity && <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPendingCity(null); }}><div className="dialog" role="dialog" aria-modal="true" aria-labelledby="city-dialog-title"><span className="eyebrow">ADD TO MAP</span><h2 id="city-dialog-title">{pendingCity.name}</h2><p>选择这座城市在旅行地图上的状态。</p><div className="dialog-actions"><button className="primary" onClick={() => void markPending('visited')}>标记为已去过</button><button className="secondary" onClick={() => void markPending('planned')}>标记为将要去</button><button className="text-button" onClick={() => setPendingCity(null)}>取消</button></div></div></div>}
+    {pendingCity && <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPendingCity(null); }}><div className="dialog" role="dialog" aria-modal="true" aria-labelledby="city-dialog-title"><span className="eyebrow">ADD TO MAP</span><h2 id="city-dialog-title">{pendingCity.name}</h2><p>确认后，这座城市会保存为已去过。</p><div className="dialog-actions"><button className="primary" onClick={() => void confirmVisit()}>确认</button><button className="text-button" onClick={() => setPendingCity(null)}>取消</button></div></div></div>}
     {notice && <div className="toast" role="status">{notice}<button onClick={() => setNotice(null)} aria-label="关闭提示">×</button></div>}
   </div>;
 }
