@@ -17,7 +17,7 @@ export interface CityMark {
 export interface DayEntry {
   id: string;
   cityCode: string;
-  tripId: string;
+  tripId: string | null; // City notes can wait here until a dated journey claims them.
   placeId: string;
   date: string;
   period: DayPeriod;
@@ -43,7 +43,7 @@ export interface TripPlan {
 export interface TravelMedia {
   id: string;
   cityCode: string;
-  tripId: string;
+  tripId: string | null;
   placeId: string;
   entryId: string | null;
   kind: MediaKind;
@@ -73,10 +73,10 @@ export interface Journey {
   createdAt: string;
 }
 
-/** Places belong to a particular journey and city, so repeat visits stay distinct. */
+/** Places can wait in a city collection or belong to one dated journey. */
 export interface JourneyPlace {
   id: string;
-  tripId: string;
+  tripId: string | null; // Null means this place is still in its city's collection.
   cityCode: string;
   name: string;
   reviewText: string;

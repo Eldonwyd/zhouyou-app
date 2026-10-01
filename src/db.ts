@@ -2,6 +2,7 @@ import type {
   AppSnapshot, Badge, CityMark, DayEntry, Journey, JourneyPlace, LocalProfile,
   MediaFile, TravelMedia, TripPlan,
 } from './types';
+import { localDay } from './utils';
 
 const DATABASE_NAME = 'travel-footprints';
 const DATABASE_VERSION = 2;
@@ -145,6 +146,130 @@ export async function saveItem<T extends StoreName>(name: T, item: StoreTypes[T]
   const completion = transactionDone(transaction);
   transaction.objectStore(name).put(item);
   await completion;
+}
+
+export interface JourneyLinkResult {
+  places: number;
+  media: number;
+  entries: number;
+}
+
+/**
+ * Save a journey and claim matching city collections in the same transaction.
+ * A place stays together when every dated item matches. A mixed-date place is
+ * split: matching originals move into a journey copy, while other originals
+ * stay in the city collection. Voice notes are copied so both place pages keep
+ * their review; no photo or video binary is duplicated.
+ */
+export async function saveJourneyAndLinkCityRecords(journey: Journey): Promise<JourneyLinkResult> {
+  const database = await openDatabase();
+  const transaction = database.transaction(['trips', 'places', 'entries', 'media', 'mediaFiles'], 'readwrite');
+  const completion = transactionDone(transaction);
+  const placeStore = transaction.objectStore('places');
+  const entryStore = transaction.objectStore('entries');
+  const mediaStore = transaction.objectStore('media');
+  const mediaFileStore = transaction.objectStore('mediaFiles');
+  const result: JourneyLinkResult = { places: 0, media: 0, entries: 0 };
+  transaction.objectStore('trips').put(journey);
+
+  // Queue all reads while the transaction is active, then write synchronously
+  // from the final success callback. Awaiting between reads could auto-commit.
+  const placeRequest = placeStore.getAll();
+  const entryRequest = entryStore.getAll();
+  const mediaRequest = mediaStore.getAll();
+  let completedReads = 0;
+  const linkWhenReady = () => {
+    completedReads += 1;
+    if (completedReads !== 3) return;
+    const cityCodes = new Set(journey.cities.map((city) => city.code));
+    const allEntries = entryRequest.result as DayEntry[];
+    const allMedia = mediaRequest.result as TravelMedia[];
+    const entriesByPlace = new Map<string, DayEntry[]>();
+    const mediaByPlace = new Map<string, TravelMedia[]>();
+    for (const entry of allEntries) if (entry.tripId === null) {
+      const rows = entriesByPlace.get(entry.placeId);
+      if (rows) rows.push(entry);
+      else entriesByPlace.set(entry.placeId, [entry]);
+    }
+    for (const item of allMedia) if (item.tripId === null) {
+      const rows = mediaByPlace.get(item.placeId);
+      if (rows) rows.push(item);
+      else mediaByPlace.set(item.placeId, [item]);
+    }
+    const withinJourney = (date: string) => date >= journey.startDate && date <= journey.endDate;
+    for (const place of placeRequest.result as JourneyPlace[]) {
+      if (place.tripId !== null || !cityCodes.has(place.cityCode)) continue;
+      const relatedEntries = entriesByPlace.get(place.id) ?? [];
+      const relatedMedia = mediaByPlace.get(place.id) ?? [];
+      const datedMedia = relatedMedia.filter((item) => item.kind !== 'audio');
+      const authoredEntries = relatedEntries.filter((entry) => entry.note.trim() || entry.highlight);
+      const datedItems = [
+        // Automatically generated day rows may retain an old date after a
+        // photo is manually corrected, so only authored notes constrain them.
+        ...authoredEntries.map((entry) => entry.date),
+        ...datedMedia.map((item) => localDay(new Date(item.capturedAt))),
+      ];
+      // A text-only place uses its creation date; voice recorded later should
+      // follow the place instead of disqualifying historical photos.
+      const dates = datedItems.length ? datedItems : [localDay(new Date(place.createdAt))];
+      if (!dates.some(withinJourney)) continue;
+
+      if (dates.every(withinJourney)) {
+        placeStore.put({ ...place, tripId: journey.id } satisfies JourneyPlace);
+        for (const entry of relatedEntries) entryStore.put({ ...entry, tripId: journey.id } satisfies DayEntry);
+        for (const item of relatedMedia) mediaStore.put({ ...item, tripId: journey.id } satisfies TravelMedia);
+        result.places += 1;
+        result.entries += relatedEntries.length;
+        result.media += relatedMedia.length;
+        continue;
+      }
+
+      // Only a subset of this place's dates belongs to the journey. Keep the
+      // original city place and move matching metadata to a separate place ID.
+      const journeyPlaceId = crypto.randomUUID();
+      const matchingMedia = datedMedia.filter((item) => withinJourney(localDay(new Date(item.capturedAt))));
+      const matchingMediaEntryIds = new Set(matchingMedia.map((item) => item.entryId).filter((id): id is string => Boolean(id)));
+      const retainedMediaEntryIds = new Set(datedMedia.filter((item) => !withinJourney(localDay(new Date(item.capturedAt))))
+        .map((item) => item.entryId).filter((id): id is string => Boolean(id)));
+      const matchingEntries = relatedEntries.filter((entry) =>
+        (entry.note.trim() || entry.highlight) ? withinJourney(entry.date) : matchingMediaEntryIds.has(entry.id));
+      const movedEntryIds = new Map<string, string>();
+      const voiceCopies = relatedMedia.filter((item) => item.kind === 'audio').map((item) => ({
+        original: item, copyId: crypto.randomUUID(),
+      }));
+      const copiedReviewId = voiceCopies.find(({ original }) => original.id === place.reviewAudioId)?.copyId ?? null;
+      placeStore.put({ ...place, id: journeyPlaceId, tripId: journey.id,
+        reviewAudioId: copiedReviewId } satisfies JourneyPlace);
+      for (const entry of matchingEntries) {
+        // An imported day row may be referenced by both matching and retained
+        // photos. Copy that row so neither side points into the other place.
+        const movedId = retainedMediaEntryIds.has(entry.id) ? crypto.randomUUID() : entry.id;
+        movedEntryIds.set(entry.id, movedId);
+        entryStore.put({ ...entry, id: movedId, tripId: journey.id, placeId: journeyPlaceId } satisfies DayEntry);
+      }
+      for (const item of matchingMedia) {
+        mediaStore.put({ ...item, tripId: journey.id, placeId: journeyPlaceId,
+          entryId: item.entryId ? movedEntryIds.get(item.entryId) ?? null : null } satisfies TravelMedia);
+      }
+      for (const { original, copyId } of voiceCopies) {
+        mediaStore.put({ ...original, id: copyId, tripId: journey.id, placeId: journeyPlaceId } satisfies TravelMedia);
+        const fileRequest = mediaFileStore.get(original.id);
+        fileRequest.onsuccess = () => {
+          const file = fileRequest.result as MediaFile | undefined;
+          if (!file?.blob) { transaction.abort(); return; }
+          mediaFileStore.put({ id: copyId, blob: file.blob } satisfies MediaFile);
+        };
+      }
+      result.places += 1;
+      result.entries += matchingEntries.length;
+      result.media += matchingMedia.length + voiceCopies.length;
+    }
+  };
+  placeRequest.onsuccess = linkWhenReady;
+  entryRequest.onsuccess = linkWhenReady;
+  mediaRequest.onsuccess = linkWhenReady;
+  await completion;
+  return result;
 }
 
 export async function deleteItem(name: StoreName, id: string): Promise<void> {

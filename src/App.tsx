@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import type { AdministrativeFeature, AppSnapshot, Badge, CityMark, DayEntry, Journey, JourneyPlace, LocalProfile, PageName, TravelMedia, TripPlan } from './types';
-import { deleteMediaRecord, loadSnapshot, moveLegacyPlanToJourney, saveItem, saveMediaBatch } from './db';
+import { deleteMediaRecord, loadSnapshot, moveLegacyPlanToJourney, saveItem, saveJourneyAndLinkCityRecords, saveMediaBatch } from './db';
 import { provinceCodeForCity } from './map-data';
 import { describeStorageError } from './utils';
 import MapView from './components/MapView';
@@ -83,7 +83,7 @@ export default function App() {
     catch (error) { showError(describeStorageError(error)); }
   }, [reload, showError, showNotice]);
   const saveTrip = useCallback(async (trip: Journey) => {
-    try { await saveItem('trips', trip); await reload(); }
+    try { const linked = await saveJourneyAndLinkCityRecords(trip); await reload(); return linked; }
     catch (error) { showError(describeStorageError(error)); throw error; }
   }, [reload, showError]);
   const savePlace = useCallback(async (place: JourneyPlace) => {
@@ -169,7 +169,7 @@ export default function App() {
     <div className="main-shell"><header className="topbar"><div><strong>{NAV_ITEMS.find((item) => item.id === page)?.label}</strong><span>把走过的路，留在地图上</span></div><div className="topbar-right"><span className="local-pill">本机版</span><span className="avatar" aria-label={snapshot.profile[0]?.nickname || '旅行者'}>{(snapshot.profile[0]?.nickname || '旅')[0]}</span></div></header>
       <main>{!ready ? <div className="empty-state">正在读取本机旅行数据…</div> : <Suspense fallback={<div className="empty-state">正在打开页面…</div>}>
         {page === 'map' && <MapView marks={effectiveMarks} activeProvinceCode={activeProvinceCode} setActiveProvinceCode={setActiveProvinceCode} onSelectCity={selectCity} onError={showError} />}
-        {page === 'detail' && <DetailView city={selectedCity} entries={snapshot.entries} media={snapshot.media} trips={snapshot.trips} places={snapshot.places} targetEntryId={targetEntryId} onSaveEntry={saveEntry} onSaveMedia={saveMedia} onSaveMediaGroup={saveMediaGroup} onUpdateMedia={updateMedia} onDeleteMedia={deleteMedia} onSaveTrip={saveTrip} onSavePlace={savePlace} onUpdateMark={updateSelectedMark} onError={showError} onNotice={showNotice} />}
+        {page === 'detail' && <DetailView city={selectedCity} entries={snapshot.entries} media={snapshot.media} trips={snapshot.trips} places={snapshot.places} targetEntryId={targetEntryId} onSaveEntry={saveEntry} onSaveMedia={saveMedia} onSaveMediaGroup={saveMediaGroup} onUpdateMedia={updateMedia} onDeleteMedia={deleteMedia} onSaveTrip={saveTrip} onSavePlace={savePlace} onSaveCityMark={saveMark} onUpdateMark={updateSelectedMark} onError={showError} onNotice={showNotice} />}
         {page === 'plan' && <PlanView city={selectedCity} marks={effectiveMarks} trips={snapshot.trips} plans={snapshot.plans} onSave={savePlan} onMoveLegacy={movePlan} onCreateJourney={() => setPage('detail')} onError={showError} onNotice={showNotice} />}
         {page === 'achievements' && <AchievementsView marks={effectiveMarks} entries={snapshot.entries} trips={snapshot.trips} badges={snapshot.badges} onSaveBadge={saveBadge} onOpenEntry={openEntry} onError={showError} onNotice={showNotice} />}
         {page === 'profile' && <ProfileView snapshot={snapshot} onSaveProfile={saveProfile} onImported={(data) => { setSnapshot(data); setSelectedCityCode(null); setPage('map'); }} onError={showError} onNotice={showNotice} />}

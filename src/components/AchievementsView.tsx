@@ -71,7 +71,7 @@ function CustomBadgeCard({ badge, onShare, onOpenEntry, linkedEntry }: { badge: 
 }
 
 /** Date strings are expanded in UTC so overlapping journeys count each day once. */
-function uniqueTravelDates(trips: Journey[]): string[] {
+function uniqueTravelDates(trips: Journey[], entries: DayEntry[]): string[] {
   const days = new Set<string>();
   for (const trip of trips) {
     const start = Date.parse(`${trip.startDate}T00:00:00Z`);
@@ -81,6 +81,9 @@ function uniqueTravelDates(trips: Journey[]): string[] {
       days.add(new Date(cursor).toISOString().slice(0, 10));
     }
   }
+  // City photos and notes are real travel memories even before a journey is
+  // created. Their dates enter the same set, so later grouping adds no days.
+  for (const entry of entries) if (entry.tripId === null) days.add(entry.date);
   return [...days].sort();
 }
 
@@ -89,7 +92,7 @@ export default function AchievementsView({ marks, entries, trips, badges, onSave
   const [linkedEntryId, setLinkedEntryId] = useState('');
   const imageInputRef = useRef<HTMLInputElement>(null);
   const visited = marks.filter((mark) => mark.visited);
-  const dates = uniqueTravelDates(trips.filter((trip) => trip.status !== 'planned'));
+  const dates = uniqueTravelDates(trips.filter((trip) => trip.status !== 'planned'), entries);
   const travelDays = dates.length;
   const yearly = Object.entries(dates.reduce<Record<string, number>>((counts, date) => {
     counts[date.slice(0, 4)] = (counts[date.slice(0, 4)] || 0) + 1;

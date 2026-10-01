@@ -11,7 +11,8 @@
     "test:maps": "node scripts/validate-maps.mjs",
     "test:web": "node scripts/smoke.mjs",
     "test:migration": "node scripts/migration-smoke.mjs",
-    "test:finance": "node scripts/finance-smoke.mjs"
+    "test:finance": "node scripts/finance-smoke.mjs",
+    "test:city-record": "node scripts/city-record-smoke.mjs"
   },
   "dependencies": {
     "@zip.js/zip.js": "^2.8.0",

@@ -130,8 +130,9 @@ export async function importBackup(file: File): Promise<AppSnapshot> {
     const tripIds = new Set(snapshot.trips.map((trip) => trip.id));
     const placeIds = new Set(snapshot.places.map((place) => place.id));
     if (snapshot.plans.some((plan) => plan.tripId && !tripIds.has(plan.tripId))
-      || snapshot.places.some((place) => !tripIds.has(place.tripId))
-      || snapshot.media.some((item) => !tripIds.has(item.tripId) || !placeIds.has(item.placeId))) {
+      || snapshot.places.some((place) => place.tripId !== null && !tripIds.has(place.tripId))
+      || snapshot.entries.some((entry) => entry.tripId !== null && !tripIds.has(entry.tripId))
+      || snapshot.media.some((item) => (item.tripId !== null && !tripIds.has(item.tripId)) || !placeIds.has(item.placeId))) {
       throw new Error('备份中的旅行、账单与地点关联不完整');
     }
     await replaceSnapshot(snapshot, files);
