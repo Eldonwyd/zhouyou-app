@@ -37,6 +37,16 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
   const [notice, setNotice] = useState('正在加载地图…');
   const [cachedCodes, setCachedCodes] = useState<string[]>([]);
   const [cacheBusy, setCacheBusy] = useState(false);
+  // Dense administrative labels collide on narrow screens. The city list
+  // remains visible below the map, while a touched region shows its label.
+  const [compactMap, setCompactMap] = useState(() => window.matchMedia('(max-width: 560px)').matches);
+
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 560px)');
+    const updateLayout = () => setCompactMap(query.matches);
+    query.addEventListener('change', updateLayout);
+    return () => query.removeEventListener('change', updateLayout);
+  }, []);
 
   const activeProvince = useMemo(() => nationalMap?.features.find((feature) =>
     String(feature.properties.adcode) === activeProvinceCode), [nationalMap, activeProvinceCode]);
@@ -100,10 +110,10 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
       series: [{
         type: 'map', map: mapName, roam: true, scaleLimit: { min: 0.8, max: 12 },
         layoutCenter: ['50%', '50%'], layoutSize: '91%', zoom: 1,
-        selectedMode: false, label: { show: true, fontSize: activeProvinceCode ? 11 : 10, color: '#273b47' },
+        selectedMode: false, label: { show: !compactMap, fontSize: activeProvinceCode ? 11 : 10, color: '#273b47' },
         labelLayout: { hideOverlap: true },
         itemStyle: { borderColor: '#fff', borderWidth: 1.1, areaColor: '#d7dee2' },
-        emphasis: { label: { color: '#102c3b', fontWeight: 'bold' }, itemStyle: { areaColor: '#f5c94e' } },
+        emphasis: { label: { show: true, color: '#102c3b', fontWeight: 'bold' }, itemStyle: { areaColor: '#f5c94e' } },
         data,
       }],
     }, true);
@@ -126,7 +136,7 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
       chartRef.current = null;
       if (import.meta.env.DEV) delete (window as Window & { __travelMapChart?: EChartsType }).__travelMapChart;
     };
-  }, [currentMap, activeProvinceCode, activeProvince, marks, onSelectCity, setActiveProvinceCode]);
+  }, [currentMap, activeProvinceCode, activeProvince, compactMap, marks, onSelectCity, setActiveProvinceCode]);
 
   function adjustZoom(multiplier: number): void {
     const chart = chartRef.current;

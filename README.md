@@ -37,6 +37,7 @@ npm run test:web
 npm run test:migration
 npm run test:finance
 npm run test:city-record
+npm run test:mobile
 ```
 
 浏览器烟雾测试使用本机 Chrome。离线验收时先运行 `npm run build` 和 `npm run preview -- --port 4173`，再运行 `node scripts/offline-smoke.mjs`。

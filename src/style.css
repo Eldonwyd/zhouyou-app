@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
-
 :root{font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;color:#18313e;background:#edf3f5;font-synthesis:none;text-rendering:optimizeLegibility}
 *{box-sizing:border-box}body{margin:0;min-width:320px}button,input,textarea,select{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.55}input,textarea,select{color:#18313e}h1,h2,h3,p{margin-top:0}h1{font-size:clamp(1.65rem,2.2vw,2.15rem);line-height:1.25;margin-bottom:.5rem}h2{font-size:1.22rem}h3{font-size:1rem}p{line-height:1.6}small{font-size:.82rem;line-height:1.5}.muted{color:#738692}
 .app-shell{min-height:100vh;display:flex}.sidebar{width:244px;flex:none;position:sticky;top:0;height:100vh;background:#102c3b;color:#fff;padding:29px 16px 22px;display:flex;flex-direction:column;z-index:20}.brand{display:flex;align-items:center;gap:12px;padding:4px 12px 37px}.brand-symbol{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;color:#102c3b;background:#f4c747;font-size:2rem;font-weight:700}.brand strong{display:block;font-size:1.2rem;letter-spacing:.07em}.brand span{display:block;color:#9fb8c3;font-size:.65rem;letter-spacing:.16em;margin-top:4px}.sidebar nav{display:grid;gap:7px}.nav-item{width:100%;height:48px;border:0;border-radius:12px;text-align:left;background:transparent;color:#b6cbd3;display:flex;align-items:center;gap:14px;padding:0 17px;font-weight:600;font-size:.93rem}.nav-item:hover{background:#1a4051;color:#fff}.nav-item.active{color:#102c3b;background:#f4c747}.nav-icon{font-size:1.3rem;width:23px;text-align:center}.sidebar-footer{margin-top:auto;padding:16px 12px;color:#9fb8c3;font-size:.79rem;border-top:1px solid #2a4856}.footer-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#4ac39f;margin-right:8px}
@@ -133,3 +131,36 @@
 .legacy-move-controls select{min-width:210px;max-width:100%;height:43px;padding:8px;border:1px solid #d6e2e6;border-radius:9px}
 .journey-finance-dates{align-self:center;grid-column:span 2;color:#486876;font-weight:700}.journey-finance-dates small{display:block;margin-top:4px;color:#8298a1;font-weight:400}
 @media(max-width:560px){.travel-city-browser .card-heading,.finance-journeys .card-heading{align-items:start;flex-direction:column}.province-choice-grid,.city-choice-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.finance-journey-grid{grid-template-columns:1fr}.journey-finance-dates{grid-column:auto}}
+
+/* Reserve the home-indicator area and keep notices above the fixed navigation. */
+@media (max-width:850px) {
+  .sidebar {
+    height:calc(72px + env(safe-area-inset-bottom));
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .main-shell { padding-bottom:calc(72px + env(safe-area-inset-bottom)); }
+  .toast {
+    right:12px;
+    bottom:calc(84px + env(safe-area-inset-bottom));
+    left:12px;
+    max-width:none;
+  }
+}
+
+@media (max-width:560px) {
+  /* iOS zooms focused fields below 16px, which breaks the form layout. */
+  input, select, textarea { font-size:16px; }
+  .map-control-group button { min-width:42px; height:42px; }
+  .map-back-button { height:42px; }
+  .memory-book {
+    padding-top:calc(14px + env(safe-area-inset-top));
+    padding-bottom:calc(95px + env(safe-area-inset-bottom));
+  }
+  .lightbox-top { padding-top:max(8px, env(safe-area-inset-top)); }
+  .lightbox-stage { height:auto; min-height:0; }
+  .lightbox-caption {
+    max-height:45dvh;
+    overflow-y:auto;
+    padding-bottom:calc(16px + env(safe-area-inset-bottom));
+  }
+}
