@@ -28,6 +28,8 @@ npm run dev
 
 ## 验证
 
+先在一个终端运行 `npm run dev`，再在另一个终端运行以下浏览器测试：
+
 ```powershell
 npm run test:maps
 npm run test:web
