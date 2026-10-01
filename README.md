@@ -11,6 +11,8 @@ npm install
 npm run dev
 ```
 
+手机与电脑连接同一 Wi-Fi 后，可运行 `npm run dev:phone`，再用手机打开终端显示的 WLAN 地址。电脑需保持开机；局域网 HTTP 地址上的语音录制与离线缓存不可用，完整手机功能需要可信的 HTTPS 地址。
+
 浏览器打开终端给出的本地地址（默认 `http://127.0.0.1:5173/`）。生产构建运行 `npm run build`，输出在 `dist/`。请通过本地 HTTP 服务器或 HTTPS 部署访问，不要直接双击 `index.html`；离线应用和麦克风需要安全来源。
 
 ## 网页功能

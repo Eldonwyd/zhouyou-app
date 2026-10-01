@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "dev:phone": "vite --host 0.0.0.0 --port 5175 --configLoader runner",
     "build": "tsc --noEmit && vite build && node scripts/write-precache.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "check": "tsc --noEmit",
