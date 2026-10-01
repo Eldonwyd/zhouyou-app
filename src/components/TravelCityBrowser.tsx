@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { loadNationalMap, loadProvinceMap } from '../map-data';
-import type { AdministrativeFeature, Journey, JourneyCity } from '../types';
+import type { AdministrativeFeature, CityMark, Journey, JourneyCity, JourneyPlace } from '../types';
 
 interface TravelCityBrowserProps {
   trips: Journey[];
+  places: JourneyPlace[];
+  marks: CityMark[];
   selectedCityCode: string | null;
   onSelectCity: (city: JourneyCity) => void;
   onShowAll: () => void;
@@ -14,7 +16,7 @@ interface TravelCityBrowserProps {
  * Browse the full administrative catalogue one province at a time. Loading a
  * province only after selection keeps the first visit as light as the map home.
  */
-export default function TravelCityBrowser({ trips, selectedCityCode, onSelectCity, onShowAll, onError }: TravelCityBrowserProps) {
+export default function TravelCityBrowser({ trips, places, marks, selectedCityCode, onSelectCity, onShowAll, onError }: TravelCityBrowserProps) {
   const [provinces, setProvinces] = useState<AdministrativeFeature[]>([]);
   const [provinceCode, setProvinceCode] = useState(selectedCityCode ? `${selectedCityCode.slice(0, 2)}0000` : '');
   const [cities, setCities] = useState<AdministrativeFeature[]>([]);
@@ -46,9 +48,15 @@ export default function TravelCityBrowser({ trips, selectedCityCode, onSelectCit
     }
     return counts;
   }, [trips]);
+  const placeCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const place of places) counts.set(place.cityCode, (counts.get(place.cityCode) ?? 0) + 1);
+    return counts;
+  }, [places]);
+  const visitedCodes = useMemo(() => new Set(marks.filter((mark) => mark.visited).map((mark) => mark.id)), [marks]);
 
   return <section className="card travel-city-browser" aria-label="按省份选择城市">
-    <div className="card-heading"><div><h2>按省份找城市</h2><p>选一座城市查看它参与的所有旅行。</p></div>
+    <div className="card-heading"><div><h2>按省份找城市</h2><p>选一座城市查看旅行与独立保存的地点记录。</p></div>
       <button className={!selectedCityCode ? 'primary' : 'secondary'} onClick={onShowAll}>全部旅行</button></div>
     <div className="province-choice-grid">{provinces.map((province) => {
       const code = String(province.properties.adcode);
@@ -58,10 +66,13 @@ export default function TravelCityBrowser({ trips, selectedCityCode, onSelectCit
     {provinceCode && <div className="city-choice-grid" aria-live="polite">
       {loading ? <span className="muted">正在读取城市…</span> : cities.map((feature) => {
         const code = String(feature.properties.adcode);
-        const count = tripCounts.get(code) ?? 0;
+        const tripCount = tripCounts.get(code) ?? 0;
+        const placeCount = placeCounts.get(code) ?? 0;
+        const summary = [tripCount && `${tripCount} 次旅行`, placeCount && `${placeCount} 个地点`,
+          visitedCodes.has(code) && '已去过'].filter(Boolean).join(' · ') || '暂无记录';
         return <button key={code} className={selectedCityCode === code ? 'active' : ''}
           onClick={() => onSelectCity({ code, name: feature.properties.name, provinceCode })}>
-          <span>{feature.properties.name}</span><small>{count ? `${count} 次旅行` : '暂无记录'}</small>
+          <span>{feature.properties.name}</span><small>{summary}</small>
         </button>;
       })}</div>}
   </section>;

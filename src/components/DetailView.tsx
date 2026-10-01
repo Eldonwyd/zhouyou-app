@@ -12,6 +12,7 @@ import TravelCityBrowser from './TravelCityBrowser';
 
 interface DetailViewProps {
   city: CityMark | null;
+  marks: CityMark[];
   trips: Journey[];
   places: JourneyPlace[];
   entries: DayEntry[];
@@ -28,6 +29,12 @@ interface DetailViewProps {
   onSaveCityMark: (mark: CityMark) => Promise<void>;
   onError: (message: string) => void;
   onNotice: (message: string) => void;
+}
+
+interface SavedCitySummary extends JourneyCity {
+  tripCount: number;
+  placeCount: number;
+  visited: boolean;
 }
 
 const PAGE_SIZE = 24;
@@ -171,7 +178,7 @@ function JourneyEditor({ initial, initialCity, onSave, onCancel, onError, locked
 
 /** This page keeps a trip's cities and places together, like pages in a diary. */
 export default function DetailView(props: DetailViewProps) {
-  const { city, trips, places, entries, media, targetEntryId, onSaveTrip, onSavePlace,
+  const { city, marks, trips, places, entries, media, targetEntryId, onSaveTrip, onSavePlace,
     onSaveEntry, onSaveMedia, onSaveMediaGroup, onUpdateMedia, onDeleteMedia,
     onUpdateMark, onSaveCityMark, onError, onNotice } = props;
   const [showAll, setShowAll] = useState(false);
@@ -190,6 +197,7 @@ export default function DetailView(props: DetailViewProps) {
   const [uploadProgress, setUploadProgress] = useState('');
   const [uploadFailures, setUploadFailures] = useState<string[]>([]);
   const [recordingPlaceId, setRecordingPlaceId] = useState<string | null>(null);
+  const [provinceNames, setProvinceNames] = useState<Map<string, string>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -208,6 +216,43 @@ export default function DetailView(props: DetailViewProps) {
   const visibleTrips = useMemo(() => trips.filter((trip) => !scopeCityCode
     || trip.cities.some((item) => item.code === scopeCityCode))
     .sort((a, b) => b.startDate.localeCompare(a.startDate)), [trips, scopeCityCode]);
+  // A city is saved even before it belongs to a journey. Merge marks, journey
+  // cities and standalone places by adcode so the overview cannot hide them.
+  const savedCities = useMemo(() => {
+    const byCode = new Map<string, SavedCitySummary>();
+    const markByCode = new Map(marks.map((mark) => [mark.id, mark]));
+    const ensureCity = (cityInfo: JourneyCity): SavedCitySummary => {
+      const existing = byCode.get(cityInfo.code);
+      if (existing) {
+        if (existing.name === existing.code) existing.name = cityInfo.name;
+        return existing;
+      }
+      const summary: SavedCitySummary = { ...cityInfo, tripCount: 0, placeCount: 0, visited: false };
+      byCode.set(cityInfo.code, summary);
+      return summary;
+    };
+    for (const mark of marks) if (mark.visited) {
+      ensureCity({ code: mark.id, name: mark.name, provinceCode: mark.provinceCode }).visited = true;
+    }
+    for (const trip of trips) for (const tripCity of trip.cities) ensureCity(tripCity).tripCount += 1;
+    for (const place of places) {
+      const mark = markByCode.get(place.cityCode);
+      const summary = ensureCity({ code: place.cityCode, name: mark?.name ?? place.cityCode,
+        provinceCode: mark?.provinceCode ?? `${place.cityCode.slice(0, 2)}0000` });
+      summary.placeCount += 1;
+    }
+    return [...byCode.values()].sort((a, b) => a.provinceCode.localeCompare(b.provinceCode)
+      || a.name.localeCompare(b.name, 'zh-CN'));
+  }, [marks, trips, places]);
+  const savedCityGroups = useMemo(() => {
+    const groups = new Map<string, SavedCitySummary[]>();
+    for (const savedCity of savedCities) {
+      const provinceCities = groups.get(savedCity.provinceCode);
+      if (provinceCities) provinceCities.push(savedCity);
+      else groups.set(savedCity.provinceCode, [savedCity]);
+    }
+    return [...groups.entries()];
+  }, [savedCities]);
   const selectedTrip = trips.find((trip) => trip.id === selectedTripId) ?? null;
   const selectedPlace = places.find((place) => place.id === selectedPlaceId) ?? null;
   // With no journey open, the place collection belongs directly to the city.
@@ -228,6 +273,24 @@ export default function DetailView(props: DetailViewProps) {
   }, [placeMedia, visibleCount]);
   const selectedMedia = selectedMediaIndex === null ? null : placeMedia[selectedMediaIndex] ?? null;
   const fullMediaUrl = useMediaUrl(selectedMedia?.id ?? null, selectedMedia?.kind ?? 'photo', false);
+
+  useEffect(() => {
+    let active = true;
+    loadNationalMap().then((map) => {
+      if (active) setProvinceNames(new Map(map.features.map((feature) =>
+        [String(feature.properties.adcode), feature.properties.name])));
+    }).catch(() => { /* Numeric province codes remain usable offline. */ });
+    return () => { active = false; };
+  }, []);
+
+  function openSavedCity(savedCity: SavedCitySummary): void {
+    setBrowseCity({ code: savedCity.code, name: savedCity.name, provinceCode: savedCity.provinceCode });
+    setShowAll(false);
+    setCityBrowserOpen(false);
+    setSelectedTripId(null);
+    setSelectedPlaceId(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
   useEffect(() => {
     if (!targetEntryId) return;
@@ -421,8 +484,8 @@ export default function DetailView(props: DetailViewProps) {
 
   return <div className="content-page journal-page">
     <div className="section-heading"><div><span className="eyebrow">MEMORY JOURNAL</span><h1>{scopeCity ? `${scopeCity.name} · 旅行手账` : '我的旅行手账'}</h1><p>一段旅程、几座城市，把每个地点的照片和故事收在一起。</p></div>
-      <div className="heading-actions"><button className="secondary" onClick={() => { setCityBrowserOpen(!cityBrowserOpen); setSelectedTripId(null); setSelectedPlaceId(null); }}>{cityBrowserOpen ? '收起城市选择' : '按省份选择城市'}</button>{scopeCity && <button className="secondary" onClick={() => { setShowAll(true); setBrowseCity(null); setCityBrowserOpen(true); setSelectedTripId(null); setSelectedPlaceId(null); }}>查看全部旅行</button>}<button className="primary" onClick={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }}>＋ 新建旅行</button></div></div>
-    {cityBrowserOpen && !selectedTrip && !editingTrip && <TravelCityBrowser trips={trips} selectedCityCode={scopeCityCode} onSelectCity={(pickedCity) => { setBrowseCity(pickedCity); setShowAll(false); setSelectedTripId(null); }} onShowAll={() => { setShowAll(true); setBrowseCity(null); setSelectedTripId(null); }} onError={onError} />}
+      <div className="heading-actions"><button className="secondary" onClick={() => { setCityBrowserOpen(!cityBrowserOpen); setSelectedTripId(null); setSelectedPlaceId(null); }}>{cityBrowserOpen ? '收起城市选择' : '按省份选择城市'}</button>{scopeCity && <button className="secondary" onClick={() => { setShowAll(true); setBrowseCity(null); setCityBrowserOpen(false); setSelectedTripId(null); setSelectedPlaceId(null); setEditingTrip(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>查看全部旅行</button>}<button className="primary" onClick={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }}>＋ 新建旅行</button></div></div>
+    {cityBrowserOpen && !selectedTrip && !editingTrip && <TravelCityBrowser trips={trips} places={places} marks={marks} selectedCityCode={scopeCityCode} onSelectCity={(pickedCity) => { setBrowseCity(pickedCity); setShowAll(false); setSelectedTripId(null); }} onShowAll={() => { setShowAll(true); setBrowseCity(null); setCityBrowserOpen(false); setSelectedTripId(null); }} onError={onError} />}
     {city && !browseCity && !showAll && !selectedTrip && <div className="card status-card"><div><strong>{city.name}的城市状态</strong><p>{trips.some((trip) => trip.cities.some((item) => item.code === city.id && trip.status !== 'planned')) ? '这座城市已包含在去过的旅行中，地图会保持点亮。' : '确认去过的城市会点亮地图，也可以在这里取消手动标记。'}</p></div><label className="checkbox"><input type="checkbox" checked={city.visited} disabled={trips.some((trip) => trip.status !== 'planned' && trip.cities.some((item) => item.code === city.id))} onChange={(event) => void onUpdateMark(event.target.checked)} />已去过</label></div>}
     {editingTrip && <JourneyEditor key={editingTrip === 'new' ? 'new' : editingTrip.id} initial={editingTrip === 'new' ? null : editingTrip} initialCity={scopeCityMark} lockedCityCodes={editingTrip === 'new' ? [] : places.filter((place) => place.tripId === editingTrip.id).map((place) => place.cityCode)} onSave={saveTrip} onCancel={() => setEditingTrip(null)} onError={onError} />}
     {(selectedTrip || scopeCity) && !editingTrip && <>
@@ -449,10 +512,12 @@ export default function DetailView(props: DetailViewProps) {
         return <button className="place-card" key={place.id} onClick={() => setSelectedPlaceId(place.id)}><JourneyCover media={cover} /><div><span className="eyebrow">{placeItems.length} 张旅行片段</span><h4>{place.name}</h4><p>{place.reviewText || '翻开这一页，写下这里的回忆。'}</p></div></button>;
       })}</div></section>)}</div>
     </>}
+    {!selectedTrip && !editingTrip && !scopeCity && savedCities.length > 0 && <section className="saved-city-overview" aria-label="已保存的城市"><div className="card-heading"><h2>已保存的城市 · {savedCities.length}</h2><span>点选城市查看照片、地点与旅行</span></div>{savedCityGroups.map(([provinceCode, cities]) => <div className="saved-city-group" key={provinceCode}><h3>{provinceNames.get(provinceCode) ?? `${provinceCode} 地区`}</h3><div className="saved-city-grid">{cities.map((savedCity) => <button className="saved-city-card" key={savedCity.code} onClick={() => openSavedCity(savedCity)}><strong>{savedCity.name}</strong><span>{[savedCity.tripCount && `${savedCity.tripCount} 次旅行`, savedCity.placeCount && `${savedCity.placeCount} 个地点`, savedCity.visited && '已去过'].filter(Boolean).join(' · ') || '已保存'}</span><b aria-hidden="true">→</b></button>)}</div></div>)}</section>}
+    {!selectedTrip && !editingTrip && !scopeCity && visibleTrips.length > 0 && <div className="card-heading saved-journey-heading"><h2>已保存的旅行 · {visibleTrips.length}</h2><span>一段旅行可包含多座城市</span></div>}
     {!selectedTrip && !editingTrip && (visibleTrips.length ? <div className="journey-list">{visibleTrips.map((trip) => {
       const cover = media.find((item) => item.tripId === trip.id && item.kind === 'photo');
-      return <button className="journey-card" key={trip.id} onClick={() => { setSelectedTripId(trip.id); setSelectedPlaceId(null); }}><JourneyCover media={cover} /><div><span className="eyebrow">{trip.startDate} — {trip.endDate}</span><h2>{trip.title}</h2><p>{trip.cities.map((item) => item.name).join(' · ')}</p><small>{trip.companions.length ? `与 ${trip.companions.join('、')} 同行 · ` : ''}{places.filter((place) => place.tripId === trip.id).length} 个地点</small></div><strong>翻开手账 →</strong></button>;
-    })}</div> : !scopeCity && <div className="empty-state card"><h2>从一座城市开始</h2><p>按省份选择城市，可直接上传照片与写下记录；计划花费时再创建旅行。</p></div>)}
+      return <button className="journey-card" key={trip.id} onClick={() => { setSelectedTripId(trip.id); setSelectedPlaceId(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><JourneyCover media={cover} /><div><span className="eyebrow">{trip.startDate} — {trip.endDate}</span><h2>{trip.title}</h2><p>{trip.cities.map((item) => item.name).join(' · ')}</p><small>{trip.companions.length ? `与 ${trip.companions.join('、')} 同行 · ` : ''}{places.filter((place) => place.tripId === trip.id).length} 个地点</small></div><strong>翻开手账 →</strong></button>;
+    })}</div> : !scopeCity && <div className="empty-state card"><h2>{savedCities.length ? '城市记录已保存' : '从一座城市开始'}</h2><p>{savedCities.length ? '上方城市可直接打开；需要按旅行管理花费时，再创建一次旅行。' : '按省份选择城市，可直接上传照片与写下记录；计划花费时再创建旅行。'}</p></div>)}
     {selectedPlace && (selectedTrip || scopeCityCode) && <div className="memory-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedPlaceId(null); }}><section className="memory-book" role="dialog" aria-modal="true" aria-label={`${selectedPlace.name}的回忆`}>
       <div className="memory-header"><button className="text-button" onClick={() => setSelectedPlaceId(null)}>← 返回{selectedTrip ? '旅行' : '城市记录'}</button><span>{selectedTrip ? `${selectedTrip.startDate} — ${selectedTrip.endDate}` : '城市记忆'}</span><button aria-label="关闭地点回忆" onClick={() => setSelectedPlaceId(null)}>×</button></div><div className="memory-title"><span className="eyebrow">A PLACE TO REMEMBER</span><h2>{selectedPlace.name}</h2><p>{selectedTrip?.cities.find((item) => item.code === selectedPlace.cityCode)?.name ?? scopeCity?.name} · {placeMedia.length} 个片段</p></div>
       <div className="memory-review"><label>写下关于这里的回忆<textarea value={reviewDraft} onChange={(event) => setReviewDraft(event.target.value)} placeholder="当时的天气、同行的人、最想记住的瞬间…" /></label><div className="heading-actions"><button className="secondary" onClick={() => void onSavePlace({ ...selectedPlace, reviewText: reviewDraft }).then(() => onNotice('地点评语已保存。')).catch(() => undefined)}>保存文字</button><button className="secondary" onClick={() => void toggleRecording(selectedPlace)}>{recordingPlaceId === selectedPlace.id ? '停止录音' : '录制语音评语'}</button></div>{media.filter((item) => item.placeId === selectedPlace.id && item.kind === 'audio').map((item) => <AudioReview key={item.id} mediaId={item.id} />)}</div>

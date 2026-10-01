@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import os from 'node:os';
+import path from 'node:path';
 import { chromium } from 'playwright-core';
 
 /** Cover the city-first workflow without relying on an existing journey. */
@@ -134,6 +136,23 @@ try {
     return new Promise((resolve) => { markRequest.onsuccess = () => resolve(markRequest.result); });
   });
   assert.equal(cityMark?.visited, true);
+  // The all-records view must include both dated journeys and cities that
+  // still keep their photos directly under the city rather than a journey.
+  await page.getByRole('button', { name: '查看全部旅行' }).click();
+  await page.locator('.saved-city-card').filter({ hasText: '安顺市' }).waitFor();
+  await page.locator('.saved-city-card').filter({ hasText: '贵阳市' }).waitFor();
+  await page.locator('.journey-card').filter({ hasText: '贵州瀑布之旅' }).waitFor();
+  await page.screenshot({ path: path.join(os.tmpdir(), 'travel-all-records-desktop.png'), fullPage: true });
+  await page.locator('.saved-city-card').filter({ hasText: '贵阳市' }).click();
+  await page.getByRole('heading', { name: '贵阳市的城市记录' }).waitFor();
+  await page.locator('.place-card').filter({ hasText: '城市日记' }).waitFor();
+  await page.getByRole('button', { name: '查看全部旅行' }).click();
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.locator('.sidebar').getByRole('button', { name: '旅行记录' }).click();
+  await page.locator('.saved-city-card').first().waitFor();
+  assert.equal(await page.locator('.saved-city-card').count(), 2);
+  await page.locator('.journey-card').filter({ hasText: '贵州瀑布之旅' }).click();
+  await page.getByRole('heading', { name: '贵州瀑布之旅' }).waitFor();
   assert.deepEqual(pageErrors, []);
   process.stdout.write('City-first photos, dated journey linking and backup recovery: OK\n');
 } finally {

@@ -164,3 +164,34 @@
     padding-bottom:calc(16px + env(safe-area-inset-bottom));
   }
 }
+
+/* The all-records overview keeps city-only memories beside dated journeys. */
+.saved-city-overview { margin:24px 0 30px; }
+.saved-city-overview>.card-heading { margin-bottom:15px; }
+.saved-city-overview .card-heading span,.saved-journey-heading span { color:#8d7765; font-size:.8rem; }
+.saved-city-group { margin-top:17px; }
+.saved-city-group h3 { margin:0 0 10px; color:#775c45; font-size:.9rem; }
+.saved-city-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px; }
+.saved-city-card {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:5px 10px;
+  align-items:center;
+  min-height:72px;
+  padding:12px 15px;
+  text-align:left;
+  color:#614b3b;
+  background:#fffaf0;
+  border:1px solid #e4d5bf;
+  border-radius:12px;
+  box-shadow:0 6px 18px #5d40200d;
+}
+.saved-city-card:hover { border-color:#bd9a71; background:#fff4df; }
+.saved-city-card strong { min-width:0; }
+.saved-city-card span { grid-column:1; color:#927b67; font-size:.76rem; line-height:1.45; }
+.saved-city-card b { grid-column:2; grid-row:1 / 3; color:#aa674b; font-size:1.15rem; }
+.saved-journey-heading { margin:28px 0 14px; }
+@media (max-width:560px) {
+  .saved-city-grid { grid-template-columns:1fr; }
+  .saved-city-overview .card-heading,.saved-journey-heading { align-items:flex-start; flex-direction:column; }
+}

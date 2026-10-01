@@ -56,6 +56,7 @@ try {
         'Mobile notice must stay above the bottom navigation');
       await page.getByPlaceholder('例如：黄果树瀑布').fill('黄果树瀑布');
       await page.getByRole('button', { name: '创建地点' }).click();
+      await page.waitForFunction(() => document.querySelector('.upload-station select')?.selectedOptions[0]?.textContent === '黄果树瀑布');
       const pixel = Buffer.from(await page.evaluate(() => {
         const canvas = document.createElement('canvas');
         canvas.width = 2; canvas.height = 2;
@@ -66,7 +67,11 @@ try {
       await page.locator('input[type="file"][accept^="image/*,video/*"]').setInputFiles({
         name: 'phone-memory.png', mimeType: 'image/png', buffer: pixel,
       });
-      await page.getByText('已导入 1 个文件至 黄果树瀑布').waitFor();
+      await page.getByText('已导入 1 个文件至 黄果树瀑布').waitFor().catch(async (error) => {
+        process.stderr.write(`UPLOAD STATE: ${await page.locator('.upload-station').innerText()}\n`);
+        process.stderr.write(`TOASTS: ${(await page.locator('.toast').allInnerTexts()).join(' | ')}\n`);
+        throw error;
+      });
       await page.locator('.place-card').filter({ hasText: '黄果树瀑布' }).click();
       await page.locator('.memory-thumb').first().waitFor();
       await page.screenshot({ path: path.join(os.tmpdir(), 'travel-memory-phone.png'), fullPage: false });
@@ -80,6 +85,12 @@ try {
       await page.getByLabel('旅行名称').fill('手机局域网旅行');
       await page.getByRole('button', { name: '保存旅行' }).click();
       await page.getByRole('heading', { name: '手机局域网旅行' }).waitFor();
+      await page.getByRole('button', { name: /返回城市记录与旅行列表/ }).click();
+      await page.getByRole('button', { name: '查看全部旅行' }).click();
+      await page.locator('.saved-city-card').filter({ hasText: '安顺市' }).waitFor();
+      await page.locator('.journey-card').filter({ hasText: '手机局域网旅行' }).waitFor();
+      await assertFits('all journeys and cities');
+      await page.screenshot({ path: path.join(os.tmpdir(), 'travel-all-records-phone.png'), fullPage: true });
     }
 
     for (const section of ['旅行记录', '计划与花费', '旅途成就', '个人中心']) {
