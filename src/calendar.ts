@@ -1,5 +1,5 @@
 import type { TripPlan } from './types';
-import { downloadBlob } from './utils';
+import { createLocalId, downloadBlob } from './utils';
 
 function escapeIcs(value: string): string {
   return value.replaceAll('\\', '\\\\').replaceAll(';', '\\;').replaceAll(',', '\\,').replaceAll('\n', '\\n');
@@ -22,7 +22,7 @@ export function exportCalendarEvent(cityName: string, plan: TripPlan): void {
   const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
   const lines = [
     'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Travel Footprints//CN',
-    'BEGIN:VEVENT', `UID:${crypto.randomUUID()}@travel-footprints.local`, `DTSTAMP:${now}`,
+    'BEGIN:VEVENT', `UID:${createLocalId()}@travel-footprints.local`, `DTSTAMP:${now}`,
     `DTSTART;VALUE=DATE:${compactDate(plan.startDate)}`,
     `DTEND;VALUE=DATE:${nextDay(plan.endDate)}`,
     `SUMMARY:${escapeIcs(`前往${cityName}`)}`,

@@ -76,6 +76,10 @@ try {
       await page.screenshot({ path: path.join(os.tmpdir(), 'travel-lightbox-phone.png'), fullPage: false });
       await lightbox.getByRole('button', { name: '关闭照片详情' }).click();
       await page.getByRole('button', { name: '关闭地点回忆' }).click();
+      await page.getByRole('button', { name: '＋ 新建旅行' }).click();
+      await page.getByLabel('旅行名称').fill('手机局域网旅行');
+      await page.getByRole('button', { name: '保存旅行' }).click();
+      await page.getByRole('heading', { name: '手机局域网旅行' }).waitFor();
     }
 
     for (const section of ['旅行记录', '计划与花费', '旅途成就', '个人中心']) {

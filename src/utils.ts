@@ -1,6 +1,20 @@
 import type { BudgetCategory, CategoryAmounts, DayPeriod } from './types';
 import { BUDGET_CATEGORIES } from './types';
 
+/**
+ * Create stable local record IDs on both HTTPS and a phone's LAN HTTP preview.
+ * randomUUID is secure-context-only, while getRandomValues also works on the
+ * local HTTP address. The UUID version and variant bits follow RFC 4122.
+ */
+export function createLocalId(): string {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0'));
+  return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10).join('')}`;
+}
+
 /** Format a calendar day from the user's local timezone, avoiding UTC date shifts. */
 export function localDay(date: Date): string {
   const pad = (number: number) => String(number).padStart(2, '0');

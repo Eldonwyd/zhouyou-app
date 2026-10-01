@@ -2,7 +2,7 @@ import type {
   AppSnapshot, Badge, CityMark, DayEntry, Journey, JourneyPlace, LocalProfile,
   MediaFile, TravelMedia, TripPlan,
 } from './types';
-import { localDay } from './utils';
+import { createLocalId, localDay } from './utils';
 
 const DATABASE_NAME = 'travel-footprints';
 const DATABASE_VERSION = 2;
@@ -226,7 +226,7 @@ export async function saveJourneyAndLinkCityRecords(journey: Journey): Promise<J
 
       // Only a subset of this place's dates belongs to the journey. Keep the
       // original city place and move matching metadata to a separate place ID.
-      const journeyPlaceId = crypto.randomUUID();
+      const journeyPlaceId = createLocalId();
       const matchingMedia = datedMedia.filter((item) => withinJourney(localDay(new Date(item.capturedAt))));
       const matchingMediaEntryIds = new Set(matchingMedia.map((item) => item.entryId).filter((id): id is string => Boolean(id)));
       const retainedMediaEntryIds = new Set(datedMedia.filter((item) => !withinJourney(localDay(new Date(item.capturedAt))))
@@ -235,7 +235,7 @@ export async function saveJourneyAndLinkCityRecords(journey: Journey): Promise<J
         (entry.note.trim() || entry.highlight) ? withinJourney(entry.date) : matchingMediaEntryIds.has(entry.id));
       const movedEntryIds = new Map<string, string>();
       const voiceCopies = relatedMedia.filter((item) => item.kind === 'audio').map((item) => ({
-        original: item, copyId: crypto.randomUUID(),
+        original: item, copyId: createLocalId(),
       }));
       const copiedReviewId = voiceCopies.find(({ original }) => original.id === place.reviewAudioId)?.copyId ?? null;
       placeStore.put({ ...place, id: journeyPlaceId, tripId: journey.id,
@@ -243,7 +243,7 @@ export async function saveJourneyAndLinkCityRecords(journey: Journey): Promise<J
       for (const entry of matchingEntries) {
         // An imported day row may be referenced by both matching and retained
         // photos. Copy that row so neither side points into the other place.
-        const movedId = retainedMediaEntryIds.has(entry.id) ? crypto.randomUUID() : entry.id;
+        const movedId = retainedMediaEntryIds.has(entry.id) ? createLocalId() : entry.id;
         movedEntryIds.set(entry.id, movedId);
         entryStore.put({ ...entry, id: movedId, tripId: journey.id, placeId: journeyPlaceId } satisfies DayEntry);
       }

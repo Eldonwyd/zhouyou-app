@@ -7,7 +7,7 @@ import type {
 import { getMediaBlob, getMediaPreview } from '../db';
 import type { JourneyLinkResult } from '../db';
 import { cityFromGps, loadNationalMap, loadProvinceMap } from '../map-data';
-import { describeStorageError, localDay, periodFromDate } from '../utils';
+import { createLocalId, describeStorageError, localDay, periodFromDate } from '../utils';
 import TravelCityBrowser from './TravelCityBrowser';
 
 interface DetailViewProps {
@@ -139,7 +139,7 @@ function JourneyEditor({ initial, initialCity, onSave, onCancel, onError, locked
     if (!cities.length) { onError('请至少选择一座城市'); return; }
     setBusy(true);
     try {
-      await onSave({ id: initial?.id ?? crypto.randomUUID(), title: title.trim() || `${cities[0].name}之旅`, status,
+      await onSave({ id: initial?.id ?? createLocalId(), title: title.trim() || `${cities[0].name}之旅`, status,
         startDate, endDate, cities,
         companions: [...new Set(companions.split(/[、,，\n]+/).map((name) => name.trim()).filter(Boolean))],
         createdAt: initial?.createdAt ?? new Date().toISOString() });
@@ -286,7 +286,7 @@ export default function DetailView(props: DetailViewProps) {
   async function createPlace(): Promise<void> {
     if (!uploadCityCode || !newPlaceName.trim()) { onError('请先选择城市并填写地点名称'); return; }
     if (!selectedTrip && !placeVisitDate) { onError('请填写地点记录日期'); return; }
-    const place: JourneyPlace = { id: crypto.randomUUID(), tripId: selectedTrip?.id ?? null,
+    const place: JourneyPlace = { id: createLocalId(), tripId: selectedTrip?.id ?? null,
       cityCode: uploadCityCode, name: newPlaceName.trim(), reviewText: '', reviewAudioId: null,
       // A city-only text or voice memory needs a visit date for later matching.
       createdAt: selectedTrip ? new Date().toISOString() : new Date(`${placeVisitDate}T12:00:00`).toISOString() };
@@ -348,14 +348,14 @@ export default function DetailView(props: DetailViewProps) {
           let entry = workingEntries.find((row) => row.tripId === activeTripId
             && row.placeId === uploadPlaceId && row.date === day && row.period === period);
           if (!entry) {
-            entry = { id: crypto.randomUUID(), tripId: activeTripId, placeId: uploadPlaceId,
+            entry = { id: createLocalId(), tripId: activeTripId, placeId: uploadPlaceId,
               cityCode: uploadCityCode, date: day, period, note: '', place: selectedPlaceForUpload.name,
               order: Date.now() + workingEntries.length, highlight: false };
             workingEntries.push(entry);
             newEntries.push(entry);
           }
           const kind = file.type.startsWith('video/') || /\.(mov|mp4|m4v|webm)$/i.test(file.name) ? 'video' : 'photo';
-          const mediaItem: TravelMedia = { id: crypto.randomUUID(), cityCode: uploadCityCode,
+          const mediaItem: TravelMedia = { id: createLocalId(), cityCode: uploadCityCode,
             tripId: activeTripId, placeId: uploadPlaceId, entryId: entry.id,
             kind, fileName: file.name, mimeType: file.type || (kind === 'video' ? 'video/mp4' : 'image/jpeg'),
             capturedAt: date.toISOString(), placeName: selectedPlaceForUpload.name,
@@ -395,7 +395,7 @@ export default function DetailView(props: DetailViewProps) {
       recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
       recorder.onstop = () => {
         const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
-        const id = crypto.randomUUID();
+        const id = createLocalId();
         const item: TravelMedia = { id, cityCode: place.cityCode, tripId: place.tripId,
           placeId: place.id, entryId: null, kind: 'audio', fileName: `地点语音-${place.name}.webm`,
           mimeType: blob.type, capturedAt: new Date().toISOString(), placeName: place.name,

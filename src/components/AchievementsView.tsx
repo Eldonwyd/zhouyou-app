@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Badge, CityMark, DayEntry, Journey } from '../types';
-import { downloadBlob } from '../utils';
+import { createLocalId, downloadBlob } from '../utils';
 
 interface AchievementsViewProps {
   marks: CityMark[];
@@ -104,7 +104,7 @@ export default function AchievementsView({ marks, entries, trips, badges, onSave
     if (!title.trim()) { onError('请填写徽章名称'); return; }
     const image = imageInputRef.current?.files?.[0] ?? null;
     try {
-      await onSaveBadge({ id: crypto.randomUUID(), title: title.trim(), linkedEntryId: linkedEntryId || null, image, createdAt: new Date().toISOString() });
+      await onSaveBadge({ id: createLocalId(), title: title.trim(), linkedEntryId: linkedEntryId || null, image, createdAt: new Date().toISOString() });
       setTitle('');
       setLinkedEntryId('');
       if (imageInputRef.current) imageInputRef.current.value = '';
