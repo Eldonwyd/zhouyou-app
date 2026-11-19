@@ -19,8 +19,11 @@ try {
   await page.locator('.province-list button').filter({ hasText: '山西' }).click();
   await page.getByRole('button', { name: '返回全国' }).click();
   await page.locator('.province-list button').filter({ hasText: '贵州' }).click();
-  await page.locator('.city-list button').filter({ hasText: '安顺市' }).click();
-  await page.getByRole('button', { name: '确认', exact: true }).click();
+  const anshun = page.locator('.city-list button').filter({ hasText: '安顺市' });
+  await anshun.click();
+  await page.getByText('安顺市已点亮为已去过').waitFor();
+  await anshun.click();
+  await page.getByRole('button', { name: '进入旅行手账', exact: true }).click();
   await page.getByRole('heading', { name: '安顺市 · 旅行手账' }).waitFor();
 
   await page.getByRole('button', { name: '＋ 新建旅行' }).click();
@@ -122,7 +125,7 @@ try {
   await page.locator('input[type="file"][accept^=".zip"]').setInputFiles(archive);
   await page.getByText('备份已导入，旅行记录和媒体已恢复。').waitFor({ timeout: 120000 });
   await page.reload({ waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: '旅行记录' }).click();
+  await page.getByRole('button', { name: '旅行手账' }).click();
   await page.getByRole('heading', { name: '贵州的夏天' }).waitFor();
   assert.deepEqual(errors, []);
   process.stdout.write('Desktop journey, two places, 150 photos, voice, backup: OK\n');

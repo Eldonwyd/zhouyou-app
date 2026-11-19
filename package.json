@@ -3,22 +3,27 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "start": "node server/index.mjs --production",
     "dev:phone": "vite --host 0.0.0.0 --port 5175 --configLoader runner",
     "build": "tsc --noEmit && vite build && node scripts/write-precache.mjs",
     "preview": "node server/index.mjs --production",
     "check": "tsc --noEmit",
+    "test:planner": "node scripts/planner-domain-test.mjs && node scripts/planner-display-test.mjs && node scripts/planner-normalize-test.mjs && node scripts/planner-normalize-activity-test.mjs && node scripts/planner-service-test.mjs && node scripts/planner-xhs-import-test.mjs && node scripts/planner-photo-test.mjs && node scripts/planner-photo-cover-test.mjs && node scripts/planner-options-map-test.mjs && node scripts/planner-smoke.mjs && node scripts/planner-options-map-smoke.mjs && node scripts/planner-photo-smoke.mjs && node scripts/planner-launcher-smoke.mjs",
+    "test:planner:live": "node scripts/planner-live.mjs",
+    "test:photos": "node scripts/planner-photo-test.mjs && node scripts/planner-xhs-test.mjs && node scripts/planner-photo-speed-test.mjs && node scripts/planner-photo-cover-test.mjs && node scripts/photo-inspector-test.mjs && node scripts/planner-photo-smoke.mjs",
+    "setup:xhs": "node --use-system-ca scripts/setup-xhs.mjs --install",
     "test:maps": "node scripts/validate-maps.mjs",
     "test:web": "node scripts/smoke.mjs",
     "test:migration": "node scripts/migration-smoke.mjs",
     "test:finance": "node scripts/finance-smoke.mjs",
     "test:city-record": "node scripts/city-record-smoke.mjs",
     "test:mobile": "node scripts/mobile-smoke.mjs",
-    "test:visit-confirm": "node scripts/visit-confirm-smoke.mjs",
-    "start": "node server/index.mjs --production",
-    "test:planner:live": "node scripts/planner-live.mjs",
-    "setup:xhs": "node --use-system-ca scripts/setup-xhs.mjs --install"
+    "test:visit-confirm": "node scripts/visit-confirm-smoke.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
@@ -39,8 +44,5 @@
     "playwright-core": "^1.63.0",
     "typescript": "^5.9.2",
     "vite": "^8.3.1"
-  },
-  "engines": {
-    "node": ">=24.0.0"
   }
 }

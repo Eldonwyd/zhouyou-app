@@ -32,8 +32,11 @@ async function uploadDatedPhoto(name, date, placeName) {
 try {
   await page.goto('http://127.0.0.1:5173/', { waitUntil: 'networkidle' });
   await page.locator('.province-list button').filter({ hasText: '贵州' }).click();
-  await page.locator('.city-list button').filter({ hasText: '安顺市' }).click();
-  await page.getByRole('button', { name: '确认', exact: true }).click();
+  const anshun = page.locator('.city-list button').filter({ hasText: '安顺市' });
+  await anshun.click();
+  await page.getByText('安顺市已点亮为已去过').waitFor();
+  await anshun.click();
+  await page.getByRole('button', { name: '进入旅行手账', exact: true }).click();
   await page.getByRole('heading', { name: '安顺市的城市记录' }).waitFor();
 
   await page.getByPlaceholder('例如：黄果树瀑布').fill('黄果树瀑布');
@@ -78,7 +81,8 @@ try {
   await page.locator('input[type="file"][accept^=".zip"]').setInputFiles(archive);
   await page.getByText('备份已导入，旅行记录和媒体已恢复。').waitFor();
 
-  await page.locator('.sidebar').getByRole('button', { name: '旅行记录' }).click();
+  await page.locator('.sidebar').getByRole('button', { name: '旅行手账' }).click();
+  await page.getByRole('button', { name: '按省份选择城市', exact: true }).click();
   await page.locator('.province-choice-grid button').filter({ hasText: '贵州省' }).click();
   await page.locator('.city-choice-grid button').filter({ hasText: '安顺市' }).click();
   await page.getByRole('heading', { name: '安顺市的城市记录' }).waitFor();
@@ -92,7 +96,8 @@ try {
   await page.getByRole('heading', { name: '贵州瀑布之旅' }).waitFor();
   assert.equal(await page.locator('.place-card').count(), 2);
   await page.locator('.place-card').filter({ hasText: '黄果树瀑布' }).click();
-  assert.equal(await page.locator('.memory-book textarea').inputValue(), '瀑布的水雾');
+  assert.equal(await page.locator('.memory-book textarea').inputValue(), '');
+  assert.match(await page.locator('.saved-reviews').innerText(), /瀑布的水雾/);
   await page.locator('.memory-book audio').waitFor();
   await page.getByRole('button', { name: '关闭地点回忆' }).click();
   await page.getByRole('button', { name: /返回城市记录与旅行列表/ }).click();
@@ -105,7 +110,8 @@ try {
 
   // Refresh proves both the claimed and unmatched photos remain in IndexedDB.
   await page.reload({ waitUntil: 'networkidle' });
-  await page.locator('.sidebar').getByRole('button', { name: '旅行记录' }).click();
+  await page.locator('.sidebar').getByRole('button', { name: '旅行手账' }).click();
+  await page.getByRole('button', { name: '按省份选择城市', exact: true }).click();
   await page.locator('.province-choice-grid button').filter({ hasText: '贵州省' }).click();
   await page.locator('.city-choice-grid button').filter({ hasText: '安顺市' }).click();
   assert.equal(await page.locator('.place-card').count(), 2);
@@ -119,7 +125,8 @@ try {
 
   // A city opened from the province catalogue can start a record without a
   // prior map mark. Saving its first place lights the city on the map.
-  await page.locator('.sidebar').getByRole('button', { name: '旅行记录' }).click();
+  await page.locator('.sidebar').getByRole('button', { name: '旅行手账' }).click();
+  await page.getByRole('button', { name: '按省份选择城市', exact: true }).click();
   await page.locator('.province-choice-grid button').filter({ hasText: '贵州省' }).click();
   await page.locator('.city-choice-grid button').filter({ hasText: '贵阳市' }).click();
   await page.getByPlaceholder('例如：黄果树瀑布').fill('城市日记');
@@ -127,7 +134,7 @@ try {
   await page.locator('.place-card').filter({ hasText: '城市日记' }).waitFor();
   await page.getByText('已创建地点：城市日记').waitFor();
   const cityMark = await page.evaluate(async () => {
-    const request = indexedDB.open('travel-footprints', 2);
+    const request = indexedDB.open('travel-footprints');
     const database = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
@@ -148,7 +155,7 @@ try {
   await page.locator('.place-card').filter({ hasText: '城市日记' }).waitFor();
   await page.getByRole('button', { name: '查看全部旅行' }).click();
   await page.reload({ waitUntil: 'networkidle' });
-  await page.locator('.sidebar').getByRole('button', { name: '旅行记录' }).click();
+  await page.locator('.sidebar').getByRole('button', { name: '旅行手账' }).click();
   await page.locator('.saved-city-card').first().waitFor();
   assert.equal(await page.locator('.saved-city-card').count(), 2);
   await page.locator('.journey-card').filter({ hasText: '贵州瀑布之旅' }).click();

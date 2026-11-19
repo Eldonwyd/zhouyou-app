@@ -13,7 +13,7 @@ page.on('pageerror', (error) => pageErrors.push(error.message));
 
 try {
   await page.goto('http://127.0.0.1:5173/', { waitUntil: 'networkidle' });
-  await page.locator('.sidebar').getByRole('button', { name: '旅行记录' }).click();
+  await page.locator('.sidebar').getByRole('button', { name: '旅行手账' }).click();
   await page.locator('.province-choice-grid button').filter({ hasText: '贵州省' }).click();
   await page.locator('.city-choice-grid button').filter({ hasText: '安顺市' }).click();
   await page.getByRole('heading', { name: '安顺市 · 旅行手账' }).waitFor();
@@ -29,7 +29,7 @@ try {
   // Seed the old city-wide sheet exactly as an existing browser would store it.
   // The migration button must transfer its full budget without overwriting it.
   await page.evaluate(async () => {
-    const request = indexedDB.open('travel-footprints', 2);
+    const request = indexedDB.open('travel-footprints');
     const database = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
@@ -48,7 +48,8 @@ try {
     database.close();
   });
   await page.reload({ waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: '计划与花费' }).click();
+  await page.getByRole('button', { name: '行程规划' }).click();
+  await page.getByRole('tab', { name: '预算与账本' }).click();
   await page.locator('.finance-journey-card').filter({ hasText: '旧版城市账单' }).click();
   await page.getByLabel('选择归入的旅行').selectOption({ label: '贵州山水计划 · 2026-10-01' });
   await page.getByRole('button', { name: '归入旅行' }).click();
@@ -57,12 +58,13 @@ try {
   await page.locator('.amount-section').first().getByLabel('住宿').fill('200');
   await page.getByRole('button', { name: '保存计划' }).click();
   await page.reload({ waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: '计划与花费' }).click();
+  await page.getByRole('button', { name: '行程规划' }).click();
+  await page.getByRole('tab', { name: '预算与账本' }).click();
   assert.match(await page.locator('.planner-summary').innerText(), /700/);
   assert.match(await page.locator('.planner-summary').innerText(), /100/);
 
   // The same journey is discoverable through either city in its province.
-  await page.locator('.sidebar').getByRole('button', { name: '旅行记录' }).click();
+  await page.locator('.sidebar').getByRole('button', { name: '旅行手账' }).click();
   await page.locator('.province-choice-grid button').filter({ hasText: '贵州省' }).click();
   await page.locator('.city-choice-grid button').filter({ hasText: '黔南布依族苗族自治州' }).click();
   await page.locator('.journey-card').filter({ hasText: '贵州山水计划' }).waitFor();

@@ -45,10 +45,13 @@ try {
     await back.click();
 
     if (width === 390) {
-      // A phone user can mark a city, upload a photo and open both memory views.
+      // A phone user can mark a city in one tap, then open its memory journal on the second tap.
       await page.locator('.province-list button').filter({ hasText: '贵州' }).click();
-      await page.locator('.city-list button').filter({ hasText: '安顺市' }).click();
-      await page.getByRole('button', { name: '确认', exact: true }).click();
+      const anshun = page.locator('.city-list button').filter({ hasText: '安顺市' });
+      await anshun.click();
+      await page.getByText('安顺市已点亮为已去过').waitFor();
+      await anshun.click();
+      await page.getByRole('button', { name: '进入旅行手账', exact: true }).click();
       await page.getByRole('heading', { name: '安顺市 · 旅行手账' }).waitFor();
       const toast = await page.locator('.toast').boundingBox();
       const navigation = await page.locator('.sidebar').boundingBox();
@@ -93,7 +96,7 @@ try {
       await page.screenshot({ path: path.join(os.tmpdir(), 'travel-all-records-phone.png'), fullPage: true });
     }
 
-    for (const section of ['旅行记录', '计划与花费', '旅途成就', '个人中心']) {
+    for (const section of ['行程规划', '旅行手账', '旅途成就', '个人中心']) {
       await page.locator('.nav-item').filter({ hasText: section }).click();
       await page.locator('.content-page').waitFor();
       await assertFits(section);

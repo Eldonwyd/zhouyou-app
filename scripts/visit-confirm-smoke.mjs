@@ -14,7 +14,7 @@ try {
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
   await page.locator('.province-list button').first().waitFor();
   await page.evaluate(async () => {
-    const request = indexedDB.open('travel-footprints', 2);
+    const request = indexedDB.open('travel-footprints');
     const database = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
@@ -40,16 +40,38 @@ try {
   await page.locator('.province-list button').filter({ hasText: '贵州' }).click();
   const city = page.locator('.city-list button').filter({ hasText: '安顺市' });
   await city.waitFor();
-  assert.equal(await city.locator('.city-swatch').evaluate((element) => getComputedStyle(element).backgroundColor), 'rgb(215, 222, 226)');
+  // 未去过的城市使用主题的“未标记”底色（随深浅主题变化），而不是省份高亮色。
+  const swatch = await city.locator('.city-swatch').evaluate((element) => {
+    const probe = document.createElement('i'); probe.style.background = 'var(--map-area)'; document.body.append(probe);
+    const expected = getComputedStyle(probe).backgroundColor; probe.remove();
+    return { actual: getComputedStyle(element).backgroundColor, expected };
+  });
+  assert.equal(swatch.actual, swatch.expected);
+  await city.click();
+  // First click directly lights up the city without a confirmation dialog or jumping away.
+  await page.getByText('安顺市已点亮为已去过').waitFor();
+  assert.equal(await page.getByRole('dialog', { name: '安顺市' }).count(), 0);
+  // Second click opens the action dialog with journal / unvisit / cancel choices.
   await city.click();
   const dialog = page.getByRole('dialog', { name: '安顺市' });
   await dialog.waitFor();
-  assert.equal(await dialog.getByRole('button', { name: '将要去' }).count(), 0);
-  await dialog.getByRole('button', { name: '确认', exact: true }).click();
+  await dialog.getByRole('button', { name: '取消', exact: true }).click();
+  assert.equal(await page.getByRole('dialog', { name: '安顺市' }).count(), 0);
+  // Can unvisit cleanly and re-light with a single click.
+  await city.click();
+  await dialog.waitFor();
+  await dialog.getByRole('button', { name: '取消点亮', exact: true }).click();
+  await page.getByText('安顺市已取消点亮。').waitFor();
+  await city.click();
+  await page.getByText('安顺市已点亮为已去过').waitFor();
+  // Enter journal via second click -> 进入旅行手账.
+  await city.click();
+  await dialog.waitFor();
+  await dialog.getByRole('button', { name: '进入旅行手账', exact: true }).click();
   await page.getByRole('heading', { name: '安顺市 · 旅行手账' }).waitFor();
   await page.reload({ waitUntil: 'domcontentloaded' });
   const saved = await page.evaluate(async () => {
-    const request = indexedDB.open('travel-footprints', 2);
+    const request = indexedDB.open('travel-footprints');
     const database = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
