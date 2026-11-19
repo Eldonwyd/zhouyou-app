@@ -1,0 +1,582 @@
+/* 视觉设计：浅色「暖纸」与深色「夜航」。颜色使用 style.css 顶部的主题变量与下方设计令牌。 */
+
+/* 浅色主题：原冷灰中性色换为暖纸色调（深色主题不受影响）。 */
+:root{
+  --bd-d6e1e4:#e5ddd4;
+  --bd-d6e2e6:#e6ded5;
+  --bd-dbe5df:#e8e1d7;
+  --bd-dbe5e7:#e9e2d8;
+  --bd-dbe6e9:#eae3d9;
+  --bd-dce7e9:#eae3da;
+  --bd-dfe8eb:#ece5dc;
+  --bd-e0e8e8:#ece5dc;
+  --bd-e0e8e9:#ece5dc;
+  --bd-e1e9eb:#ede6de;
+  --bd-e2e9ec:#ede7de;
+  --bd-e3e9e9:#ede7de;
+  --bd-e3ebeb:#efe8e0;
+  --bd-e5eded:#f0eae2;
+  --bd-e8edeb:#f1ebe3;
+  --bd-e8eff1:#f3ede5;
+  --bd-e9eef0:#f2ece4;
+  --bd-e9eff1:#f3ede5;
+  --bd-ebefed:#f3ede5;
+  --bd-ecf0f2:#f4eee7;
+  --bd-edf0f2:#f4efe7;
+  --bd-edf1ed:#f5efe7;
+  --bd-edf1f2:#f5efe8;
+  --bd-edf2f4:#f6f0e9;
+  --bd-ffffff:#fffffc;
+  --bg-d7dee2:#e3dcd1;
+  --bg-e3ebed:#efe8e0;
+  --bg-e3ebee:#efe8e0;
+  --bg-e8efea:#f2ece4;
+  --bg-e9efed:#f2ece5;
+  --bg-e9f3f5:#f5f0e9;
+  --bg-eaf0f2:#f4eee6;
+  --bg-edf2f5:#f6f0e9;
+  --bg-edf3ee:#f6f0e9;
+  --bg-edf3ef:#f6f0e9;
+  --bg-edf3f5:#f6f1ea;
+  --bg-edf5f7:#f8f2ec;
+  --bg-f0f5f2:#f8f3ec;
+  --bg-f0f7f9:#faf5ee;
+  --bg-f2f6f5:#f9f4ee;
+  --bg-f3f7f8:#faf5ef;
+  --bg-f4f7f4:#faf5ef;
+  --bg-f5fafc:#fdf8f2;
+  --bg-f7f6ee:#faf5ee;
+  --bg-f7fafb:#fdf9f3;
+  --bg-f9fcfc:#fffbf5;
+  --bg-fafcfc:#fffbf5;
+  --bg-fbfcfc:#fffbf6;
+  --bg-fbfdfd:#fffcf6;
+  --bg-fcfdfd:#fffcf7;
+  --bg-fffaf0:#fefaf4;
+  --bg-fffaf1:#fefaf4;
+  --bg-fffdf7:#fffcf7;
+  --bg-ffffff:#fffffc;
+  --bg-ffffff19:#fffffc19;
+  --bg-ffffffcb:#fffffccb
+}
+
+/* ---------- 设计令牌：浅色「暖纸」与深色「夜航」 ---------- */
+:root {
+  --paper: #f6f1ea;
+  --surface: #fffefb;
+  --surface-2: #faf6f0;
+  --line: #ebe3d8;
+  --line-strong: #dcd1c3;
+  --ink: #1c2830;
+  --ink-2: #4c5a62;
+  --muted: #7f8a90;
+  --navy: #12242d;
+  --navy-2: #1b3540;
+  --gold: #f2c14e;
+  --gold-hi: #f7d675;
+  --gold-lo: #e7a92f;
+  --gold-ink: #2a1d02;
+  --teal: #1f7a6c;
+  --teal-soft: #e3f1ec;
+  --coral: #e0694a;
+  --link: #1f6f97;
+  --seg-active: #1c2830;
+  --ring: #2f8fd0;
+  --radius: 18px;
+  --radius-lg: 22px;
+  --shadow-soft: 0 1px 2px rgba(60, 40, 15, .04), 0 10px 28px -6px rgba(60, 40, 15, .10);
+  --shadow-hover: 0 2px 4px rgba(60, 40, 15, .05), 0 18px 40px -10px rgba(60, 40, 15, .18);
+  --glow: rgba(242, 193, 78, .14);
+  --map-area: #e3dcd1;
+  --map-border: #fffefb;
+  --map-label: #3d4a51;
+  --map-tooltip: #1b3540;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0e1418; --surface: #172127; --surface-2: #1c2830; --line: #26343c; --line-strong: #34454f;
+    --ink: #e7eef1; --ink-2: #b6c3ca; --muted: #8b9aa2; --navy: #0a161c; --navy-2: #122530;
+    --teal: #63c4ae; --teal-soft: #15302a; --link: #72bce8; --seg-active: #2b3c47; --ring: #5fb4ea;
+    --shadow-soft: 0 1px 2px rgba(0, 0, 0, .35), 0 12px 30px -8px rgba(0, 0, 0, .5);
+    --shadow-hover: 0 2px 4px rgba(0, 0, 0, .4), 0 20px 44px -10px rgba(0, 0, 0, .65);
+    --glow: rgba(242, 193, 78, .07);
+    --map-area: #2b3a44; --map-border: #0e1418; --map-label: #c3d1d9; --map-tooltip: #24343e;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0e1418; --surface: #172127; --surface-2: #1c2830; --line: #26343c; --line-strong: #34454f;
+  --ink: #e7eef1; --ink-2: #b6c3ca; --muted: #8b9aa2; --navy: #0a161c; --navy-2: #122530;
+  --teal: #63c4ae; --teal-soft: #15302a; --link: #72bce8; --seg-active: #2b3c47; --ring: #5fb4ea;
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, .35), 0 12px 30px -8px rgba(0, 0, 0, .5);
+  --shadow-hover: 0 2px 4px rgba(0, 0, 0, .4), 0 20px 44px -10px rgba(0, 0, 0, .65);
+  --glow: rgba(242, 193, 78, .07);
+  --map-area: #2b3a44; --map-border: #0e1418; --map-label: #c3d1d9; --map-tooltip: #24343e;
+}
+
+/* ---------- 全局 ---------- */
+body {
+  background:
+    radial-gradient(1100px 420px at 78% -140px, var(--glow), transparent 70%),
+    var(--paper);
+  background-attachment: fixed;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+body, .sidebar, .topbar, .card, .map-card, .metric-card, .day-card, input, textarea, select, button {
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, box-shadow .25s ease, transform .25s ease;
+}
+:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 8px; }
+::selection { background: #f2c14e66; }
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+h1, h2, h3 { color: var(--ink); }
+h1 { letter-spacing: -.015em; }
+
+/* ---------- 侧栏 ---------- */
+.sidebar {
+  background: linear-gradient(180deg, var(--navy-2) 0%, var(--navy) 62%);
+  border-right: 1px solid rgba(255, 255, 255, .04);
+}
+.brand-symbol {
+  background: linear-gradient(140deg, var(--gold-hi), var(--gold-lo));
+  color: var(--gold-ink);
+  box-shadow: 0 8px 22px rgba(231, 169, 47, .32), inset 0 1px 0 rgba(255, 255, 255, .45);
+}
+.brand strong { letter-spacing: .1em; }
+.nav-item { color: #a7b9c2; }
+.nav-item:hover { background: rgba(255, 255, 255, .06); color: #fff; }
+.nav-item.active {
+  background: linear-gradient(135deg, var(--gold-hi), var(--gold-lo));
+  color: var(--gold-ink);
+  box-shadow: 0 10px 24px -6px rgba(231, 169, 47, .45);
+}
+.sidebar-footer { border-top-color: rgba(255, 255, 255, .07); }
+@media (min-width: 851px) {
+  .sidebar nav { gap: 6px; }
+  .nav-item { height: 48px; border-radius: 14px; padding: 0 12px; gap: 12px; }
+  .nav-item .nav-icon {
+    display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px;
+    background: rgba(255, 255, 255, .06); font-size: 1rem;
+  }
+  .nav-item.active .nav-icon { background: rgba(255, 255, 255, .38); }
+}
+@media (max-width: 850px) {
+  .sidebar {
+    background: color-mix(in srgb, var(--navy) 90%, transparent);
+    backdrop-filter: blur(16px) saturate(1.4);
+    border-top: 1px solid rgba(255, 255, 255, .07);
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, .18);
+  }
+  .nav-item.active { border-radius: 14px; }
+}
+
+/* ---------- 顶栏 ---------- */
+.topbar {
+  position: sticky; top: 0; z-index: 15;
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  backdrop-filter: blur(16px) saturate(1.3);
+  border-bottom: 1px solid var(--line);
+}
+.topbar strong { font-size: 1rem; letter-spacing: .02em; }
+.topbar .local-pill { background: var(--teal-soft); color: var(--teal); font-weight: 600; }
+.topbar .avatar {
+  background: linear-gradient(140deg, #3aa0e0, #1f6f97);
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 4px var(--line-strong);
+}
+.theme-switch {
+  display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 13px;
+  border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); color: var(--ink);
+  font-size: .8rem; font-weight: 600;
+}
+.theme-switch:hover { border-color: var(--gold-lo); box-shadow: 0 0 0 3px #f2c14e33; }
+.topbar .theme-switch span { display: inline; margin: 0; color: inherit; font-size: inherit; }
+.topbar .theme-switch .theme-switch-icon:not(.avatar) { display: inline; font-size: 1rem; line-height: 1; }
+@media (max-width: 560px) {
+  .topbar .theme-switch .theme-switch-label { display: none; }
+  .theme-switch { width: 34px; padding: 0; justify-content: center; }
+}
+
+/* ---------- 页面标题 ---------- */
+.section-heading h1 { font-size: clamp(1.85rem, 2.6vw, 2.55rem); font-weight: 800; margin-bottom: .45rem; }
+.section-heading p { color: var(--muted); }
+.eyebrow { display: inline-flex; align-items: center; gap: 9px; color: var(--gold-lo); letter-spacing: .22em; }
+.eyebrow::before { content: ""; width: 20px; height: 2px; border-radius: 2px; background: currentColor; opacity: .8; }
+
+/* ---------- 卡片 ---------- */
+.card, .map-card, .metric-card, .day-card {
+  border-color: var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+}
+.card-heading h2, .card h2 { letter-spacing: -.005em; }
+
+/* ---------- 按钮与表单 ---------- */
+.primary, .secondary { border-radius: 12px; letter-spacing: .01em; }
+.primary {
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold-lo));
+  color: var(--gold-ink);
+  border-color: #dfa22a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 8px 18px -6px rgba(231, 169, 47, .55);
+}
+.primary:hover:not(:disabled) { background: linear-gradient(180deg, #f9dc85, #eaae35); transform: translateY(-1px); }
+.secondary { background: var(--surface); color: var(--ink); border-color: var(--line-strong); }
+.secondary:hover:not(:disabled) { background: var(--surface-2); border-color: var(--gold-lo); }
+.primary:active, .secondary:active { transform: translateY(1px); }
+.text-button { color: var(--link); }
+input, textarea, select { background-color: var(--surface); border-color: var(--line-strong); border-radius: 12px; }
+input:focus, textarea:focus, select:focus { border-color: var(--gold-lo); box-shadow: 0 0 0 4px #f2c14e2e; outline: none; }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: .85; }
+
+/* ---------- 地图页 ---------- */
+.map-card { background: var(--surface); }
+.map-control-group { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-soft); }
+.map-level-chip { background: var(--navy-2); border-radius: 10px; }
+.side-stat strong { font-size: 2.4rem; font-weight: 800; }
+.province-list button { border-radius: 999px; background: var(--surface-2); border-color: var(--line); }
+.province-list button:hover { border-color: var(--gold-lo); transform: translateY(-1px); }
+
+/* ---------- 成就页指标 ---------- */
+.metric-card { position: relative; overflow: hidden; }
+.metric-card::before {
+  content: ""; position: absolute; inset: 0 0 auto; height: 3px;
+  background: linear-gradient(90deg, var(--gold-hi), var(--coral));
+}
+.metric-card strong { color: var(--ink); font-weight: 800; }
+
+/* ---------- 计划：分段切换、计划卡、总览 ---------- */
+.planner-tabs { background: var(--surface-2); border: 1px solid var(--line); border-radius: 16px; }
+.planner-tabs button { color: var(--ink-2); }
+.planner-tabs button:hover:not(.active) { color: var(--ink); }
+.planner-tabs button.active { background: var(--seg-active); color: #fff; box-shadow: 0 6px 16px -6px rgba(0, 0, 0, .35); }
+.planner-plan-list { padding: 4px 4px 14px; }
+.planner-plan-list > button {
+  position: relative; overflow: hidden; border-radius: var(--radius);
+  background: var(--surface); color: var(--ink); border-color: var(--line); box-shadow: var(--shadow-soft);
+}
+.planner-plan-list > button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+.planner-plan-list > button.active {
+  background: radial-gradient(120% 140% at 100% 0%, #2a5664 0%, #18323d 45%, #10222a 100%);
+  color: #fff; border-color: transparent;
+}
+.planner-plan-list > button.active::after {
+  content: "✈"; position: absolute; right: 16px; top: 12px; font-size: 1.1rem; opacity: .35;
+}
+.planner-overview {
+  background: linear-gradient(120deg, var(--surface) 55%, color-mix(in srgb, var(--gold) 10%, var(--surface)));
+}
+.planner-overview h2 { font-size: clamp(24px, 2.4vw, 32px); font-weight: 800; letter-spacing: -.01em; }
+.planner-chips span, .planner-chips > * { border-radius: 999px; }
+
+/* ---------- 每日行程：时间轴 ---------- */
+.planner-day-heading { align-items: center; }
+.planner-day-heading > span {
+  background: linear-gradient(140deg, var(--gold-hi), var(--gold-lo));
+  color: var(--gold-ink); border-radius: 14px; padding: 12px 14px; letter-spacing: .08em;
+  box-shadow: 0 8px 18px -8px rgba(231, 169, 47, .7);
+}
+.planner-day-heading h2 { font-size: 24px; font-weight: 800; }
+.planner-day-heading p { color: var(--muted); }
+.planner-period { position: relative; padding-left: 28px; }
+.planner-period::before {
+  content: ""; position: absolute; left: 8px; top: 30px; bottom: -6px; width: 2px;
+  background: repeating-linear-gradient(to bottom, var(--line-strong) 0 6px, transparent 6px 12px);
+}
+.planner-period > h3 {
+  position: relative; display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 12px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line);
+  color: var(--ink-2); letter-spacing: .18em;
+}
+.planner-period > h3::before {
+  content: ""; position: absolute; left: -27px; top: 50%; width: 12px; height: 12px; margin-top: -6px;
+  border-radius: 50%; background: var(--surface); border: 3px solid var(--gold-lo);
+  box-shadow: 0 0 0 4px var(--paper);
+}
+.planner-activity {
+  border-radius: var(--radius); border-color: var(--line); box-shadow: var(--shadow-soft);
+}
+.planner-activity:hover { box-shadow: var(--shadow-hover); }
+.planner-activity h3 { font-size: 21px; font-weight: 800; letter-spacing: .005em; }
+.planner-activity-meta > span:first-child {
+  background: var(--teal-soft); color: var(--teal); padding: 3px 10px; border-radius: 999px;
+}
+.planner-activity-actions { padding-top: 12px; border-top: 1px dashed var(--line); }
+@media (max-width: 560px) {
+  .planner-period { padding-left: 20px; }
+  .planner-period::before { left: 5px; }
+  .planner-period > h3::before { left: -20px; width: 10px; height: 10px; margin-top: -5px; }
+}
+
+/* ---------- 行程照片 ---------- */
+.planner-photo { overflow: hidden; background: var(--surface); }
+.planner-photo > img { height: 220px; transition: transform .5s ease; }
+.planner-activity:hover .planner-photo > img { transform: scale(1.02); }
+.planner-photo > a {
+  font-size: 11px; padding: 7px 14px; color: var(--muted); background: transparent;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.planner-photo-empty {
+  min-height: 118px; margin: 12px 12px 0; border: 1.5px dashed var(--line-strong); border-radius: 14px;
+  gap: 4px; padding: 14px;
+  background: repeating-linear-gradient(135deg, transparent 0 10px, color-mix(in srgb, var(--line) 35%, transparent) 10px 11px);
+}
+.planner-photo-empty > span { font-size: 20px; opacity: .7; }
+.planner-photo-bar {
+  display: grid; gap: 4px; padding: 8px 14px 10px; font-size: 11px; color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+.planner-photo-bar small { font-size: 11px; line-height: 1.5; white-space: pre-line; }
+.planner-photo-progress { color: var(--link); }
+.planner-photo-status { padding: 0; }
+.planner-photo-links { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 14px; }
+.planner-photo-links .text-button { padding: 2px 0; font-size: 11px; }
+.planner-photo-links a { color: var(--link); text-decoration: none; font-weight: 600; }
+.planner-photo-links a:hover { text-decoration: underline; }
+
+/* ---------- 预算 ---------- */
+.planner-live-budget { background: linear-gradient(180deg, color-mix(in srgb, var(--teal) 7%, var(--surface)), var(--surface) 42%); }
+.planner-budget-total { font-size: 42px; font-weight: 800; letter-spacing: -.02em; color: var(--teal); }
+
+/* ---------- 行程地图（Leaflet 瓦片在深色下压暗） ---------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.92) contrast(.9) saturate(.7); }
+  :root:not([data-theme="light"]) .leaflet-container { background: #0e1418; }
+}
+:root[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.92) contrast(.9) saturate(.7); }
+:root[data-theme="dark"] .leaflet-container { background: #0e1418; }
+
+/* ---------- 进入动效 ---------- */
+/* 只做淡入，不能用 transform：带 transform（含动画）的祖先会让里面的 fixed 元素
+ * （如“问 AI / 修改”悬浮按钮）改为相对它定位，按钮就会跑到页面最底部而不跟随屏幕。 */
+@keyframes rise { from { opacity: 0; } to { opacity: 1; } }
+/* backwards：只在播放前/中生效，播完不残留。若一直保持（both），页面内容会成为独立层叠层，
+ * 里面的弹窗无法盖过吸顶的顶栏，右上角关闭按钮会被挡住。 */
+.main-shell main > * { animation: rise .3s ease backwards; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* ---------- 活动卡：宽屏左图右文 ---------- */
+.planner-title-button { color: var(--ink); }
+.planner-title-button:hover { color: var(--link); }
+@media (min-width: 1100px) {
+  .planner-activity:has(> .planner-photo) {
+    display: grid; grid-template-columns: minmax(240px, 34%) minmax(0, 1fr); align-items: stretch;
+  }
+  .planner-activity:has(> .planner-photo) > .planner-photo {
+    display: flex; flex-direction: column; border-right: 1px solid var(--line);
+  }
+  .planner-activity > .planner-photo > img { height: auto; flex: 1; min-height: 200px; }
+  .planner-activity > .planner-photo > .planner-photo-empty { flex: 1; margin: 12px 12px 0; }
+  .planner-activity > .planner-photo > .planner-photo-bar { border-bottom: 0; border-top: 1px solid var(--line); margin-top: 10px; }
+}
+
+/* ---------- 旅行人群：学生/老人/儿童默认收起 ---------- */
+.planner-party { display: grid; gap: 8px; align-content: start; }
+.planner-party-details { border: 1px dashed var(--line-strong); border-radius: 12px; padding: 8px 12px; background: var(--surface-2); }
+.planner-party-details > summary { cursor: pointer; font-size: .82rem; color: var(--ink-2); font-weight: 600; }
+.planner-party-details[open] > summary { margin-bottom: 8px; }
+.planner-party-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.planner-party-grid label { font-size: .8rem; }
+.planner-party-grid input { width: 100%; min-width: 0; }
+
+/* ---------- AI 问答：字号放大，便于阅读 ---------- */
+.planner-chat-top .planner-chat-messages { max-height: 520px; }
+.planner-message { padding: 14px 16px; }
+.planner-message small { font-size: 12px; }
+.planner-message p { font-size: 15px; line-height: 1.85; }
+.planner-chat-suggestion > strong { font-size: 15px; }
+.planner-chat-suggestion > small { font-size: 13px; }
+.planner-chat-composer textarea { font-size: 15px; line-height: 1.7; }
+@media (max-width: 560px) {
+  .planner-message p { font-size: 14px; }
+  .planner-chat-top .planner-chat-messages { max-height: 60vh; }
+}
+
+/* ---------- 生成进度：像“问 AI”按钮一样固定在屏幕上，滚动时始终可见 ---------- */
+.planner-status {
+  position: fixed; top: 88px; right: 24px; left: auto; z-index: 40; margin: 0;
+  width: min(440px, calc(100vw - 32px)); padding: 12px 14px 12px 16px;
+  border: 1px solid color-mix(in srgb, var(--teal) 25%, transparent); border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--teal) 12%);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow: var(--shadow-hover); font-size: 15px; font-weight: 600;
+}
+.planner-status-text { flex: 1; min-width: 0; }
+.planner-status button { min-height: 36px; padding: 6px 14px; }
+@media (max-width: 850px) {
+  /* 把进度放到导航上方，手机上仍可使用页首的计划标签。 */
+  .planner-status { top: auto; bottom: calc(84px + env(safe-area-inset-bottom)); left: 12px; right: 12px; width: auto; font-size: 14px; }
+  .planner-workspace[data-task-running] .planner-ai-launcher {
+    bottom: calc(156px + env(safe-area-inset-bottom)); left: 12px; right: auto;
+  }
+}
+
+/* ---------- AI 回答：相关链接单独一段 ---------- */
+.planner-links {
+  margin-top: 12px; padding: 12px 14px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.planner-links > strong { display: block; font-size: 13px; color: var(--ink-2); margin-bottom: 6px; letter-spacing: .04em; }
+.planner-links ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.planner-links li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.planner-links a { color: var(--link); font-size: 15px; font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
+.planner-links a:hover { text-decoration: underline; }
+.planner-links a::after { content: " ↗"; font-size: 12px; opacity: .7; }
+.planner-links small { color: var(--muted); font-size: 12px; }
+
+.planner-xhs-ok { color: var(--teal); font-weight: 700; }
+
+/* ---------- 行程卡片：占满整行，左侧概要与花费，右侧每日路线与照片 ---------- */
+.planner-plan-list { gap: 16px; padding: 6px 4px 16px; }
+.planner-plan-list > button.planner-plan-card {
+  flex: 1 0 min(100%, 640px); min-height: 0; padding: 0; gap: 0;
+  display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: stretch;
+  border-left: 4px solid var(--gold-lo); text-align: left; cursor: pointer;
+}
+.planner-plan-list > button.planner-plan-card.active {
+  border-left-color: var(--gold);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 340 90' preserveAspectRatio='none'%3E%3Cpath d='M0 90 L0 62 L48 30 L82 52 L128 12 L176 56 L214 34 L262 64 L300 40 L340 58 L340 90Z' fill='%23ffffff' fill-opacity='.05'/%3E%3Cpath d='M0 90 L0 74 L60 52 L110 70 L170 44 L230 72 L290 56 L340 74 L340 90Z' fill='%23ffffff' fill-opacity='.07'/%3E%3C/svg%3E") bottom / 100% 34% no-repeat,
+    radial-gradient(120% 140% at 100% 0%, #2a5664 0%, #18323d 45%, #10222a 100%);
+}
+.planner-plan-list > button.planner-plan-card.active::after { font-size: 1.4rem; right: 20px; top: 18px; opacity: .25; }
+.planner-card-main { display: flex; flex-direction: column; gap: 9px; padding: 20px 22px 18px; min-width: 0; }
+.planner-plan-cities {
+  font-size: 12px; font-weight: 700; letter-spacing: .12em; color: var(--gold-lo);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 28px;
+}
+.planner-plan-card.active .planner-plan-cities { color: var(--gold-hi); }
+.planner-card-title {
+  font-size: clamp(20px, 2vw, 26px); line-height: 1.35; font-weight: 800; letter-spacing: .01em;
+  overflow-wrap: anywhere;
+}
+.planner-card-summary {
+  color: var(--ink-2);
+  font-size: 13.5px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.planner-plan-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.planner-plan-meta > span {
+  font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
+  background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line);
+}
+.planner-plan-card.active .planner-plan-meta > span { background: rgba(255, 255, 255, .1); color: #e6eef1; border-color: rgba(255, 255, 255, .14); }
+.planner-card-stats { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: var(--muted); }
+.planner-card-stats b { font-size: 17px; font-weight: 800; color: var(--ink); margin-right: 4px; }
+.planner-plan-card.active .planner-card-stats { color: #9fb3ba; }
+.planner-plan-card.active .planner-card-stats b { color: #fff; }
+.planner-card-budget { display: grid; gap: 6px; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line); }
+.planner-card-price { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+.planner-plan-price { font-size: 26px; font-weight: 800; letter-spacing: -.01em; color: var(--teal); }
+.planner-plan-card.active .planner-plan-price { color: var(--gold-hi); }
+.planner-card-price small { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.planner-plan-card.active .planner-card-price small { color: #b9c9cf; }
+.planner-card-price small.planner-card-under { color: var(--teal); }
+.planner-card-price small.planner-card-over { color: var(--coral); }
+.planner-plan-card.active .planner-card-price small.planner-card-under { color: #9fe0cf; }
+.planner-plan-card.active .planner-card-price small.planner-card-over { color: #ffab94; }
+.planner-card-bar { display: flex; height: 5px; border-radius: 999px; overflow: hidden; gap: 2px; background: var(--line); }
+.planner-card-bar > span { flex-basis: 0; min-width: 4px; }
+.planner-card-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11.5px; color: var(--muted); }
+.planner-plan-card.active .planner-card-legend { color: #a9bcc2; }
+.planner-card-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
+.planner-card-bar-transport { background: #4a9bd1; }
+.planner-card-bar-lodging { background: #9b7fd1; }
+.planner-card-bar-tickets { background: var(--gold); }
+.planner-card-bar-food { background: var(--coral); }
+.planner-card-bar-other { background: #8aa0a8; }
+.planner-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--muted); }
+.planner-card-foot em { font-style: normal; font-size: 12px; font-weight: 700; color: var(--teal); }
+.planner-plan-card.active .planner-card-foot { color: #8fa4ab; }
+.planner-plan-card.active .planner-card-foot em { color: #9fe0cf; }
+
+.planner-card-side {
+  display: flex; flex-direction: column; gap: 12px; padding: 18px; min-width: 0;
+  border-left: 1px solid var(--line); background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+}
+.planner-plan-card.active .planner-card-side { border-left-color: rgba(255, 255, 255, .08); background: rgba(0, 0, 0, .16); }
+/* 照片随卡片可用高度扩展，路线始终保留自己的空间，避免底部大片留白。
+   网格行从零计算最小高度，竖图只能在格内裁切，不能撑破照片区。 */
+.planner-card-photos {
+  display: grid; gap: 6px; grid-template-columns: minmax(0, 1.35fr) repeat(3, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr); height: 130px; flex: 1 0 130px; min-width: 0;
+}
+.planner-card-photos.n1 { grid-template-columns: 1fr; }
+.planner-card-photos.n2 { grid-template-columns: repeat(2, 1fr); }
+.planner-card-photos.n3 { grid-template-columns: repeat(3, 1fr); }
+.planner-card-photos img {
+  width: 100%; height: 100%; min-width: 0; min-height: 0;
+  object-fit: cover; border-radius: 10px; display: block;
+}
+.planner-card-days { display: grid; gap: 2px; position: relative; }
+.planner-card-day {
+  display: grid; grid-template-columns: 34px 42px minmax(0, 1fr); align-items: baseline; gap: 8px;
+  padding: 5px 0; font-size: 13px; border-bottom: 1px dashed var(--line);
+}
+.planner-card-day:last-of-type { border-bottom: 0; }
+.planner-card-day b { font-size: 12px; font-weight: 800; color: var(--gold-lo); letter-spacing: .04em; }
+.planner-card-day small { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.planner-card-day > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+.planner-plan-card.active .planner-card-day { border-bottom-color: rgba(255, 255, 255, .08); }
+.planner-plan-card.active .planner-card-day b { color: var(--gold-hi); }
+.planner-plan-card.active .planner-card-day small { color: #8fa4ab; }
+.planner-plan-card.active .planner-card-day > span { color: #e6eef1; }
+.planner-card-more { font-size: 12px; color: var(--muted); padding-top: 4px; }
+@media (max-width: 760px) {
+  .planner-plan-list > button.planner-plan-card { flex-basis: 100%; grid-template-columns: 1fr; }
+  .planner-card-main { padding: 20px 18px 18px; }
+  .planner-card-side { border-left: 0; border-top: 1px solid var(--line); padding: 14px 18px; }
+  /* 单栏时不从左侧内容继承高度，照片保持横向相册比例。 */
+  .planner-card-photos { height: 120px; flex: 0 0 120px; }
+  .planner-plan-card.active .planner-card-side { border-top-color: rgba(255, 255, 255, .08); }
+  .planner-plan-price { font-size: 26px; }
+}
+
+/* ---------- AI 助手：配置按钮与配置弹窗 ---------- */
+.planner-chat-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.planner-ai-config { min-height: 34px; padding: 6px 14px; border-radius: 999px; font-size: .82rem; }
+.planner-ai-settings { width: min(620px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; }
+.planner-ai-settings .card-heading { display: flex; align-items: center; justify-content: space-between; }
+.planner-ai-settings .card-heading .text-button { font-size: 1.4rem; line-height: 1; }
+.planner-ai-providers { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 18px; }
+.planner-ai-providers button {
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+  border-radius: 999px; padding: 7px 14px; font-size: .85rem; font-weight: 600;
+}
+.planner-ai-providers button:hover { border-color: var(--gold-lo); }
+.planner-ai-providers button.active { background: var(--seg-active); color: #fff; border-color: transparent; }
+.planner-ai-settings form { display: grid; gap: 12px; }
+.planner-ai-settings label { display: grid; gap: 6px; font-weight: 600; font-size: .88rem; }
+.planner-ai-settings input { width: 100%; }
+.planner-ai-keylink { font-size: .82rem; color: var(--link); margin-top: -4px; }
+.planner-ai-ok { color: var(--teal); font-weight: 600; }
+.planner-ai-config-ok { color: var(--teal); font-weight: 700; }
+.planner-ai-subtitle, .planner-ai-saved h3 { margin: 14px 0 0; font-size: .9rem; color: var(--muted); font-weight: 700; }
+.planner-ai-saved { display: grid; gap: 8px; margin-top: 4px; }
+.planner-ai-saved-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 14px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface);
+}
+.planner-ai-saved-row.active { border-color: var(--teal); box-shadow: inset 3px 0 0 var(--teal); }
+.planner-ai-saved-row span { display: grid; gap: 2px; min-width: 0; }
+.planner-ai-saved-row small { color: var(--muted); overflow-wrap: anywhere; }
+.planner-ai-saved-row em { font-style: normal; color: var(--teal); font-weight: 700; font-size: .85rem; white-space: nowrap; }
+.planner-ai-saved-row button { min-height: 32px; padding: 4px 14px; border-radius: 999px; font-size: .82rem; white-space: nowrap; }
+.planner-ai-saved-mark { color: var(--teal); }
+.planner-ai-providers button.active .planner-ai-saved-mark { color: #fff; }
+/* 页面外部的 AI 状态条 */
+.planner-ai-status {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 0 0 14px;
+  padding: 9px 16px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); font-size: .86rem;
+}
+.planner-ai-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 22%, transparent); }
+.planner-ai-status strong { color: var(--teal); }
+.planner-ai-status small { color: var(--muted); }
+.planner-ai-status select { width: auto; flex: 0 1 auto; min-height: 30px; padding: 2px 28px 2px 10px; border-radius: 8px; font-size: .85rem; max-width: 100%; }
+.planner-ai-status .text-button { margin-left: auto; }
+.planner-ai-chip { padding: 2px 10px; border-radius: 999px; background: var(--line); color: var(--muted); font-size: .78rem; font-weight: 600; }
+.planner-ai-chip.ok { background: color-mix(in srgb, var(--teal) 14%, transparent); color: var(--teal); }
+@media (max-width: 560px) {
+  .planner-chat-tools { justify-content: flex-start; }
+  .planner-ai-status { border-radius: 14px; }
+}

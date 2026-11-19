@@ -1,0 +1,880 @@
+/* ==========================================================================
+ * 多风格视觉引擎：5 套风格在底纹、边框、圆角、阴影、装饰元素、字体与动效上
+ * 均具备独立设计语言，且全量兼容浅色与深色模式。
+ * ========================================================================== */
+
+/* ---------- 1. 各风格明暗色板令牌 ---------- */
+:root[data-appearance="candy"] {
+  --style-paper: #fff8f2;
+  --style-surface: #ffffff;
+  --style-soft: #fff0e4;
+  --style-ink: #3c2b26;
+  --style-muted: #8a736a;
+  --style-line: #f0dcd0;
+  --style-accent: #e5634f;
+  --style-solid: #e5634f;
+  --style-coral: #f0745d;
+  --style-map: #f4e4d6;
+  --style-map-emphasis: #ffd7c2;
+  --style-dark-paper: #1e181c;
+  --style-dark-surface: #2a2127;
+  --style-dark-soft: #382c33;
+  --style-dark-ink: #f7eae4;
+  --style-dark-muted: #c2aba2;
+  --style-dark-line: #4d3c45;
+  --style-dark-accent: #ff9c8a;
+  --style-dark-map: #45353e;
+  --style-dark-map-emphasis: #694957;
+
+  --app-peach: #ffe3d9; --app-peach-ink: #c24b3a;
+  --app-sage: #dff4e4; --app-sage-ink: #387a52;
+  --app-blue: #dff0fe; --app-blue-ink: #3570a8;
+  --app-lilac: #efe3fd; --app-lilac-ink: #7a4fb0;
+  --app-honey: #fff0c7; --app-honey-ink: #ad6d17;
+
+  --cover-sky-top: #ffece1;
+  --cover-sky-bot: #fff6ea;
+  --cover-sun: #ffd166;
+  --cover-hill-far: #b8e0c4;
+  --cover-hill-mid: #86cc9f;
+  --cover-hill-near: #53a677;
+
+  --candy-border: #edd3c2;
+  --candy-offset: #f2ddd0;
+  --candy-btn-shadow: #c24433;
+}
+
+:root[data-appearance="white"] {
+  --style-paper: #ffffff;
+  --style-surface: #ffffff;
+  --style-soft: #f6f7f8;
+  --style-ink: #26292e;
+  --style-muted: #767c85;
+  --style-line: #eceef0;
+  --style-accent: #467a58;
+  --style-solid: #467a58;
+  --style-coral: #e06d53;
+  --style-map: #eef1f3;
+  --style-map-emphasis: #d7e8dc;
+  --style-dark-paper: #141618;
+  --style-dark-surface: #1c1f22;
+  --style-dark-soft: #262a2e;
+  --style-dark-ink: #edf0f2;
+  --style-dark-muted: #9ea5ae;
+  --style-dark-line: #32373d;
+  --style-dark-accent: #8cc99f;
+  --style-dark-map: #2e3439;
+  --style-dark-map-emphasis: #3f5948;
+
+  --app-peach: #ffefe8; --app-peach-ink: #c25b41;
+  --app-sage: #ebf5ed; --app-sage-ink: #3f7650;
+  --app-blue: #eaf4fc; --app-blue-ink: #3672a1;
+  --app-lilac: #f2ecfa; --app-lilac-ink: #7855a3;
+  --app-honey: #fef5dc; --app-honey-ink: #a3741c;
+
+  --cover-sky-top: #edf7f1;
+  --cover-sky-bot: #fffcf5;
+  --cover-sun: #ffd470;
+  --cover-hill-far: #c6e2ce;
+  --cover-hill-mid: #92c4a2;
+  --cover-hill-near: #558f69;
+}
+
+:root[data-appearance="journal"] {
+  --style-paper: #f5efe3;
+  --style-surface: #fffcf5;
+  --style-soft: #ede2cc;
+  --style-ink: #4d3b2b;
+  --style-muted: #8b7762;
+  --style-line: #dfd0b6;
+  --style-accent: #866041;
+  --style-solid: #714f34;
+  --style-coral: #b36342;
+  --style-map: #e4d8c1;
+  --style-map-emphasis: #d9c095;
+  --style-dark-paper: #221d17;
+  --style-dark-surface: #2e271f;
+  --style-dark-soft: #3d3428;
+  --style-dark-ink: #eee4d0;
+  --style-dark-muted: #bfb095;
+  --style-dark-line: #514536;
+  --style-dark-accent: #d7b887;
+  --style-dark-map: #4c4232;
+  --style-dark-map-emphasis: #69573f;
+
+  --app-sage: #ece4d2; --app-sage-ink: #6e5237;
+  --app-peach: #f3e0cf; --app-peach-ink: #9c5838;
+  --app-blue: #e5e8e3; --app-blue-ink: #4f665f;
+  --app-lilac: #ece2e6; --app-lilac-ink: #7c5c6c;
+  --app-honey: #f4e6c4; --app-honey-ink: #8f6b2c;
+
+  --cover-sky-top: #efe4ce;
+  --cover-sky-bot: #f8f1e2;
+  --cover-sun: #dfb267;
+  --cover-hill-far: #d6c29e;
+  --cover-hill-mid: #b39268;
+  --cover-hill-near: #7a5c3d;
+}
+
+:root[data-appearance="coast"] {
+  --style-paper: #f3f9fd;
+  --style-surface: #ffffff;
+  --style-soft: #e6f3fa;
+  --style-ink: #243e4f;
+  --style-muted: #668396;
+  --style-line: #d7e9f4;
+  --style-accent: #3c89b8;
+  --style-solid: #377fad;
+  --style-coral: #4e98c4;
+  --style-map: #dcedf7;
+  --style-map-emphasis: #a9d5ee;
+  --style-dark-paper: #121d24;
+  --style-dark-surface: #1a2832;
+  --style-dark-soft: #233542;
+  --style-dark-ink: #e2f0f8;
+  --style-dark-muted: #98b8cc;
+  --style-dark-line: #314857;
+  --style-dark-accent: #86c7eb;
+  --style-dark-map: #2a3f4d;
+  --style-dark-map-emphasis: #3e6075;
+
+  --app-sage: #e1f4f1; --app-sage-ink: #2e7b78;
+  --app-peach: #eef4fb; --app-peach-ink: #4b79ad;
+  --app-blue: #dff0fc; --app-blue-ink: #2d74a3;
+  --app-lilac: #eaeefd; --app-lilac-ink: #5a6ab0;
+  --app-honey: #fef5d8; --app-honey-ink: #997426;
+
+  --cover-sky-top: #def1fc;
+  --cover-sky-bot: #f3fafe;
+  --cover-sun: #ffd87a;
+  --cover-hill-far: #b6ddef;
+  --cover-hill-mid: #80bddb;
+  --cover-hill-near: #4890b8;
+}
+
+/* 统一映射所有非 warm 风格的全局变量 */
+:root:is([data-appearance="candy"], [data-appearance="white"], [data-appearance="journal"], [data-appearance="coast"]) {
+  --paper: var(--style-paper);
+  --surface: var(--style-surface);
+  --surface-2: var(--style-soft);
+  --ink: var(--style-ink);
+  --ink-2: var(--style-ink);
+  --muted: var(--style-muted);
+  --line: var(--style-line);
+  --line-strong: var(--style-line);
+  --link: var(--style-accent);
+  --warm-green: var(--style-accent);
+  --warm-dark: var(--style-solid);
+  --warm-soft: var(--style-soft);
+  --warm-note: var(--style-soft);
+  --warm-note-ink: var(--style-ink);
+  --warm-peach: var(--style-soft);
+  --teal: var(--style-accent);
+  --teal-soft: var(--style-soft);
+  --coral: var(--style-coral);
+  --ring: var(--style-accent);
+  --map-area: var(--style-map);
+  --map-border: var(--style-surface);
+  --map-label: var(--style-ink);
+  --map-emphasis: var(--style-map-emphasis);
+  --map-tooltip: var(--style-solid);
+  --map-label-strong: var(--style-ink);
+  --bd-39a7b4: var(--style-accent);
+  --bd-edc84d: var(--style-accent);
+}
+
+:root[data-theme="dark"]:is([data-appearance="candy"], [data-appearance="white"], [data-appearance="journal"], [data-appearance="coast"]) {
+  --paper: var(--style-dark-paper);
+  --surface: var(--style-dark-surface);
+  --surface-2: var(--style-dark-soft);
+  --ink: var(--style-dark-ink);
+  --ink-2: var(--style-dark-ink);
+  --muted: var(--style-dark-muted);
+  --line: var(--style-dark-line);
+  --line-strong: var(--style-dark-line);
+  --link: var(--style-dark-accent);
+  --warm-green: var(--style-dark-accent);
+  --warm-soft: var(--style-dark-soft);
+  --warm-note: var(--style-dark-soft);
+  --warm-note-ink: var(--style-dark-ink);
+  --warm-peach: var(--style-dark-soft);
+  --teal: var(--style-dark-accent);
+  --teal-soft: var(--style-dark-soft);
+  --ring: var(--style-dark-accent);
+  --map-area: var(--style-dark-map);
+  --map-border: var(--style-dark-surface);
+  --map-label: var(--style-dark-ink);
+  --map-emphasis: var(--style-dark-map-emphasis);
+  --map-tooltip: var(--style-dark-soft);
+  --map-label-strong: var(--style-dark-ink);
+  --app-sage: var(--style-dark-soft);
+  --app-sage-ink: var(--style-dark-accent);
+  --app-peach: var(--style-dark-soft);
+  --app-peach-ink: var(--style-dark-accent);
+  --app-blue: var(--style-dark-soft);
+  --app-blue-ink: var(--style-dark-accent);
+  --app-lilac: var(--style-dark-soft);
+  --app-lilac-ink: var(--style-dark-accent);
+  --app-honey: var(--style-dark-soft);
+  --app-honey-ink: var(--style-dark-accent);
+  --cover-sky-top: var(--style-dark-paper);
+  --cover-sky-bot: var(--style-dark-surface);
+  --cover-hill-far: var(--style-dark-soft);
+  --cover-hill-mid: var(--style-dark-line);
+  --cover-hill-near: var(--style-dark-paper);
+  --candy-border: #53404b;
+  --candy-offset: #161014;
+  --candy-btn-shadow: #9b3d2f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):is([data-appearance="candy"], [data-appearance="white"], [data-appearance="journal"], [data-appearance="coast"]) {
+    --paper: var(--style-dark-paper);
+    --surface: var(--style-dark-surface);
+    --surface-2: var(--style-dark-soft);
+    --ink: var(--style-dark-ink);
+    --ink-2: var(--style-dark-ink);
+    --muted: var(--style-dark-muted);
+    --line: var(--style-dark-line);
+    --line-strong: var(--style-dark-line);
+    --link: var(--style-dark-accent);
+    --warm-green: var(--style-dark-accent);
+    --warm-soft: var(--style-dark-soft);
+    --warm-note: var(--style-dark-soft);
+    --warm-note-ink: var(--style-dark-ink);
+    --warm-peach: var(--style-dark-soft);
+    --teal: var(--style-dark-accent);
+    --teal-soft: var(--style-dark-soft);
+    --ring: var(--style-dark-accent);
+    --map-area: var(--style-dark-map);
+    --map-border: var(--style-dark-surface);
+    --map-label: var(--style-dark-ink);
+    --map-emphasis: var(--style-dark-map-emphasis);
+    --map-tooltip: var(--style-dark-soft);
+    --map-label-strong: var(--style-dark-ink);
+    --app-sage: var(--style-dark-soft);
+    --app-sage-ink: var(--style-dark-accent);
+    --app-peach: var(--style-dark-soft);
+    --app-peach-ink: var(--style-dark-accent);
+    --app-blue: var(--style-dark-soft);
+    --app-blue-ink: var(--style-dark-accent);
+    --app-lilac: var(--style-dark-soft);
+    --app-lilac-ink: var(--style-dark-accent);
+    --app-honey: var(--style-dark-soft);
+    --app-honey-ink: var(--style-dark-accent);
+    --cover-sky-top: var(--style-dark-paper);
+    --cover-sky-bot: var(--style-dark-surface);
+    --cover-hill-far: var(--style-dark-soft);
+    --cover-hill-mid: var(--style-dark-line);
+    --cover-hill-near: var(--style-dark-paper);
+    --candy-border: #53404b;
+    --candy-offset: #161014;
+    --candy-btn-shadow: #9b3d2f;
+  }
+}
+
+/* ==========================================================================
+ * 2. 风格 A：「糖果贴纸 candy」—— 可爱活泼、波点纸纹、立体描边、Q弹手感
+ * ========================================================================== */
+:root[data-appearance="candy"] body {
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(circle at 12px 12px, color-mix(in srgb, var(--style-accent) 11%, transparent) 1.6px, transparent 1.7px);
+  background-size: 26px 26px;
+}
+
+:root[data-appearance="candy"] .sidebar {
+  border-right: 2px solid var(--candy-border);
+  background: color-mix(in srgb, var(--surface) 95%, var(--paper));
+}
+
+:root[data-appearance="candy"] .brand-symbol {
+  border-radius: 18px;
+  border: 2px solid color-mix(in srgb, var(--warm-dark) 80%, #fff);
+  box-shadow: 0 4px 0 var(--candy-offset);
+  transform: rotate(-7deg);
+}
+
+:root[data-appearance="candy"] .nav-item {
+  border-radius: 18px;
+  border: 2px solid transparent;
+  transition: transform .22s cubic-bezier(.34, 1.56, .64, 1), background-color .18s ease, border-color .18s ease, box-shadow .2s ease;
+}
+:root[data-appearance="candy"] .nav-item:hover {
+  transform: translateX(3px);
+}
+:root[data-appearance="candy"] .nav-item.active {
+  background: var(--surface);
+  border-color: var(--candy-border);
+  box-shadow: 0 4px 0 var(--candy-offset);
+}
+:root[data-appearance="candy"] .nav-item .nav-icon {
+  border-radius: 13px;
+}
+
+:root[data-appearance="candy"] :is(
+  .card, .map-card, .map-side, .journey-card, .place-card,
+  .warm-note-paper, .warm-featured, .warm-profile-banner,
+  .passport-hero-card, .warm-highlight-card, .badge-card,
+  .sidebar-buddy, .planner-overview, .planner-activity,
+  .warm-record-filter, .journal-trip-hero, .city-record-hero
+) {
+  border-radius: 26px;
+  border: 2px solid var(--candy-border);
+  box-shadow: 0 5px 0 var(--candy-offset), 0 12px 24px -12px rgba(178, 92, 66, .16);
+}
+
+:root[data-appearance="candy"] :is(.journey-card, .badge-card, .warm-highlight-card, .saved-city-card, .appearance-option):hover {
+  transform: translateY(-4px) rotate(-0.4deg);
+  transition: transform .25s cubic-bezier(.34, 1.56, .64, 1), box-shadow .2s ease, border-color .2s ease;
+}
+
+:root[data-appearance="candy"] .primary {
+  border-radius: 999px;
+  border: 2px solid var(--candy-btn-shadow);
+  box-shadow: 0 4px 0 var(--candy-btn-shadow);
+  transition: transform .18s cubic-bezier(.34, 1.56, .64, 1), box-shadow .18s ease;
+}
+:root[data-appearance="candy"] .primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 var(--candy-btn-shadow);
+}
+:root[data-appearance="candy"] .primary:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--candy-btn-shadow);
+}
+
+:root[data-appearance="candy"] .secondary {
+  border-radius: 999px;
+  border: 2px solid var(--candy-border);
+  box-shadow: 0 3px 0 var(--candy-offset);
+  transition: transform .18s cubic-bezier(.34, 1.56, .64, 1), box-shadow .18s ease;
+}
+:root[data-appearance="candy"] .secondary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 0 var(--candy-offset);
+}
+:root[data-appearance="candy"] .secondary:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 var(--candy-offset);
+}
+
+:root[data-appearance="candy"] .saved-city-card {
+  border-radius: 20px;
+  border: 2px dashed color-mix(in srgb, var(--ink) 16%, transparent);
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+:root[data-appearance="candy"] .passport-hero-card,
+:root[data-appearance="candy"] .warm-profile-banner {
+  background: linear-gradient(135deg, var(--app-honey) 0%, var(--surface) 48%, var(--app-peach) 100%);
+}
+
+/* ==========================================================================
+ * 3. 风格 B：「简洁纯白 white」—— 纯白干净背景，保留清新柔和的彩色元素，隐藏花哨贴纸
+ * ========================================================================== */
+:root[data-appearance="white"] body {
+  background-color: var(--paper);
+  background-image: none;
+}
+
+/* 简洁纯白风下隐藏装饰贴纸与胶带，只保留利落干净的排版与柔和彩色标签 */
+:root[data-appearance="white"] .cute-deco,
+:root[data-appearance="white"] .washi-tape {
+  display: none !important;
+}
+:root[data-appearance="white"] .passport-fallback-icon,
+:root[data-appearance="white"] .backup-fallback-icon {
+  display: grid !important;
+}
+
+:root[data-appearance="white"] :is(
+  .card, .map-card, .map-side, .journey-card, .place-card,
+  .warm-note-paper, .warm-featured, .warm-profile-banner,
+  .passport-hero-card, .warm-highlight-card, .badge-card,
+  .sidebar-buddy, .planner-overview, .planner-activity,
+  .warm-record-filter, .journal-trip-hero, .city-record-hero
+) {
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .03);
+  background: var(--surface);
+}
+
+:root[data-appearance="white"] :is(.primary, .secondary) {
+  border-radius: 9px;
+  box-shadow: none;
+}
+:root[data-appearance="white"] .brand-symbol {
+  border-radius: 10px;
+  transform: none;
+  box-shadow: none;
+}
+:root[data-appearance="white"] .nav-item,
+:root[data-appearance="white"] .nav-item.active {
+  border-radius: 10px;
+}
+:root[data-appearance="white"] .nav-item .nav-icon,
+:root[data-appearance="white"] .nav-item.active .nav-icon {
+  border-radius: 9px;
+}
+:root[data-appearance="white"] .warm-profile-avatar,
+:root[data-appearance="white"] .warm-backup-art {
+  transform: none;
+  border-radius: 16px;
+  box-shadow: none;
+}
+:root[data-appearance="white"] .saved-city-card {
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--ink) 6%, transparent);
+}
+:root[data-appearance="white"] .note-memo-box {
+  background-image: none;
+  border-style: solid;
+  border-radius: 10px;
+}
+:root[data-appearance="white"] .badge-card:hover,
+:root[data-appearance="white"] .journey-card:hover,
+:root[data-appearance="white"] .warm-highlight-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .05);
+}
+
+/* ==========================================================================
+ * 4. 风格 C：「复古手账 journal」—— 笔记本方格纸纹、胶带拼贴、宋体诗意
+ * ========================================================================== */
+:root[data-appearance="journal"] body {
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--line) 46%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--line) 46%, transparent) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+:root[data-appearance="journal"] :is(
+  .section-heading h1, .warm-featured-copy h2, .warm-profile-banner h2,
+  .planner-overview h2, .passport-hero-card h2, .map-side h2,
+  .card h2, .card-heading h2, .journey-card h2
+) {
+  font-family: var(--ui-serif);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+:root[data-appearance="journal"] :is(
+  .card, .map-card, .map-side, .journey-card, .place-card,
+  .warm-note-paper, .warm-featured, .warm-profile-banner,
+  .passport-hero-card, .warm-highlight-card, .badge-card,
+  .sidebar-buddy
+) {
+  border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--style-accent) 26%, var(--line));
+  box-shadow: 3px 4px 0 color-mix(in srgb, var(--style-accent) 12%, transparent);
+}
+
+:root[data-appearance="journal"] .washi-tape {
+  display: block;
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--style-accent) 26%, #f4dfc0),
+    color-mix(in srgb, var(--style-accent) 26%, #f4dfc0) 6px,
+    color-mix(in srgb, #ffffff 42%, #f4dfc0) 6px,
+    color-mix(in srgb, #ffffff 42%, #f4dfc0) 12px
+  );
+  opacity: 0.85;
+}
+
+:root[data-appearance="journal"] .warm-highlight-card:nth-child(odd) { transform: rotate(-0.8deg); }
+:root[data-appearance="journal"] .warm-highlight-card:nth-child(even) { transform: rotate(0.7deg); }
+:root[data-appearance="journal"] .warm-highlight-card:hover { transform: translateY(-4px) rotate(0deg); }
+
+:root[data-appearance="journal"] .warm-record-filter {
+  border-bottom: 1.5px dashed var(--line-strong);
+}
+
+:root[data-appearance="journal"] :is(.primary, .secondary) {
+  border-radius: 6px;
+}
+
+:root[data-appearance="journal"] .saved-city-card {
+  border-radius: 4px;
+  border: 1.5px dashed color-mix(in srgb, var(--style-accent) 42%, var(--line));
+}
+
+/* ==========================================================================
+ * 5. 风格 D：「海盐晴空 coast」—— 清澈浅蓝白底、纯白轻盈浮卡、胶囊圆角
+ * ========================================================================== */
+:root[data-appearance="coast"] body {
+  background-color: var(--paper);
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--style-soft) 55%, var(--paper)) 0%, var(--paper) 340px);
+}
+
+:root[data-appearance="coast"] :is(
+  .card, .map-card, .map-side, .journey-card, .place-card,
+  .warm-note-paper, .warm-profile-banner, .passport-hero-card,
+  .warm-highlight-card, .badge-card, .sidebar-buddy, .warm-record-filter
+) {
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 24px -12px rgba(55, 127, 173, .14), 0 1px 2px rgba(55, 127, 173, .05);
+}
+
+:root[data-appearance="coast"] .sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+}
+
+:root[data-appearance="coast"] .washi-tape {
+  display: none;
+}
+
+:root[data-appearance="coast"] :is(.primary, .secondary) {
+  border-radius: 999px;
+}
+
+:root[data-appearance="coast"] .passport-hero-card,
+:root[data-appearance="coast"] .warm-profile-banner {
+  background: linear-gradient(135deg, var(--surface) 0%, color-mix(in srgb, var(--app-blue) 55%, var(--surface)) 100%);
+}
+
+/* ==========================================================================
+ * 6. 风格 E：「草木暖日 warm」—— 温柔自然、轻盈有机圆角
+ * ========================================================================== */
+:root[data-appearance="warm"] .washi-tape {
+  opacity: 0.55;
+}
+
+/* ==========================================================================
+ * 7. 外观风格工坊预览样卡（真实还原 5 套风格的结构质感）
+ * ========================================================================== */
+.warm-profile > .appearance-settings {
+  margin: 0 0 24px;
+  padding: 26px;
+}
+.appearance-settings .card-heading {
+  align-items: center;
+}
+.appearance-settings .card-heading p {
+  margin: 5px 0 0;
+}
+.appearance-autosave-pill {
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--app-sage);
+  color: var(--app-sage-ink);
+  font-size: 11px;
+  font-weight: 600;
+}
+.appearance-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  margin: 22px 0;
+}
+.appearance-option {
+  min-width: 0;
+  padding: 9px 9px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform .22s cubic-bezier(.34, 1.56, .64, 1), border-color .2s ease, box-shadow .2s ease;
+}
+.appearance-option:focus:not(:focus-visible) { outline: none; }
+.appearance-option:hover {
+  border-color: var(--warm-green);
+  transform: translateY(-3px);
+  box-shadow: var(--elev-card);
+}
+.appearance-option.selected {
+  border-color: var(--warm-green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warm-green) 18%, transparent), var(--elev-card);
+}
+
+.appearance-preview {
+  position: relative;
+  display: flex;
+  height: 102px;
+  padding: 9px;
+  gap: 8px;
+  border-radius: 12px;
+  background: var(--sample-paper);
+  overflow: hidden;
+  border: 1px solid rgba(53, 65, 50, .08);
+}
+.sample-sidebar {
+  display: flex;
+  width: 22%;
+  flex-direction: column;
+  gap: 7px;
+  border-right: 1px solid rgba(53, 65, 50, .08);
+  padding: 5px 6px 0 0;
+}
+.sample-sidebar i {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--sample-soft);
+}
+.sample-sidebar i:first-child {
+  background: var(--sample-accent);
+}
+.sample-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 7px;
+  padding: 3px 0;
+}
+.sample-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.sample-title {
+  display: block;
+  background: var(--sample-accent);
+  height: 6px;
+  width: 48%;
+  border-radius: 999px;
+}
+.sample-chip {
+  display: block;
+  width: 18px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--sample-pop);
+}
+.sample-photo {
+  display: block;
+  flex: 1;
+  background: var(--sample-soft);
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.sample-photo:after {
+  content: '';
+  position: absolute;
+  left: 16%;
+  right: -12%;
+  height: 50px;
+  top: 14px;
+  background: var(--sample-accent);
+  opacity: .24;
+  border-radius: 50%;
+  transform: rotate(-10deg);
+}
+.sample-tape,
+.sample-sticker {
+  display: none;
+  position: absolute;
+  z-index: 2;
+}
+.sample-blocks {
+  display: flex;
+  gap: 5px;
+}
+.sample-blocks i {
+  display: block;
+  width: 33.33%;
+  height: 15px;
+  border-radius: 5px;
+  background: var(--sample-soft);
+}
+
+/* 样卡 1：糖果贴纸（波点底纹 + 立体描边阴影 + 小贴纸） */
+.sample-candy {
+  background-color: var(--sample-paper);
+  background-image: radial-gradient(circle at 5px 5px, rgba(235, 107, 86, .2) 1.2px, transparent 1.3px);
+  background-size: 11px 11px;
+  border: 2px solid #eccfc0;
+  border-radius: 16px;
+}
+.sample-candy .sample-photo {
+  border-radius: 12px;
+  border: 1.5px solid #e8c7b6;
+  box-shadow: 0 3px 0 #f0d7c9;
+  background: linear-gradient(135deg, #fff1cf, #ffe2d6);
+}
+.sample-candy .sample-sticker {
+  display: block;
+  right: 7px;
+  top: 6px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--sample-pop);
+  border: 1.5px solid #ffffff;
+}
+.sample-candy .sample-blocks i {
+  border-radius: 999px;
+  border: 1.5px solid #eccfc0;
+  box-shadow: 0 2px 0 #f0d7c9;
+}
+.sample-candy .sample-blocks i:nth-child(2) { background: #dff4e4; }
+.sample-candy .sample-blocks i:nth-child(3) { background: #dff0fe; }
+
+/* 样卡 2：简洁纯白（纯白底 + 柔和彩色点缀） */
+.sample-white {
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e8eaed;
+}
+.sample-white .sample-photo {
+  border-radius: 6px;
+  background: var(--sample-soft);
+  border: 1px solid #e8eaed;
+}
+.sample-white .sample-blocks i {
+  border-radius: 5px;
+  background: var(--sample-soft);
+}
+.sample-white .sample-blocks i:nth-child(2) { background: var(--sample-pop); }
+.sample-white .sample-blocks i:nth-child(3) { background: #eaf4fc; }
+
+/* 样卡 3：复古手账（方格纸纹 + 和纸胶带 + 方角纸片） */
+.sample-journal {
+  border-radius: 4px;
+  background-color: var(--sample-paper);
+  background-image:
+    linear-gradient(to right, rgba(134, 96, 65, .12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(134, 96, 65, .12) 1px, transparent 1px);
+  background-size: 10px 10px;
+}
+.sample-journal .sample-photo {
+  border-radius: 3px;
+  border: 1px dashed rgba(134, 96, 65, .38);
+  box-shadow: 2px 2px 0 rgba(134, 96, 65, .14);
+}
+.sample-journal .sample-tape {
+  display: block;
+  width: 24px;
+  height: 7px;
+  left: 50%;
+  top: -2px;
+  transform: translateX(-50%) rotate(-5deg);
+  background: rgba(216, 180, 124, .75);
+}
+.sample-journal .sample-blocks i {
+  border-radius: 2px;
+  border: 1px solid rgba(134, 96, 65, .2);
+}
+
+/* 样卡 4：海盐晴空（清澈浅蓝白底 + 纯白浮卡） */
+.sample-coast {
+  background: linear-gradient(180deg, #e7f4fc 0%, #f5fafe 100%);
+  border: 1px solid #d4e8f5;
+  border-radius: 14px;
+}
+.sample-coast .sample-photo {
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #d4e8f5;
+  box-shadow: 0 4px 10px rgba(60, 137, 184, .12);
+}
+.sample-coast .sample-blocks i {
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid #d4e8f5;
+}
+
+/* 样卡 5：草木暖日 */
+.sample-warm .sample-photo {
+  border-radius: 10px;
+}
+
+.appearance-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 4px 4px;
+  font-size: 13.5px;
+}
+.appearance-name strong {
+  font-weight: 700;
+}
+.appearance-tag {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.appearance-option.selected .appearance-tag {
+  background: var(--app-sage);
+  color: var(--app-sage-ink);
+}
+.appearance-check {
+  margin-left: auto;
+  color: var(--warm-green);
+  font-weight: 800;
+}
+.appearance-option > small {
+  display: block;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.appearance-mode {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  border-top: 1px dashed var(--line);
+  padding-top: 18px;
+  font-size: 13px;
+}
+.appearance-mode > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+.appearance-mode > div:first-child small {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.appearance-mode > div:last-child {
+  display: flex;
+  gap: 4px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 4px;
+}
+.appearance-mode button {
+  border: 0;
+  border-radius: 999px;
+  padding: 7px 15px;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.appearance-mode button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--warm-green);
+  box-shadow: 0 2px 6px rgba(36, 51, 33, .1);
+}
+
+@media (max-width: 1040px) {
+  .appearance-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .warm-profile > .appearance-settings { padding: 20px; }
+  .appearance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; margin: 18px 0; }
+  .appearance-option:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .appearance-preview { height: 92px; }
+  .appearance-name { font-size: 13px; flex-wrap: wrap; }
+  .appearance-mode { align-items: flex-start; }
+  .appearance-mode > div:last-child { width: 100%; }
+  .appearance-mode button { flex: 1; }
+}

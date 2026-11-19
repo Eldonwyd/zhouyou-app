@@ -6,6 +6,18 @@
     <meta name="theme-color" content="#102c3b" />
     <meta name="description" content="在地图上记录去过和计划前往的中国城市，整理旅程与花费。" />
     <title>旅行足迹</title>
+    <script>
+      // 首帧前应用已保存的主题，避免深色模式下先闪白。
+      try { var t = localStorage.getItem('travel-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+      // 风格同样在首帧前恢复，未设置时默认使用糖果贴纸风，旧版 peach 平滑迁移。
+      try {
+        var a = localStorage.getItem('travel-appearance');
+        if (a === 'peach') a = 'candy';
+        document.documentElement.dataset.appearance = ['candy', 'white', 'journal', 'coast', 'warm'].includes(a) ? a : 'candy';
+      } catch (e) {
+        document.documentElement.dataset.appearance = 'candy';
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

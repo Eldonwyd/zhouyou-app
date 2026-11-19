@@ -9,6 +9,9 @@ import type { JourneyLinkResult } from '../db';
 import { cityFromGps, loadNationalMap, loadProvinceMap } from '../map-data';
 import { createLocalId, describeStorageError, localDay, periodFromDate } from '../utils';
 import TravelCityBrowser from './TravelCityBrowser';
+import JournalWelcome from './JournalWelcome';
+import CityGuideLinks from './CityGuideLinks';
+import { CuteSticker, IllustratedJourneyCover, JournalEmptyArt } from './CuteArt';
 
 interface DetailViewProps {
   city: CityMark | null;
@@ -18,6 +21,7 @@ interface DetailViewProps {
   entries: DayEntry[];
   media: TravelMedia[];
   targetEntryId: string | null;
+  targetPlaceId?: string | null;
   onSaveTrip: (trip: Journey) => Promise<JourneyLinkResult>;
   onSavePlace: (place: JourneyPlace) => Promise<void>;
   onSaveEntry: (entry: DayEntry) => Promise<void>;
@@ -66,14 +70,40 @@ function MemoryThumbnail({ item, onOpen }: { item: TravelMedia; onOpen: () => vo
   </button>;
 }
 
-function JourneyCover({ media }: { media: TravelMedia | undefined }) {
+function JourneyCover({ media, seed = 'trip', label }: { media: TravelMedia | undefined; seed?: string; label?: string }) {
   const url = useMediaUrl(media?.kind === 'photo' ? media.id : null, 'photo', true);
-  return <div className="journey-cover">{url ? <img src={url} alt="旅行封面" /> : <span>✦</span>}</div>;
+  return <div className="journey-cover">{url ? <img src={url} alt="旅行封面" /> : <IllustratedJourneyCover seed={seed} label={label} />}</div>;
 }
 
-function AudioReview({ mediaId }: { mediaId: string | null }) {
-  const url = useMediaUrl(mediaId, 'audio', false);
-  return mediaId ? <div className="audio-review">{url ? <audio src={url} controls preload="none" /> : '正在读取语音…'}</div> : null;
+function AudioReview({ item, onDelete }: { item: TravelMedia; onDelete: (id: string) => void }) {
+  const url = useMediaUrl(item.id, 'audio', false);
+  const [failed, setFailed] = useState(false);
+  return <div className="audio-review-card">
+    <div className="audio-review-head">
+      <small>{new Date(item.capturedAt).toLocaleString('zh-CN')}</small>
+      <div className="audio-review-actions">
+        {url && <a className="audio-action-btn" href={url} download={item.fileName || `录音-${item.id}.webm`}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>
+          下载
+        </a>}
+        <button type="button" className="audio-action-btn danger" onClick={() => { if (window.confirm('删除这段语音评语？')) onDelete(item.id); }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18m-2 0v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m-6 5v6m4-6v6" /></svg>
+          删除
+        </button>
+      </div>
+    </div>
+    <div className="audio-review">
+      {url ? <audio src={url} controls preload="auto" onError={() => setFailed(true)} />
+        : <span className="muted">语音读取中；若长时间未显示，原始文件可能已丢失。</span>}
+      {failed && <p role="alert">这段录音无法播放，请下载检查或重新录制。</p>}
+    </div>
+  </div>;
+}
+
+/** 首次追加时将旧版文字作为第一条保留，不覆盖历史回忆。 */
+function placeReviewNotes(place: JourneyPlace) {
+  return place.reviewNotes ?? (place.reviewText.trim()
+    ? [{ id: `legacy-${place.id}`, text: place.reviewText, createdAt: place.createdAt }] : []);
 }
 
 function parseExifDate(value: unknown): Date | null {
@@ -178,29 +208,45 @@ function JourneyEditor({ initial, initialCity, onSave, onCancel, onError, locked
 
 /** This page keeps a trip's cities and places together, like pages in a diary. */
 export default function DetailView(props: DetailViewProps) {
-  const { city, marks, trips, places, entries, media, targetEntryId, onSaveTrip, onSavePlace,
+  const { city, marks, trips, places, entries, media, targetEntryId, targetPlaceId, onSaveTrip, onSavePlace,
     onSaveEntry, onSaveMedia, onSaveMediaGroup, onUpdateMedia, onDeleteMedia,
     onUpdateMark, onSaveCityMark, onError, onNotice } = props;
   const [showAll, setShowAll] = useState(false);
+  const [recordQuery, setRecordQuery] = useState('');
+  const [recordYear, setRecordYear] = useState('all');
+  const [cityProvinceFilter, setCityProvinceFilter] = useState('all');
   const [browseCity, setBrowseCity] = useState<JourneyCity | null>(null);
-  const [cityBrowserOpen, setCityBrowserOpen] = useState(!city);
-  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  // 进入旅行手账时默认收起城市选择，只有用户点击入口才展开。
+  const [cityBrowserOpen, setCityBrowserOpen] = useState(false);
+  // 从计划进入时直接打开关联旅行里的地点，普通手账入口仍停留在旅行列表。
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(() => places.find((place) => place.id === targetPlaceId)?.tripId ?? null);
   const [editingTrip, setEditingTrip] = useState<Journey | 'new' | null>(null);
-  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(targetPlaceId ?? null);
   const [uploadCityCode, setUploadCityCode] = useState('');
   const [uploadPlaceId, setUploadPlaceId] = useState('');
   const [newPlaceName, setNewPlaceName] = useState('');
   const [placeVisitDate, setPlaceVisitDate] = useState(localDay(new Date()));
   const [reviewDraft, setReviewDraft] = useState('');
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [savingReview, setSavingReview] = useState(false);
+  const [audioBusy, setAudioBusy] = useState(false);
+  const recordingBusyRef = useRef(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null);
   const [uploadProgress, setUploadProgress] = useState('');
   const [uploadFailures, setUploadFailures] = useState<string[]>([]);
+  const [uploadFeedbackPlaceId, setUploadFeedbackPlaceId] = useState<string | null>(null);
   const [recordingPlaceId, setRecordingPlaceId] = useState<string | null>(null);
+  const [recordingLevel, setRecordingLevel] = useState(0);
+  const [recordingMicLabel, setRecordingMicLabel] = useState('');
   const [provinceNames, setProvinceNames] = useState<Map<string, string>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const memoryFileInputRef = useRef<HTMLInputElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const meterTimerRef = useRef<number | null>(null);
+  const recordingPeakRef = useRef(0);
   const touchStartRef = useRef<number | null>(null);
 
   // A map click opens that city's records. The catalogue can override the
@@ -213,9 +259,11 @@ export default function DetailView(props: DetailViewProps) {
       id: scopeCity.code, name: scopeCity.name, provinceCode: scopeCity.provinceCode,
       visited: false, planned: false, updatedAt: new Date(0).toISOString(),
     } : null;
-  const visibleTrips = useMemo(() => trips.filter((trip) => !scopeCityCode
+  const visibleTrips = useMemo(() => trips.filter((trip) => (!scopeCityCode
     || trip.cities.some((item) => item.code === scopeCityCode))
-    .sort((a, b) => b.startDate.localeCompare(a.startDate)), [trips, scopeCityCode]);
+    && (recordYear === 'all' || trip.startDate.startsWith(recordYear))
+    && `${trip.title} ${trip.cities.map((item) => item.name).join(' ')}`.includes(recordQuery.trim()))
+    .sort((a, b) => b.startDate.localeCompare(a.startDate)), [trips, scopeCityCode, recordQuery, recordYear]);
   // A city is saved even before it belongs to a journey. Merge marks, journey
   // cities and standalone places by adcode so the overview cannot hide them.
   const savedCities = useMemo(() => {
@@ -259,6 +307,11 @@ export default function DetailView(props: DetailViewProps) {
   const tripPlaces = selectedTrip ? places.filter((place) => place.tripId === selectedTrip.id)
     : scopeCityCode ? places.filter((place) => place.tripId === null && place.cityCode === scopeCityCode) : [];
   const uploadPlaces = tripPlaces.filter((place) => place.cityCode === uploadCityCode);
+  const uploadCityName = selectedTrip?.cities.find((item) => item.code === uploadCityCode)?.name
+    ?? (scopeCity?.code === uploadCityCode ? scopeCity.name : null)
+    ?? marks.find((mark) => mark.id === uploadCityCode)?.name
+    ?? '这座城市';
+  const selectedUploadPlace = uploadPlaceId ? uploadPlaces.find((place) => place.id === uploadPlaceId) ?? null : null;
   const placeMedia = useMemo(() => media.filter((item) => item.placeId === selectedPlaceId && item.kind !== 'audio')
     .sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)), [media, selectedPlaceId]);
   const visibleMediaGroups = useMemo(() => {
@@ -298,7 +351,8 @@ export default function DetailView(props: DetailViewProps) {
     if (entry) { setSelectedTripId(entry.tripId); setSelectedPlaceId(entry.placeId); }
   }, [targetEntryId, entries]);
   useEffect(() => {
-    if (selectedPlace) setReviewDraft(selectedPlace.reviewText);
+    setReviewDraft('');
+    setEditingReviewId(null);
     setVisibleCount(PAGE_SIZE);
     setSelectedMediaIndex(null);
   }, [selectedPlaceId]);
@@ -312,11 +366,13 @@ export default function DetailView(props: DetailViewProps) {
     }
   }, [selectedTripId, scopeCityCode]);
   useEffect(() => () => {
-    recorderRef.current?.stop();
-    streamRef.current?.getTracks().forEach((track) => track.stop());
+    // 等待 stop 的最终数据事件后再释放麦克风，保留完整尾帧。
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+    if (meterTimerRef.current !== null) { window.clearInterval(meterTimerRef.current); meterTimerRef.current = null; }
+    if (audioCtxRef.current) { void audioCtxRef.current.close().catch(() => undefined); audioCtxRef.current = null; }
   }, []);
   useEffect(() => {
-    if (recordingPlaceId && recordingPlaceId !== selectedPlaceId) recorderRef.current?.stop();
+    if (recordingPlaceId && recordingPlaceId !== selectedPlaceId && recorderRef.current?.state === 'recording') recorderRef.current.stop();
   }, [recordingPlaceId, selectedPlaceId]);
   useEffect(() => {
     if (selectedMediaIndex === null) return;
@@ -367,13 +423,49 @@ export default function DetailView(props: DetailViewProps) {
     catch { /* App reports the persistence error. */ }
   }
 
-  async function uploadFiles(files: FileList | null): Promise<void> {
-    if (!files?.length || !uploadCityCode || !uploadPlaceId) return;
+  async function ensureWholeCityPlace(): Promise<JourneyPlace | null> {
+    if (!uploadCityCode) { onError('请先选择城市'); return null; }
     const activeTripId = selectedTrip?.id ?? null;
-    const selectedPlaceForUpload = places.find((place) => place.id === uploadPlaceId);
+    const existing = places.find((place) =>
+      place.tripId === activeTripId && place.cityCode === uploadCityCode && place.name === uploadCityName);
+    if (existing) return existing;
+    const visitDate = placeVisitDate || localDay(new Date());
+    const place: JourneyPlace = {
+      id: createLocalId(),
+      tripId: activeTripId,
+      cityCode: uploadCityCode,
+      name: uploadCityName,
+      reviewText: '',
+      reviewAudioId: null,
+      createdAt: selectedTrip ? new Date().toISOString() : new Date(`${visitDate}T12:00:00`).toISOString(),
+    };
+    try {
+      await onSavePlace(place);
+      if (!selectedTrip && scopeCityMark && !scopeCityMark.visited) {
+        await onSaveCityMark({ ...scopeCityMark, visited: true, planned: false, updatedAt: new Date().toISOString() });
+      }
+      return place;
+    } catch {
+      return null;
+    }
+  }
+
+  async function openCurrentMemoryBook(): Promise<void> {
+    const target = selectedUploadPlace ?? await ensureWholeCityPlace();
+    if (target) setSelectedPlaceId(target.id);
+  }
+
+  async function uploadFiles(files: FileList | null, memoryPlace?: JourneyPlace): Promise<void> {
+    if (!files?.length || (!memoryPlace && !uploadCityCode)) return;
+    // 地点页直接使用本条地点的城市和旅行，避免上传区之前所选的其他城市影响归档。
+    const selectedPlaceForUpload = memoryPlace ?? (uploadPlaceId ? selectedUploadPlace : await ensureWholeCityPlace());
     if (!selectedPlaceForUpload) { onError('请先选择已保存的地点'); return; }
+    const { cityCode: targetCityCode, tripId: activeTripId } = selectedPlaceForUpload;
+    const targetTrip = trips.find((trip) => trip.id === activeTripId);
+    const targetPlaceId = selectedPlaceForUpload.id;
     const candidates: Array<{ file: File; date: Date; latitude: number | null; longitude: number | null }> = [];
     const failures: string[] = [];
+    setUploadFeedbackPlaceId(targetPlaceId);
     setUploadFailures([]);
     setUploadProgress('正在读取拍摄时间…');
     try {
@@ -389,14 +481,14 @@ export default function DetailView(props: DetailViewProps) {
         if (candidate.latitude === null || candidate.longitude === null) continue;
         try {
           const matched = await cityFromGps(candidate.latitude, candidate.longitude);
-          if (matched && String(matched.properties.adcode) !== uploadCityCode) gpsMismatches.push(candidate.file.name);
+          if (matched && String(matched.properties.adcode) !== targetCityCode) gpsMismatches.push(candidate.file.name);
         } catch { /* Offline geometry may be unavailable; manual city still works. */ }
       }
       if (gpsMismatches.length && !window.confirm(`${gpsMismatches.length} 个文件的 GPS 城市与所选城市不同。仍按所选城市导入吗？`)) {
         setUploadFailures(gpsMismatches.map((name) => `${name}：请重新选择城市后上传`));
         return;
       }
-      const outside = selectedTrip ? candidates.filter(({ date }) => localDay(date) < selectedTrip.startDate || localDay(date) > selectedTrip.endDate) : [];
+      const outside = targetTrip ? candidates.filter(({ date }) => localDay(date) < targetTrip.startDate || localDay(date) > targetTrip.endDate) : [];
       const includeOutside = !outside.length || window.confirm(`${outside.length} 个文件的拍摄或文件日期不在旅行日期内。确定：仍导入；取消：跳过这些文件。`);
       const accepted = includeOutside ? candidates : candidates.filter((item) => !outside.includes(item));
       if (!includeOutside) failures.push(...outside.map(({ file }) => `${file.name}：日期不在旅行范围，已跳过`));
@@ -409,17 +501,17 @@ export default function DetailView(props: DetailViewProps) {
           const day = localDay(date);
           const period = periodFromDate(date);
           let entry = workingEntries.find((row) => row.tripId === activeTripId
-            && row.placeId === uploadPlaceId && row.date === day && row.period === period);
+            && row.placeId === targetPlaceId && row.date === day && row.period === period);
           if (!entry) {
-            entry = { id: createLocalId(), tripId: activeTripId, placeId: uploadPlaceId,
-              cityCode: uploadCityCode, date: day, period, note: '', place: selectedPlaceForUpload.name,
+            entry = { id: createLocalId(), tripId: activeTripId, placeId: targetPlaceId,
+              cityCode: targetCityCode, date: day, period, note: '', place: selectedPlaceForUpload.name,
               order: Date.now() + workingEntries.length, highlight: false };
             workingEntries.push(entry);
             newEntries.push(entry);
           }
           const kind = file.type.startsWith('video/') || /\.(mov|mp4|m4v|webm)$/i.test(file.name) ? 'video' : 'photo';
-          const mediaItem: TravelMedia = { id: createLocalId(), cityCode: uploadCityCode,
-            tripId: activeTripId, placeId: uploadPlaceId, entryId: entry.id,
+          const mediaItem: TravelMedia = { id: createLocalId(), cityCode: targetCityCode,
+            tripId: activeTripId, placeId: targetPlaceId, entryId: entry.id,
             kind, fileName: file.name, mimeType: file.type || (kind === 'video' ? 'video/mp4' : 'image/jpeg'),
             capturedAt: date.toISOString(), placeName: selectedPlaceForUpload.name,
             latitude, longitude };
@@ -441,38 +533,143 @@ export default function DetailView(props: DetailViewProps) {
       if (!completed && failures.length) onError(`${failures.length} 个文件未导入，请查看下方原因`);
     } finally {
       setUploadProgress('');
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      const input = memoryPlace ? memoryFileInputRef.current : fileInputRef.current;
+      if (input) input.value = '';
     }
   }
 
-  async function toggleRecording(place: JourneyPlace): Promise<void> {
-    if (recordingPlaceId === place.id) { recorderRef.current?.stop(); return; }
-    if (recordingPlaceId) return;
-    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { onError('录音需要支持麦克风的 HTTPS 或 localhost 浏览器'); return; }
+  /** 默认追加，明确点击编辑才修改原条目；保留旧版单条记录。 */
+  async function saveReview(place: JourneyPlace): Promise<void> {
+    const text = reviewDraft.trim();
+    if (!text || savingReview) return;
+    setSavingReview(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const notes = placeReviewNotes(place);
+      const reviewNotes = editingReviewId
+        ? notes.map((note) => note.id === editingReviewId ? { ...note, text } : note)
+        : [...notes, { id: createLocalId(), text, createdAt: new Date().toISOString() }];
+      await onSavePlace({ ...place, reviewNotes, reviewText: reviewNotes.map((note) => note.text).join('\n\n') });
+      setReviewDraft('');
+      setEditingReviewId(null);
+      onNotice('地点评语已保存。');
+    } catch { onError('文字保存失败，输入内容已保留，请重试'); }
+    finally { setSavingReview(false); }
+  }
+
+  async function deleteReview(place: JourneyPlace, noteId: string): Promise<void> {
+    if (savingReview) return;
+    if (!window.confirm('删除这条文字回忆？')) return;
+    setSavingReview(true);
+    try {
+      const reviewNotes = placeReviewNotes(place).filter((note) => note.id !== noteId);
+      await onSavePlace({ ...place, reviewNotes, reviewText: reviewNotes.map((note) => note.text).join('\n\n') });
+      if (editingReviewId === noteId) {
+        setEditingReviewId(null);
+        setReviewDraft('');
+      }
+      onNotice('文字回忆已删除。');
+    } catch { onError('删除失败，请重试'); }
+    finally { setSavingReview(false); }
+  }
+
+  function cleanupAudioMeter(): void {
+    if (meterTimerRef.current !== null) { window.clearInterval(meterTimerRef.current); meterTimerRef.current = null; }
+    if (audioCtxRef.current) { void audioCtxRef.current.close().catch(() => undefined); audioCtxRef.current = null; }
+    setRecordingLevel(0);
+    setRecordingMicLabel('');
+  }
+
+  /** 每段录音等待最后一个数据事件落盘后才允许开始下一段。 */
+  async function toggleRecording(place: JourneyPlace): Promise<void> {
+    if (recordingPlaceId === place.id) {
+      if (recorderRef.current?.state === 'recording') { setAudioBusy(true); recorderRef.current.stop(); }
+      return;
+    }
+    if (recordingBusyRef.current) return;
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { onError('录音需要支持麦克风的 HTTPS 或 localhost 浏览器'); return; }
+    recordingBusyRef.current = true;
+    setAudioBusy(true);
+    let stream: MediaStream | null = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      const trackLabel = stream.getAudioTracks()[0]?.label || '默认麦克风';
+      setRecordingMicLabel(trackLabel);
+      recordingPeakRef.current = 0;
+      try {
+        const AudioContextCtor = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (AudioContextCtor) {
+          const ctx = new AudioContextCtor();
+          const source = ctx.createMediaStreamSource(stream);
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 512;
+          source.connect(analyser);
+          const samples = new Uint8Array(analyser.fftSize);
+          audioCtxRef.current = ctx;
+          meterTimerRef.current = window.setInterval(() => {
+            analyser.getByteTimeDomainData(samples);
+            let peak = 0;
+            for (let i = 0; i < samples.length; i += 1) {
+              const amp = Math.abs(samples[i] - 128) / 128;
+              if (amp > peak) peak = amp;
+            }
+            if (peak > recordingPeakRef.current) recordingPeakRef.current = peak;
+            setRecordingLevel(Math.min(100, Math.round(peak * 220)));
+          }, 80);
+        }
+      } catch { /* Volume meter is advisory; recording still proceeds. */ }
+      // 使用浏览器支持的真实编码，Safari 可以回退到 MP4。
+      const mimeType = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus'].find((type) => MediaRecorder.isTypeSupported(type));
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       streamRef.current = stream;
       recorderRef.current = recorder;
-      const chunks: BlobPart[] = [];
+      const chunks: Blob[] = [];
+      let failed = false;
+      recorder.onerror = () => { failed = true; onError('录音中断，请检查麦克风后重新录制'); };
       recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
-        const id = createLocalId();
-        const item: TravelMedia = { id, cityCode: place.cityCode, tripId: place.tripId,
-          placeId: place.id, entryId: null, kind: 'audio', fileName: `地点语音-${place.name}.webm`,
-          mimeType: blob.type, capturedAt: new Date().toISOString(), placeName: place.name,
-          latitude: null, longitude: null };
-        void onSaveMedia(item, blob).then(() => onSavePlace({ ...place, reviewAudioId: id }))
-          .then(() => onNotice('地点语音已保存。')).catch(() => onError('语音保存失败'));
-        stream.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-        recorderRef.current = null;
-        setRecordingPlaceId(null);
+      recorder.onstop = async () => {
+        setAudioBusy(true);
+        const peak = recordingPeakRef.current;
+        cleanupAudioMeter();
+        try {
+          // stop 后 mimeType 可能被浏览器清空，优先采用实际数据块的类型。
+          const blob = new Blob(chunks, { type: chunks[0]?.type || recorder.mimeType || mimeType });
+          if (failed || !blob.size) throw new Error('没有录到有效声音，请重新录制');
+          const extension = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('ogg') ? 'ogg' : 'webm';
+          const id = createLocalId();
+          const item: TravelMedia = { id, cityCode: place.cityCode, tripId: place.tripId,
+            placeId: place.id, entryId: null, kind: 'audio', fileName: `地点语音-${place.name}-${Date.now()}.${extension}`,
+            mimeType: blob.type, capturedAt: new Date().toISOString(), placeName: place.name,
+            latitude: null, longitude: null };
+          // 通过 placeId 关联全部语音，不再写回旧地点快照覆盖录音期间保存的文字。
+          await onSaveMedia(item, blob);
+          onNotice(peak < 0.005
+            ? '录音已保存，但未检测到明显人声输入；请检查系统麦克风，或用系统 Chrome / Edge 打开本页试听。'
+            : '地点语音已保存，可继续录制下一段。');
+        } catch (error) { onError(error instanceof Error ? error.message : '语音保存失败'); }
+        finally {
+          stream?.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+          recorderRef.current = null;
+          setRecordingPlaceId(null);
+          recordingBusyRef.current = false;
+          setAudioBusy(false);
+        }
       };
       setRecordingPlaceId(place.id);
-      recorder.start();
-    } catch (error) { onError(error instanceof Error ? error.message : '无法使用麦克风'); }
+      recorder.start(250);
+      setAudioBusy(false);
+    } catch (error) {
+      cleanupAudioMeter();
+      stream?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      recorderRef.current = null;
+      recordingBusyRef.current = false;
+      setRecordingPlaceId(null);
+      setAudioBusy(false);
+      onError(error instanceof Error ? error.message : '无法使用麦克风');
+    }
   }
 
   async function changeMediaDate(item: TravelMedia, date: string): Promise<void> {
@@ -488,39 +685,163 @@ export default function DetailView(props: DetailViewProps) {
     {cityBrowserOpen && !selectedTrip && !editingTrip && <TravelCityBrowser trips={trips} places={places} marks={marks} selectedCityCode={scopeCityCode} onSelectCity={(pickedCity) => { setBrowseCity(pickedCity); setShowAll(false); setSelectedTripId(null); }} onShowAll={() => { setShowAll(true); setBrowseCity(null); setCityBrowserOpen(false); setSelectedTripId(null); }} onError={onError} />}
     {city && !browseCity && !showAll && !selectedTrip && <div className="card status-card"><div><strong>{city.name}的城市状态</strong><p>{trips.some((trip) => trip.cities.some((item) => item.code === city.id && trip.status !== 'planned')) ? '这座城市已包含在去过的旅行中，地图会保持点亮。' : '确认去过的城市会点亮地图，也可以在这里取消手动标记。'}</p></div><label className="checkbox"><input type="checkbox" checked={city.visited} disabled={trips.some((trip) => trip.status !== 'planned' && trip.cities.some((item) => item.code === city.id))} onChange={(event) => void onUpdateMark(event.target.checked)} />已去过</label></div>}
     {editingTrip && <JourneyEditor key={editingTrip === 'new' ? 'new' : editingTrip.id} initial={editingTrip === 'new' ? null : editingTrip} initialCity={scopeCityMark} lockedCityCodes={editingTrip === 'new' ? [] : places.filter((place) => place.tripId === editingTrip.id).map((place) => place.cityCode)} onSave={saveTrip} onCancel={() => setEditingTrip(null)} onError={onError} />}
+    {!selectedTrip && !editingTrip && !scopeCity && <>
+      <JournalWelcome trips={trips} places={places} media={media} marks={marks} onStart={() => setCityBrowserOpen(true)} onNewTrip={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }} onOpen={(tripId, place) => {
+        setSelectedTripId(tripId);
+        if (place && !tripId) {
+          const mark = marks.find((item) => item.id === place.cityCode);
+          setBrowseCity({ code: place.cityCode, name: mark?.name ?? place.cityCode, provinceCode: mark?.provinceCode ?? `${place.cityCode.slice(0, 2)}0000` });
+          setShowAll(false);
+        }
+        setSelectedPlaceId(place?.id ?? null);
+      }} />
+      <div className="warm-record-filter">
+        <div className="record-filter-title">
+          <span className="record-filter-badge cute-deco" aria-hidden="true">✦</span>
+          <h2>我的旅行小册</h2>
+        </div>
+        <div className="record-filter-controls">
+          <label className="record-search-box">
+            <span className="record-search-label">找一段回忆</span>
+            <input aria-label="搜索旅行" value={recordQuery} onChange={(event) => setRecordQuery(event.target.value)} placeholder="搜索旅行名称或城市…" />
+          </label>
+          <select aria-label="旅行年份" value={recordYear} onChange={(event) => setRecordYear(event.target.value)}>
+            <option value="all">全部年份</option>
+            {[...new Set(trips.map((trip) => trip.startDate.slice(0, 4)))].sort().reverse().map((year) => <option key={year}>{year}</option>)}
+          </select>
+        </div>
+      </div>
+    </>}
     {(selectedTrip || scopeCity) && !editingTrip && <>
-      {selectedTrip ? <div className="journal-trip-hero"><button className="text-button" onClick={() => { setSelectedTripId(null); setSelectedPlaceId(null); }}>← 返回城市记录与旅行列表</button><span className="eyebrow">{selectedTrip.startDate} — {selectedTrip.endDate}</span><h2>{selectedTrip.title}</h2><p>{selectedTrip.cities.map((item) => item.name).join(' · ')}</p>{selectedTrip.companions.length > 0 && <small>与 {selectedTrip.companions.join('、')} 同行</small>}<button className="secondary" onClick={() => setEditingTrip(selectedTrip)}>编辑旅行</button></div>
-        : <div className="city-record-hero"><span className="eyebrow">CITY MEMORIES</span><h2>{scopeCity?.name}的城市记录</h2><p>先记录地点、照片和评语。创建包含这座城市的旅行后，日期匹配的记录会自动归入。</p></div>}
+      {selectedTrip ? <div className="journal-trip-hero"><span className="washi-tape tape-top-right" aria-hidden="true" /><CuteSticker kind="plane" className="trip-hero-plane" /><button className="text-button" onClick={() => { setSelectedTripId(null); setSelectedPlaceId(null); }}>← 返回城市记录与旅行列表</button><span className="eyebrow">{selectedTrip.startDate} — {selectedTrip.endDate}</span><h2>{selectedTrip.title}</h2><p>{selectedTrip.cities.map((item) => item.name).join(' · ')}</p>{selectedTrip.companions.length > 0 && <small>与 {selectedTrip.companions.join('、')} 同行</small>}<button className="secondary" onClick={() => setEditingTrip(selectedTrip)}>编辑旅行</button></div>
+        : scopeCity && <div className="city-record-hero">
+          <span className="washi-tape tape-top-right" aria-hidden="true" />
+          <CuteSticker kind="stamp" className="trip-hero-plane" />
+          <span className="eyebrow">CITY MEMORIES</span>
+          <h2>{scopeCity.name}的城市记录</h2>
+          <p>先记录地点、照片和评语。创建包含这座城市的旅行后，日期匹配的记录会自动归入。</p>
+          <CityGuideLinks cities={[scopeCity.name]} />
+        </div>}
       <section className={`card upload-station ${selectedTrip ? '' : 'city-upload-station'}`}>
-        <div className="card-heading"><h2>把照片放进一个地点</h2><span>每批上传前先选地点</span></div>
+        <div className="card-heading"><h2>记录城市或地点</h2><span>不选地点会直接记到整个市</span></div>
         <div className="entry-form">
           <label>城市{selectedTrip ? <select value={uploadCityCode} onChange={(event) => { setUploadCityCode(event.target.value); setUploadPlaceId(''); }}>{selectedTrip.cities.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</select>
             : <input value={scopeCity?.name ?? ''} readOnly />}</label>
-          <label>已有地点<select value={uploadPlaceId} onChange={(event) => setUploadPlaceId(event.target.value)}><option value="">请选择地点</option>{uploadPlaces.map((place) => <option key={place.id} value={place.id}>{place.name}</option>)}</select></label>
+          <label>已有地点（可选）<select value={uploadPlaceId} onChange={(event) => setUploadPlaceId(event.target.value)}><option value="">整个{uploadCityName}（不选具体地点）</option>{uploadPlaces.map((place) => <option key={place.id} value={place.id}>{place.name}</option>)}</select></label>
           <label>或新建地点<input value={newPlaceName} onChange={(event) => setNewPlaceName(event.target.value)} placeholder="例如：黄果树瀑布" /></label>
           {!selectedTrip && <label>地点记录日期<input type="date" value={placeVisitDate} onChange={(event) => setPlaceVisitDate(event.target.value)} /></label>}
           <button className="secondary" onClick={() => void createPlace()} disabled={!newPlaceName.trim()}>创建地点</button>
         </div>
-        <button className="primary" disabled={!uploadPlaceId || Boolean(uploadProgress)} onClick={() => fileInputRef.current?.click()}>{uploadProgress || '上传照片 / 视频到所选地点'}</button>
+        <div className="heading-actions">
+          <button className="primary" disabled={!uploadCityCode || Boolean(uploadProgress)} onClick={() => fileInputRef.current?.click()}>{uploadProgress || (selectedUploadPlace ? `上传照片 / 视频到「${selectedUploadPlace.name}」` : `上传照片 / 视频到整个${uploadCityName}`)}</button>
+          <button className="secondary" disabled={!uploadCityCode || Boolean(uploadProgress)} onClick={() => void openCurrentMemoryBook()}>{selectedUploadPlace ? `写下「${selectedUploadPlace.name}」的文字 / 语音` : `写下整个${uploadCityName}的文字 / 语音`}</button>
+        </div>
         <input ref={fileInputRef} type="file" multiple accept="image/*,video/*,.heic,.heif,.mov" hidden onChange={(event) => void uploadFiles(event.target.files)} />
-        <p className="muted">拍摄时间用于排序；没有 EXIF 时使用文件时间。{selectedTrip ? '日期超出旅程范围会先提示。' : '无需先新建旅行。'}</p>
+        <p className="muted">不填具体地点也可直接上传照片或写下随记，会自动按城市整理。{selectedTrip ? '日期超出旅程范围会先提示。' : '无需先新建旅行。'}</p>
         {uploadFailures.length > 0 && <div className="upload-failures" role="alert"><strong>{uploadFailures.length} 个文件未导入</strong><ul>{uploadFailures.map((reason, index) => <li key={`${reason}-${index}`}>{reason}</li>)}</ul></div>}
       </section>
       <div className="journal-places">{(selectedTrip?.cities ?? (scopeCity ? [scopeCity] : [])).map((tripCity) => <section key={tripCity.code}><h3>{tripCity.name} · 地点记忆</h3><div className="place-card-grid">{tripPlaces.filter((place) => place.cityCode === tripCity.code).map((place) => {
         const placeItems = media.filter((item) => item.placeId === place.id && item.kind !== 'audio');
         const cover = placeItems.find((item) => item.kind === 'photo');
-        return <button className="place-card" key={place.id} onClick={() => setSelectedPlaceId(place.id)}><JourneyCover media={cover} /><div><span className="eyebrow">{placeItems.length} 张旅行片段</span><h4>{place.name}</h4><p>{place.reviewText || '翻开这一页，写下这里的回忆。'}</p></div></button>;
+        return <button className="place-card" key={place.id} onClick={() => setSelectedPlaceId(place.id)}><JourneyCover media={cover} seed={place.id} label={tripCity.name} /><div><span className="eyebrow">{placeItems.length} 张旅行片段</span><h4>{place.name}</h4><p>{place.reviewText || '翻开这一页，写下这里的回忆。'}</p></div></button>;
       })}</div></section>)}</div>
     </>}
-    {!selectedTrip && !editingTrip && !scopeCity && savedCities.length > 0 && <section className="saved-city-overview" aria-label="已保存的城市"><div className="card-heading"><h2>已保存的城市 · {savedCities.length}</h2><span>点选城市查看照片、地点与旅行</span></div>{savedCityGroups.map(([provinceCode, cities]) => <div className="saved-city-group" key={provinceCode}><h3>{provinceNames.get(provinceCode) ?? `${provinceCode} 地区`}</h3><div className="saved-city-grid">{cities.map((savedCity) => <button className="saved-city-card" key={savedCity.code} onClick={() => openSavedCity(savedCity)}><strong>{savedCity.name}</strong><span>{[savedCity.tripCount && `${savedCity.tripCount} 次旅行`, savedCity.placeCount && `${savedCity.placeCount} 个地点`, savedCity.visited && '已去过'].filter(Boolean).join(' · ') || '已保存'}</span><b aria-hidden="true">→</b></button>)}</div></div>)}</section>}
+    {!selectedTrip && !editingTrip && !scopeCity && savedCities.length > 0 && (
+      <section className="card saved-city-overview" aria-label="已保存的城市">
+        <div className="card-heading">
+          <div>
+            <h2>已保存的城市 · {savedCities.length}</h2>
+            <p className="muted">像收集城市邮票一样，点选任意城市即可翻看照片、地点与短记。</p>
+          </div>
+          {savedCityGroups.length > 1 && (
+            <div className="saved-city-province-tabs" role="tablist" aria-label="按省份筛选已保存城市">
+              <button type="button" className={cityProvinceFilter === 'all' ? 'active' : ''} onClick={() => setCityProvinceFilter('all')}>
+                全部 {savedCities.length}
+              </button>
+              {savedCityGroups.map(([provinceCode, cities]) => (
+                <button
+                  type="button"
+                  key={provinceCode}
+                  className={cityProvinceFilter === provinceCode ? 'active' : ''}
+                  onClick={() => setCityProvinceFilter(provinceCode)}
+                >
+                  {provinceNames.get(provinceCode) ?? provinceCode} · {cities.length}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="saved-city-grid">
+          {savedCities
+            .filter((savedCity) => cityProvinceFilter === 'all' || savedCity.provinceCode === cityProvinceFilter)
+            .map((savedCity) => (
+              <button className="saved-city-card" key={savedCity.code} onClick={() => openSavedCity(savedCity)}>
+                <div className="saved-city-top">
+                  <span className="saved-city-province-pill">{provinceNames.get(savedCity.provinceCode) ?? `${savedCity.provinceCode.slice(0, 2)}地区`}</span>
+                  <span className="saved-city-stamp cute-deco" aria-hidden="true">✦</span>
+                </div>
+                <strong className="saved-city-name">{savedCity.name}</strong>
+                <div className="saved-city-meta">
+                  {savedCity.tripCount > 0 && <span>🧳 {savedCity.tripCount} 次旅行</span>}
+                  {savedCity.placeCount > 0 && <span>📍 {savedCity.placeCount} 个地点</span>}
+                  {savedCity.visited && !savedCity.tripCount && !savedCity.placeCount && <span>✦ 已点亮</span>}
+                  {!savedCity.visited && !savedCity.tripCount && !savedCity.placeCount && <span>已保存</span>}
+                </div>
+                <b className="saved-city-arrow" aria-hidden="true">→</b>
+              </button>
+            ))}
+        </div>
+      </section>
+    )}
     {!selectedTrip && !editingTrip && !scopeCity && visibleTrips.length > 0 && <div className="card-heading saved-journey-heading"><h2>已保存的旅行 · {visibleTrips.length}</h2><span>一段旅行可包含多座城市</span></div>}
     {!selectedTrip && !editingTrip && (visibleTrips.length ? <div className="journey-list">{visibleTrips.map((trip) => {
       const cover = media.find((item) => item.tripId === trip.id && item.kind === 'photo');
-      return <button className="journey-card" key={trip.id} onClick={() => { setSelectedTripId(trip.id); setSelectedPlaceId(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><JourneyCover media={cover} /><div><span className="eyebrow">{trip.startDate} — {trip.endDate}</span><h2>{trip.title}</h2><p>{trip.cities.map((item) => item.name).join(' · ')}</p><small>{trip.companions.length ? `与 ${trip.companions.join('、')} 同行 · ` : ''}{places.filter((place) => place.tripId === trip.id).length} 个地点</small></div><strong>翻开手账 →</strong></button>;
-    })}</div> : !scopeCity && <div className="empty-state card"><h2>{savedCities.length ? '城市记录已保存' : '从一座城市开始'}</h2><p>{savedCities.length ? '上方城市可直接打开；需要按旅行管理花费时，再创建一次旅行。' : '按省份选择城市，可直接上传照片与写下记录；计划花费时再创建旅行。'}</p></div>)}
+      const tripMediaCount = media.filter((item) => item.tripId === trip.id && item.kind !== 'audio').length;
+      const tripPlaceCount = places.filter((place) => place.tripId === trip.id).length;
+      return <button className="journey-card" key={trip.id} onClick={() => { setSelectedTripId(trip.id); setSelectedPlaceId(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><span className="washi-tape tape-mini" aria-hidden="true" /><JourneyCover media={cover} seed={trip.id} label={trip.cities[0]?.name} /><div><span className="eyebrow">{trip.startDate} — {trip.endDate}</span><h2>{trip.title}</h2><div className="journey-city-pills">{trip.cities.slice(0, 4).map((item) => <span key={item.code}>{item.name}</span>)}{trip.cities.length > 4 && <span>+{trip.cities.length - 4}</span>}</div><small>{trip.companions.length ? `与 ${trip.companions.join('、')} 同行 · ` : ''}{tripPlaceCount} 个地点 · {tripMediaCount} 张片段</small></div><strong>翻开手账 →</strong></button>;
+    })}</div> : !scopeCity && <div className="empty-state card journal-empty-card"><CuteSticker kind="sparkle" className="empty-float-sparkle" /><JournalEmptyArt /><h2>{savedCities.length ? '城市足迹已收好，随时开启第一段旅行' : '把喜欢的风景，装进第一本旅行手账'}</h2><p>{savedCities.length ? '上方城市可直接打开贴照片、写心情；需要按旅程打包多城或记账时，再新建一次旅行。' : '挑一座去过的城市贴上照片与语音，或者新建一段多城旅程，慢慢攒成只属于自己的回忆小册。'}</p><div className="journal-empty-steps"><div className="empty-step-chip"><span>1</span><div><strong>挑一座城市</strong><small>按省份选城或点亮地图</small></div></div><div className="empty-step-chip"><span>2</span><div><strong>贴入照片与心情</strong><small>支持文字、语音与视频</small></div></div><div className="empty-step-chip"><span>3</span><div><strong>点亮成就与高光</strong><small>自动整理成年度纪念册</small></div></div></div>{!savedCities.length && <div className="empty-state-actions"><button className="secondary" onClick={() => setCityBrowserOpen(true)}>按省份选择城市</button><button className="primary" onClick={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }}>＋ 新建旅行</button></div>}</div>)}
     {selectedPlace && (selectedTrip || scopeCityCode) && <div className="memory-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedPlaceId(null); }}><section className="memory-book" role="dialog" aria-modal="true" aria-label={`${selectedPlace.name}的回忆`}>
       <div className="memory-header"><button className="text-button" onClick={() => setSelectedPlaceId(null)}>← 返回{selectedTrip ? '旅行' : '城市记录'}</button><span>{selectedTrip ? `${selectedTrip.startDate} — ${selectedTrip.endDate}` : '城市记忆'}</span><button aria-label="关闭地点回忆" onClick={() => setSelectedPlaceId(null)}>×</button></div><div className="memory-title"><span className="eyebrow">A PLACE TO REMEMBER</span><h2>{selectedPlace.name}</h2><p>{selectedTrip?.cities.find((item) => item.code === selectedPlace.cityCode)?.name ?? scopeCity?.name} · {placeMedia.length} 个片段</p></div>
-      <div className="memory-review"><label>写下关于这里的回忆<textarea value={reviewDraft} onChange={(event) => setReviewDraft(event.target.value)} placeholder="当时的天气、同行的人、最想记住的瞬间…" /></label><div className="heading-actions"><button className="secondary" onClick={() => void onSavePlace({ ...selectedPlace, reviewText: reviewDraft }).then(() => onNotice('地点评语已保存。')).catch(() => undefined)}>保存文字</button><button className="secondary" onClick={() => void toggleRecording(selectedPlace)}>{recordingPlaceId === selectedPlace.id ? '停止录音' : '录制语音评语'}</button></div>{media.filter((item) => item.placeId === selectedPlace.id && item.kind === 'audio').map((item) => <AudioReview key={item.id} mediaId={item.id} />)}</div>
+      <div className="memory-upload">
+        <button type="button" className="primary" disabled={Boolean(uploadProgress)} onClick={() => memoryFileInputRef.current?.click()}>
+          {uploadProgress && uploadFeedbackPlaceId === selectedPlace.id ? uploadProgress : '上传照片 / 视频到这里'}
+        </button>
+        <input ref={memoryFileInputRef} type="file" multiple accept="image/*,video/*,.heic,.heif,.mov" hidden
+          onChange={(event) => void uploadFiles(event.target.files, selectedPlace)} />
+        {uploadFeedbackPlaceId === selectedPlace.id && uploadFailures.length > 0 && (
+          <div className="upload-failures" role="alert"><ul>{uploadFailures.map((reason, index) => <li key={`${reason}-${index}`}>{reason}</li>)}</ul></div>
+        )}
+      </div>
+      <div className="memory-review">
+        <label>{editingReviewId ? '编辑这条回忆' : '写下关于这里的回忆'}<textarea value={reviewDraft} onChange={(event) => setReviewDraft(event.target.value)} placeholder="当时的天气、同行的人、最想记住的瞬间…" /></label>
+        <div className="heading-actions">
+          <button className="secondary" disabled={savingReview || !reviewDraft.trim()} onClick={() => void saveReview(selectedPlace)}>{savingReview ? '保存中…' : editingReviewId ? '保存修改' : '保存文字'}</button>
+          {editingReviewId && <button className="text-button" onClick={() => { setEditingReviewId(null); setReviewDraft(''); }}>取消编辑</button>}
+          <button className="secondary" disabled={audioBusy || Boolean(recordingPlaceId && recordingPlaceId !== selectedPlace.id)} onClick={() => void toggleRecording(selectedPlace)}>{audioBusy ? '正在处理录音…' : recordingPlaceId === selectedPlace.id ? '停止录音' : '录制语音评语'}</button>
+        </div>
+        {recordingPlaceId === selectedPlace.id && <div className="recording-meter" role="status">
+          <span className="recording-dot" aria-hidden="true" />
+          <span className="recording-mic">正在收音 · {recordingMicLabel}</span>
+          <span className="recording-level-track" aria-hidden="true"><span style={{ width: `${Math.max(4, recordingLevel)}%` }} /></span>
+        </div>}
+        <div className="saved-reviews" aria-label="已保存的文字回忆">{placeReviewNotes(selectedPlace).map((note) => <article className="saved-review" key={note.id}>
+          <div className="saved-review-head">
+            <small>{new Date(note.createdAt).toLocaleString('zh-CN')}</small>
+            <div className="audio-review-actions">
+              <button type="button" className="audio-action-btn" disabled={savingReview} onClick={() => { setEditingReviewId(note.id); setReviewDraft(note.text); }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4Z" /></svg>
+                编辑
+              </button>
+              <button type="button" className="audio-action-btn danger" disabled={savingReview} onClick={() => void deleteReview(selectedPlace, note.id)}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18m-2 0v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m-6 5v6m4-6v6" /></svg>
+                删除
+              </button>
+            </div>
+          </div>
+          <p>{note.text}</p>
+        </article>)}</div>
+        <div className="audio-review-list">{media.filter((item) => item.placeId === selectedPlace.id && item.kind === 'audio').sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)).map((item) => <AudioReview key={item.id} item={item} onDelete={(id) => void onDeleteMedia(id)} />)}</div>
+      </div>
       {visibleMediaGroups.map(([period, items]) => <section className="memory-day" key={period}><h3>{period}</h3><div className="memory-photo-grid">{items.map(({ item, index }) => <MemoryThumbnail key={item.id} item={item} onOpen={() => setSelectedMediaIndex(index)} />)}</div></section>)}{visibleCount < placeMedia.length && <button className="secondary full" onClick={() => setVisibleCount(visibleCount + PAGE_SIZE)}>再看一些照片</button>}
       {entries.filter((entry) => entry.placeId === selectedPlace.id && entry.highlight).map((entry) => <p className="memory-highlight" key={entry.id}>✦ {entry.date} · 高光时刻</p>)}
       {placeMedia.length > 0 && <label className="memory-highlight-toggle"><input type="checkbox" checked={entries.some((entry) => entry.placeId === selectedPlace.id && entry.highlight)} onChange={(event) => {

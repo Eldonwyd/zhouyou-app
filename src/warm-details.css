@@ -1,0 +1,2677 @@
+/* 暖日细节与全站精修层：统一排印、材质阴影、微交互与五页布局节奏。
+ * 保持业务数据、菜单结构与无障碍语义不变。 */
+:root {
+  --ui-sans: 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei UI', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  --ui-serif: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', Georgia, serif;
+  --warm-serif: var(--ui-serif);
+
+  --app-peach: #f9e7dc;
+  --app-peach-ink: #a65f40;
+  --app-sage: #e9efdf;
+  --app-sage-ink: #5a7445;
+  --app-blue: #e7eef5;
+  --app-blue-ink: #4f748f;
+  --app-lilac: #eee8f4;
+  --app-lilac-ink: #846897;
+  --app-honey: #f8edd2;
+  --app-honey-ink: #9c7e3b;
+
+  --elev-card: 0 1px 2px rgba(48, 59, 51, .03), 0 10px 26px -12px rgba(48, 59, 51, .10);
+  --elev-hover: 0 2px 6px rgba(48, 59, 51, .05), 0 16px 34px -14px rgba(48, 59, 51, .16);
+  --elev-float: 0 6px 18px -4px rgba(48, 59, 51, .14), 0 1px 3px rgba(48, 59, 51, .06);
+
+  --map-emphasis: #d8e5cd;
+  --map-tooltip: #364a30;
+  --map-label-strong: #233122;
+
+  --cover-sky-top: #e7efe0;
+  --cover-sky-bot: #f5efe0;
+  --cover-sun: #ebc16f;
+  --cover-hill-far: #bfd0ae;
+  --cover-hill-mid: #92ab7c;
+  --cover-hill-near: #5c764c;
+}
+
+:root[data-theme="dark"] {
+  --app-peach: #46332a; --app-peach-ink: #e7b499;
+  --app-sage: #303d2a; --app-sage-ink: #b1c799;
+  --app-blue: #293c45; --app-blue-ink: #a4c3d8;
+  --app-lilac: #3b3144; --app-lilac-ink: #c9b1dc;
+  --app-honey: #433d29; --app-honey-ink: #dac58e;
+
+  --elev-card: 0 1px 2px rgba(0, 0, 0, .28), 0 12px 28px -12px rgba(0, 0, 0, .44);
+  --elev-hover: 0 4px 10px rgba(0, 0, 0, .35), 0 18px 36px -14px rgba(0, 0, 0, .56);
+  --elev-float: 0 8px 24px -4px rgba(0, 0, 0, .52);
+
+  --map-emphasis: #45593c;
+  --map-tooltip: #2b3828;
+  --map-label-strong: #f0f4ea;
+
+  --cover-sky-top: #1f2b22;
+  --cover-sky-bot: #2b382b;
+  --cover-sun: #cfa85f;
+  --cover-hill-far: #354736;
+  --cover-hill-mid: #283828;
+  --cover-hill-near: #1b281c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --app-peach: #46332a; --app-peach-ink: #e7b499;
+    --app-sage: #303d2a; --app-sage-ink: #b1c799;
+    --app-blue: #293c45; --app-blue-ink: #a4c3d8;
+    --app-lilac: #3b3144; --app-lilac-ink: #c9b1dc;
+    --app-honey: #433d29; --app-honey-ink: #dac58e;
+
+    --elev-card: 0 1px 2px rgba(0, 0, 0, .28), 0 12px 28px -12px rgba(0, 0, 0, .44);
+    --elev-hover: 0 4px 10px rgba(0, 0, 0, .35), 0 18px 36px -14px rgba(0, 0, 0, .56);
+    --elev-float: 0 8px 24px -4px rgba(0, 0, 0, .52);
+
+    --map-emphasis: #45593c;
+    --map-tooltip: #2b3828;
+    --map-label-strong: #f0f4ea;
+
+    --cover-sky-top: #1f2b22;
+    --cover-sky-bot: #2b382b;
+    --cover-sun: #cfa85f;
+    --cover-hill-far: #354736;
+    --cover-hill-mid: #283828;
+    --cover-hill-near: #1b281c;
+  }
+}
+
+/* ---------- 全局排印、平滑滚动条与克制动效 ---------- */
+body {
+  font-family: var(--ui-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+/* 取消底色与文字色过渡，避免明暗/风格切换瞬间产生白字配白底的半拍闪屏。 */
+body, .sidebar, .topbar, .card, .map-card, .metric-card, .day-card, input, textarea, select, button {
+  transition: border-color .18s ease, box-shadow .22s ease, transform .18s ease;
+}
+.main-shell main > * { animation: rise .16s ease-out backwards; }
+.section-heading, .badge-creator, .card { scroll-margin-top: 86px; }
+
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--line-strong) 78%, transparent); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ---------- 侧栏与顶栏 ---------- */
+.sidebar { padding-top: 28px; }
+.app-shell .sidebar .brand { margin-bottom: 36px; }
+.brand-symbol { border-radius: 15px 17px 13px 18px; transform: rotate(-4deg); box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--warm-dark) 45%, transparent); }
+.sidebar nav { gap: 8px; }
+.nav-item { height: 52px; padding: 0 12px; gap: 13px; border-radius: 14px; font-weight: 500; }
+.nav-item .nav-icon, .nav-item.active .nav-icon {
+  width: 34px; height: 34px; border-radius: 11px;
+  display: grid; place-items: center; flex-shrink: 0;
+  transition: transform .2s ease, background-color .2s ease;
+}
+.nav-item:hover .nav-icon { transform: scale(1.04); }
+.nav-map .nav-icon, .nav-map.active .nav-icon { background: var(--app-sage); color: var(--app-sage-ink); }
+.nav-detail .nav-icon, .nav-detail.active .nav-icon { background: var(--app-peach); color: var(--app-peach-ink); }
+.nav-plan .nav-icon, .nav-plan.active .nav-icon { background: var(--app-blue); color: var(--app-blue-ink); }
+.nav-achievements .nav-icon, .nav-achievements.active .nav-icon { background: var(--app-honey); color: var(--app-honey-ink); }
+.nav-profile .nav-icon, .nav-profile.active .nav-icon { background: var(--app-lilac); color: var(--app-lilac-ink); }
+.nav-item.active { background: var(--surface-2); color: var(--ink); font-weight: 600; border-radius: 14px; }
+.nav-item.active:after { width: 5px; height: 5px; background: var(--warm-green); }
+
+.topbar {
+  height: 72px;
+  background: color-mix(in srgb, var(--paper) 84%, transparent);
+  backdrop-filter: blur(14px) saturate(1.25);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+}
+.topbar > div:first-child > span { display: none; }
+.topbar strong { font-size: 14px; font-weight: 600; color: var(--ink); }
+.topbar .avatar { background: var(--app-sage); color: var(--app-sage-ink); box-shadow: 0 0 0 2px var(--surface), 0 2px 8px rgba(48, 59, 51, .1); }
+.theme-switch { background: var(--surface); box-shadow: 0 1px 2px rgba(48, 59, 51, .04); }
+
+/* ---------- 页面标题、按钮与基础卡片层次 ---------- */
+.section-heading { margin-bottom: 26px; align-items: flex-end; }
+.section-heading h1 {
+  font-family: var(--ui-sans);
+  font-size: clamp(26px, 2.3vw, 31px);
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.3;
+}
+.section-heading p { margin-top: 6px; font-size: 13px; color: var(--muted); }
+
+.primary, .secondary { border-radius: 11px; font-weight: 600; }
+.primary { box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--warm-dark) 40%, transparent); }
+.primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px -4px color-mix(in srgb, var(--warm-dark) 48%, transparent); }
+.secondary { box-shadow: 0 1px 2px rgba(48, 59, 51, .03); }
+.secondary:hover:not(:disabled) { transform: translateY(-1px); }
+
+.card, .map-card, .map-side, .day-card {
+  border-radius: 18px;
+  box-shadow: var(--elev-card);
+}
+.city-action-dialog { border-radius: 22px; box-shadow: var(--elev-float); }
+.city-dialog-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; margin-bottom: 10px; border-radius: 999px;
+  background: var(--app-sage); color: var(--app-sage-ink);
+  font-size: 11.5px; font-weight: 600;
+}
+.city-dialog-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.card h2, .card-heading h2 { font-family: var(--ui-sans); font-weight: 650; }
+input, select, textarea { border-radius: 10px; }
+
+/* ---------- 地图页精修（桌面端一屏锁定，无网页上下滚动） ---------- */
+.map-heading .breadcrumb {
+  padding: 5px 13px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 3px rgba(48, 59, 51, .04);
+  font-size: 12.5px;
+}
+.map-heading .breadcrumb button { padding: 2px 4px; font-weight: 500; }
+.map-heading .breadcrumb strong { color: var(--warm-green); }
+
+.map-card {
+  background:
+    radial-gradient(circle at 50% 46%, var(--surface) 38%, color-mix(in srgb, var(--paper) 68%, var(--surface)) 100%);
+  border-radius: 20px;
+}
+.map-canvas {
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--line-strong) 42%, transparent) 1px, transparent 1px);
+  background-size: 24px 24px;
+  overscroll-behavior: contain;
+}
+.map-side { border-radius: 20px; }
+.map-side .eyebrow { display: none; }
+.map-side h2 { font-family: var(--ui-sans); font-size: 17px; font-weight: 700; line-height: 1.3; margin: 0; }
+.map-side p { font-size: 12px; line-height: 1.65; color: var(--muted); }
+
+.map-toolbar { top: 14px; left: 16px; right: 16px; }
+.map-toolbar-context { pointer-events: none; gap: 8px; }
+.map-back-button {
+  pointer-events: auto;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(10px);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: var(--elev-float);
+}
+.map-back-button:hover {
+  background: var(--surface);
+  border-color: var(--warm-green);
+  color: var(--warm-green);
+  transform: translateY(-1px);
+}
+.map-level-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+  padding: 6px 13px;
+  box-shadow: var(--elev-float);
+  font-size: 12px;
+  font-weight: 600;
+}
+.map-level-chip.is-province {
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(10px);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+.map-level-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .28);
+  flex: none;
+}
+.map-level-chip.is-province .map-level-dot {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.map-control-group {
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 3px;
+  box-shadow: var(--elev-float);
+}
+.map-control-group button { min-width: 34px; height: 32px; font-size: 13.5px; color: var(--ink-2); font-weight: 600; }
+.map-control-group button:hover { background: var(--surface-2); color: var(--ink); }
+
+.map-bottom {
+  flex: none;
+  padding: 8px 16px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  background: color-mix(in srgb, var(--surface) 82%, var(--paper));
+  font-size: 12px;
+  color: var(--muted);
+}
+.map-notice-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.map-legend { gap: 14px; flex: none; }
+.legend-dot { width: 8px; height: 8px; vertical-align: middle; }
+.legend-dot.empty { background: var(--map-area); border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); }
+
+/* 右侧足迹面板：总览卡、筛选条、全量省市网格 */
+.side-stat-box {
+  margin: 0;
+  padding: 13px 15px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  flex: none;
+}
+.map-atlas-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.map-progress-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pill-color, var(--warm-green)) 14%, var(--surface));
+  color: var(--pill-color, var(--warm-green));
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.side-stat {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.side-stat > div { display: flex; flex-direction: column; gap: 2px; }
+.side-stat > div + div { border-left: 1px solid var(--line); padding-left: 12px; }
+.side-stat strong {
+  font-family: var(--ui-sans);
+  font-size: 26px;
+  font-weight: 750;
+  line-height: 1.08;
+  color: var(--warm-green);
+  font-variant-numeric: tabular-nums;
+}
+.side-stat strong em {
+  font-style: normal;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.side-stat span { font-size: 11px; color: var(--muted); }
+.side-stat-bar {
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line-strong) 55%, transparent);
+  overflow: hidden;
+  margin-top: 10px;
+}
+.side-stat-bar > span {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  border-radius: 999px;
+  background: var(--warm-green);
+  transition: width .4s ease;
+}
+
+.map-province-filter {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+}
+.map-province-filter button {
+  height: 28px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+.map-province-filter button span {
+  font-size: 10.5px;
+  opacity: .78;
+  font-variant-numeric: tabular-nums;
+}
+.map-province-filter button:hover { color: var(--ink); }
+.map-province-filter button.active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgba(48, 59, 51, .08);
+}
+
+.map-filter-empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 20px 14px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px dashed var(--line-strong);
+  border-radius: 14px;
+}
+
+.province-list, .city-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+.province-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  align-content: start;
+  padding: 2px 0 0;
+  margin: 0;
+}
+.province-list button {
+  height: 31px;
+  padding: 0 6px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--line) 90%, transparent);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.province-list button i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin: 0;
+  flex: none;
+}
+.province-list .province-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.province-list .province-count {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--prov-color, var(--warm-green));
+  color: #fff;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.province-list button.is-visited {
+  background: color-mix(in srgb, var(--prov-color, var(--warm-green)) 14%, var(--surface));
+  border-color: color-mix(in srgb, var(--prov-color, var(--warm-green)) 48%, transparent);
+  color: var(--ink);
+  font-weight: 700;
+}
+.province-list button:hover {
+  border-color: var(--prov-color, var(--warm-green));
+  background: color-mix(in srgb, var(--prov-color, var(--warm-green)) 10%, var(--surface));
+  color: var(--ink);
+  transform: translateY(-1px);
+}
+
+/* 省内视图：紧凑标题卡、双按钮工具行、双列城市网格 */
+.map-province-hero {
+  flex: none;
+  padding: 13px 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.map-province-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.map-province-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.map-province-title h2 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.map-province-accent {
+  width: 4px;
+  height: 18px;
+  border-radius: 999px;
+  flex: none;
+}
+.map-province-hero .side-stat-bar { margin-top: 0; }
+.map-province-actions {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 7px;
+  margin-top: 2px;
+}
+.map-province-actions button {
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.map-list-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.map-list-header small {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.city-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  align-content: start;
+  margin: 0;
+  padding: 2px 2px 2px 0;
+}
+.city-list button {
+  width: 100%;
+  height: 34px;
+  border-radius: 10px;
+  padding: 0 9px;
+  gap: 7px;
+  font-size: 12px;
+  white-space: nowrap;
+  background: var(--surface-2);
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  color: var(--ink-2);
+  min-width: 0;
+}
+.city-list .city-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+  border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+}
+.city-list .city-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+.city-list .city-arrow {
+  margin-left: auto;
+  flex: none;
+  font-size: 11px;
+  color: var(--muted);
+}
+.city-list button.is-visited {
+  background: color-mix(in srgb, var(--city-color, var(--warm-green)) 13%, var(--surface));
+  border-color: color-mix(in srgb, var(--city-color, var(--warm-green)) 42%, transparent);
+  color: var(--ink);
+  font-weight: 600;
+}
+.city-list button.is-visited .city-arrow {
+  color: var(--city-color, var(--warm-green));
+  font-weight: 800;
+}
+.city-list button:hover {
+  background: var(--surface);
+  border-color: var(--city-color, var(--warm-green));
+  color: var(--ink);
+  transform: translateY(-1px);
+}
+
+/* 右侧底栏：最近点亮快捷条 / 轻提示，使卡片上下重心平衡 */
+.map-side-foot {
+  flex: none;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.map-recent-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.map-recent-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.map-recent-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.map-recent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 25px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.map-recent-chip i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
+.map-recent-chip:hover {
+  border-color: var(--warm-green);
+  background: var(--surface);
+  color: var(--ink);
+  transform: translateY(-1px);
+}
+
+/* 桌面端：严格单屏视口锁死，网页绝不出现鼠标上下滑动 */
+@media (min-width: 851px) {
+  html:has(.app-shell.is-map-page),
+  body:has(.app-shell.is-map-page) {
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  .app-shell.is-map-page {
+    height: 100dvh;
+    min-height: 0;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+  .app-shell.is-map-page .sidebar {
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .app-shell.is-map-page .main-shell {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .app-shell.is-map-page .topbar {
+    flex: none;
+    height: 58px;
+    padding: 0 28px;
+  }
+  .app-shell.is-map-page .main-shell main {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    overflow: hidden;
+  }
+  .app-shell.is-map-page .map-page {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    max-width: 1680px;
+    margin: 0 auto;
+    padding: 12px 24px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden;
+  }
+  .app-shell.is-map-page .map-heading {
+    flex: none;
+    margin: 0;
+    align-items: center;
+    gap: 14px;
+  }
+  .app-shell.is-map-page .map-heading-main {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    min-width: 0;
+  }
+  .app-shell.is-map-page .map-heading h1 {
+    font-size: clamp(20px, 1.75vw, 24px);
+    line-height: 1.2;
+    margin: 0;
+    white-space: nowrap;
+  }
+  .app-shell.is-map-page .map-heading p {
+    margin: 0;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .app-shell.is-map-page .map-layout {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 356px;
+    gap: 16px;
+    align-items: stretch;
+  }
+  .app-shell.is-map-page .map-card {
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .app-shell.is-map-page .map-canvas {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+  }
+  .app-shell.is-map-page .map-side {
+    min-height: 0;
+    height: 100%;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden;
+  }
+  .app-shell.is-map-page .province-list,
+  .app-shell.is-map-page .city-list {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+@media (min-width: 851px) and (max-width: 1220px) {
+  .app-shell.is-map-page .map-page { padding: 10px 16px 16px; }
+  .app-shell.is-map-page .map-layout { grid-template-columns: minmax(0, 1fr) 304px; gap: 12px; }
+  .app-shell.is-map-page .map-side { padding: 13px; gap: 9px; }
+  .app-shell.is-map-page .province-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+  .app-shell.is-map-page .province-list button { height: 28px; font-size: 11.5px; }
+  .app-shell.is-map-page .map-heading p { display: none; }
+}
+
+@media (min-width: 851px) and (max-height: 760px) {
+  .app-shell.is-map-page .sidebar { padding-top: 18px; padding-bottom: 16px; }
+  .app-shell.is-map-page .sidebar .brand { margin-bottom: 20px; }
+  .app-shell.is-map-page .nav-item { height: 44px; }
+  .app-shell.is-map-page .sidebar-buddy { padding: 10px 12px; gap: 6px; margin-bottom: 10px; }
+  .app-shell.is-map-page .topbar { height: 50px; }
+  .app-shell.is-map-page .map-page { padding: 8px 20px 14px; gap: 8px; }
+  .app-shell.is-map-page .map-side { padding: 12px; gap: 8px; }
+  .app-shell.is-map-page .side-stat-box { padding: 10px 12px; }
+  .app-shell.is-map-page .map-atlas-summary-head { margin-bottom: 6px; }
+  .app-shell.is-map-page .side-stat strong { font-size: 22px; }
+  .app-shell.is-map-page .side-stat-bar { margin-top: 7px; }
+  .app-shell.is-map-page .province-list { gap: 4px; }
+  .app-shell.is-map-page .province-list button { height: 27px; font-size: 11.5px; }
+  .app-shell.is-map-page .city-list { gap: 5px; }
+  .app-shell.is-map-page .city-list button { height: 30px; font-size: 11.5px; }
+  .app-shell.is-map-page .map-side-foot { padding-top: 7px; }
+}
+
+@media (min-width: 851px) and (min-height: 840px) {
+  .app-shell.is-map-page .province-list { gap: 7px; }
+  .app-shell.is-map-page .province-list button { height: 35px; font-size: 12.5px; }
+  .app-shell.is-map-page .city-list { gap: 7px; }
+  .app-shell.is-map-page .city-list button { height: 37px; font-size: 12.5px; }
+}
+
+@media (max-width: 850px) {
+  .map-side { gap: 12px; }
+  .province-list { grid-template-columns: repeat(4, minmax(0, 1fr)); max-height: none; }
+  .city-list { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 290px; overflow-y: auto; }
+}
+
+@media (max-width: 560px) {
+  .province-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+  .province-list button { height: 32px; font-size: 11.5px; }
+  .city-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+  .city-list button { height: 34px; font-size: 11.5px; padding: 0 7px; }
+}
+
+@media (max-width: 360px) {
+  .city-list { grid-template-columns: 1fr; }
+  .map-province-actions { grid-template-columns: 1fr; }
+}
+
+/* ---------- 旅行手账页：SVG 风景插画、卡片与空态 ---------- */
+.travel-cover { position: relative; overflow: hidden; }
+.cover-art-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; transition: transform .5s ease; }
+
+.warm-journal-hero { gap: 22px; }
+.warm-featured { height: 348px; border-radius: 22px; box-shadow: var(--elev-card); cursor: pointer; }
+.warm-featured:after { background: linear-gradient(180deg, rgba(22, 33, 24, 0) 34%, rgba(22, 33, 24, .62) 100%); }
+.warm-photo-badge { border-radius: 999px; padding: 5px 13px; font-size: 11px; font-weight: 600; backdrop-filter: blur(10px); }
+.warm-featured-copy { bottom: 26px; }
+.warm-featured-copy h2 { font-family: var(--ui-sans); font-size: 28px; font-weight: 700; letter-spacing: -.01em; }
+.warm-featured-copy small { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, .2); backdrop-filter: blur(8px); }
+.warm-featured-copy p > span { width: 32px; height: 32px; border: 1px solid rgba(255, 255, 255, .65); border-radius: 50%; display: grid; place-items: center; margin-top: -5px; transition: transform .25s ease, background-color .25s ease; }
+.warm-featured:hover .cover-art-svg, .warm-featured:hover img { transform: scale(1.03); }
+.warm-featured:hover .warm-featured-copy p > span { transform: translate(2px, -2px); background: rgba(255, 255, 255, .18); }
+
+.warm-note-paper {
+  background: var(--surface);
+  border-color: var(--line);
+  border-radius: 22px;
+  padding: 24px;
+  box-shadow: var(--elev-card);
+}
+.warm-note-paper:before { display: none; }
+.warm-note-paper > div { opacity: 1; }
+.warm-note-label { display: inline-flex; align-items: center; gap: 7px; color: var(--app-peach-ink); background: var(--app-peach); border-radius: 9px; padding: 6px 10px; font-weight: 600; }
+.warm-note-label .travel-icon { width: 15px; height: 15px; flex-basis: 15px; }
+.warm-note-paper > div > small { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.warm-note-paper h3 { color: var(--ink); font-family: var(--ui-sans); font-size: 19px; font-weight: 700; margin: 20px 0 10px; }
+.warm-note-paper > p { color: var(--ink-2); font-family: inherit; font-size: 13px; line-height: 1.85; -webkit-line-clamp: 3; }
+.warm-note-paper > button { padding: 12px 0 14px; color: var(--warm-green); font-size: 12px; font-weight: 600; transition: color .2s ease; }
+.warm-note-paper > button:hover:not(:disabled) { opacity: .82; }
+.warm-note-paper > button > span { font-size: 18px; transition: transform .2s ease; }
+.warm-note-paper > button:hover:not(:disabled) > span { transform: translate(2px, -2px); }
+.warm-memory-counts { display: flex; gap: 0; margin: 0; padding-top: 15px; border-top: 1px dashed var(--line); }
+.warm-memory-counts > div { flex: 1; display: flex; flex-direction: column-reverse; align-items: center; gap: 4px; }
+.warm-memory-counts > div + div { border-left: 1px solid var(--line); }
+.warm-memory-counts dt { font-size: 11px; color: var(--muted); }
+.warm-memory-counts dd { margin: 0; font-size: 22px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.journey-card { padding: 9px; border-radius: 19px; box-shadow: var(--elev-card); }
+.journey-card:hover { box-shadow: var(--elev-hover); }
+.journey-card > .journey-cover { border-radius: 13px; }
+.journey-card > div:not(.journey-cover) { padding: 14px 10px 4px; }
+.journey-card .eyebrow { color: var(--app-peach-ink); background: var(--app-peach); display: inline-flex; padding: 3px 8px; border-radius: 6px; letter-spacing: .02em; font-size: 10.5px; }
+.journey-card h2 { margin-top: 11px; font-size: 17px; font-family: var(--ui-sans); font-weight: 700; }
+.journey-card > strong { padding: 9px 10px 12px; }
+
+.saved-city-card { border-radius: 15px; padding: 18px; border-color: transparent; background: var(--app-sage); }
+.saved-city-card:nth-child(3n+2) { background: var(--app-peach); }
+.saved-city-card:nth-child(3n) { background: var(--app-blue); }
+.saved-city-card:hover { border-color: var(--line-strong); transform: translateY(-2px); box-shadow: var(--elev-card); }
+.saved-city-card span { font-size: 11px; color: var(--ink-2); }
+
+.place-card { border-radius: 18px; padding: 8px; box-shadow: var(--elev-card); }
+.place-card .journey-cover { border-radius: 12px; }
+.memory-photo-grid { gap: 12px; }
+.memory-thumb { border-radius: 14px; border: 0; }
+.memory-thumb small { background: linear-gradient(transparent, #253324b0); padding-top: 18px; }
+.warm-record-filter { border: 0; gap: 12px; }
+.warm-record-filter input, .warm-record-filter select { min-height: 38px; }
+
+.empty-state.card { padding: 48px 24px; }
+.empty-state-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+
+/* 语音评语卡片、录音电平指示器与下载/删除按钮 */
+.recording-meter {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 12px; padding: 10px 14px; border-radius: 12px;
+  background: var(--surface); border: 1px solid color-mix(in srgb, var(--coral) 35%, var(--line));
+  font-size: 12px; color: var(--ink-2);
+}
+.recording-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--coral); flex-shrink: 0;
+  animation: rec-pulse 1.1s ease-in-out infinite;
+}
+@keyframes rec-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.82); } }
+.recording-mic { max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recording-level-track {
+  flex: 1 1 110px; min-width: 90px; height: 6px; border-radius: 999px;
+  background: var(--surface-2); overflow: hidden;
+}
+.recording-level-track > span {
+  display: block; height: 100%; border-radius: 999px;
+  background: var(--warm-green); transition: width 75ms linear;
+}
+.audio-review-list { display: grid; gap: 10px; margin-top: 14px; }
+.audio-review-list:empty { display: none; }
+.saved-reviews { display: grid; gap: 10px; margin-top: 14px; }
+.saved-reviews:empty { display: none; }
+.saved-review {
+  margin-top: 0; padding: 13px 15px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line);
+  box-shadow: 0 2px 8px rgba(48, 59, 51, .04);
+}
+.saved-review-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap; margin-bottom: 8px;
+}
+.saved-review-head > small { color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.saved-review > p { margin: 0; color: var(--ink); font-size: 14px; line-height: 1.75; }
+.audio-review-card {
+  padding: 12px 14px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line);
+  box-shadow: 0 2px 8px rgba(48, 59, 51, .04);
+}
+.audio-review-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap; margin-bottom: 10px;
+}
+.audio-review-head > small { color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.audio-review-actions { display: inline-flex; align-items: center; gap: 7px; }
+.audio-action-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px; border-radius: 999px;
+  border: 1px solid var(--line-strong); background: var(--surface-2);
+  color: var(--ink-2); font-size: 12px; font-weight: 500;
+  text-decoration: none; cursor: pointer;
+  transition: border-color .18s ease, color .18s ease, background-color .18s ease;
+}
+.audio-action-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+.audio-action-btn:hover { border-color: var(--warm-green); color: var(--warm-green); background: var(--surface); }
+.audio-action-btn.danger:hover { border-color: var(--coral); color: var(--coral); background: var(--surface); }
+.audio-review-card .audio-review { margin-top: 0; }
+.audio-review-card .audio-review audio { width: 100%; height: 40px; }
+
+/* ---------- 行程规划页：顶栏收口、表单对齐、时间轴主题联动 ---------- */
+.planner-chrome {
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: 26px 40px 0;
+}
+.planner-chrome-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.planner-tabs {
+  margin-bottom: 0;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  padding: 4px;
+}
+.planner-tabs button { padding: 9px 18px; font-size: 13px; border-radius: 10px; font-weight: 600; }
+.planner-tabs button.active { background: var(--surface); color: var(--warm-green); border-radius: 10px; box-shadow: 0 2px 8px rgba(48, 59, 51, .08); }
+
+.planner-photo-settings {
+  margin: 0;
+  padding: 8px 15px;
+  border-radius: 999px;
+  font-size: 13px;
+  flex: 0 0 auto;
+  box-shadow: 0 1px 3px rgba(48, 59, 51, .04);
+}
+.planner-photo-settings summary { list-style: none; display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-2); }
+.planner-photo-settings summary::-webkit-details-marker { display: none; }
+.planner-photo-settings summary::before {
+  content: "";
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  opacity: .65;
+}
+.planner-photo-settings[open] {
+  flex: 1 0 100%;
+  width: 100%;
+  border-radius: 16px;
+  padding: 16px 20px;
+  box-shadow: var(--elev-card);
+}
+.planner-photo-settings[open] summary::before { background: var(--warm-green); opacity: 1; }
+
+.planner-workspace > .content-page { padding-top: 18px; }
+.planner-discovery-form .heading-actions,
+.planner-create .heading-actions { margin-top: 20px; }
+.planner-input-grid { align-items: start; }
+.planner-workspace .planner-luggage-field { max-width: 245px; margin: 0 0 14px; }
+.planner-activity .planner-luggage-note { color: var(--ink-2); font-size: 12.5px; }
+.planner-luggage-note a { color: var(--link); white-space: nowrap; }
+.planner-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  padding: 26px 28px;
+}
+.planner-overview-header,
+.planner-overview-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+}
+.planner-overview-heading {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.planner-workspace .planner-overview-switch {
+  flex: 0 1 250px;
+  min-width: 0;
+  margin: 0;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.planner-overview-switch > select {
+  height: 40px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+.planner-overview h2, .planner-summary h2 { font-family: var(--ui-sans); font-weight: 700; }
+.planner-overview h2 { margin: 0; font-size: clamp(20px, 2vw, 24px); line-height: 1.35; }
+/* 攻略入口沿用原来的小按钮尺寸，城市和链接在窄屏自然换行。 */
+.planner-overview-heading .city-guide-links { margin-top: 0; }
+.city-guide-links,
+.city-guide-group {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.city-guide-links { margin-top: 12px; font-size: 12px; color: var(--muted); }
+.city-guide-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.city-guide-sight { background: var(--app-sage); color: var(--app-sage-ink); }
+.city-guide-food { background: var(--app-peach); color: var(--app-peach-ink); }
+.city-guide-action .travel-icon { width: 14px; height: 14px; flex-basis: 14px; }
+.city-guide-action:hover { border-color: currentColor; }
+.city-guide-action:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+/* 工具栏按 DOM 顺序换行，窄屏上的阅读和键盘顺序保持一致。 */
+.planner-overview-actions {
+  flex: none;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+}
+.planner-overview-actions > button {
+  min-height: 38px;
+  padding: 8px 14px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.planner-overview-actions > .primary { padding: 8px 16px; }
+.planner-overview-actions > .text-button { padding: 6px 8px; }
+
+/* 倒计时像旅行贴纸，彩色日期卡串成路线。长行程只滚动日期区域。 */
+.planner-overview-timeline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 16px;
+  padding: 15px;
+  border: 1px solid color-mix(in srgb, var(--app-blue-ink) 20%, var(--line));
+  border-radius: 20px;
+  background: linear-gradient(120deg, var(--app-blue), var(--surface) 68%, var(--app-honey));
+}
+.planner-trip-timeline { min-width: 0; }
+.planner-trip-clock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  margin: 0 1px 11px 3px;
+}
+.planner-trip-status { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.planner-trip-sticker {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 45px;
+  width: 45px;
+  height: 45px;
+  border-radius: 15px;
+  background: var(--app-honey);
+  border: 2px solid var(--surface);
+  box-shadow: var(--elev-card);
+  font-size: 22px;
+  transform: rotate(-8deg);
+}
+.planner-trip-sticker[data-state="today"] { background: var(--app-peach); }
+.planner-trip-sticker[data-state="ended"] { background: var(--app-sage); }
+.planner-trip-sticker::after {
+  position: absolute;
+  top: -4px;
+  right: -3px;
+  color: var(--app-honey-ink);
+  content: "✦";
+  font: 11px/1 var(--ui-sans);
+}
+.planner-trip-status-text { min-width: 0; overflow-wrap: anywhere; }
+.planner-trip-status h3 { margin: 0; color: var(--ink); font-size: 18px; font-weight: 800; line-height: 1.35; }
+.planner-trip-status p { margin: 3px 0 0; color: var(--ink-2); font-size: 12px; line-height: 1.45; }
+.planner-trip-device-time {
+  flex: none;
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.planner-trip-days {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(106px, 1fr);
+  gap: 13px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  list-style: none;
+  margin: 0;
+  padding: 3px 2px 6px;
+}
+.planner-trip-days > li { position: relative; min-width: 0; }
+.planner-trip-days > li:not(:last-child)::after {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 2px);
+  width: 9px;
+  border-top: 2px dotted var(--app-blue-ink);
+  opacity: .55;
+  content: "";
+  pointer-events: none;
+}
+.planner-trip-day-link {
+  --day-tint: var(--app-sage);
+  --day-ink: var(--app-sage-ink);
+  display: block;
+  padding: 9px 10px 8px;
+  border: 1px solid color-mix(in srgb, var(--day-ink) 22%, var(--surface));
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--day-tint) 75%, var(--surface));
+  color: var(--ink);
+  text-decoration: none;
+}
+.planner-trip-days > li:nth-child(3n + 2) .planner-trip-day-link { --day-tint: var(--app-blue); --day-ink: var(--app-blue-ink); }
+.planner-trip-days > li:nth-child(3n) .planner-trip-day-link { --day-tint: var(--app-peach); --day-ink: var(--app-peach-ink); }
+.planner-trip-day-link:hover { border-color: var(--day-ink); background: var(--day-tint); }
+.planner-trip-day-link:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.planner-trip-day-link[data-stage="today"] { border-color: var(--day-ink); background: var(--day-tint); box-shadow: var(--elev-card); }
+.planner-trip-day-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.planner-trip-day-stamp {
+  display: grid;
+  place-items: center;
+  flex: 0 0 13px;
+  width: 13px;
+  height: 13px;
+  border: 1px solid var(--day-ink);
+  border-radius: 50%;
+  color: var(--surface);
+  font-size: 10px;
+  line-height: 1;
+}
+.planner-trip-day-link[data-stage="past"] .planner-trip-day-stamp { background: var(--day-ink); }
+.planner-trip-day-link[data-stage="today"] .planner-trip-day-stamp::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--day-ink);
+  content: "";
+}
+.planner-trip-day-caption strong { flex: 1; font-weight: 700; white-space: nowrap; }
+.planner-trip-day-caption time { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.planner-trip-day-track {
+  position: relative;
+  display: block;
+  height: 3px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--day-ink) 22%, var(--surface));
+}
+.planner-trip-day-fill { display: block; height: 100%; border-radius: inherit; background: var(--day-ink); }
+.planner-trip-day-pin {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--app-peach-ink, var(--coral));
+  box-shadow: 0 0 0 2px var(--app-peach, var(--warm-peach));
+}
+.planner-calendar-export {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  align-self: stretch;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px dashed color-mix(in srgb, var(--app-honey-ink) 40%, var(--line));
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--app-honey) 66%, var(--surface));
+}
+.planner-calendar-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.planner-calendar-export label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.planner-calendar-export select {
+  width: auto;
+  min-width: 66px;
+  height: 36px;
+  margin: 0;
+  padding: 4px 10px;
+  font-size: 12.5px;
+}
+.planner-calendar-export button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.planner-calendar-export button .travel-icon { width: 15px; height: 15px; flex-basis: 15px; color: var(--app-honey-ink); }
+.planner-calendar-export small {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+.planner-day {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  margin-bottom: 38px;
+  scroll-margin-top: 76px;
+}
+.planner-day-heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 8px 0 22px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.planner-day-heading > span {
+  background: var(--app-sage);
+  color: var(--app-sage-ink);
+  border: 1px solid color-mix(in srgb, var(--warm-green) 16%, transparent);
+  box-shadow: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+.planner-day-heading h2 {
+  font-family: var(--ui-sans);
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  line-height: 1.35;
+}
+.planner-day-heading p { font-size: 13px; color: var(--muted); line-height: 1.6; margin: 0; }
+.planner-period > h3::before { border-color: var(--warm-green); }
+
+/* 活动卡片：统一 1px 细腻圆角边框 + 柔和内嵌竖条，消除粗 border-left 在大圆角处的弯钩变形。 */
+.planner-activity {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--elev-card);
+}
+.planner-activity:hover { box-shadow: var(--elev-hover); }
+.planner-activity.kind-food,
+.planner-activity.kind-transport,
+.planner-activity.kind-rest {
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+}
+.planner-activity.kind-food::before,
+.planner-activity.kind-transport::before,
+.planner-activity.kind-rest::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 18px;
+  bottom: 18px;
+  width: 3.5px;
+  border-radius: 0 4px 4px 0;
+}
+.planner-activity.kind-food::before { background: var(--coral); opacity: .75; }
+.planner-activity.kind-transport::before { background: var(--app-blue-ink); opacity: .75; }
+.planner-activity .planner-transfer-details {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px 10px;
+  border-radius: 10px;
+  background: var(--app-blue);
+  color: var(--app-blue-ink);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+/* 两站之间的手账风交通连接卡：自然衔接上下两张活动卡，清晰美观且轻盈。 */
+.planner-activity.planner-transfer-compact,
+.planner-transfer-bridge {
+  position: relative;
+  margin: -4px 0 12px 0;
+  border: 1px solid color-mix(in srgb, var(--warm-green) 24%, var(--line));
+  border-radius: 15px;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--teal-soft) 58%, var(--surface)) 0%,
+    color-mix(in srgb, var(--warm-note) 36%, var(--surface)) 100%);
+  box-shadow: 0 4px 14px -9px rgba(54, 74, 48, 0.2);
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.planner-transfer-bridge:hover {
+  border-color: color-mix(in srgb, var(--warm-green) 46%, var(--line));
+  box-shadow: 0 7px 18px -10px rgba(54, 74, 48, 0.26);
+}
+.planner-transfer-bridge::before {
+  display: none !important;
+}
+.planner-transfer-direct {
+  padding: 8px 10px;
+}
+.planner-transfer-summary {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 8px 32px 8px 10px;
+  list-style: none;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.planner-transfer-summary::-webkit-details-marker { display: none; }
+.planner-transfer-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.planner-transfer-options-list.is-full-card {
+  margin: 8px 0 10px;
+}
+.planner-transfer-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 11px 7px 8px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .14s ease;
+}
+.planner-transfer-option.is-clickable {
+  cursor: pointer;
+}
+.planner-transfer-option.is-clickable:hover {
+  background: var(--surface);
+  border-color: color-mix(in srgb, var(--warm-green) 48%, var(--line));
+  box-shadow: 0 4px 12px -8px rgba(54, 74, 48, 0.24);
+  transform: translateY(-1px);
+}
+.planner-transfer-option.is-recommended {
+  background: var(--surface);
+  border-color: color-mix(in srgb, var(--warm-green) 36%, var(--line));
+  box-shadow: 0 2px 8px -6px rgba(54, 74, 48, 0.18);
+}
+.planner-transfer-option.is-selected {
+  background: var(--surface);
+  border-color: color-mix(in srgb, var(--warm-green) 58%, var(--line));
+  box-shadow: 0 2px 10px -6px rgba(54, 74, 48, 0.22);
+}
+.planner-transfer-selected-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--warm-green);
+  color: #fffefa;
+  font-size: 11px;
+  font-weight: 700;
+}
+.planner-transfer-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  margin-left: auto;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  color: transparent;
+  font-size: 11px;
+  font-weight: 800;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.planner-transfer-option.is-clickable:hover .planner-transfer-check {
+  border-color: var(--warm-green);
+}
+.planner-transfer-check.is-checked {
+  border-color: var(--warm-green);
+  background: var(--warm-green);
+  color: #fffefa;
+}
+.planner-transfer-switch-pill {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--warm-green) 30%, var(--line));
+  background: var(--surface-2);
+  color: var(--warm-green);
+  font-size: 11.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition: background .15s ease, border-color .15s ease;
+}
+.planner-transfer-switch-pill:hover {
+  background: var(--teal-soft);
+  border-color: color-mix(in srgb, var(--warm-green) 55%, var(--line));
+}
+.planner-transfer-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  transition: transform .2s cubic-bezier(.34, 1.56, .64, 1);
+}
+.planner-transfer-option:hover .planner-transfer-badge,
+.planner-transfer-gap:hover .planner-transfer-badge {
+  transform: scale(1.1) rotate(-5deg);
+}
+.planner-transfer-badge.mode-walk { background: #e5f6ea; border-color: #c7ebd2; }
+.planner-transfer-badge.mode-subway { background: #e3f1fd; border-color: #c1dff8; }
+.planner-transfer-badge.mode-bus { background: #feece3; border-color: #f7d0bc; }
+.planner-transfer-badge.mode-taxi { background: #fff4d1; border-color: #f5dd95; }
+.planner-transfer-badge.mode-drive { background: #e2f4ed; border-color: #bee3d4; }
+.planner-transfer-badge.mode-train { background: #e6ecfb; border-color: #c6d4f5; }
+.planner-transfer-badge.mode-flight { background: #e8effc; border-color: #c8daf8; }
+.planner-transfer-badge.mode-other { background: var(--surface-2); border-color: var(--line); }
+.planner-transport-svg { display: block; flex: 0 0 auto; }
+.planner-transfer-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.planner-transfer-option-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 8px;
+}
+.planner-transfer-option-title {
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 750;
+  letter-spacing: .01em;
+}
+.planner-transfer-rec {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--teal-soft);
+  color: var(--warm-green);
+  font-size: 11px;
+  font-weight: 700;
+}
+.planner-transfer-stations {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #e3f1fd 78%, var(--surface));
+  color: #2b6496;
+  font-size: 12px;
+  font-weight: 650;
+}
+.planner-transfer-metrics {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+.planner-transfer-metric {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+.planner-transfer-option.mode-walk .planner-transfer-metric {
+  background: #eaf7ee;
+  color: #2e7045;
+}
+.planner-transfer-option.mode-drive .planner-transfer-metric {
+  background: #e6f6ef;
+  color: #2a6b54;
+}
+.planner-transfer-option.mode-subway .planner-transfer-metric.is-fare,
+.planner-transfer-option.mode-bus .planner-transfer-metric.is-fare {
+  background: #e6f2fc;
+  color: #2a6394;
+  font-weight: 700;
+}
+.planner-transfer-option.mode-taxi .planner-transfer-metric.is-fare {
+  background: #fff4d1;
+  color: #9a630d;
+  font-weight: 700;
+}
+.planner-transfer-metric.is-carpool {
+  background: #efe9fb;
+  color: #63469d;
+  font-weight: 650;
+}
+.planner-transfer-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.planner-transfer-chevron {
+  position: absolute;
+  top: 50%;
+  right: 13px;
+  width: 7px;
+  height: 7px;
+  margin-top: -5px;
+  border: solid var(--muted);
+  border-width: 0 1.8px 1.8px 0;
+  transform: rotate(45deg);
+  transition: transform .18s ease;
+}
+.planner-transfer-compact[open] .planner-transfer-chevron {
+  margin-top: -1px;
+  transform: rotate(225deg);
+}
+.planner-transfer-compact .planner-activity-content {
+  padding: 10px 14px 14px;
+  border-top: 1px dashed var(--line);
+}
+/* 后台自动整理两站路线时的轻柔过渡态 */
+.planner-transfer-gap {
+  padding: 7px 11px;
+}
+.planner-transfer-gap-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.planner-transfer-gap-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.planner-transfer-gap.is-loading .planner-transfer-badge {
+  animation: planner-transfer-bob 1.2s ease-in-out infinite;
+}
+@keyframes planner-transfer-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+.planner-transfer-gap-label {
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 700;
+}
+.planner-transfer-gap-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+.planner-transfer-editor-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+:root[data-theme="dark"] .planner-transfer-badge.mode-walk { background: #22392a; border-color: #32543d; }
+:root[data-theme="dark"] .planner-transfer-badge.mode-subway { background: #1e3346; border-color: #2f4d68; }
+:root[data-theme="dark"] .planner-transfer-badge.mode-bus { background: #402b22; border-color: #5e3f32; }
+:root[data-theme="dark"] .planner-transfer-badge.mode-taxi { background: #3e341d; border-color: #5d4e2a; }
+:root[data-theme="dark"] .planner-transfer-badge.mode-drive { background: #1e382f; border-color: #2e5648; }
+:root[data-theme="dark"] .planner-transfer-badge.mode-train { background: #243048; border-color: #38496c; }
+:root[data-theme="dark"] .planner-transfer-badge.mode-flight { background: #24324a; border-color: #384c70; }
+:root[data-theme="dark"] .planner-transfer-stations { background: #203447; color: #9ecdf4; }
+:root[data-theme="dark"] .planner-transfer-option.mode-subway .planner-transfer-metric.is-fare,
+:root[data-theme="dark"] .planner-transfer-option.mode-bus .planner-transfer-metric.is-fare { background: #203447; color: #9ecdf4; }
+:root[data-theme="dark"] .planner-transfer-option.mode-taxi .planner-transfer-metric.is-fare { background: #3b321d; color: #f2cf79; }
+:root[data-theme="dark"] .planner-transfer-metric.is-carpool { background: #322a47; color: #cab8f5; }
+:root[data-theme="dark"] .planner-transfer-selected-tag { color: #192219; }
+:root[data-theme="dark"] .planner-transfer-check.is-checked { color: #192219; }
+:root[data-theme="dark"] .planner-transfer-option.mode-walk .planner-transfer-metric { background: #223829; color: #9fd8b1; }
+:root[data-theme="dark"] .planner-transfer-option.mode-drive .planner-transfer-metric { background: #203830; color: #98d8c2; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .planner-transfer-badge.mode-walk { background: #22392a; border-color: #32543d; }
+  :root:not([data-theme="light"]) .planner-transfer-badge.mode-subway { background: #1e3346; border-color: #2f4d68; }
+  :root:not([data-theme="light"]) .planner-transfer-badge.mode-bus { background: #402b22; border-color: #5e3f32; }
+  :root:not([data-theme="light"]) .planner-transfer-badge.mode-taxi { background: #3e341d; border-color: #5d4e2a; }
+  :root:not([data-theme="light"]) .planner-transfer-badge.mode-drive { background: #1e382f; border-color: #2e5648; }
+  :root:not([data-theme="light"]) .planner-transfer-badge.mode-train { background: #243048; border-color: #38496c; }
+  :root:not([data-theme="light"]) .planner-transfer-badge.mode-flight { background: #24324a; border-color: #384c70; }
+  :root:not([data-theme="light"]) .planner-transfer-stations { background: #203447; color: #9ecdf4; }
+  :root:not([data-theme="light"]) .planner-transfer-option.mode-subway .planner-transfer-metric.is-fare,
+  :root:not([data-theme="light"]) .planner-transfer-option.mode-bus .planner-transfer-metric.is-fare { background: #203447; color: #9ecdf4; }
+  :root:not([data-theme="light"]) .planner-transfer-option.mode-taxi .planner-transfer-metric.is-fare { background: #3b321d; color: #f2cf79; }
+  :root:not([data-theme="light"]) .planner-transfer-metric.is-carpool { background: #322a47; color: #cab8f5; }
+  :root:not([data-theme="light"]) .planner-transfer-selected-tag { color: #192219; }
+  :root:not([data-theme="light"]) .planner-transfer-check.is-checked { color: #192219; }
+  :root:not([data-theme="light"]) .planner-transfer-option.mode-walk .planner-transfer-metric { background: #223829; color: #9fd8b1; }
+  :root:not([data-theme="light"]) .planner-transfer-option.mode-drive .planner-transfer-metric { background: #203830; color: #98d8c2; }
+}
+@media (max-width: 600px) {
+  .planner-transfer-option { align-items: flex-start; padding: 7px 9px 7px 7px; }
+  .planner-transfer-option-title { font-size: 13px; }
+}
+.planner-activity.kind-rest::before { background: var(--app-honey-ink); opacity: .75; }
+
+/* 预订单采用带齿孔的票券布局，发到站时间是主要视觉信息。 */
+.planner-booking-ticket {
+  --ticket-tint: var(--app-blue);
+  --ticket-ink: var(--app-blue-ink);
+  --ticket-edge: color-mix(in srgb, var(--ticket-ink) 35%, var(--ticket-tint));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(106px, 22%);
+  margin: 0 0 16px;
+  border: 1px solid var(--ticket-edge);
+  border-radius: 19px;
+  background: linear-gradient(140deg, var(--ticket-tint), var(--surface));
+  box-shadow: var(--elev-card);
+}
+.planner-booking-ticket.is-flight { --ticket-tint: var(--app-sage); --ticket-ink: var(--app-sage-ink); }
+.planner-ticket-main { min-width: 0; padding: 17px 22px; }
+.planner-ticket-header { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-bottom: 9px; }
+.planner-ticket-header h3 { margin: 0; color: var(--ink); font-size: 21px; font-weight: 800; }
+.planner-ticket-header > span:last-child:not(.planner-ticket-icon) { color: var(--ticket-ink); font-size: 12px; font-weight: 650; }
+.planner-ticket-icon {
+  display: grid; place-items: center; width: 35px; height: 35px;
+  border-radius: 11px; background: var(--ticket-ink); color: var(--surface); transform: rotate(-8deg);
+}
+.planner-ticket-icon .travel-icon { width: 22px; height: 22px; }
+.planner-ticket-route { display: grid; grid-template-columns: minmax(0, 1fr) minmax(28px, 22%) minmax(0, 1fr); align-items: center; gap: 10px; }
+.planner-ticket-route > div { display: grid; gap: 2px; overflow-wrap: anywhere; }
+.planner-ticket-route > div:last-child { text-align: right; }
+.planner-ticket-route strong { color: var(--ink); font-size: 15px; }
+.planner-ticket-route time { color: var(--ink); font-size: clamp(23px, 3.8vw, 33px); font-weight: 780; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.planner-ticket-route small { color: var(--muted); font-size: 11px; }
+.planner-ticket-track { position: relative; color: var(--ticket-ink); text-align: right; font-size: 21px; }
+.planner-ticket-track::before { position: absolute; top: 50%; right: 18px; left: 0; content: ""; border-top: 2px dotted var(--ticket-edge); }
+.planner-ticket-connections { margin-top: 10px; font-size: 12px; color: var(--ticket-ink); }
+.planner-ticket-connections summary { cursor: pointer; width: fit-content; }
+.planner-ticket-connections p { margin: 5px 0 0; color: var(--ink); line-height: 1.5; }
+.planner-ticket-stub {
+  position: relative; display: flex; flex-direction: column; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 5px; padding: 14px 9px; border-left: 2px dashed var(--ticket-edge);
+  text-align: center; overflow-wrap: anywhere; color: var(--ticket-ink); font-size: 13px;
+}
+.planner-ticket-stub::before,
+.planner-ticket-stub::after {
+  position: absolute; left: -10px; width: 18px; height: 18px; content: ""; pointer-events: none;
+  border: 1px solid var(--ticket-edge); border-radius: 50%; background: var(--paper);
+}
+.planner-ticket-stub::before { top: -10px; clip-path: inset(50% 0 0); }
+.planner-ticket-stub::after { bottom: -10px; clip-path: inset(0 0 50%); }
+.planner-ticket-stub .text-button { color: var(--ticket-ink); }
+@media (max-width: 560px) {
+  .planner-booking-ticket { grid-template-columns: minmax(0, 1fr); }
+  .planner-ticket-main { padding: 14px 15px; }
+  .planner-ticket-stub { flex-direction: row; justify-content: space-between; gap: 8px; padding: 4px 14px; border-left: 0; border-top: 1px dashed var(--ticket-edge); }
+  .planner-ticket-stub::before, .planner-ticket-stub::after { top: -8px; bottom: auto; width: 14px; height: 14px; }
+  .planner-ticket-stub::before { left: -8px; clip-path: inset(0 0 0 50%); }
+  .planner-ticket-stub::after { left: auto; right: -8px; clip-path: inset(0 50% 0 0); }
+}
+
+.planner-activity-actions a { color: var(--link); text-decoration: none; font-size: 12px; font-weight: 600; padding: 4px 0; }
+.planner-activity-actions a:hover { text-decoration: underline; }
+.planner-journal-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.planner-journal-action {
+  padding: 5px 11px;
+  border-radius: 8px;
+  background: var(--teal-soft);
+  color: var(--link);
+  font-size: 12px;
+  font-weight: 650;
+}
+.planner-journal-city { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-top: 10px; }
+.planner-journal-city > label { flex: 1 1 150px; max-width: 245px; }
+.memory-upload { max-width: 750px; margin: 0 auto 16px; text-align: center; }
+.memory-upload .upload-failures { text-align: left; }
+.planner-sources a { color: var(--link); }
+.planner-plan-list > button.planner-plan-card { border-radius: 18px; border-left-width: 1px; box-shadow: var(--elev-card); }
+.planner-plan-list > button.planner-plan-card.active { background: var(--surface); box-shadow: 0 0 0 2px var(--app-sage), var(--elev-card); }
+.planner-plan-list > button.planner-plan-card.active::after { display: none; }
+.planner-card-photo-fallback {
+  display: grid; place-items: center; padding: 8px;
+  border-radius: 10px; background: var(--app-sage); color: var(--app-sage-ink);
+  font-size: 11px; font-weight: 500; text-align: center; line-height: 1.45;
+  overflow: hidden;
+}
+.finance-journeys .finance-journey-card.active { border-color: var(--warm-green); background: var(--app-sage); }
+/* 全站金额输入框统一使用独立 ¥ 列，彻底避免符号与数字重叠。 */
+.money-input {
+  display: grid;
+  grid-template-columns: 2.1rem minmax(0, 1fr);
+  align-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  min-width: 0;
+}
+.money-input > span {
+  position: static;
+  text-align: center;
+  color: var(--muted);
+  font-weight: 500;
+  user-select: none;
+}
+.planner-workspace .money-input input,
+.money-input input {
+  border: 0;
+  background: transparent;
+  min-width: 0;
+  padding: 9px 11px 9px 0;
+  box-shadow: none;
+  outline: none;
+}
+.money-input:focus-within {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 16%, transparent);
+  outline: none;
+}
+.ledger-category-totals > div { border-radius: 14px; }
+.ledger-category-totals > div:nth-child(3n+1) { background: var(--app-peach); }
+.ledger-category-totals > div:nth-child(3n+2) { background: var(--app-sage); }
+.ledger-category-totals > div:nth-child(3n) { background: var(--app-blue); }
+
+/* ---------- 旅途成就页：修复图标压扁、均衡徽章列数与自定义文件选择 ---------- */
+.warm-achievement-intro {
+  border-radius: 22px 22px 0 0;
+  background: var(--app-sage);
+  border: 1px solid color-mix(in srgb, var(--warm-green) 14%, transparent);
+  border-bottom: 0;
+  padding: 28px 30px 22px;
+}
+.warm-achievement-intro h2 { font-family: var(--ui-sans); font-size: 23px; font-weight: 700; }
+.warm-achievement-intro > .travel-icon {
+  flex: 0 0 58px;
+  width: 58px;
+  height: 58px;
+  padding: 13px;
+  background: var(--surface);
+  color: var(--warm-green);
+  border-radius: 18px;
+  box-shadow: var(--elev-card);
+  transform: rotate(5deg);
+}
+.warm-achievements .metric-grid {
+  background: var(--app-sage);
+  border-radius: 0 0 22px 22px;
+  border: 1px solid color-mix(in srgb, var(--warm-green) 14%, transparent);
+  border-top: 1px dashed color-mix(in srgb, var(--warm-green) 20%, transparent);
+  margin-top: 0;
+  padding: 16px 24px 22px;
+}
+.warm-achievements .metric-card strong {
+  font-family: var(--ui-sans);
+  font-size: 32px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.warm-badges .badge-grid {
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 16px;
+}
+.warm-badges .badge-card { border-radius: 18px; padding: 26px 16px 22px; box-shadow: var(--elev-card); }
+.warm-badges .badge-art { filter: drop-shadow(0 4px 6px rgba(130, 108, 62, .14)); }
+.warm-highlight-card { border-radius: 19px; padding: 8px; box-shadow: var(--elev-card); }
+.warm-highlight-card .travel-cover { border-radius: 12px; }
+.warm-highlight-card > div:last-child { padding: 14px 10px; }
+.warm-year-review .timeline-item strong { font-family: var(--ui-sans); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* 自定义手账风图片选择框（替换原生丑陋 file input） */
+.file-picker-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 43px;
+  padding: 0 13px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color .2s ease, background-color .2s ease, color .2s ease;
+}
+.file-picker-box:hover { border-color: var(--warm-green); background: var(--surface); color: var(--ink); }
+.file-picker-box.has-file { border-style: solid; border-color: var(--warm-green); background: var(--surface); color: var(--ink); }
+.file-picker-box .travel-icon { width: 17px; height: 17px; flex: 0 0 17px; color: var(--warm-green); }
+.file-picker-box > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.file-picker-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* ---------- 个人中心：修复菜单图标色、备份卡留白与卡片质感 ---------- */
+.warm-profile-banner {
+  border-radius: 22px;
+  background: var(--app-sage);
+  border: 1px solid color-mix(in srgb, var(--warm-green) 14%, transparent);
+}
+.warm-profile-banner h2 { font-family: var(--ui-sans); font-weight: 700; }
+.warm-profile-avatar {
+  border: 5px solid var(--surface);
+  background: var(--surface);
+  color: var(--app-sage-ink);
+  border-radius: 28px;
+  transform: rotate(-4deg);
+  box-shadow: var(--elev-card);
+}
+.warm-profile .warm-menu-row > .travel-icon {
+  width: 38px; height: 38px; flex: 0 0 38px;
+  padding: 9px; border-radius: 12px;
+  background: var(--app-lilac); color: var(--app-lilac-ink);
+}
+.warm-profile div.warm-menu-row > .travel-icon {
+  background: var(--app-peach); color: var(--app-peach-ink);
+}
+.warm-profile .warm-storage { background: color-mix(in srgb, var(--app-blue) 26%, var(--surface)); }
+.warm-profile .backup-card { height: auto; display: flex; flex-direction: column; }
+.warm-backup-art {
+  background: var(--app-honey);
+  border-color: transparent;
+  color: var(--app-honey-ink);
+  border-radius: 18px;
+  box-shadow: var(--elev-card);
+}
+.warm-backup-list {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 4px 15px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+}
+.warm-backup-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.warm-backup-list li + li { border-top: 1px dashed var(--line); }
+.warm-backup-list strong { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.warm-profile .summary-number strong { font-variant-numeric: tabular-nums; }
+
+/* ---------- 响应式与移动端精细打磨 ---------- */
+@media (max-width: 1150px) {
+  .planner-chrome { padding: 22px 28px 0; }
+}
+@media (max-width: 850px) {
+  .app-shell .sidebar { padding: 5px 6px; box-shadow: 0 -4px 18px rgba(48, 59, 51, .06); }
+  .sidebar nav { gap: 2px; }
+  .nav-item { height: 61px; font-size: 10.5px; gap: 3px; padding: 3px 0; }
+  .nav-item .nav-icon, .nav-item.active .nav-icon { width: 33px; height: 29px; border-radius: 10px; }
+  .nav-item .travel-icon { width: 19px; height: 19px; }
+  .nav-item.active { background: none; color: var(--ink); }
+  .nav-item.active .nav-icon { box-shadow: 0 0 0 2px var(--surface), 0 2px 6px rgba(48, 59, 51, .1); }
+  .topbar { height: 60px; }
+  .main-shell { padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
+  .planner-overview { padding: 20px; gap: 14px; }
+  .planner-overview-timeline { grid-template-columns: minmax(0, 1fr); gap: 9px; padding: 12px; }
+}
+@media (max-width: 420px) {
+  .planner-trip-clock { flex-wrap: wrap; }
+  .planner-trip-device-time { margin-left: 57px; }
+  .planner-trip-days { grid-auto-columns: minmax(85px, 1fr); gap: 8px; }
+  .planner-trip-days > li:not(:last-child)::after { width: 4px; }
+  .planner-trip-day-link { padding-inline: 6px; }
+  .planner-trip-day-caption { gap: 4px; flex-wrap: wrap; }
+  .planner-trip-day-caption time { flex-basis: 100%; padding-left: 17px; }
+  .planner-calendar-controls button { flex: 1 0 100%; }
+}
+@media (max-width: 600px) {
+  .section-heading h1 { font-size: 25px; }
+  .section-heading p { font-size: 12px; }
+  .warm-journal-hero { gap: 18px; }
+  .warm-featured { height: 292px; }
+  .warm-featured-copy h2 { font-size: 23px; }
+  .warm-note-paper { padding: 20px; }
+  .warm-note-paper h3 { margin: 14px 0 8px; }
+  .warm-memory-counts { padding-top: 12px; }
+  .saved-city-card { padding: 15px; }
+  .saved-city-card span { font-size: 10px; }
+  .warm-profile-avatar { border-radius: 22px; }
+  .warm-profile-banner { padding-top: 26px; }
+  .warm-achievement-intro > .travel-icon { flex: 0 0 44px; width: 44px; height: 44px; padding: 10px; border-radius: 14px; }
+  .warm-badges .badge-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .planner-workspace { padding: 0; }
+  .planner-chrome { padding: 18px 20px 0; }
+  .planner-workspace > .content-page { padding: 14px 20px 28px; }
+  .planner-photo-settings { width: 100%; border-radius: 12px; }
+  .map-back-button { height: 34px; padding: 0 9px; font-size: 11.5px; }
+  .map-control-group button { min-width: 34px; height: 34px; font-size: 13px; }
+}
+
+/* 轻微抬升只在支持悬停的设备启用，触屏不产生粘滞悬停。 */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .warm-badges .badge-card:hover .badge-art { transform: translateY(-3px) rotate(-4deg); transition: transform .2s ease; }
+  .warm-highlight-card:hover { transform: translateY(-3px); box-shadow: var(--elev-hover); transition: transform .2s ease, box-shadow .2s ease; }
+}
+
+/* ---------- 行前准备清单 / 车次酒店预订 / AA 分账结算 ---------- */
+.packing-badge {
+  margin-left: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--app-sage);
+  color: var(--app-sage-ink);
+}
+.packing-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+.packing-template-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.packing-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.packing-inline-form input { flex: 1 1 200px; min-width: 0; }
+.packing-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.packing-group {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.packing-group h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--ink);
+}
+.packing-group h4 small { color: var(--muted); font-weight: 500; }
+.packing-group ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 7px;
+}
+.packing-group li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+.packing-group li label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13.5px;
+}
+.packing-group li input[type="checkbox"] {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  accent-color: var(--warm-green);
+}
+.packing-group li span { display: grid; gap: 2px; min-width: 0; }
+.packing-group li span strong { font-weight: 500; word-break: break-word; }
+.packing-group li span small { font-size: 12px; color: var(--muted); }
+.packing-group li.is-checked span { text-decoration: line-through; opacity: .58; }
+.packing-remove { padding: 0 6px; font-size: 15px; line-height: 1.2; color: var(--muted); }
+.packing-add-form {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+/* 车次 / 航班 / 酒店导入与已保存卡片 */
+.booking-dialog { max-width: 720px; width: min(94vw, 720px); max-height: 90vh; overflow-y: auto; }
+.booking-dropzone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  margin: 12px 0;
+  border-radius: 14px;
+  border: 1.5px dashed var(--line-strong, var(--line));
+  background: var(--surface-2);
+}
+.booking-dropzone.is-over {
+  border-color: var(--warm-green);
+  background: var(--app-sage);
+}
+.booking-dropzone strong { display: block; font-size: 14px; color: var(--ink); }
+.booking-dropzone small { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.booking-status {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--app-sage);
+  color: var(--app-sage-ink);
+  font-size: 13px;
+  margin: 8px 0;
+}
+.booking-draft-tabs,
+.booking-kind-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+.booking-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  margin-bottom: 14px;
+}
+.booking-form-grid .span-2 { grid-column: 1 / -1; }
+.booking-form-grid label { display: grid; gap: 4px; font-size: 13px; color: var(--ink); }
+.booking-dialog input:focus,
+.booking-dialog select:focus {
+  outline: none;
+  border-color: var(--warm-green);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--warm-green) 22%, transparent);
+}
+.booking-code-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.booking-code-row input { flex: 1 1 200px; min-width: 0; }
+.booking-stops-hint {
+  margin: -2px 0 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 12.5px;
+  color: var(--ink);
+  line-height: 1.55;
+}
+.booking-stops-hint small { display: block; margin-top: 3px; color: var(--muted); }
+.booking-backfill-box {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  margin-bottom: 14px;
+}
+.booking-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  cursor: pointer;
+}
+.booking-check input { width: 16px; height: 16px; margin-top: 3px; accent-color: var(--warm-green); flex: 0 0 auto; }
+.booking-check span { display: grid; gap: 2px; }
+.booking-check strong { font-size: 13.5px; }
+.booking-check small { font-size: 12px; color: var(--muted); }
+.booking-target-select {
+  display: grid;
+  gap: 4px;
+  margin-left: 25px;
+  font-size: 12.5px;
+}
+.booking-ledger-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-left: 25px;
+  font-size: 12.5px;
+}
+.booking-ledger-mode label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.booking-saved-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+.booking-saved-card {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 4px;
+}
+.booking-saved-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.booking-saved-head strong { margin-left: auto; color: var(--app-peach-ink); font-variant-numeric: tabular-nums; }
+.booking-kind-tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--app-blue);
+  color: var(--app-blue-ink);
+}
+.booking-saved-card h4 { margin: 2px 0 0; font-size: 14.5px; }
+.booking-saved-card p { margin: 0; font-size: 12.5px; }
+
+/* 同行人 AA 分账结算 */
+.aa-split-panel { display: grid; gap: 16px; }
+.aa-member-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.aa-member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--app-sage);
+  color: var(--app-sage-ink);
+  font-size: 13px;
+  font-weight: 500;
+}
+.aa-member-chip button {
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+}
+.aa-member-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.aa-member-add input { flex: 1 1 180px; min-width: 0; }
+.aa-add-card {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+.aa-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.aa-form-grid label { display: grid; gap: 4px; font-size: 13px; }
+.aa-participants-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.aa-check-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 13px;
+}
+.aa-check-pill.small { padding: 2px 8px; font-size: 12px; }
+.aa-check-pill.active {
+  background: var(--app-sage);
+  color: var(--app-sage-ink);
+  border-color: transparent;
+  font-weight: 600;
+}
+.aa-check-pill input { width: 14px; height: 14px; accent-color: var(--warm-green); }
+.aa-form-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.aa-sync-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.aa-sync-toggle input { width: 15px; height: 15px; accent-color: var(--warm-green); }
+.aa-settlement-box {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.aa-settlement-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.aa-settlement-head h3 { margin: 0; }
+.aa-transfers-list { display: grid; gap: 8px; margin-bottom: 12px; }
+.aa-transfer-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--app-peach);
+  color: var(--app-peach-ink);
+  font-size: 14px;
+}
+.aa-transfer-amount { font-size: 16px; font-variant-numeric: tabular-nums; }
+.aa-settled-note {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--app-sage);
+  color: var(--app-sage-ink);
+  margin: 0;
+  font-size: 13.5px;
+}
+.aa-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
+}
+.aa-balance-card {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  display: grid;
+  gap: 3px;
+}
+.aa-balance-card small { font-size: 11.5px; color: var(--muted); }
+.aa-balance-card span { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.aa-balance-card span.is-plus { color: var(--app-sage-ink); }
+.aa-balance-card span.is-minus { color: var(--app-peach-ink); }
+.aa-items-list { display: grid; gap: 8px; }
+.aa-item-row {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+}
+.aa-item-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.aa-item-amount { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink); }
+.aa-item-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.aa-item-controls > label { display: inline-flex; align-items: center; gap: 5px; }
+.aa-item-parts { display: flex; flex-wrap: wrap; gap: 5px; flex: 1 1 auto; }
+
+/* 小红书灵感导入 / 点位勾选 / 待选灵感池 / 对话附件 */
+.xhs-dialog-backdrop[hidden] { display: none; }
+.xhs-dialog { width: min(100%, 780px); max-height: 90vh; max-height: 90dvh; overflow-y: auto; padding-top: 0; }
+/* 长笔记滚动到底部时，收起入口仍留在弹窗顶部。 */
+.xhs-dialog .xhs-dialog-header {
+  position: sticky; top: 0; z-index: 1; align-items: center; flex-flow: row nowrap;
+  padding: 16px 0 12px; background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.xhs-dialog-header h2 { margin: 0; }
+.xhs-dialog-header button { white-space: nowrap; }
+.xhs-resume-task { position: fixed; right: 24px; bottom: 82px; z-index: 36; box-shadow: var(--shadow-hover); }
+@media (max-width: 850px) {
+  .xhs-resume-task { right: 15px; bottom: calc(156px + env(safe-area-inset-bottom)); }
+}
+.xhs-input-panel { display: grid; gap: 10px; margin-top: 8px; }
+.xhs-text-label { display: grid; gap: 6px; font-size: 13px; color: var(--ink); }
+.xhs-text-label textarea { width: 100%; resize: vertical; }
+.xhs-dropzone { margin: 2px 0; }
+.xhs-dropzone-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+.xhs-thumb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+}
+.xhs-thumb {
+  position: relative;
+  margin: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  aspect-ratio: 3 / 4;
+}
+.xhs-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.xhs-thumb-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(20, 20, 20, 0.72);
+  color: #fff;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 14px;
+  padding: 0;
+}
+.xhs-parse-bar,
+.xhs-add-more-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 8px 0;
+}
+.xhs-ref-list { display: grid; gap: 12px; margin: 10px 0 14px; }
+.xhs-ref-card {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+}
+.xhs-ref-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.xhs-ref-head h3 { margin: 4px 0 2px; font-size: 15.5px; }
+.xhs-ref-head-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.xhs-tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.xhs-style-tag {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: var(--surface-2);
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+.xhs-note-ocr-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.xhs-sub-details {
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.xhs-sub-details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+.xhs-sub-details ul { margin: 6px 0 2px 18px; padding: 0; display: grid; gap: 4px; color: var(--muted); }
+.xhs-places-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13.5px;
+}
+.xhs-places-header > div { display: flex; gap: 10px; }
+.xhs-place-list { display: grid; gap: 6px; max-height: 260px; overflow-y: auto; padding-right: 2px; }
+.xhs-place-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.xhs-place-item.is-selected {
+  background: var(--surface);
+  border-color: var(--warm-green);
+}
+.xhs-place-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin-top: 4px;
+  accent-color: var(--warm-green);
+  flex: 0 0 auto;
+}
+.xhs-place-body { flex: 1 1 auto; min-width: 0; display: grid; gap: 4px; }
+.xhs-place-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.xhs-place-name-input {
+  flex: 1 1 140px;
+  min-width: 120px;
+  padding: 3px 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+}
+.xhs-place-name-input:focus {
+  border-color: var(--line-strong, var(--line));
+  background: var(--surface);
+}
+.xhs-place-city,
+.xhs-place-day { font-size: 11.5px; color: var(--muted); }
+.xhs-place-note { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
+.xhs-place-del { flex: 0 0 auto; font-size: 12px; }
+
+.xhs-kind-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--app-sage);
+  color: var(--app-sage-ink);
+  flex: 0 0 auto;
+}
+.xhs-kind-badge.kind-food { background: var(--app-peach); color: var(--app-peach-ink); }
+.xhs-kind-badge.kind-photo_spot { background: var(--app-blue); color: var(--app-blue-ink); }
+.xhs-kind-badge.kind-lodging { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+
+.xhs-action-box { gap: 12px; }
+.xhs-mode-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.xhs-mode-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+}
+.xhs-mode-card.active { border-color: var(--warm-green); background: var(--app-sage); }
+.xhs-mode-card input { margin-top: 3px; accent-color: var(--warm-green); }
+.xhs-mode-card span { display: grid; gap: 3px; }
+.xhs-mode-card strong { font-size: 13px; }
+.xhs-mode-card small { font-size: 11.5px; color: var(--muted); line-height: 1.4; }
+
+.xhs-plan-add-body,
+.xhs-revise-body { display: grid; gap: 12px; }
+.xhs-wishlist-quick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.xhs-wishlist-quick strong { display: block; font-size: 13.5px; }
+.xhs-schedule-box {
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.xhs-quick-prompts { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* 把可选的参考入口放在新建表单顶部，连续粘贴多篇时允许按需拉高。 */
+.xhs-ref-banner {
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border-radius: 14px;
+  background: var(--app-sage);
+  color: var(--app-sage-ink);
+  display: grid;
+  gap: 8px;
+}
+.planner-workspace .xhs-ref-label { font-size: 14px; color: var(--ink); }
+.planner-workspace .xhs-ref-banner > textarea { min-height: 62px; background: var(--surface); }
+.xhs-ref-banner-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.xhs-ref-banner-top p { margin: 2px 0 0; font-size: 12.5px; }
+.xhs-ref-banner-modes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-size: 12.5px;
+}
+.xhs-ref-banner-modes label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.xhs-ref-banner-modes input { accent-color: var(--warm-green); }
+
+.xhs-composer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.xhs-attach-btn { font-size: 12.5px; }
+.xhs-chat-attachments,
+.xhs-msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+.xhs-attach-chip,
+.xhs-msg-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: var(--app-sage);
+  color: var(--app-sage-ink);
+}
+.xhs-attach-chip button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+}
+.xhs-msg-attachment-chip a { color: inherit; text-decoration: underline; font-weight: 600; }
+
+.xhs-day-add-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.xhs-wishlist-panel { display: grid; gap: 10px; }
+.xhs-wishlist-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.xhs-wishlist-heading h3 { margin: 0; }
+.xhs-wishlist-item {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 4px;
+}
+.xhs-wishlist-item-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.xhs-wishlist-item p { margin: 0; font-size: 12.5px; color: var(--muted); }
+.xhs-wishlist-item-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 2px; }
+
+.planner-wishlist-marker span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #d97706;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  border: 2px dashed #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+.planner-wishlist-label {
+  border-color: #d97706 !important;
+  color: #92400e !important;
+}
+
+@media (max-width: 600px) {
+  .packing-add-form { grid-template-columns: 1fr; }
+  .booking-form-grid { grid-template-columns: 1fr; }
+  .booking-form-grid .span-2 { grid-column: auto; }
+  .xhs-mode-grid { grid-template-columns: 1fr; }
+}
