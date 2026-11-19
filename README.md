@@ -1,86 +1,45 @@
-# 旅行足迹网页版
+# Zhouyou Map
 
-## AI 旅行计划
+Zhouyou Map is a browser-based travel journal, footprint map, and AI itinerary planner. It uses React, Vite, TypeScript, and a local Node.js service. The application interface is in Chinese.
 
-需要 Node.js 24 或更新版本。界面支持浅色、深色与跟随系统，可在顶栏切换。小红书配图会在本机检查是否带字、拼图或以人物为主，所需模型（约 87MB）在服务首次启动时从 ModelScope 自动下载到 `.models/`。`npm run dev` 在同一端口提供网页与本地 AI API（默认 5173），监听所有网卡（其他设备用本机 IP 访问）。生产使用 `npm run build` 后运行 `npm start`（或 `npm run preview`），打开 `http://127.0.0.1:4173/` 或 `http://本机IP:4173/`。切换端口或域名属于不同浏览器来源，原数据可通过 ZIP 备份搬移。
+## Quick start
 
-DeepSeek 密钥只放在 `web/.env.local` 的 `DEEPSEEK_API_KEY`，格式参考 `.env.example`；修改后重启服务。该文件被 Git 忽略，密钥不进入页面、构建产物或 ZIP。模型固定为 `deepseek-flash`，后端使用独立 Search/Fetch API 联网，模型和搜索按提供方规则计费。
-
-- **发现目的地**：输入日期／范围和 Base，按全国或省份推荐当季玩法。地图进入省份后可点“AI 推荐省内怎么玩”。
-- **我的行程**：保留目的地、总人数、学生数、Base、预算、节奏、交通、住宿档次、房间数、忌口、美食及早餐选项，提供具体填写示例，也可用补充要求描述自己的想法。开始日期＋天数自动得出结束日期，开始日期＋结束日期自动得出天数（首日算第 1 天）；只填开始日期也可推荐。没有出发时刻或返程地点字段，计划只安排目的地内游玩及多城之间的衔接，不安排从家去或回家的交通。
-- **编辑与问答**：行程顶部提供 AI 对话，页面右下角可随时回到输入框；选“AI 只改本模块”限定范围。普通问题及假设先给建议。多个候选方案分别提供“实施计划”按钮，回复“A”“选 A”“就按方案 A”也可直接实施对应方案；“A 怎么样”“先别改”不会执行。明确要求修改则直接应用。建议绑定当时的行程内容，普通追问不使其失效；行程已改变时需重新询问。已实施状态保存到对话及 ZIP，避免重复计费。锁定卡片不能修改、删除或挪到其他日期；历史恢复同样受保护，历史保留最近 30 次内容修订。回答、历史、提醒与摘要中的内部编号会在展示时转成可读名称，来源链接保留。
-- **行程地图**：点击“查看行程地图”展开真实地理底图，可拖动、缩放、放大和按天查看；重复地点合并标记，弹窗保留各次活动及高德查看入口。修改或撤销计划后同步更新。住宿标为建议片区，不表示已选定酒店。
-- **预算与账本**：原账本和实际花费保留。AI 预算按整数分、成人／学生、人数、房间和车辆由程序计算；未知费用列为待确认，套餐不重复计费。每次已保存的计划变动都会重新计算。
-- **加入记录**：计划独立保存。手动加入后创建“计划中”的旅行，不点亮地图、不归入已有媒体。后续需要手动同步；若旅行标题、日期、城市或预算已有人工编辑，会停止覆盖并保留原内容，实际花费始终保留。
-
-网络资料保留查询日期与原文链接。远期天气只有季节性参考；票价、班次和优惠未核实时会标为估算或待确认。实景图片按“小红书站内搜索（可选扫码登录）→ 小红书公开笔记 → 图片索引检索 → 公开网页补图”的顺序处理。系统逐个核对城市、景点和图片自身说明/页面标题，再实际下载、完整解码、检查尺寸并压缩成 WebP；第一张合格照片立即使用，只有不匹配、损坏或下载失败才查下一张，没有候选选择界面。
-
-启用本地小红书连接后，生成行程、目的地/时长推荐及对话调整也优先检索小红书攻略、游玩体验与当前页面可见的游客评论，再与官方资料一起供模型参考。搜索优先加入出行月份，结果不足再去掉月份；不要求笔记必须同月发布。只读取少量相关笔记，不加载全部评论，不根据有限评论编造总体评分；没有实际取得评论就明确说明。价格、开放时间、预约和交通仍优先核对官方网站，个人攻略只作为经验。无法登录、笔记打不开或没有匹配时，继续其他网站，不把小红书登录作为默认使用前提。来源链接保留在行程参考资料中。
-
-搜索会加入活动日期对应月份，例如“昆明 翠湖公园 九月”。月份仅用于优先检索，不是拒绝条件；找不到时去掉月份继续查，其他月份拍摄但地点正确的照片也可使用，不能把搜索月份说成拍摄月份。审核是来源文字与图片完整性匹配，并非视觉模型鉴定；证据不足时保留待补图。
-
-图片索引默认使用 Wikimedia Commons 的文件搜索，不需另配 Key；也支持服务端 `BRAVE_IMAGE_SEARCH_KEY` 接入 Brave 全网图片搜索（需自行开通对应 API 权限，按服务商实际配额计费）。未配置该 Key 时不会声称已经启用 Brave 全网图片搜索。公开网页搜索仍复用已有 DeepSeek 配置。相关接口见 [Commons 图片信息](https://www.mediawiki.org/wiki/API:Imageinfo)和 [Brave Images](https://api-dashboard.search.brave.com/app/documentation/image-search/get-started)。
-
-照片验证成功后保存至 Git 忽略的 `web/.planner-photos/`，再下载到浏览器独立的 IndexedDB 图片存储；原始网址、作者/许可及来源页单独保留，展示不依赖外部图片链接。数据库自动升级，旧计划继续可读；ZIP v3 新增独立图片文件，包含当前计划和历史版本引用的配图，恢复前校验散列和解码，兼容旧 ZIP。若本地照片缺失，完整备份会明确报错，不会静默丢图。
-
-保留原文链接和来源；无法获取时显示补图／重试及失败原因，已有照片可点击“按小红书优先重新查找”。每个照片区提供“去小红书搜这个地点”，由小红书自身处理登录。旧行程的远程图片需要手动重新查找后才会改成本地保存的图片。
-
-小红书公开网页检索只覆盖被收录且可访问的笔记。用户明确同意后，也可通过第三方 [xiaohongshu-mcp](https://github.com/xpzouying/xiaohongshu-mcp) 本地工具接入站内搜索。它不是官方接口，需要用户扫码登录并在本机保存登录状态；应用只调用状态、二维码、搜索及笔记详情，不调用发布、评论、点赞等接口。遇到登录/验证失败会说明并回退，不绕过验证。图片来源保留，不代表取得转载许可。[官方账号权限](https://openaccount.xiaohongshu.com/docs/scope)本身仍不包含全站搜索。
-
-计划页的“图片来源设置”提供两项操作：通过 [Brave 官方控制台](https://api-dashboard.search.brave.com/) 开通图片搜索并生成 Key，填入后点“保存并启用”（只写本机环境文件，立即生效）；安装本地小红书工具后点击“获取登录二维码”，用小红书 App 扫码并确认，页面自动检查登录状态。没有 Key 或没有登录时不会显示已启用。
-
-在 `web/` 中运行 `npm run setup:xhs` 安装用户已同意的本地工具。安装器固定下载 v2.7.4 的 Windows x64 发布文件并核验 SHA-256，只监听 `127.0.0.1:18060`、启用鉴权，登录状态保存在忽略目录 `.xhs-local/`。开发服务会自动启动已安装的工具，不会在普通启动时下载第三方软件。GitHub 下载失败可从[同一官方项目发布页](https://github.com/xpzouying/xiaohongshu-mcp/releases/tag/v2.7.4)手动下载 `xiaohongshu-mcp-windows-amd64.exe` 到 `web/.xhs-local/`，再运行安装器，仍会核验同一散列。首次启动还需准备项目内置浏览器，成功后才能取二维码。配置和登录数据不进 Git、前端或 ZIP。
-
-图片匹配不要求每张说明都重复城市全称，允许用已匹配的来源页补充城市；常见简称和“观鸥、赏荷”等玩法词会整理成景点名。仍跳过明显异城和损坏图片，月份只影响搜索优先级。
-
-站内查图只搜索城市和景点，优先直接下载搜索封面。多个候选由 AI 依据实际标题、说明和出行日期选择，不使用手写地点匹配或相似度打分；相似参考图即可，月份只在多个合适候选间作为加分项，不添加到图片搜索词中。经用户授权，沿用已配置的 DeepSeek 处理城市、景点、日期及公开候选标题/摘要，不发送小红书登录凭据。AI 不可用时按站内搜索顺序尝试。页面注明具体机位与拍摄月份未确认；封面均不可用才补查最多两篇详情。小红书阶段最多等待 35 秒（含排队与 AI 选择），随后尝试其他来源；每张照片检索总计最多 60 秒。重新查找支持实时阶段、等待秒数和取消，失败或取消保留原照片。普通加载继续复用本地缓存；攻略正文及可见评论仍通过详情读取。
-
-站内笔记可能返回 HTTP 图片链接，仅将小红书图片 CDN 地址升级为 HTTPS 并保留签名参数；默认图不可用再试预览图。其他域名和不安全地址不会因此被放开。完成扫码并启动 dev 后，可运行 `node --use-system-ca scripts/planner-xhs-live.mjs` 实测翠湖攻略、可见评论、网页图片接口与本地照片读取；完整结果写入忽略目录 `.openai/`，不会进入源码或行程备份。
-
-真实搜图排查可运行 `node scripts/planner-photo-live.mjs 翠湖公园 昆明市`（会调用已配置搜索服务的额度），只打印阶段状态和结果数量，不输出密钥或完整网页；添加 `--save` 可保存测试图及来源到忽略目录 `.openai/`。照片重试失败时，页面显示各来源的具体失败原因。新闻图集支持通过图片紧邻的地点说明匹配照片，避免误取图集中其他城市的图片。
-
-AI 返回的费用支持常见中文类别、计费单位、数字文本及缺省元数据，服务会自动整理后显示；无法明确识别的原始费用说明保留为待确认，不会仅因费用格式不一致而丢弃整份行程。
-
-模型偶发的 JSON 引号、逗号或代码围栏问题由本机库整理，不为格式修复额外回传原始模型回复；修改仍须通过意图、版本、范围及锁定校验。
-
-精确地点检索需在服务端 `web/.env.local` 配置高德 **Web 服务类型**的 `AMAP_WEB_SERVICE_KEY` 并重启服务，同时确保该 Key 有地点搜索权限及可用额度。Key 不进入浏览器、日志或备份。缺少配置、网络异常或同城同名位置不唯一时显示“位置待确认”，仍可用地点列表及“在高德地图查看”。普通“午餐”等泛化描述不会伪造精确标记。
-
-底图使用 Leaflet 及 OpenStreetMap 标准瓦片，只加载用户当前查看的区域，不做离线预下载；请遵循[瓦片使用政策](https://operations.osmfoundation.org/policies/tiles/)。底图依赖网络，失败有提示和重试入口；可用 `PLANNER_MAP_TILE_URL` 切换兼容的 OSM 来源服务，并核对其许可和署名要求。高德检索位置保留 GCJ-02 原始值，转换为 WGS84 后近似显示在底图；高德跳转使用[官方搜索 URI](https://lbs.amap.com/api/uri-api/guide/search/search)，不会把 WGS84 直接用于高德定位。
-
-`npm run test:planner` 运行预算与规则单元检查、服务模拟测试及 Chrome 浏览器验收（浏览器验收需先启动 dev）。`npm run test:planner:live` 为手动真实 API 联调，会调用账户额度；常规测试不调用真实模型。ZIP v3 包含 AI 计划、对话、历史及收藏，兼容 v1/v2 旧备份。
-
-这是独立的 React + Vite + TypeScript 网页工程，AI 由本地 Node 服务提供，源码可单独放入私有 Git 仓库。网页不会调用 `wx.*`。
-
-## 本地运行
-
-在本目录：
+Use Node.js 24 or later.
 
 ```powershell
 npm install
 npm run dev
 ```
 
-手机与电脑连接同一 Wi-Fi 后，可运行 `npm run dev:phone`，再用手机打开终端显示的 WLAN 地址。电脑需保持开机；局域网 HTTP 地址上的语音录制与离线缓存不可用，完整手机功能需要可信的 HTTPS 地址。
+Open the address printed in the terminal. The development server uses port 5173 by default and serves both the web app and the planner API. Run `npm run build` and then `npm start` or `npm run preview` to serve the production build from `dist/` on port 4173.
 
-浏览器打开终端给出的本地地址（默认 `http://127.0.0.1:5173/`）。生产构建运行 `npm run build`，输出在 `dist/`。请通过本地 HTTP 服务器或 HTTPS 部署访问，不要直接双击 `index.html`；离线应用和麦克风需要安全来源。
+To preview on a phone on the same Wi-Fi, run `npm run dev:phone` and open the displayed LAN address. Use a trusted HTTPS origin for offline caching and microphone access on a phone.
 
-## 网页功能
+## Features
 
-- 首页仅加载全国省级边界。点击任意省级区域后加载本地打包的市级行政区边界；地图支持鼠标滚轮、拖拽、手机双指和页面上的缩放按钮。
-- 点击未标记城市后按“确认”即保存为已去过；已去过的城市直接进入记录页。旧版计划城市在地图上保持未点亮，确认去过后才会点亮。城市状态按行政区划代码保存，并汇总到省级颜色。
-- 省级地图内有明确的“返回全国”按钮。旅行记录可从地图直接查看当前城市，也可按省份浏览城市；“查看全部旅行”同时列出已保存的旅行和城市，包括尚未归入旅行的城市照片与地点，城市按省份分组且可直接打开。旅行手账按一次旅行组织，可填写起止日期、状态、选择多座城市和同行者。每批照片或视频上传前必须选择已保存的地点，也可以先新建地点。照片按拍摄日期和时段显示；地点可写文字评语及录制、播放语音。照片的 GPS 城市与所选城市不同时会提示确认。
-- 可先在城市页直接新增地点、上传照片和写评语，不必先新建旅行。文字或语音记录可填写地点记录日期。后来创建包含该城市的旅行时，日期匹配的照片和记录会自动归入；同一地点跨越多次旅行时会按日期拆分，其他照片继续留在城市页。预算和实际花费仍按旅程保存。
-- 地点回忆页采用旅行手账排版，照片按需加载缩略图，每次显示 24 张；大图可用键盘方向键或手机滑动切换，并可手动修改照片日期和所属地点。
-- 计划与花费以整次旅程为账本，可查看当前城市参与的旅行或全部旅行，计算总额、人均和预算进度，导出带提醒的 `.ics` 日历事件。旧版城市账单可手动归入对应旅行，归档过程不会覆盖已有账本。计划中的旅程不会计入已去城市和旅行天数。成就页展示足迹数据、时间轴、徽章和可下载海报。
-- 所有记录和媒体只存入当前浏览器的 IndexedDB；媒体原件与相册列表信息分开读取。个人中心可以导出或导入包含媒体的 ZIP 备份，并兼容旧版备份。用户选择的省级地图可缓存供离线打开；没有缓存的省份在断网时显示提示。
+- **Footprint map.** Browse packaged province and city boundaries. Confirm a city visit to light it up. Planned cities stay unmarked until you confirm a visit. Cache selected province maps for offline browsing.
+- **Travel journal.** Save memories by city or organize them into trips with dates and companions. Add place notes, photos, video, and voice recordings. The journal groups photos by date and time and asks for confirmation when GPS data points to a different city.
+- **AI planner.** Discover seasonal destinations or plan around your dates, budget, travelers, and preferences. Review suggested routes, transfers, lodging, and activities. Discuss and apply scoped changes, lock activities, and restore revisions.
+- **Budget and bookings.** Track estimated and actual costs, split group expenses, import booking details or screenshots, and export calendar reminders or a self-contained offline HTML itinerary. Linking a plan to a trip preserves existing actual spending and manual edits.
+- **Achievements.** Track visited cities, travel milestones, and badges, and download posters. The traveler roadmap shows progress toward the next milestone.
 
-## 地图文件
+Records and media are stored in the current browser's IndexedDB. Use the profile page to export or restore a ZIP backup before changing device, browser, port, or site address. ZIP v3 supports planner photos, conversations, and revisions. Older v1 and v2 backups can still be imported.
 
-`public/maps/china.json` 包含 34 个省级可点击区域；其余 34 个以省级 `adcode` 命名的文件包含相应的市级或直管区域。原始数据供个人演示与学习使用，公开发布前需要核对地图数据授权与使用要求。
+## Configure AI and online services
 
-## 验证
+Copy `.env.example` to `.env.local`. Enter provider settings there or use the planner's AI configuration screen. For DeepSeek, use `DEEPSEEK_API_KEY`. Restart the local service after editing the environment file directly. Provider credentials, local sessions, and runtime caches are excluded from Git.
 
-先在一个终端运行 `npm run dev`，再在另一个终端运行以下浏览器测试：
+Online references retain their lookup dates and source links. Prices and schedules that cannot be verified are shown as estimates or left for confirmation. Configure `AMAP_WEB_SERVICE_KEY` with Amap place-search access to enable precise place lookup. The Leaflet map uses [OpenStreetMap tiles](https://operations.osmfoundation.org/policies/tiles/) by default. Set `PLANNER_MAP_TILE_URL` to use a compatible alternative.
+
+### Photos and Xiaohongshu
+
+The planner looks for photos in public Xiaohongshu posts, Wikimedia Commons, and other web sources. Wikimedia Commons needs no separate key. Set `BRAVE_IMAGE_SEARCH_KEY` to use Brave Images if your account has that API entitlement. Searching by trip month gives matching results priority while allowing relevant images from other months. Downloaded photos are checked, compressed to WebP, and saved in `.planner-photos/` and browser storage. Available source links and license information are retained.
+
+On Windows x64, `npm run setup:xhs` installs the pinned [xiaohongshu-mcp](https://github.com/xpzouying/xiaohongshu-mcp) release for optional in-app search. The installer verifies its SHA-256 digest. The local tool uses `127.0.0.1:18060` and stores session files in `.xhs-local/`. Open Photo Sources in the app to request a sign-in QR code. The planner falls back to public sources when account search is unavailable.
+
+## Tests
+
+Browser smoke tests use local Chrome and expect the development server to be running.
 
 ```powershell
 npm run test:maps
@@ -89,8 +48,11 @@ npm run test:migration
 npm run test:finance
 npm run test:city-record
 npm run test:mobile
+npm run test:planner
 ```
 
-浏览器烟雾测试使用本机 Chrome。离线验收时先运行 `npm run build` 和 `npm run preview -- --port 4173`，再运行 `node scripts/offline-smoke.mjs`。
+For offline checks, build and start the production server, then run `node scripts/offline-smoke.mjs`. `npm run test:planner:live` and the live photo scripts use your configured provider and may consume quota.
 
-本地版无手机号登录、跨设备同步或多人协作。上传没有人为设置数量上限，实际容量由设备和浏览器配额决定；请定期导出备份。把网站放到新域名后，新域名无法读取 localhost 的记录，须先在旧网址导出 ZIP，再在新网址导入。现有 DataV 地图边界仅用于个人演示；公开发布前需要核对数据授权及地图发布要求。
+## Map data
+
+`public/maps/china.json` defines 34 provincial areas. Province files use administrative area codes and contain city or directly administered boundaries. Review the underlying DataV data terms and applicable map publication requirements before redistributing geographic data.

@@ -1,18 +1,21 @@
-# 本地地点数据包
+# Local Place Data Packs
 
-应用读取此目录下的JSON文件，按城市、名称和别名查询，运行时不需要Python或第三方Key。
+The app reads the JSON files in this directory and looks up places by city, name, and aliases. Runtime lookups require neither Python nor a third-party API key.
 
-`yunnan-overture.json` 由 `scripts/build-overture-place-pack.py` 从Overture官方数据提取；当前仅是**昆明20条试用记录**，不是全国或完整云南数据库。脚本支持扩展到大理、丽江、香格里拉。
+## Overture Maps
 
-- 只接受CDLA-Permissive-2.0或CC0-1.0记录，保留每条数据的来源、版本和原始provenance。
-- 数据来源：https://docs.overturemaps.org/guides/places/ 。发布时须附上同目录的CDLA许可文本。
-- 更新数据包需Python和DuckDB（pip install duckdb），执行 `python web/scripts/build-overture-place-pack.py`；修改脚本regions可扩展其他地区。更新后重启后端。
-- 数据包是地点记录，不保证餐馆、酒店目前仍在营业，更不代表评价良好。
+`yunnan-overture.json` contains a pilot sample of 20 Kunming records extracted from the official [Overture Maps Places data](https://docs.overturemaps.org/guides/places/). It is not a comprehensive Yunnan or national dataset. The extraction script can be adapted to Dali, Lijiang, and Shangri-La.
 
-Wikidata在线补查的结构化坐标采用CC0：https://www.wikidata.org/wiki/Wikidata:Licensing 。
+The pack accepts records under CDLA-Permissive-2.0 or CC0-1.0. Each record retains its source, version, and original provenance. Include the CDLA license file from this directory when distributing the pack.
 
-`yunnan-wikidata.json` 缓存本次实测核验的大理站、丽江站、独克宗古城，保留实体链接。独克宗原坐标较粗，按片区参考点显示。`scripts/build-wikidata-place-pack.mjs` 可补充缺失记录，遇到限流保留已有数据。
+Install DuckDB with `python -m pip install duckdb`, then run `python scripts/build-overture-place-pack.py` from the web repository. Update the script's regions to add areas. Restart the backend after updating a pack. Place records do not verify current opening status or review quality.
 
-北大2018全国POI需用户登录下载，本项目尚未包含这套历史数据。
+## Wikidata
 
-可导入其他已获许可的来源，JSON顶层为records数组，记录字段为name、aliases、city、longitude、latitude、coordinateSystem（WGS84）、source、sourceUrl、license。坐标必须来自实际资料；历史GCJ-02坐标不能直接冒充WGS84。
+`yunnan-wikidata.json` caches checked locations for Dali Railway Station, Lijiang Railway Station, and Dukezong Ancient Town, with entity links. Dukezong is displayed as an approximate area point. Wikidata structured coordinates use [CC0](https://www.wikidata.org/wiki/Wikidata:Licensing).
+
+Run `node scripts/build-wikidata-place-pack.mjs` to add missing records. The script preserves existing data when requests are rate-limited. The separate 2018 national POI dataset from Peking University requires an account download and is not bundled.
+
+## Import another source
+
+Use a source with a license that permits the intended use. The JSON top level contains a `records` array. Records include `name`, `aliases`, `city`, `longitude`, `latitude`, `coordinateSystem`, `source`, `sourceUrl`, and `license`. Coordinates must come from the cited source. Convert GCJ-02 coordinates before labeling them WGS84.
