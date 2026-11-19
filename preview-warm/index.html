@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f6f0"><title>旅行足迹 · 暖日试阅版</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#journal"><span class="brand-mark">旅</span><span>旅行足迹<small>自己的旅行小册子</small></span></a>
+    <div class="side-caption">我的收藏夹</div>
+    <nav aria-label="主导航"><button data-page="journal"></button><button data-page="achievements"></button><button data-page="profile"></button></nav>
+    <div class="side-postcard"><span class="small-sun">☀</span><p>下一个周末，<br>也想出去走走。</p><small>留一点时间给喜欢的事</small><div class="postcard-hills"></div></div>
+    <div class="side-bottom"><span class="status-dot"></span>独立试阅版 · 示例资料<button id="about">关于这个版本 ↗</button><a href="http://localhost:5173/" target="_blank" rel="noopener">打开原来的版本 ↗</a></div>
+  </aside>
+  <div class="main-shell"><header class="topbar"><span id="breadcrumb">我的收藏夹 / 旅行记录</span><span class="preview-label">暖日 · 设计预览</span><button class="avatar-mini" data-page="profile" aria-label="个人中心">满</button></header><main id="app"></main><footer>照片、文字，还有一起出发的人。<span>TRAVEL FOOTPRINTS</span></footer></div>
+  <nav class="mobile-nav" aria-label="手机导航"><button data-page="journal"></button><button data-page="achievements"></button><button data-page="profile"></button></nav>
+  <dialog id="dialog"><div id="dialog-content"></div></dialog>
+  <div id="toast" role="status" hidden></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
