@@ -1115,19 +1115,25 @@
   height: 34px;
 }
 
-/* 按护照内的可用宽度换列，路线色随外观与深浅主题切换。 */
+/* 路线颜色集中在面板内，随页面的深浅模式切换。海松绿用于走过的路线，杏陶色标记下一站。 */
 .level-roadmap {
   container: traveler-roadmap / inline-size;
-  --roadmap-accent-ink: color-mix(in srgb, var(--app-sage-ink) 75%, var(--ink));
-  --roadmap-accent-line: color-mix(in srgb, var(--app-sage-ink) 55%, var(--app-sage));
-  --roadmap-warm-ink: color-mix(in srgb, var(--app-honey-ink) 75%, var(--ink));
+  --roadmap-paper: light-dark(#fcfaf5, #1e2927);
+  --roadmap-card: light-dark(#fffdf9, #242e2c);
+  --roadmap-edge: light-dark(#ddd9cf, #43504b);
+  --roadmap-ink: light-dark(#273e38, #edf2e9);
+  --roadmap-muted: light-dark(#5c6962, #b6c5bb);
+  --roadmap-pine: light-dark(#245e53, #a7d9c8);
+  --roadmap-pine-soft: light-dark(#dceee5, #2e4a42);
+  --roadmap-pine-line: light-dark(#77a492, #6f9f91);
+  --roadmap-pine-inverse: light-dark(#f7fff9, #15312b);
+  --roadmap-clay: light-dark(#8b4634, #fac0a8);
+  --roadmap-clay-soft: light-dark(#f7e0d4, #563c35);
   margin-bottom: 18px;
   padding: clamp(12px, 2vw, 22px);
-  border: 1px solid var(--line);
+  border: 1px solid var(--roadmap-edge);
   border-radius: 20px;
-  background:
-    radial-gradient(ellipse at top right, color-mix(in srgb, var(--app-honey) 34%, transparent), transparent 55%),
-    linear-gradient(145deg, color-mix(in srgb, var(--app-sage) 32%, var(--surface)), var(--surface));
+  background: linear-gradient(125deg, var(--roadmap-paper), color-mix(in srgb, var(--roadmap-pine-soft) 54%, var(--roadmap-paper)));
 }
 .level-roadmap-head {
   display: flex;
@@ -1141,8 +1147,8 @@
   height: 32px;
   place-items: center;
   border-radius: 10px;
-  background: var(--app-sage);
-  color: var(--roadmap-accent-ink);
+  background: var(--roadmap-pine-soft);
+  color: var(--roadmap-pine);
 }
 .level-roadmap-icon .travel-icon {
   width: 17px;
@@ -1150,7 +1156,7 @@
 }
 .level-roadmap-head h3 {
   margin: 0;
-  color: var(--ink);
+  color: var(--roadmap-ink);
   font-size: clamp(16px, 2cqi, 19px);
   line-height: 1.4;
 }
@@ -1179,10 +1185,10 @@
   top: calc(var(--roadmap-marker-size) / 2 - 1px);
   inset-inline-start: 50%;
   width: calc(100% + var(--roadmap-gap));
-  border-top: 2px dashed var(--line-strong);
+  border-top: 2px dashed var(--roadmap-edge);
 }
-.level-step.is-reached::before { border-top: 2px solid var(--roadmap-accent-line); }
-.level-step.is-current::before { border-top-color: var(--roadmap-accent-line); }
+.level-step.is-reached::before { border-top: 2px solid var(--roadmap-pine-line); }
+.level-step.is-current::before { border-top-color: var(--roadmap-pine-line); }
 @container traveler-roadmap (width < 520px) {
   .level-step:nth-child(2n)::before { display: none; }
 }
@@ -1199,10 +1205,10 @@
   box-sizing: border-box;
   width: var(--roadmap-marker-size);
   height: var(--roadmap-marker-size);
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--roadmap-edge);
   border-radius: 50%;
-  background: var(--surface);
-  color: var(--muted);
+  background: var(--roadmap-card);
+  color: var(--roadmap-muted);
 }
 .level-step-marker .travel-icon {
   width: 17px;
@@ -1216,13 +1222,13 @@
   gap: 4px;
   min-width: 0;
   padding: 9px clamp(7px, 1.6cqi, 15px) 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--roadmap-edge);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--surface) 70%, var(--paper));
+  background: var(--roadmap-card);
 }
 .level-step-number {
   grid-column: 1;
-  color: var(--ink-2);
+  color: var(--roadmap-muted);
   font-size: 11px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -1230,13 +1236,13 @@
 }
 .level-step-title {
   grid-column: 1 / -1;
-  color: var(--ink);
+  color: var(--roadmap-ink);
   font-size: 14px;
   line-height: 1.35;
 }
 .level-step-threshold {
   grid-column: 1 / -1;
-  color: var(--ink-2);
+  color: var(--roadmap-muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
@@ -1248,10 +1254,10 @@
   place-items: center;
   width: 16px;
   height: 16px;
-  border: 1px solid var(--surface);
+  border: 1px solid var(--roadmap-paper);
   border-radius: 50%;
-  background: var(--roadmap-accent-ink);
-  color: var(--surface);
+  background: var(--roadmap-pine);
+  color: var(--roadmap-pine-inverse);
   font-size: 10px;
   font-weight: 700;
 }
@@ -1265,33 +1271,44 @@
   white-space: nowrap;
 }
 
-/* 实心圆标和同色短标签标出当前位置；暖色用于下一站。 */
+/* 走过的站点保留浅绿色，当前位置使用更浓的色块，下一站保留暖色与文字标签。 */
 .level-step.is-reached .level-step-marker {
-  border-color: var(--roadmap-accent-line);
-  background: var(--app-sage);
-  color: var(--roadmap-accent-ink);
+  border-color: var(--roadmap-pine-line);
+  background: var(--roadmap-pine-soft);
+  color: var(--roadmap-pine);
+}
+.level-step.is-reached .level-step-card {
+  border-color: color-mix(in srgb, var(--roadmap-pine-line) 36%, var(--roadmap-edge));
+  background: color-mix(in srgb, var(--roadmap-pine-soft) 28%, var(--roadmap-card));
 }
 .level-step.is-current .level-step-marker,
 .level-step.is-current .level-step-status {
-  background: var(--roadmap-accent-ink);
-  color: var(--surface);
+  background: var(--roadmap-pine);
+  color: var(--roadmap-pine-inverse);
 }
 .level-step.is-current .level-step-marker {
-  border-color: var(--roadmap-accent-ink);
-  box-shadow: 0 0 0 3px var(--app-sage);
+  border-color: var(--roadmap-pine);
+  box-shadow: 0 0 0 3px var(--roadmap-pine-soft);
 }
 .level-step.is-current .level-step-card {
-  border-color: var(--roadmap-accent-line);
-  background: color-mix(in srgb, var(--app-sage) 55%, var(--surface));
+  border-color: var(--roadmap-pine-line);
+  background: linear-gradient(135deg, var(--roadmap-pine-soft), color-mix(in srgb, var(--roadmap-pine-soft) 44%, var(--roadmap-card)));
+}
+.level-step.is-current .level-step-number,
+.level-step.is-current .level-step-title {
+  color: var(--roadmap-pine);
 }
 .level-step.is-next .level-step-marker,
 .level-step.is-next .level-step-status {
-  background: var(--app-honey);
-  color: var(--roadmap-warm-ink);
+  background: var(--roadmap-clay-soft);
+  color: var(--roadmap-clay);
 }
 .level-step.is-next .level-step-marker,
 .level-step.is-next .level-step-card {
-  border-color: color-mix(in srgb, var(--roadmap-warm-ink) 34%, var(--app-honey));
+  border-color: color-mix(in srgb, var(--roadmap-clay) 36%, var(--roadmap-clay-soft));
+}
+.level-step.is-next .level-step-card {
+  background: color-mix(in srgb, var(--roadmap-clay-soft) 32%, var(--roadmap-card));
 }
 
 .warm-achievements .metric-grid.passport-metrics {
