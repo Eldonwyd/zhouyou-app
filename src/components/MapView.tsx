@@ -18,7 +18,7 @@ interface MapViewProps {
   setActiveProvinceCode: (code: string | null) => void;
   onSelectCity: (feature: AdministrativeFeature, province: AdministrativeFeature) => void;
   onError: (message: string) => void;
-  onRecommendProvince?: (name: string) => void;
+  onRecommendProvince: (name: string) => void;
 }
 
 // Register only the map chart features used by this page. The complete ECharts
@@ -538,7 +538,7 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
                 <span style={{ width: `${activeProvincePct}%`, background: activeProvinceColor }} />
               </div>
               <div className="map-province-actions">
-                {onRecommendProvince && <button type="button" className="primary province-ai-button" onClick={() => onRecommendProvince(activeProvince.properties.name)}>✦ AI 推荐怎么玩</button>}
+                <button type="button" className="primary province-ai-button" onClick={() => onRecommendProvince(activeProvince.properties.name)}>✦ AI 推荐怎么玩</button>
                 <button type="button" className="secondary province-cache-button" onClick={toggleCache} disabled={cacheBusy || !provinceMap}>
                   {cacheBusy ? '处理中…' : cachedCodes.includes(activeProvinceCode!) ? '删除离线' : '缓存离线'}
                 </button>

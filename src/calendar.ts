@@ -16,7 +16,7 @@ function nextDay(date: string): string {
 }
 
 /** Export a local calendar event. Its VALARM is interpreted by the user's calendar app. */
-export function exportCalendarEvent(cityName: string, plan: TripPlan): void {
+export function exportCalendarEvent(cityName: string, plan: Pick<TripPlan, 'startDate' | 'endDate' | 'reminderDays'>): void {
   if (!plan.startDate || !plan.endDate) throw new Error('请先填写出发与结束日期');
   if (plan.endDate < plan.startDate) throw new Error('结束日期不能早于出发日期');
   const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
