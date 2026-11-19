@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import exifr from 'exifr';
 import type {
   AdministrativeFeature, CityMark, DayEntry, Journey, JourneyCity, JourneyPlace,
@@ -43,6 +43,15 @@ interface SavedCitySummary extends JourneyCity {
 
 const PAGE_SIZE = 24;
 
+// 有代表性景观的城市使用指定插画。其他城市按行政区划代码稳定选择通用风景，
+// 切换省份或新增城市时，原有卡片的封面不会随列表位置变化。
+const CITY_POSTCARD_TILES: Readonly<Record<string, number>> = {
+  '110000': 0, '110100': 0, '120000': 1, '120100': 1, '130300': 2, '140200': 3,
+  '150700': 4, '150500': 7, '210200': 2, '220600': 5, '222400': 6,
+  '310000': 8, '310100': 8, '320500': 9, '330100': 10, '370200': 2, '610100': 0,
+};
+const SCENIC_POSTCARD_TILES = [3, 4, 5, 6, 7, 9, 10, 11];
+
 /** Object URLs are created only for visible thumbnails or the open image. */
 function useMediaUrl(id: string | null, kind: TravelMedia['kind'], preview: boolean): string {
   const [url, setUrl] = useState('');
@@ -73,6 +82,41 @@ function MemoryThumbnail({ item, onOpen }: { item: TravelMedia; onOpen: () => vo
 function JourneyCover({ media, seed = 'trip', label }: { media: TravelMedia | undefined; seed?: string; label?: string }) {
   const url = useMediaUrl(media?.kind === 'photo' ? media.id : null, 'photo', true);
   return <div className="journey-cover">{url ? <img src={url} alt="旅行封面" /> : <IllustratedJourneyCover seed={seed} label={label} />}</div>;
+}
+
+function SavedCityCard({ city, provinceName, photoId, onOpen }: {
+  city: SavedCitySummary;
+  provinceName: string;
+  photoId: string | null;
+  onOpen: () => void;
+}) {
+  const photoUrl = useMediaUrl(photoId, 'photo', true);
+  const [failedPhotoUrl, setFailedPhotoUrl] = useState('');
+  const cityIndex = Number.parseInt(city.code.slice(0, 4), 10) || 0;
+  const tile = CITY_POSTCARD_TILES[city.code] ?? SCENIC_POSTCARD_TILES[cityIndex % SCENIC_POSTCARD_TILES.length];
+  // 图集的 4 列和 3 行均匀排列，百分比定位只露出当前城市的画面。
+  const backgroundPosition = `${(tile % 4) * 100 / 3}% ${Math.floor(tile / 4) * 50}%`;
+
+  return (
+    <button className="saved-city-card" type="button" onClick={onOpen}>
+      <span className="saved-city-cover">
+        <span className="saved-city-illustration" style={{ backgroundPosition }} aria-hidden="true" />
+        {photoUrl && photoUrl !== failedPhotoUrl && (
+          <img src={photoUrl} alt="" loading="lazy" onError={() => setFailedPhotoUrl(photoUrl)} />
+        )}
+        <span className="saved-city-province-pill">{provinceName}</span>
+      </span>
+      <span className="saved-city-caption">
+        <strong className="saved-city-name">{city.name}</strong>
+        <span className="saved-city-meta">
+          {city.tripCount > 0 && <span>{city.tripCount} 次旅行</span>}
+          {city.placeCount > 0 && <span>{city.placeCount} 个地点</span>}
+          {!city.tripCount && !city.placeCount && <span>{city.visited ? '已点亮' : '已保存'}</span>}
+        </span>
+        <span className="saved-city-arrow" aria-hidden="true">→</span>
+      </span>
+    </button>
+  );
 }
 
 function AudioReview({ item, onDelete }: { item: TravelMedia; onDelete: (id: string) => void }) {
@@ -215,6 +259,9 @@ export default function DetailView(props: DetailViewProps) {
   const [recordQuery, setRecordQuery] = useState('');
   const [recordYear, setRecordYear] = useState('all');
   const [cityProvinceFilter, setCityProvinceFilter] = useState('all');
+  // 折叠状态与省份筛选独立，重新展开时会保留之前选中的省份。
+  const [savedCitiesExpanded, setSavedCitiesExpanded] = useState(true);
+  const savedCitiesContentId = useId();
   const [browseCity, setBrowseCity] = useState<JourneyCity | null>(null);
   // 进入旅行手账时默认收起城市选择，只有用户点击入口才展开。
   const [cityBrowserOpen, setCityBrowserOpen] = useState(false);
@@ -301,6 +348,16 @@ export default function DetailView(props: DetailViewProps) {
     }
     return [...groups.entries()];
   }, [savedCities]);
+  // 单次遍历选出每座城市最近的照片，卡片只读取这一张的本地缩略图。
+  const savedCityPhotos = useMemo(() => {
+    const photos = new Map<string, TravelMedia>();
+    for (const item of media) {
+      if (item.kind !== 'photo') continue;
+      const current = photos.get(item.cityCode);
+      if (!current || item.capturedAt > current.capturedAt) photos.set(item.cityCode, item);
+    }
+    return photos;
+  }, [media]);
   const selectedTrip = trips.find((trip) => trip.id === selectedTripId) ?? null;
   const selectedPlace = places.find((place) => place.id === selectedPlaceId) ?? null;
   // With no journey open, the place collection belongs directly to the city.
@@ -748,11 +805,20 @@ export default function DetailView(props: DetailViewProps) {
     </>}
     {!selectedTrip && !editingTrip && !scopeCity && savedCities.length > 0 && (
       <section className="card saved-city-overview" aria-label="已保存的城市">
-        <div className="card-heading">
-          <div>
-            <h2>已保存的城市 · {savedCities.length}</h2>
-            <p className="muted">像收集城市邮票一样，点选任意城市即可翻看照片、地点与短记。</p>
-          </div>
+        <div className="saved-city-heading">
+          <h2>已保存的城市 · {savedCities.length}</h2>
+          <button
+            type="button"
+            className="secondary saved-city-toggle"
+            aria-expanded={savedCitiesExpanded}
+            aria-controls={savedCitiesContentId}
+            onClick={() => setSavedCitiesExpanded((expanded) => !expanded)}
+          >
+            {savedCitiesExpanded ? '收起' : '展开'}
+          </button>
+        </div>
+        <div id={savedCitiesContentId} className="saved-city-content" hidden={!savedCitiesExpanded}>
+          <p className="muted">像收集城市邮票一样，点选任意城市即可翻看照片、地点与短记。</p>
           {savedCityGroups.length > 1 && (
             <div className="saved-city-province-tabs" role="tablist" aria-label="按省份筛选已保存城市">
               <button type="button" className={cityProvinceFilter === 'all' ? 'active' : ''} onClick={() => setCityProvinceFilter('all')}>
@@ -770,26 +836,19 @@ export default function DetailView(props: DetailViewProps) {
               ))}
             </div>
           )}
-        </div>
-        <div className="saved-city-grid">
-          {savedCities
-            .filter((savedCity) => cityProvinceFilter === 'all' || savedCity.provinceCode === cityProvinceFilter)
-            .map((savedCity) => (
-              <button className="saved-city-card" key={savedCity.code} onClick={() => openSavedCity(savedCity)}>
-                <div className="saved-city-top">
-                  <span className="saved-city-province-pill">{provinceNames.get(savedCity.provinceCode) ?? `${savedCity.provinceCode.slice(0, 2)}地区`}</span>
-                  <span className="saved-city-stamp cute-deco" aria-hidden="true">✦</span>
-                </div>
-                <strong className="saved-city-name">{savedCity.name}</strong>
-                <div className="saved-city-meta">
-                  {savedCity.tripCount > 0 && <span>🧳 {savedCity.tripCount} 次旅行</span>}
-                  {savedCity.placeCount > 0 && <span>📍 {savedCity.placeCount} 个地点</span>}
-                  {savedCity.visited && !savedCity.tripCount && !savedCity.placeCount && <span>✦ 已点亮</span>}
-                  {!savedCity.visited && !savedCity.tripCount && !savedCity.placeCount && <span>已保存</span>}
-                </div>
-                <b className="saved-city-arrow" aria-hidden="true">→</b>
-              </button>
-            ))}
+          {savedCitiesExpanded && <div className="saved-city-grid">
+            {savedCities
+              .filter((savedCity) => cityProvinceFilter === 'all' || savedCity.provinceCode === cityProvinceFilter)
+              .map((savedCity) => (
+                <SavedCityCard
+                  key={savedCity.code}
+                  city={savedCity}
+                  provinceName={provinceNames.get(savedCity.provinceCode) ?? `${savedCity.provinceCode.slice(0, 2)}地区`}
+                  photoId={savedCityPhotos.get(savedCity.code)?.id ?? null}
+                  onOpen={() => openSavedCity(savedCity)}
+                />
+              ))}
+          </div>}
         </div>
       </section>
     )}

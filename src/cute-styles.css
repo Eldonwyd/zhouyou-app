@@ -637,17 +637,29 @@
   margin: 0 0 26px !important;
   padding: 24px 26px !important;
 }
-.saved-city-overview > .card-heading {
-  align-items: flex-start;
-  margin-bottom: 18px;
+.saved-city-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
-.saved-city-overview > .card-heading p {
-  margin: 4px 0 0;
+.saved-city-heading h2 {
+  margin: 0;
+}
+.saved-city-toggle {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+.saved-city-content > p {
+  margin: 4px 0 15px;
 }
 .saved-city-province-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
+  margin-bottom: 18px;
 }
 .saved-city-province-tabs button {
   padding: 6px 12px;

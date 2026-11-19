@@ -171,8 +171,7 @@
 
 /* The all-records overview keeps city-only memories beside dated journeys. */
 .saved-city-overview { margin:24px 0 30px; }
-.saved-city-overview>.card-heading { margin-bottom:15px; }
-.saved-city-overview .card-heading span,.saved-journey-heading span { color:var(--fg-8d7765); font-size:.8rem; }
+.saved-journey-heading span { color:var(--fg-8d7765); font-size:.8rem; }
 .saved-city-group { margin-top:17px; }
 .saved-city-group h3 { margin:0 0 10px; color:var(--fg-775c45); font-size:.9rem; }
 .saved-city-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px; }
@@ -197,7 +196,7 @@
 .saved-journey-heading { margin:28px 0 14px; }
 @media (max-width:560px) {
   .saved-city-grid { grid-template-columns:1fr; }
-  .saved-city-overview .card-heading,.saved-journey-heading { align-items:flex-start; flex-direction:column; }
+  .saved-journey-heading { align-items:flex-start; flex-direction:column; }
 }
 /* AI planning shares the atlas palette while keeping the itinerary readable.
  * Grids use minmax(0, 1fr) to prevent long place names or URLs from pushing
