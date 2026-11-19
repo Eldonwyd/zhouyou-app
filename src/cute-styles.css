@@ -65,11 +65,51 @@
 .sidebar nav {
   margin-bottom: 18px;
 }
+/* 独立的明信片占用导航和底部贴纸之间的留白，复用旅行封面插画与主题色。 */
+.sidebar-postcard {
+  display: grid;
+  flex: 1 0 0;
+  min-height: 0;
+  place-items: center;
+  pointer-events: none;
+  user-select: none;
+}
+.sidebar-postcard-frame {
+  position: relative;
+  width: min(78%, 132px);
+  padding: 6px 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--ink) 9%, transparent);
+  transform: rotate(-5deg);
+}
+.sidebar-postcard-frame::after {
+  content: "";
+  position: absolute;
+  top: -6px;
+  right: 12px;
+  width: 32px;
+  height: 12px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--app-honey) 82%, transparent);
+  transform: rotate(12deg);
+}
+.sidebar-postcard-frame .travel-cover {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 16 / 9;
+  border-radius: 3px;
+}
+@media (max-height: 760px), (max-width: 850px) {
+  .sidebar-postcard { display: none; }
+}
 .sidebar-doodle {
   position: relative;
   margin-top: auto;
   margin-bottom: 14px;
-  height: 112px;
+  height: 150px;
   flex-shrink: 0;
   pointer-events: none;
   user-select: none;
@@ -77,16 +117,16 @@
 }
 .sidebar-doodle-trail {
   position: absolute;
-  inset: 14px 6px 12px;
+  inset: auto 6px 12px;
   width: calc(100% - 12px);
-  height: calc(100% - 26px);
+  height: 86px;
 }
 .sidebar-doodle-item {
   position: absolute;
   filter: drop-shadow(0 4px 8px rgba(70, 52, 42, .08));
 }
 .sidebar-doodle-item.is-cloud {
-  top: 6px;
+  bottom: 76px;
   left: 10px;
   width: 48px;
   height: 30px;
@@ -95,7 +135,7 @@
   animation: sidebarFloatSlow 5.4s ease-in-out infinite;
 }
 .sidebar-doodle-item.is-sparkle {
-  top: 8px;
+  bottom: 80px;
   right: 46px;
   width: 24px;
   height: 24px;
@@ -117,6 +157,28 @@
   height: 36px;
   transform: rotate(9deg);
   animation: sidebarFloatTiltRev 5.6s ease-in-out 1s infinite;
+}
+.sidebar-doodle-item.is-postmark {
+  bottom: 107px;
+  left: 40%;
+  width: 28px;
+  height: 28px;
+  color: var(--warm-green);
+  opacity: .72;
+  transform: rotate(-14deg);
+}
+.sidebar-doodle-item.is-balloon {
+  bottom: 109px;
+  right: 9px;
+  width: 33px;
+  height: 33px;
+  animation: sidebarFloatSlow 6.1s ease-in-out .8s infinite;
+}
+/* 较矮的桌面仍给主导航和页脚留出空间。 */
+@media (max-height: 640px) {
+  .sidebar-doodle { height: 112px; }
+  .sidebar-doodle-item.is-postmark,
+  .sidebar-doodle-item.is-balloon { display: none; }
 }
 @keyframes sidebarFloatSlow {
   0%, 100% { transform: translateY(0); }

@@ -6,7 +6,7 @@ import { provinceCodeForCity } from './map-data';
 import { describeStorageError } from './utils';
 import { applyThemeMode, useThemeMode, type ThemeMode } from './theme';
 import MapView from './components/MapView';
-import { TravelIcon } from './components/TravelArt';
+import { TravelCover, TravelIcon } from './components/TravelArt';
 import { CuteSticker, TravelAvatar } from './components/CuteArt';
 
 // The map is the first screen. Media parsing, ZIP backup and secondary pages
@@ -249,6 +249,9 @@ export default function App() {
     <aside className="sidebar">
       <div className="brand"><div className="brand-symbol">旅</div><div><strong>旅行足迹</strong><span>自己的旅行小册子</span></div></div>
       <nav aria-label="主导航">{NAV_ITEMS.map((item) => <button key={item.id} className={`nav-item nav-${item.id} ${page === item.id ? 'active' : ''}`} aria-current={page === item.id ? 'page' : undefined} onClick={() => openPage(item.id)}><span className="nav-icon"><TravelIcon name={item.id} /></span>{item.label}</button>)}</nav>
+      <div className="sidebar-postcard cute-deco" aria-hidden="true">
+        <div className="sidebar-postcard-frame"><TravelCover label="" /></div>
+      </div>
       <div className="sidebar-doodle cute-deco" aria-hidden="true">
         <svg className="sidebar-doodle-trail" viewBox="0 0 180 76" fill="none">
           <path d="M18 58C44 26 78 24 108 42C128 54 148 44 162 20" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="3.5 4.5" opacity="0.45" />
@@ -261,6 +264,9 @@ export default function App() {
         <CuteSticker kind="sparkle" className="sidebar-doodle-item is-sparkle" />
         <CuteSticker kind="suitcase" className="sidebar-doodle-item is-suitcase" />
         <CuteSticker kind="compass" className="sidebar-doodle-item is-compass" />
+        {/* 小邮戳和热气球沿用侧栏插画组件，和下面的路线组成一组贴纸。 */}
+        <CuteSticker kind="stamp" className="sidebar-doodle-item is-postmark" />
+        <TravelAvatar avatarId="balloon" nickname="" className="sidebar-doodle-item is-balloon" />
       </div>
       <div className="sidebar-footer"><span className="footer-dot" />本机保存 · 离线地图</div>
     </aside>
