@@ -7,7 +7,7 @@ import { describeStorageError } from './utils';
 import { applyThemeMode, useThemeMode, type ThemeMode } from './theme';
 import MapView from './components/MapView';
 import { TravelIcon } from './components/TravelArt';
-import { CuteSticker, TravelAvatar, getTravelerLevel } from './components/CuteArt';
+import { CuteSticker, TravelAvatar } from './components/CuteArt';
 
 // The map is the first screen. Media parsing, ZIP backup and secondary pages
 // arrive only when the user opens their respective sections.
@@ -243,31 +243,25 @@ export default function App() {
     setPage('detail');
   }
 
-  const visitedCount = useMemo(() => effectiveMarks.filter((mark) => mark.visited).length, [effectiveMarks]);
-  const visitedProvinceCount = useMemo(
-    () => new Set(effectiveMarks.filter((mark) => mark.visited && mark.provinceCode).map((mark) => mark.provinceCode)).size,
-    [effectiveMarks],
-  );
-  const sidebarLevel = useMemo(() => getTravelerLevel(visitedCount, snapshot.entries.length), [visitedCount, snapshot.entries.length]);
   const activeProfile = snapshot.profile[0];
 
   return <div className={`app-shell${page === 'map' ? ' is-map-page' : ''}`}>
     <aside className="sidebar">
       <div className="brand"><div className="brand-symbol">旅</div><div><strong>旅行足迹</strong><span>自己的旅行小册子</span></div></div>
       <nav aria-label="主导航">{NAV_ITEMS.map((item) => <button key={item.id} className={`nav-item nav-${item.id} ${page === item.id ? 'active' : ''}`} aria-current={page === item.id ? 'page' : undefined} onClick={() => openPage(item.id)}><span className="nav-icon"><TravelIcon name={item.id} /></span>{item.label}</button>)}</nav>
-      <button type="button" className="sidebar-buddy" onClick={() => openPage('achievements')} title="查看我的旅途成就">
-        <div className="sidebar-buddy-head">
-          <span className="sidebar-level-chip">Lv.{sidebarLevel.level}</span>
-          <strong>{sidebarLevel.title}</strong>
-          <CuteSticker kind="sparkle" className="sidebar-buddy-sparkle" />
-        </div>
-        <div className="sidebar-buddy-stats">
-          <span><b>{visitedProvinceCount}</b> 省</span>
-          <span><b>{visitedCount}</b> 城</span>
-          <span><b>{snapshot.trips.length}</b> 旅程</span>
-        </div>
-        <div className="sidebar-buddy-bar" aria-hidden="true"><span style={{ width: `${sidebarLevel.progressPct}%` }} /></div>
-      </button>
+      <div className="sidebar-doodle cute-deco" aria-hidden="true">
+        <svg className="sidebar-doodle-trail" viewBox="0 0 180 76" fill="none">
+          <path d="M18 58C44 26 78 24 108 42C128 54 148 44 162 20" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="3.5 4.5" opacity="0.45" />
+          <path d="M156 17l10-3-4 10-2.5-3.5L156 17Z" fill="var(--warm-green)" opacity="0.85" />
+          <circle cx="34" cy="24" r="2.2" fill="#f7b267" opacity="0.7" />
+          <circle cx="96" cy="18" r="1.8" fill="#7dc9b8" opacity="0.75" />
+          <circle cx="136" cy="58" r="2.2" fill="#f28482" opacity="0.65" />
+        </svg>
+        <CuteSticker kind="cloud" className="sidebar-doodle-item is-cloud" />
+        <CuteSticker kind="sparkle" className="sidebar-doodle-item is-sparkle" />
+        <CuteSticker kind="suitcase" className="sidebar-doodle-item is-suitcase" />
+        <CuteSticker kind="compass" className="sidebar-doodle-item is-compass" />
+      </div>
       <div className="sidebar-footer"><span className="footer-dot" />本机保存 · 离线地图</div>
     </aside>
     <div className="main-shell"><header className="topbar"><div><strong>{NAV_ITEMS.find((item) => item.id === page)?.label}</strong><span>把走过的路，留在地图上</span></div><div className="topbar-right"><ThemeSwitch /><span className="local-pill">本机版</span><button type="button" className="topbar-avatar-btn" aria-label={activeProfile?.nickname || '旅行者'} title="打开个人中心" onClick={() => openPage('profile')}><TravelAvatar avatarId={activeProfile?.avatar} nickname={activeProfile?.nickname || '旅行者'} className="avatar" /></button></div></header>

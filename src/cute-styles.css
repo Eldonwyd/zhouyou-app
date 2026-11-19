@@ -61,94 +61,77 @@
   flex-shrink: 0;
 }
 
-/* ---------- 侧边栏旅人小卡（沉底贴合页脚，星星居中对齐标题行） ---------- */
+/* ---------- 侧边栏空白处可爱手账小装饰（沉底贴合页脚，无卡片负担） ---------- */
 .sidebar nav {
   margin-bottom: 18px;
 }
-.sidebar-buddy {
+.sidebar-doodle {
   position: relative;
   margin-top: auto;
   margin-bottom: 14px;
-  padding: 14px 14px 13px;
-  border-radius: 18px;
-  border: 1px solid var(--line);
-  background: var(--surface-2);
-  color: var(--ink);
-  text-align: left;
-  cursor: pointer;
-  display: grid;
-  gap: 8px;
-  overflow: hidden;
+  height: 112px;
   flex-shrink: 0;
-  transition: transform .22s cubic-bezier(.34, 1.56, .64, 1), border-color .2s ease;
+  pointer-events: none;
+  user-select: none;
+  color: var(--muted);
 }
-.sidebar-buddy:hover {
-  transform: translateY(-2px);
-  border-color: var(--warm-green);
+.sidebar-doodle-trail {
+  position: absolute;
+  inset: 14px 6px 12px;
+  width: calc(100% - 12px);
+  height: calc(100% - 26px);
+}
+.sidebar-doodle-item {
+  position: absolute;
+  filter: drop-shadow(0 4px 8px rgba(70, 52, 42, .08));
+}
+.sidebar-doodle-item.is-cloud {
+  top: 6px;
+  left: 10px;
+  width: 48px;
+  height: 30px;
+  color: var(--muted);
+  opacity: .92;
+  animation: sidebarFloatSlow 5.4s ease-in-out infinite;
+}
+.sidebar-doodle-item.is-sparkle {
+  top: 8px;
+  right: 46px;
+  width: 24px;
+  height: 24px;
+  opacity: .95;
+  animation: sidebarFloatSlow 4.2s ease-in-out 0.6s infinite;
+}
+.sidebar-doodle-item.is-suitcase {
+  bottom: 10px;
+  left: 24px;
+  width: 42px;
+  height: 42px;
+  transform: rotate(-8deg);
+  animation: sidebarFloatTilt 6s ease-in-out 0.3s infinite;
+}
+.sidebar-doodle-item.is-compass {
+  bottom: 12px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  transform: rotate(9deg);
+  animation: sidebarFloatTiltRev 5.6s ease-in-out 1s infinite;
+}
+@keyframes sidebarFloatSlow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes sidebarFloatTilt {
+  0%, 100% { transform: translateY(0) rotate(-8deg); }
+  50% { transform: translateY(-4px) rotate(-4deg); }
+}
+@keyframes sidebarFloatTiltRev {
+  0%, 100% { transform: translateY(0) rotate(9deg); }
+  50% { transform: translateY(-4px) rotate(13deg); }
 }
 .sidebar-footer {
   margin-top: 0 !important;
-}
-.sidebar-buddy-sparkle {
-  margin-left: auto;
-  width: 20px;
-  height: 20px;
-  opacity: .92;
-}
-.sidebar-buddy-head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-}
-.sidebar-level-chip {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--app-honey);
-  color: var(--app-honey-ink);
-  font-size: 10.5px;
-  font-weight: 800;
-  flex-shrink: 0;
-}
-.sidebar-buddy-head strong {
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.sidebar-buddy-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-  font-size: 11px;
-  color: var(--muted);
-  text-align: center;
-}
-.sidebar-buddy-stats > span {
-  padding: 4px 2px;
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--surface) 78%, transparent);
-  white-space: nowrap;
-}
-.sidebar-buddy-stats b {
-  color: var(--ink);
-  font-size: 12.5px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-.sidebar-buddy-bar {
-  height: 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--line-strong) 60%, transparent);
-  overflow: hidden;
-}
-.sidebar-buddy-bar > span {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--warm-green);
-  transition: width .4s ease;
 }
 
 /* ---------- 地图右侧「全部 / 已点亮 / 待探索」胶囊筛选条 ---------- */
@@ -1548,7 +1531,7 @@
 
 @media (max-width: 850px) {
   .sidebar nav { margin-bottom: 0; }
-  .sidebar-buddy { display: none; }
+  .sidebar-doodle { display: none; }
   .journal-empty-steps { grid-template-columns: 1fr; }
   .warm-achievements .metric-grid.passport-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .profile-dressup-fields { grid-template-columns: 1fr; }
