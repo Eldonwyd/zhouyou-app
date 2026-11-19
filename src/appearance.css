@@ -183,6 +183,14 @@
   --bd-edc84d: var(--style-accent);
 }
 
+/* 糖果贴纸的文字链接、操作按钮与时间胶囊改用柔和草木绿，避免大面积红字像报错提示。 */
+:root[data-appearance="candy"] {
+  --link: #387a52;
+  --teal: #387a52;
+  --teal-soft: #e5f4ea;
+  --warm-green: #387a52;
+}
+
 :root[data-theme="dark"]:is([data-appearance="candy"], [data-appearance="white"], [data-appearance="journal"], [data-appearance="coast"]) {
   --paper: var(--style-dark-paper);
   --surface: var(--style-dark-surface);
@@ -225,6 +233,13 @@
   --candy-border: #53404b;
   --candy-offset: #161014;
   --candy-btn-shadow: #9b3d2f;
+}
+
+:root[data-theme="dark"][data-appearance="candy"] {
+  --link: #8fd4a8;
+  --teal: #8fd4a8;
+  --teal-soft: #23382c;
+  --warm-green: #8fd4a8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -270,6 +285,12 @@
     --candy-border: #53404b;
     --candy-offset: #161014;
     --candy-btn-shadow: #9b3d2f;
+  }
+  :root:not([data-theme="light"])[data-appearance="candy"] {
+    --link: #8fd4a8;
+    --teal: #8fd4a8;
+    --teal-soft: #23382c;
+    --warm-green: #8fd4a8;
   }
 }
 
@@ -363,6 +384,19 @@
   border-radius: 20px;
   border: 2px dashed color-mix(in srgb, var(--ink) 16%, transparent);
   box-shadow: 0 4px 0 color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+:root[data-appearance="candy"] .map-province-filter {
+  border-radius: 18px;
+  border: 2px solid var(--candy-border);
+  background: color-mix(in srgb, var(--app-honey) 38%, var(--surface-2));
+}
+:root[data-appearance="candy"] .map-province-filter button {
+  border-radius: 13px;
+}
+:root[data-appearance="candy"] .map-province-filter button.active {
+  border: 1.5px solid var(--candy-border);
+  box-shadow: 0 3px 0 var(--candy-offset);
 }
 
 :root[data-appearance="candy"] .passport-hero-card,

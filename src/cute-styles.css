@@ -151,6 +151,73 @@
   transition: width .4s ease;
 }
 
+/* ---------- 地图右侧「全部 / 已点亮 / 待探索」胶囊筛选条 ---------- */
+.map-province-filter {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  padding: 5px;
+  margin: 2px 0;
+  border-radius: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+.map-province-filter button {
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 6px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform .18s cubic-bezier(.34, 1.56, .64, 1), background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.map-province-filter button span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--ink-2);
+  font-size: 10.5px;
+  font-weight: 700;
+  opacity: 1;
+  font-variant-numeric: tabular-nums;
+}
+.map-province-filter button:hover:not(.active) {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 58%, transparent);
+}
+.map-province-filter button.active {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--warm-green) 26%, var(--line));
+  box-shadow: 0 2px 8px -2px rgba(48, 59, 51, .12);
+}
+.map-province-filter button.active span {
+  background: var(--app-sage);
+  color: var(--app-sage-ink);
+}
+.map-province-filter button:nth-child(2).active span {
+  background: var(--app-peach);
+  color: var(--app-peach-ink);
+}
+.map-province-filter button:nth-child(3).active span {
+  background: var(--app-blue);
+  color: var(--app-blue-ink);
+}
+
 /* ==========================================================================
  * 一、旅行手账：紧凑双卡明信片、便签、多场景插画与空态引导
  * ========================================================================== */
