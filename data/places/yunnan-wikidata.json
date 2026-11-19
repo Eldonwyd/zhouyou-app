@@ -1,0 +1,24 @@
+{
+  "license": "CC0-1.0",
+  "checkedAt": "2026-11-15",
+  "records": [
+    {
+      "name": "大理站", "aliases": [], "city": "大理市",
+      "latitude": 25.5924853, "longitude": 100.2482137,
+      "coordinateSystem": "WGS84", "source": "Wikidata", "license": "CC0-1.0",
+      "sourceUrl": "https://www.wikidata.org/entity/Q10936827"
+    },
+    {
+      "name": "丽江站", "aliases": [], "city": "丽江市",
+      "latitude": 26.8143, "longitude": 100.25118,
+      "coordinateSystem": "WGS84", "source": "Wikidata", "license": "CC0-1.0",
+      "sourceUrl": "https://www.wikidata.org/entity/Q10877547"
+    },
+    {
+      "name": "独克宗古城", "aliases": ["独克宗"], "city": "香格里拉市",
+      "latitude": 27.811, "longitude": 99.7, "precision": "area",
+      "coordinateSystem": "WGS84", "source": "Wikidata", "license": "CC0-1.0",
+      "sourceUrl": "https://www.wikidata.org/entity/Q15621631"
+    }
+  ]
+}

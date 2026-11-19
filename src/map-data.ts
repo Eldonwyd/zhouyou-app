@@ -31,21 +31,36 @@ export function statusForProvince(provinceCode: string, marks: CityMark[]): Visi
   return 'empty';
 }
 
-export function fillForStatus(status: VisitStatus, provinceCode: string): string {
+/** 未去过的颜色随主题变化：canvas 传入计算后的颜色，DOM 可直接传 CSS 变量。 */
+export function fillForStatus(status: VisitStatus, provinceCode: string, emptyColor = '#d7dee2'): string {
   if (status === 'visited') return provinceColor(provinceCode);
-  return '#d7dee2';
+  return emptyColor;
 }
 
 async function requestGeoJson(filename: string): Promise<AdministrativeGeoJSON> {
-  const response = await fetch(`${BASE_URL}${filename}`);
-  if (!response.ok) throw new Error(`地图数据请求失败（${response.status}）`);
-  const data = await response.json() as AdministrativeGeoJSON;
-  if (data.type !== 'FeatureCollection' || !Array.isArray(data.features) || data.features.length === 0) {
-    throw new Error('地图文件缺少行政区边界');
+  // Include the asset name in failures so a missing province file can be
+  // distinguished from a national-map failure without opening developer tools.
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}${filename}`);
+  } catch {
+    throw new Error(`无法请求地图文件 ${filename}，请检查网络或本地服务是否仍在运行`);
+  }
+  if (!response.ok) throw new Error(`地图文件 ${filename} 请求失败（HTTP ${response.status}）`);
+  let data: AdministrativeGeoJSON;
+  try {
+    data = await response.json() as AdministrativeGeoJSON;
+  } catch {
+    // Static hosts may return index.html with HTTP 200 for a missing JSON file.
+    // Report that case explicitly instead of exposing a JSON parser exception.
+    throw new Error(`地图文件 ${filename} 不是有效 JSON，请检查地图资源是否完整`);
+  }
+  if (data?.type !== 'FeatureCollection' || !Array.isArray(data.features) || data.features.length === 0) {
+    throw new Error(`地图文件 ${filename} 缺少行政区边界`);
   }
   const ids = data.features.map((feature) => String(feature.properties?.adcode ?? ''));
   if (ids.some((id) => !/^\d{6}$/.test(id)) || new Set(ids).size !== ids.length) {
-    throw new Error('地图文件中的行政区编码无效或重复');
+    throw new Error(`地图文件 ${filename} 中的行政区编码无效或重复`);
   }
   return data;
 }
@@ -106,7 +121,7 @@ function pointInRing(longitude: number, latitude: number, ring: number[][]): boo
   return inside;
 }
 
-function pointInFeature(longitude: number, latitude: number, feature: AdministrativeFeature): boolean {
+export function pointInFeature(longitude: number, latitude: number, feature: AdministrativeFeature): boolean {
   const polygons = feature.geometry.type === 'Polygon'
     ? [feature.geometry.coordinates as number[][][]]
     : feature.geometry.coordinates as number[][][][];

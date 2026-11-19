@@ -1,0 +1,808 @@
+{
+  "release": "2026-10-21.0",
+  "regions": [
+    [
+      "昆明市",
+      [
+        102.5,
+        24.8,
+        103.0,
+        25.3
+      ]
+    ]
+  ],
+  "records": [
+    {
+      "id": "48d2cb0c-9dc0-4371-a283-8f56e6acfae3",
+      "name": "MoneyGram",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.50021,
+      "latitude": 24.8919,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "Uberall",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "175635264",
+          "update_time": "2026-10-14T15:24:41.372Z",
+          "confidence": 0.95,
+          "between": null,
+          "provider": "uberall",
+          "resource": "uberall",
+          "version": "2026-10-14"
+        },
+        {
+          "property": "/properties/operating_status",
+          "dataset": "Uberall",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "175635264",
+          "update_time": "2026-10-14T15:24:41.372Z",
+          "confidence": null,
+          "between": null,
+          "provider": "uberall",
+          "resource": "uberall",
+          "version": "2026-10-14"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "ff97db6d-2f0a-4b73-b48b-bea026f63732",
+      "name": "Wasserkraftwerk Shilongba",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.525447,
+      "latitude": 24.856885,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "114149965310937",
+          "update_time": "2026-10-12T00:00:00.000Z",
+          "confidence": 0.7575615644454956,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-10-12"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "869c7919-0f39-43bb-a1b4-142900d210ba",
+      "name": "Kingdom of the Little People",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.622261,
+      "latitude": 24.850382,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "215289231835011",
+          "update_time": "2026-10-12T00:00:00.000Z",
+          "confidence": 0.7310876250267029,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-10-12"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "1c7a9872-703f-4621-80b0-8e574021802b",
+      "name": "Yunnan University - 云南大学",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.84746,
+      "latitude": 24.829743852662,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "104522375616120",
+          "update_time": "2026-10-12T00:00:00.000Z",
+          "confidence": 0.9538943767547607,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-10-12"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "c0834c56-9c03-4883-adcc-2a328866b7e6",
+      "name": "云南大学呈贡校区",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.84211128805899,
+      "latitude": 24.830091188632974,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "361393704445887",
+          "update_time": "2026-10-12T00:00:00.000Z",
+          "confidence": 0.6656002402305603,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-10-12"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "4cff8a9b-c6c1-438e-8b1b-5281fa74f5ce",
+      "name": "Yunnan University, China",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.84153542168208,
+      "latitude": 24.830372750789806,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "103512958909460",
+          "update_time": "2026-10-12T00:00:00.000Z",
+          "confidence": 0.842947244644165,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-10-12"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "0f20e793-811b-4d80-91bb-affbbe08505f",
+      "name": "YNU Library",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.84698247999548,
+      "latitude": 24.826966220126476,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "2473235802896891",
+          "update_time": "2026-10-12T00:00:00.000Z",
+          "confidence": 0.863328754901886,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-10-12"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "0e473724-278e-485a-8199-e7bc71d8a847",
+      "name": "Yunnan University Chenggong Campus",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.83618215,
+      "latitude": 24.8227341,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "1422908931266779",
+          "update_time": "2026-10-12T00:00:00.000Z",
+          "confidence": 0.7464908361434937,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-10-12"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "5b6bd591-0fed-4918-8412-19225d7641a8",
+      "name": "汉堡王",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.85196,
+      "latitude": 24.822167,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "AllThePlaces",
+          "license": "CC0-1.0",
+          "record_id": "r4HQz11dwF9NLi_Ls60MCcxzM1g=",
+          "update_time": "2026-10-10T08:17:35.000Z",
+          "confidence": 0.8,
+          "between": null,
+          "provider": "alltheplaces",
+          "resource": "alltheplaces",
+          "version": "2026-10-10"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "7713b5f4-d31c-40a2-b53f-9ed2b3bb4337",
+      "name": "阳宗站",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.9778,
+      "latitude": 24.827075,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "293571847707752",
+          "update_time": "2026-10-12T00:00:00.000Z",
+          "confidence": 0.7724691033363342,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-10-12"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "8453b677-8793-40bb-bf68-505eddc30d54",
+      "name": "Fontaine Blanch Hotel",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.84117716,
+      "latitude": 24.81994094,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "288125314714252",
+          "update_time": "2026-10-12T00:00:00.000Z",
+          "confidence": 0.7309215068817139,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-10-12"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "69c19ef9-96e1-44d1-9385-d4c40edd1e64",
+      "name": "撈漁河濕地公園",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.76943969727,
+      "latitude": 24.820693969727,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "276183933015257",
+          "update_time": "2026-10-12T00:00:00.000Z",
+          "confidence": 0.816758394241333,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-10-12"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "3302aea6-f6ef-4b5d-9a48-9baffe8c2ea3",
+      "name": "撈魚河濕地",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.76989666667,
+      "latitude": 24.825763333333,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "418396369010809",
+          "update_time": "2026-10-12T00:00:00.000Z",
+          "confidence": 0.7938709259033203,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-10-12"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "d712dbab-c583-4236-937e-dbf6bd0b3f9f",
+      "name": "大渔街道",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.79465,
+      "latitude": 24.83205,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "393085450836388",
+          "update_time": "2026-10-12T00:00:00.000Z",
+          "confidence": 0.7457632422447205,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-10-12"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "bf7eaa6d-f7a3-4ee0-acc1-f1f45c238278",
+      "name": "云南艺术学院",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.82263094752915,
+      "latitude": 24.83395803182298,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "263307497156122",
+          "update_time": "2026-10-12T00:00:00.000Z",
+          "confidence": 0.7921145558357239,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-10-12"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "522e1c9b-e376-42a8-a79a-da37992fb764",
+      "name": "昆明医科大学 - 呈贡校区",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.82228063255448,
+      "latitude": 24.84785709660733,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "1494572914204573",
+          "update_time": "2026-09-14T00:00:00.000Z",
+          "confidence": 0.789431095123291,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-09-14"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "ca7dfbfe-2ef7-480b-b44e-08294157a5ab",
+      "name": "Yunnan Arts University",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.82765680609097,
+      "latitude": 24.84633421500514,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "1464392350548160",
+          "update_time": "2026-10-12T00:00:00.000Z",
+          "confidence": 0.957240641117096,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-10-12"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "2d5acfce-21a6-4825-be43-a0997ea2bbba",
+      "name": "Kunming Medical University, China",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.82938493146884,
+      "latitude": 24.845617262764677,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "2225804764369011",
+          "update_time": "2026-10-12T00:00:00.000Z",
+          "confidence": 0.8601990938186646,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-10-12"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "92ee8b2a-5e74-436d-8738-e1bab357de00",
+      "name": "昆明医科大学 - 呈贡校区",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.8251901,
+      "latitude": 24.8444445,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "1494572914204573",
+          "update_time": "2026-10-12T00:00:00.000Z",
+          "confidence": 0.789431095123291,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-10-12"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "id": "6340668d-22c2-4e12-b7f9-46863d7724c3",
+      "name": "Chengkung Airfield",
+      "aliases": [],
+      "city": "昆明市",
+      "longitude": 102.79916667,
+      "latitude": 24.84333333,
+      "coordinateSystem": "WGS84",
+      "source": "Overture Places",
+      "sourceUrl": "https://docs.overturemaps.org/guides/places/",
+      "license": "CDLA-Permissive-2.0",
+      "release": "2026-10-21.0",
+      "provenance": [
+        {
+          "property": "",
+          "dataset": "meta",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": "135253696508897",
+          "update_time": "2026-10-12T00:00:00.000Z",
+          "confidence": 0.7803874611854553,
+          "between": null,
+          "provider": "meta",
+          "resource": "meta",
+          "version": "2026-10-12"
+        },
+        {
+          "property": "/properties/confidence",
+          "dataset": "Overture",
+          "license": "CDLA-Permissive-2.0",
+          "record_id": null,
+          "update_time": "2026-10-15T18:00:21Z",
+          "confidence": null,
+          "between": null,
+          "provider": "overture",
+          "resource": "confidence_calculation",
+          "version": "2026-10-15"
+        }
+      ]
+    }
+  ]
+}
