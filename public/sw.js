@@ -1,7 +1,7 @@
 /* Cache the app shell and national map after the first online visit. Province
  * maps are cached only when the user presses the explicit region-cache button.
  */
-const SHELL_CACHE = 'travel-shell-v5';
+const SHELL_CACHE = 'travel-shell-v6';
 const REGION_CACHE = 'travel-region-maps-v1';
 
 self.addEventListener('install', (event) => {

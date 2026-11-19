@@ -606,6 +606,7 @@
   overflow: visible;
 }
 .journey-card > .journey-cover {
+  position: relative;
   overflow: hidden;
 }
 .journey-city-pills {
@@ -783,21 +784,47 @@
   overflow: hidden;
   background: var(--surface-2);
 }
-/* 用等宽的正方形显示一格插画，再由外层裁成横向封面，避免拉伸。 */
-.saved-city-illustration {
+/* 同一张方形图在置顶卡和横向城市卡里等比裁切。图集每边四格。 */
+.journal-cover-art {
   position: absolute;
-  inset: 50% 0 auto;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  container-type: size;
+}
+.journal-cover-illustration {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100cqw, 100cqh);
   aspect-ratio: 1;
-  transform: translateY(-50%);
-  background-image: url('./city-postcards.webp');
-  background-size: 400% 300%;
+  transform: translate(-50%, -50%);
+  background-size: 400% 400%;
   background-repeat: no-repeat;
 }
-.saved-city-cover img {
+.journal-cover-illustration[data-sheet="north"] { background-image: url('./city-postcards-north.webp'); }
+.journal-cover-illustration[data-sheet="south"] { background-image: url('./city-postcards-south.webp'); }
+.journal-cover-illustration[data-sheet="shandong"] { background-image: url('./city-postcards-shandong.webp'); }
+.journal-cover-placeholder,
+.journal-cover-photo {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+}
+.journal-cover-placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--warm-green);
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--warm-green) 19%, transparent) 1px, transparent 1px) 0 0 / 12px 12px,
+    linear-gradient(145deg, var(--surface-2), var(--warm-soft));
+}
+.journal-cover-placeholder .travel-icon {
+  width: 32px;
+  height: 32px;
+}
+.journal-cover-photo {
   object-fit: cover;
 }
 .saved-city-province-pill {

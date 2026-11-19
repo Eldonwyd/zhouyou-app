@@ -12,11 +12,14 @@ import TravelCityBrowser from './TravelCityBrowser';
 import JournalWelcome from './JournalWelcome';
 import CityGuideLinks from './CityGuideLinks';
 import { CuteSticker, IllustratedJourneyCover, JournalEmptyArt } from './CuteArt';
+import JournalCover, { findJournalPlannerPhotos } from './JournalCover';
+import type { AiTravelPlan } from '../planner-types';
 
 interface DetailViewProps {
   city: CityMark | null;
   marks: CityMark[];
   trips: Journey[];
+  aiPlans: AiTravelPlan[];
   places: JourneyPlace[];
   entries: DayEntry[];
   media: TravelMedia[];
@@ -42,15 +45,6 @@ interface SavedCitySummary extends JourneyCity {
 }
 
 const PAGE_SIZE = 24;
-
-// 有代表性景观的城市使用指定插画。其他城市按行政区划代码稳定选择通用风景，
-// 切换省份或新增城市时，原有卡片的封面不会随列表位置变化。
-const CITY_POSTCARD_TILES: Readonly<Record<string, number>> = {
-  '110000': 0, '110100': 0, '120000': 1, '120100': 1, '130300': 2, '140200': 3,
-  '150700': 4, '150500': 7, '210200': 2, '220600': 5, '222400': 6,
-  '310000': 8, '310100': 8, '320500': 9, '330100': 10, '370200': 2,
-};
-const SCENIC_POSTCARD_TILES = [3, 4, 5, 6, 7, 9, 10, 11];
 
 /** Object URLs are created only for visible thumbnails or the open image. */
 function useMediaUrl(id: string | null, kind: TravelMedia['kind'], preview: boolean): string {
@@ -87,23 +81,13 @@ function JourneyCover({ media, seed = 'trip', label }: { media: TravelMedia | un
 function SavedCityCard({ city, provinceName, photoId, onOpen }: {
   city: SavedCitySummary;
   provinceName: string;
-  photoId: string | null;
+  photoId?: string;
   onOpen: () => void;
 }) {
-  const photoUrl = useMediaUrl(photoId, 'photo', true);
-  const [failedPhotoUrl, setFailedPhotoUrl] = useState('');
-  const cityIndex = Number.parseInt(city.code.slice(0, 4), 10) || 0;
-  const tile = CITY_POSTCARD_TILES[city.code] ?? SCENIC_POSTCARD_TILES[cityIndex % SCENIC_POSTCARD_TILES.length];
-  // 图集的 4 列和 3 行均匀排列，百分比定位只露出当前城市的画面。
-  const backgroundPosition = `${(tile % 4) * 100 / 3}% ${Math.floor(tile / 4) * 50}%`;
-
   return (
     <button className="saved-city-card" type="button" onClick={onOpen}>
       <span className="saved-city-cover">
-        <span className="saved-city-illustration" style={{ backgroundPosition }} aria-hidden="true" />
-        {photoUrl && photoUrl !== failedPhotoUrl && (
-          <img src={photoUrl} alt="" loading="lazy" onError={() => setFailedPhotoUrl(photoUrl)} />
-        )}
+        <JournalCover cityCode={city.code} photoId={photoId} />
         <span className="saved-city-province-pill">{provinceName}</span>
       </span>
       <span className="saved-city-caption">
@@ -252,7 +236,7 @@ function JourneyEditor({ initial, initialCity, onSave, onCancel, onError, locked
 
 /** This page keeps a trip's cities and places together, like pages in a diary. */
 export default function DetailView(props: DetailViewProps) {
-  const { city, marks, trips, places, entries, media, targetEntryId, targetPlaceId, onSaveTrip, onSavePlace,
+  const { city, marks, trips, aiPlans, places, entries, media, targetEntryId, targetPlaceId, onSaveTrip, onSavePlace,
     onSaveEntry, onSaveMedia, onSaveMediaGroup, onUpdateMedia, onDeleteMedia,
     onUpdateMark, onSaveCityMark, onError, onNotice } = props;
   const [showAll, setShowAll] = useState(false);
@@ -311,6 +295,7 @@ export default function DetailView(props: DetailViewProps) {
     && (recordYear === 'all' || trip.startDate.startsWith(recordYear))
     && `${trip.title} ${trip.cities.map((item) => item.name).join(' ')}`.includes(recordQuery.trim()))
     .sort((a, b) => b.startDate.localeCompare(a.startDate)), [trips, scopeCityCode, recordQuery, recordYear]);
+  const plannerPhotosByTrip = useMemo(() => findJournalPlannerPhotos(aiPlans), [aiPlans]);
   // A city is saved even before it belongs to a journey. Merge marks, journey
   // cities and standalone places by adcode so the overview cannot hide them.
   const savedCities = useMemo(() => {
@@ -393,7 +378,7 @@ export default function DetailView(props: DetailViewProps) {
     return () => { active = false; };
   }, []);
 
-  function openSavedCity(savedCity: SavedCitySummary): void {
+  function openSavedCity(savedCity: JourneyCity): void {
     setBrowseCity({ code: savedCity.code, name: savedCity.name, provinceCode: savedCity.provinceCode });
     setShowAll(false);
     setCityBrowserOpen(false);
@@ -743,7 +728,7 @@ export default function DetailView(props: DetailViewProps) {
     {city && !browseCity && !showAll && !selectedTrip && <div className="card status-card"><div><strong>{city.name}的城市状态</strong><p>{trips.some((trip) => trip.cities.some((item) => item.code === city.id && trip.status !== 'planned')) ? '这座城市已包含在去过的旅行中，地图会保持点亮。' : '确认去过的城市会点亮地图，也可以在这里取消手动标记。'}</p></div><label className="checkbox"><input type="checkbox" checked={city.visited} disabled={trips.some((trip) => trip.status !== 'planned' && trip.cities.some((item) => item.code === city.id))} onChange={(event) => void onUpdateMark(event.target.checked)} />已去过</label></div>}
     {editingTrip && <JourneyEditor key={editingTrip === 'new' ? 'new' : editingTrip.id} initial={editingTrip === 'new' ? null : editingTrip} initialCity={scopeCityMark} lockedCityCodes={editingTrip === 'new' ? [] : places.filter((place) => place.tripId === editingTrip.id).map((place) => place.cityCode)} onSave={saveTrip} onCancel={() => setEditingTrip(null)} onError={onError} />}
     {!selectedTrip && !editingTrip && !scopeCity && <>
-      <JournalWelcome trips={trips} places={places} media={media} marks={marks} onStart={() => setCityBrowserOpen(true)} onNewTrip={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }} onOpen={(tripId, place) => {
+      <JournalWelcome trips={trips} places={places} media={media} marks={marks} plannerPhotosByTrip={plannerPhotosByTrip} onOpenCity={openSavedCity} onStart={() => setCityBrowserOpen(true)} onNewTrip={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }} onOpen={(tripId, place) => {
         setSelectedTripId(tripId);
         if (place && !tripId) {
           const mark = marks.find((item) => item.id === place.cityCode);
@@ -844,7 +829,7 @@ export default function DetailView(props: DetailViewProps) {
                   key={savedCity.code}
                   city={savedCity}
                   provinceName={provinceNames.get(savedCity.provinceCode) ?? `${savedCity.provinceCode.slice(0, 2)}地区`}
-                  photoId={savedCityPhotos.get(savedCity.code)?.id ?? null}
+                  photoId={savedCityPhotos.get(savedCity.code)?.id}
                   onOpen={() => openSavedCity(savedCity)}
                 />
               ))}
@@ -857,7 +842,21 @@ export default function DetailView(props: DetailViewProps) {
       const cover = media.find((item) => item.tripId === trip.id && item.kind === 'photo');
       const tripMediaCount = media.filter((item) => item.tripId === trip.id && item.kind !== 'audio').length;
       const tripPlaceCount = places.filter((place) => place.tripId === trip.id).length;
-      return <button className="journey-card" key={trip.id} onClick={() => { setSelectedTripId(trip.id); setSelectedPlaceId(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><span className="washi-tape tape-mini" aria-hidden="true" /><JourneyCover media={cover} seed={trip.id} label={trip.cities[0]?.name} /><div><span className="eyebrow">{trip.startDate} — {trip.endDate}</span><h2>{trip.title}</h2><div className="journey-city-pills">{trip.cities.slice(0, 4).map((item) => <span key={item.code}>{item.name}</span>)}{trip.cities.length > 4 && <span>+{trip.cities.length - 4}</span>}</div><small>{trip.companions.length ? `与 ${trip.companions.join('、')} 同行 · ` : ''}{tripPlaceCount} 个地点 · {tripMediaCount} 张片段</small></div><strong>翻开手账 →</strong></button>;
+      return (
+        <button className="journey-card" type="button" key={trip.id} onClick={() => { setSelectedTripId(trip.id); setSelectedPlaceId(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+          <span className="washi-tape tape-mini" aria-hidden="true" />
+          <div className="journey-cover">
+            <JournalCover cityCode={trip.cities[0]?.code} photoId={cover?.id} plannerPhotos={plannerPhotosByTrip.get(trip.id)} />
+          </div>
+          <div>
+            <span className="eyebrow">{trip.startDate} — {trip.endDate}</span>
+            <h2>{trip.title}</h2>
+            <div className="journey-city-pills">{trip.cities.slice(0, 4).map((item) => <span key={item.code}>{item.name}</span>)}{trip.cities.length > 4 && <span>+{trip.cities.length - 4}</span>}</div>
+            <small>{trip.companions.length ? `与 ${trip.companions.join('、')} 同行 · ` : ''}{tripPlaceCount} 个地点 · {tripMediaCount} 张片段</small>
+          </div>
+          <strong>翻开手账 →</strong>
+        </button>
+      );
     })}</div> : !scopeCity && <div className="empty-state card journal-empty-card"><CuteSticker kind="sparkle" className="empty-float-sparkle" /><JournalEmptyArt /><h2>{savedCities.length ? '城市足迹已收好，随时开启第一段旅行' : '把喜欢的风景，装进第一本旅行手账'}</h2><p>{savedCities.length ? '上方城市可直接打开贴照片、写心情；需要按旅程打包多城或记账时，再新建一次旅行。' : '挑一座去过的城市贴上照片与语音，或者新建一段多城旅程，慢慢攒成只属于自己的回忆小册。'}</p><div className="journal-empty-steps"><div className="empty-step-chip"><span>1</span><div><strong>挑一座城市</strong><small>按省份选城或点亮地图</small></div></div><div className="empty-step-chip"><span>2</span><div><strong>贴入照片与心情</strong><small>支持文字、语音与视频</small></div></div><div className="empty-step-chip"><span>3</span><div><strong>点亮成就与高光</strong><small>自动整理成年度纪念册</small></div></div></div>{!savedCities.length && <div className="empty-state-actions"><button className="secondary" onClick={() => setCityBrowserOpen(true)}>按省份选择城市</button><button className="primary" onClick={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }}>＋ 新建旅行</button></div>}</div>)}
     {selectedPlace && (selectedTrip || scopeCityCode) && <div className="memory-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedPlaceId(null); }}><section className="memory-book" role="dialog" aria-modal="true" aria-label={`${selectedPlace.name}的回忆`}>
       <div className="memory-header"><button className="text-button" onClick={() => setSelectedPlaceId(null)}>← 返回{selectedTrip ? '旅行' : '城市记录'}</button><span>{selectedTrip ? `${selectedTrip.startDate} — ${selectedTrip.endDate}` : '城市记忆'}</span><button aria-label="关闭地点回忆" onClick={() => setSelectedPlaceId(null)}>×</button></div><div className="memory-title"><span className="eyebrow">A PLACE TO REMEMBER</span><h2>{selectedPlace.name}</h2><p>{selectedTrip?.cities.find((item) => item.code === selectedPlace.cityCode)?.name ?? scopeCity?.name} · {placeMedia.length} 个片段</p></div>

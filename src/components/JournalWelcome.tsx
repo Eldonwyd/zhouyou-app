@@ -1,6 +1,8 @@
-import type { CityMark, Journey, JourneyPlace, TravelMedia } from '../types';
+import type { CityMark, Journey, JourneyCity, JourneyPlace, TravelMedia } from '../types';
+import type { PlannerPhoto } from '../planner-types';
 import { TravelCover, TravelIcon } from './TravelArt';
 import { CuteSticker } from './CuteArt';
+import JournalCover from './JournalCover';
 
 /** 首页照片与便笺取自真实记录；紧凑双卡明信片与手账便签，把空间留给城市和旅行列表。 */
 export default function JournalWelcome({
@@ -8,7 +10,9 @@ export default function JournalWelcome({
   places,
   media,
   marks = [],
+  plannerPhotosByTrip,
   onOpen,
+  onOpenCity,
   onStart,
   onNewTrip,
 }: {
@@ -16,7 +20,9 @@ export default function JournalWelcome({
   places: JourneyPlace[];
   media: TravelMedia[];
   marks?: CityMark[];
+  plannerPhotosByTrip: ReadonlyMap<string, PlannerPhoto[]>;
   onOpen: (tripId: string | null, place: JourneyPlace | null) => void;
+  onOpenCity: (city: JourneyCity) => void;
   onStart?: () => void;
   onNewTrip?: () => void;
 }) {
@@ -27,11 +33,18 @@ export default function JournalWelcome({
     ?? [...places].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
   const trip = (place ? trips.find((item) => item.id === place.tripId)
     : [...trips].sort((a, b) => b.startDate.localeCompare(a.startDate))[0]) ?? null;
+  const visitedCities = marks.filter((mark) => mark.visited);
+  // 只有点亮记录时，置顶卡也能直接翻开最近点亮的城市。
+  const recentMark = !place && !trip ? visitedCities.reduce<CityMark | undefined>((latest, mark) =>
+    !latest || mark.updatedAt > latest.updatedAt ? mark : latest, undefined) : undefined;
+  const coverCityCode = place?.cityCode ?? trip?.cities[0]?.code ?? recentMark?.id;
+  // 照片只来自置顶卡实际打开的地点或旅行，避免回退时串到另一座城市。
+  const coverPhoto = latestMedia && (place ? latestMedia.placeId === place.id : trip && latestMedia.tripId === trip.id)
+    ? latestMedia : undefined;
   const notePlace = [...places]
     .filter((item) => item.reviewText.trim() || (item.reviewNotes?.length ?? 0) > 0)
     .sort((a, b) => (b.reviewNotes?.at(-1)?.createdAt ?? b.createdAt).localeCompare(a.reviewNotes?.at(-1)?.createdAt ?? a.createdAt))[0];
-  const hasMemory = Boolean(place || trip);
-  const visitedCitiesCount = marks.filter((m) => m.visited).length;
+  const hasMemory = Boolean(place || trip || recentMark);
   const photoCount = media.filter((item) => item.kind === 'photo').length;
   const audioCount = media.filter((item) => item.kind === 'audio').length;
   const noteDate = notePlace ? (notePlace.reviewNotes?.at(-1)?.createdAt ?? notePlace.createdAt).slice(5, 10).replace('-', '/') : '';
@@ -43,12 +56,18 @@ export default function JournalWelcome({
       <button
         type="button"
         className="warm-featured compact-postcard"
-        onClick={() => (hasMemory ? onOpen(place ? place.tripId : trip?.id ?? null, place) : onStart?.())}
+        onClick={() => {
+          if (recentMark) onOpenCity({ code: recentMark.id, name: recentMark.name, provinceCode: recentMark.provinceCode });
+          else if (hasMemory) onOpen(place ? place.tripId : trip?.id ?? null, place);
+          else onStart?.();
+        }}
         disabled={!hasMemory && !onStart}
       >
         <span className="washi-tape tape-top-left" aria-hidden="true" />
         <div className="postcard-thumb-frame">
-          <TravelCover media={latestMedia} full label={place?.name ?? trip?.title ?? '旅途明信片'} />
+          {coverCityCode ? <JournalCover cityCode={coverCityCode} photoId={coverPhoto?.id}
+            plannerPhotos={trip && !coverPhoto ? plannerPhotosByTrip.get(trip.id) : undefined} />
+            : <TravelCover label="旅途明信片" />}
           <span className="postcard-stamp-dot cute-deco" aria-hidden="true">✦</span>
         </div>
         <div className="postcard-info">
@@ -58,10 +77,10 @@ export default function JournalWelcome({
               {hasMemory ? '最近去过' : '旅途明信片'}
             </span>
             <small className="postcard-date">
-              {trip ? `${trip.startDate} — ${trip.endDate}` : place ? place.createdAt.slice(0, 10) : '待出发'}
+              {trip ? `${trip.startDate} — ${trip.endDate}` : (place?.createdAt ?? recentMark?.updatedAt)?.slice(0, 10) ?? '待出发'}
             </small>
           </div>
-          <h2>{trip?.title ?? place?.name ?? '下一页精彩，等你来贴'}</h2>
+          <h2>{trip?.title ?? place?.name ?? recentMark?.name ?? '下一页精彩，等你来贴'}</h2>
           <p className="postcard-desc">
             {trip?.cities.map((city) => city.name).join(' · ') ?? '把照片、短记与声音收进这一页小册子。'}
           </p>
@@ -105,7 +124,7 @@ export default function JournalWelcome({
 
         <dl className="warm-memory-counts compact-counts">
           <div className="count-pill-sage"><dt>旅行</dt><dd>{trips.length}</dd></div>
-          <div className="count-pill-blue"><dt>城市</dt><dd>{visitedCitiesCount}</dd></div>
+          <div className="count-pill-blue"><dt>城市</dt><dd>{visitedCities.length}</dd></div>
           <div className="count-pill-peach"><dt>地点</dt><dd>{places.length}</dd></div>
           <div className="count-pill-honey"><dt>照片</dt><dd>{photoCount}</dd></div>
         </dl>
