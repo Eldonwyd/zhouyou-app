@@ -3,13 +3,19 @@ import type {
   MediaFile, TravelMedia, TripPlan,
 } from './types';
 import { createLocalId, localDay } from './utils';
+import type { AiTravelPlan, PlannerJournalVisit, PlannerPhoto, PlannerPreferences } from './planner-types';
+import { calculatePlannerBudget, plannerValueEqual, validatePlannerContent } from './planner-domain';
+import { journalPlaceNameKey, plannerJournalActivityKey, plannerJournalCity, plannerJournalPlaceName, plannerJournalVisitFor } from './planner-journal';
+import { upgradeLegacyBookingSchedule } from './planner-booking';
 
 const DATABASE_NAME = 'travel-footprints';
-const DATABASE_VERSION = 2;
-export const STORE_NAMES = ['marks', 'entries', 'plans', 'media', 'badges', 'profile', 'trips', 'places'] as const;
+const DATABASE_VERSION = 4;
+export const STORE_NAMES = ['marks', 'entries', 'plans', 'media', 'badges', 'profile', 'trips', 'places', 'aiPlans', 'plannerPreferences'] as const;
 export type StoreName = typeof STORE_NAMES[number];
 
 interface StoreTypes {
+  aiPlans: AiTravelPlan;
+  plannerPreferences: PlannerPreferences;
   marks: CityMark;
   entries: DayEntry;
   plans: TripPlan;
@@ -33,7 +39,7 @@ function upgradeDatabase(request: IDBOpenDBRequest, previousVersion: number): vo
   for (const name of STORE_NAMES) {
     if (!database.objectStoreNames.contains(name)) database.createObjectStore(name, { keyPath: 'id' });
   }
-  for (const name of ['mediaFiles', 'mediaPreviews']) {
+  for (const name of ['mediaFiles', 'mediaPreviews', 'plannerPhotoFiles']) {
     if (!database.objectStoreNames.contains(name)) database.createObjectStore(name, { keyPath: 'id' });
   }
   const mediaStore = transaction.objectStore('media');
@@ -323,6 +329,22 @@ export async function getMediaBlob(id: string): Promise<Blob> {
   return file.blob;
 }
 
+/** AI 配图与用户原始媒体分开存储，不进入足迹、相册或实际账本。 */
+export async function getPlannerPhotoBlob(id: string): Promise<Blob | null> {
+  const database = await openDatabase();
+  const file = await requestResult<MediaFile | undefined>(database.transaction('plannerPhotoFiles', 'readonly').objectStore('plannerPhotoFiles').get(id));
+  return file?.blob ?? null;
+}
+
+export async function savePlannerPhotoBlob(id: string, blob: Blob): Promise<void> {
+  if (!/^[a-f\d]{64}$/.test(id) || blob.type !== 'image/webp' || blob.size > 8 * 1024 * 1024) throw new Error('本地行程照片无效');
+  const database = await openDatabase();
+  const transaction = database.transaction('plannerPhotoFiles', 'readwrite');
+  const completion = transactionDone(transaction);
+  transaction.objectStore('plannerPhotoFiles').put({ id, blob });
+  await completion;
+}
+
 /** Thumbnails are disposable; backups include originals, not this cache. */
 export async function getMediaPreview(id: string, kind: TravelMedia['kind']): Promise<Blob> {
   const database = await openDatabase();
@@ -360,14 +382,247 @@ export async function deleteMediaRecord(id: string): Promise<void> {
 
 /** Snapshot lists lightweight metadata; photo and video Blobs are fetched on demand. */
 export async function loadSnapshot(): Promise<AppSnapshot> {
-  const [marks, entries, plans, media, badges, profile, trips, places] = await Promise.all(STORE_NAMES.map((name) => getAll(name)));
-  return { marks, entries, plans, media, badges, profile, trips, places } as AppSnapshot;
+  const [marks, entries, plans, media, badges, profile, trips, places, aiPlans, plannerPreferences] = await Promise.all(STORE_NAMES.map((name) => getAll(name)));
+  const snapshot = { marks, entries, plans, media, badges, profile, trips, places, aiPlans, plannerPreferences } as AppSnapshot;
+  return { ...snapshot, aiPlans: snapshot.aiPlans.map(upgradeLegacyBookingSchedule) };
+}
+
+/** Compare-and-save in one IndexedDB transaction. A second tab or a late AI
+ * response cannot silently overwrite a newer local edit.
+ */
+export async function saveAiPlan(plan: AiTravelPlan, expectedVersion: number | null): Promise<void> {
+  validatePlannerContent(plan.content);
+  const database = await openDatabase();
+  const transaction = database.transaction('aiPlans', 'readwrite');
+  const completion = transactionDone(transaction);
+  let conflict = false;
+  const store = transaction.objectStore('aiPlans');
+  const request = store.get(plan.id);
+  request.onsuccess = () => {
+    const existing = request.result as AiTravelPlan | undefined;
+    if ((expectedVersion === null && existing) || (expectedVersion !== null && existing?.version !== expectedVersion)) {
+      conflict = true; transaction.abort(); return;
+    }
+    // 地图位置由独立事务写入，不因正在进行的AI/照片保存带着旧快照而丢失。
+    store.put({ ...plan, mapPositions: { ...plan.mapPositions, ...existing?.mapPositions } });
+  };
+  try { await completion; } catch (error) { if (conflict) throw new Error('计划已在其他操作中更新，请刷新后重试'); throw error; }
+}
+
+/** 在同一个事务内合并坐标，多天的自动定位与手动校正不会互相覆盖。 */
+export async function savePlannerMapPositions(planId: string, positions: import('./planner-map').PlannerMapPosition[]): Promise<void> {
+  const database = await openDatabase();
+  const transaction = database.transaction('aiPlans', 'readwrite');
+  const completion = transactionDone(transaction);
+  const store = transaction.objectStore('aiPlans');
+  const request = store.get(planId);
+  request.onsuccess = () => {
+    const current = request.result as AiTravelPlan | undefined;
+    if (!current) { transaction.abort(); return; }
+    const mapPositions = { ...current.mapPositions };
+    for (const position of positions) {
+      // 自动重试永不覆盖已手动确认的位置。
+      if (mapPositions[position.key]?.source === '手动确认' && !['手动确认', '用户选择开放地图位置'].includes(position.source || '')) continue;
+      mapPositions[position.key] = position;
+    }
+    store.put({ ...current, mapPositions });
+  };
+  await completion;
+}
+
+/** 自动配图只改一张活动照片：在同一事务里读取最新计划再写回，
+ * 不增加版本、不写入撤销历史，多张照片陆续返回也不会互相覆盖。
+ * 活动已被删除时直接忽略。
+ */
+export async function saveAiPlanPhoto(planId: string, activityId: string, photo: PlannerPhoto): Promise<void> {
+  const database = await openDatabase();
+  const transaction = database.transaction('aiPlans', 'readwrite');
+  const completion = transactionDone(transaction);
+  const store = transaction.objectStore('aiPlans');
+  const request = store.get(planId);
+  request.onsuccess = () => {
+    const existing = request.result as AiTravelPlan | undefined;
+    const target = existing?.content.days.flatMap((day) => day.activities).find((item) => item.id === activityId);
+    if (!existing || !target) return;
+    target.photo = photo;
+    store.put(existing);
+  };
+  await completion;
+}
+
+function plannerPublicationSnapshot(plan: AiTravelPlan, budgetOverride?: TripPlan['budget']): NonNullable<AiTravelPlan['linkedSnapshot']> {
+  const budget = budgetOverride ?? Object.fromEntries(Object.entries(calculatePlannerBudget(plan.content).categories)
+    .map(([key, cents]) => [key, cents / 100])) as TripPlan['budget'];
+  return {
+    title: plan.content.title, startDate: plan.content.days[0].date,
+    endDate: plan.content.days.at(-1)!.date, cities: plan.content.cities, budget,
+  };
+}
+
+/** 首次记录景点和手动发布沿用同样的旅行、预算初始值。 */
+function plannerPublicationRecords(
+  tripId: string,
+  snapshot: NonNullable<AiTravelPlan['linkedSnapshot']>,
+  plan: AiTravelPlan,
+  trip?: Journey,
+  finance?: TripPlan,
+  firstFinance?: TripPlan,
+): { journey: Journey; sheet: TripPlan } {
+  const journey: Journey = {
+    ...trip, id: tripId, title: snapshot.title, startDate: snapshot.startDate, endDate: snapshot.endDate,
+    cities: snapshot.cities, status: trip?.status ?? 'planned', companions: trip?.companions ?? [],
+    createdAt: trip?.createdAt ?? new Date().toISOString(),
+  };
+  const sheet: TripPlan = {
+    ...finance, id: tripId, tripId, cityCode: journey.cities[0].code,
+    dailyExpenses: firstFinance?.dailyExpenses ?? finance?.dailyExpenses,
+    aiExpenseSeeded: firstFinance?.aiExpenseSeeded ?? finance?.aiExpenseSeeded,
+    overallExpenses: firstFinance?.overallExpenses ?? finance?.overallExpenses,
+    unallocatedFood: firstFinance?.unallocatedFood ?? finance?.unallocatedFood,
+    startDate: journey.startDate, endDate: journey.endDate, people: firstFinance?.people ?? plan.content.request.people,
+    budget: snapshot.budget,
+    actual: firstFinance?.actual ?? finance?.actual ?? { transport: 0, lodging: 0, tickets: 0, food: 0, other: 0 },
+    manualActualTotal: firstFinance?.manualActualTotal ?? finance?.manualActualTotal ?? null,
+    reminderDays: firstFinance?.reminderDays ?? finance?.reminderDays ?? 1,
+    splitMembers: firstFinance?.splitMembers ?? finance?.splitMembers,
+    splitItems: firstFinance?.splitItems ?? finance?.splitItems,
+  };
+  return { journey, sheet };
+}
+
+/** 手动同步只写旅行和预算。手账已有地点的城市继续保留，原地点和照片无需搬动。
+ * 它不调用 saveJourneyAndLinkCityRecords，因此不会把城市独立收藏移入这次旅行。
+ */
+export async function publishAiPlan(plan: AiTravelPlan, initialFinance?: TripPlan): Promise<AiTravelPlan> {
+  validatePlannerContent(plan.content);
+  const database = await openDatabase();
+  const transaction = database.transaction(['aiPlans', 'trips', 'plans', 'places'], 'readwrite');
+  const completion = transactionDone(transaction);
+  const tripId = plan.linkedTripId ?? createLocalId();
+  // 首次从账本保存时，用户编辑的预算与花费和旅行关联在同一事务落盘。
+  const firstFinance = !plan.linkedTripId ? initialFinance : undefined;
+  const snapshot = plannerPublicationSnapshot(plan, firstFinance?.budget);
+  const tripRequest = transaction.objectStore('trips').get(tripId);
+  const financeRequest = transaction.objectStore('plans').get(tripId);
+  const currentRequest = transaction.objectStore('aiPlans').get(plan.id);
+  const placesRequest = plan.linkedTripId ? transaction.objectStore('places').getAll() : null;
+  let errorMessage = '';
+  let updated: AiTravelPlan | null = null;
+  let completed = 0;
+  const writeWhenReady = () => {
+    if (++completed !== (placesRequest ? 4 : 3)) return;
+    const current = currentRequest.result as AiTravelPlan | undefined;
+    const trip = tripRequest.result as Journey | undefined;
+    const finance = financeRequest.result as TripPlan | undefined;
+    if (current?.version !== plan.version) errorMessage = '计划已更新，请刷新后再同步';
+    if (trip && plan.linkedSnapshot) {
+      const previous = plan.linkedSnapshot;
+      if (trip.title !== previous.title || trip.startDate !== previous.startDate || trip.endDate !== previous.endDate
+        || !plannerValueEqual(trip.cities, previous.cities)
+        || (finance && !plannerValueEqual(finance.budget, previous.budget))) errorMessage = '旅行记录或预算已有人工修改，为避免覆盖，请先在记录页核对；原内容已保留';
+    }
+    if (plan.linkedTripId && !trip) errorMessage = '关联旅行已不存在，无法覆盖同步';
+    if (errorMessage) { transaction.abort(); return; }
+    const recordedCityCodes = new Set((placesRequest?.result as JourneyPlace[] | undefined)
+      ?.filter((place) => place.tripId === tripId).map((place) => place.cityCode));
+    const plannedCityCodes = new Set(snapshot.cities.map((city) => city.code));
+    // 行程取消了某座城市，已经在那里记录的地点仍应能从旅行手账打开。
+    snapshot.cities = [...snapshot.cities, ...(trip?.cities ?? []).filter((city) =>
+      recordedCityCodes.has(city.code) && !plannedCityCodes.has(city.code))];
+    const { journey, sheet } = plannerPublicationRecords(tripId, snapshot, plan, trip, finance, firstFinance);
+    updated = { ...plan, version: plan.version + 1, linkedTripId: tripId, linkedSnapshot: structuredClone(snapshot), updatedAt: new Date().toISOString() };
+    transaction.objectStore('trips').put(journey);
+    transaction.objectStore('plans').put(sheet);
+    transaction.objectStore('aiPlans').put(updated);
+  };
+  tripRequest.onsuccess = writeWhenReady;
+  financeRequest.onsuccess = writeWhenReady;
+  currentRequest.onsuccess = writeWhenReady;
+  if (placesRequest) placesRequest.onsuccess = writeWhenReady;
+  try { await completion; } catch (error) { if (errorMessage) throw new Error(errorMessage); throw error; }
+  return updated!;
+}
+
+/** 用户确认一个景点后，行程关联、地点和完成状态在同一次事务保存。
+ * 按旅行与城市内的规范地名复用地点，同一景点玩两次也共用照片和回忆。
+ */
+export async function recordPlannerJournalVisit(
+  planId: string, activityId: string, expectedActivityKey: string, selectedCityCode?: string,
+): Promise<{ place: JourneyPlace; cityName: string }> {
+  const database = await openDatabase();
+  const transaction = database.transaction(['aiPlans', 'trips', 'plans', 'places'], 'readwrite');
+  const completion = transactionDone(transaction);
+  const planStore = transaction.objectStore('aiPlans');
+  const tripStore = transaction.objectStore('trips');
+  const placeStore = transaction.objectStore('places');
+  try {
+    const current = await requestResult<AiTravelPlan | undefined>(planStore.get(planId));
+    const activity = current?.content.days.flatMap((day) => day.activities).find((item) => item.id === activityId);
+    const activityKey = activity && plannerJournalActivityKey(activity);
+    if (!current || activity?.kind !== 'sight' || activityKey !== expectedActivityKey) {
+      throw new Error('景点安排已变更，请刷新行程后再记录');
+    }
+    const city = selectedCityCode
+      ? current.content.cities.find((item) => item.code === selectedCityCode)
+      : plannerJournalCity(current.content.cities, activity.city);
+    if (!city) throw new Error('请先确认景点所属城市');
+    const placeName = plannerJournalPlaceName(activity);
+    if (!placeName) throw new Error('请先填写景点名称');
+
+    const tripId = current.linkedTripId ?? createLocalId();
+    const [trip, places] = await Promise.all([
+      requestResult<Journey | undefined>(tripStore.get(tripId)),
+      requestResult<JourneyPlace[]>(placeStore.getAll()),
+    ]);
+    if (current.linkedTripId && !trip) throw new Error('关联的旅行记录已不存在，请先核对旅行手账');
+    const previous = plannerJournalVisitFor(current, activity);
+    const tripPlaces = places.filter((place) => place.tripId === tripId && place.cityCode === city.code);
+    const earlierPlace = previous && tripPlaces.find((place) => place.id === previous.placeId);
+    if (earlierPlace) {
+      await completion;
+      return { place: earlierPlace, cityName: city.name };
+    }
+
+    const now = new Date().toISOString();
+    const existing = tripPlaces.find((place) => journalPlaceNameKey(place.name) === journalPlaceNameKey(placeName));
+    const place: JourneyPlace = existing ?? {
+      id: createLocalId(), tripId, cityCode: city.code, name: placeName,
+      reviewText: '', reviewAudioId: null, createdAt: now,
+    };
+    let linkedSnapshot = current.linkedSnapshot;
+    if (!trip) {
+      linkedSnapshot = plannerPublicationSnapshot(current);
+      const { journey, sheet } = plannerPublicationRecords(tripId, linkedSnapshot, current);
+      tripStore.add(journey);
+      transaction.objectStore('plans').add(sheet);
+    } else if (!trip.cities.some((item) => item.code === city.code)) {
+      // 只为已确认到访的地点追加城市，保留手账已有的日期、标题和账本。
+      const cities = [...trip.cities, city];
+      tripStore.put({ ...trip, cities });
+      if (linkedSnapshot && plannerValueEqual(trip.cities, linkedSnapshot.cities)) {
+        linkedSnapshot = { ...linkedSnapshot, cities };
+      }
+    }
+    if (!existing) placeStore.add(place);
+    const visit: PlannerJournalVisit = { tripId, placeId: place.id, activityKey, completedAt: now };
+    planStore.put({
+      ...current, linkedTripId: tripId, linkedSnapshot, version: current.version + 1,
+      contentVersion: current.contentVersion ?? current.version, updatedAt: now,
+      journalVisits: { ...current.journalVisits, [activityId]: visit },
+    } satisfies AiTravelPlan);
+    await completion;
+    return { place, cityName: city.name };
+  } catch (error) {
+    try { transaction.abort(); } catch { /* IndexedDB 可能已因写入失败回滚。 */ }
+    await completion.catch(() => undefined);
+    throw error;
+  }
 }
 
 /** Validate first in backup.ts, then replace all records in one transaction. */
-export async function replaceSnapshot(snapshot: AppSnapshot, files: MediaFile[]): Promise<void> {
+export async function replaceSnapshot(snapshot: AppSnapshot, files: MediaFile[], plannerPhotos: MediaFile[] = []): Promise<void> {
   const database = await openDatabase();
-  const transaction = database.transaction([...STORE_NAMES, 'mediaFiles', 'mediaPreviews'], 'readwrite');
+  const transaction = database.transaction([...STORE_NAMES, 'mediaFiles', 'mediaPreviews', 'plannerPhotoFiles'], 'readwrite');
   const completion = transactionDone(transaction);
   for (const name of STORE_NAMES) {
     const store = transaction.objectStore(name);
@@ -377,5 +632,7 @@ export async function replaceSnapshot(snapshot: AppSnapshot, files: MediaFile[])
   transaction.objectStore('mediaFiles').clear();
   transaction.objectStore('mediaPreviews').clear();
   for (const file of files) transaction.objectStore('mediaFiles').put(file);
+  transaction.objectStore('plannerPhotoFiles').clear();
+  for (const photo of plannerPhotos) transaction.objectStore('plannerPhotoFiles').put(photo);
   await completion;
 }

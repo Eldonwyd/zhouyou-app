@@ -12,7 +12,7 @@ const PlanView = lazy(() => import('./components/PlanView'));
 const AchievementsView = lazy(() => import('./components/AchievementsView'));
 const ProfileView = lazy(() => import('./components/ProfileView'));
 
-const EMPTY_SNAPSHOT: AppSnapshot = { marks: [], entries: [], plans: [], media: [], badges: [], profile: [], trips: [], places: [] };
+const EMPTY_SNAPSHOT: AppSnapshot = { marks: [], entries: [], plans: [], media: [], badges: [], profile: [], trips: [], places: [], aiPlans: [], plannerPreferences: [] };
 const NAV_ITEMS: Array<{ id: PageName; label: string; icon: string }> = [
   { id: 'map', label: '地图足迹', icon: '◎' },
   { id: 'detail', label: '旅行记录', icon: '▤' },

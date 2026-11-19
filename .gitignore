@@ -5,3 +5,7 @@ dist-*/
 .env*
 !.env.example
 .openai/
+.planner-photos/
+.xhs-local/
+xiaohongshu-mcp-windows-amd64.exe
+.models/

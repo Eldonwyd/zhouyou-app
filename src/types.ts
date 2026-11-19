@@ -1,9 +1,25 @@
+import type { AiTravelPlan, PlannerPreferences } from './planner-types';
+
 export type PageName = 'map' | 'detail' | 'plan' | 'achievements' | 'profile';
 export type VisitStatus = 'empty' | 'visited';
 export type DayPeriod = 'morning' | 'afternoon' | 'evening' | 'all-day';
 export type MediaKind = 'photo' | 'video' | 'audio';
 export type BudgetCategory = 'transport' | 'lodging' | 'tickets' | 'food' | 'other';
 export type CategoryAmounts = Record<BudgetCategory, number>;
+/** 账单按三餐拆分；金额单位为元，空项不写入对象。 */
+export type ExpenseCategory = 'breakfast' | 'lunch' | 'dinner' | 'transport' | 'tickets' | 'other' | 'lodging';
+export type ExpenseAmounts = Partial<Record<ExpenseCategory, number>>;
+
+/** 单笔 AA 分账记录，金额统一以整数“分”保存，避免浮点误差。 */
+export interface ExpenseSplitItem {
+  id: string;
+  date: string;
+  category: ExpenseCategory;
+  title: string;
+  amountCents: number;
+  payer: string;
+  participants: string[];
+}
 
 export interface CityMark {
   id: string; // The six-digit administrative code is the permanent city ID.
@@ -28,6 +44,12 @@ export interface DayEntry {
 }
 
 export interface TripPlan {
+  /** 仅首次预填预测值，之后清空或改成 0 都不会再次被 AI 覆盖。 */
+  aiExpenseSeeded?: boolean;
+  dailyExpenses?: Record<string, ExpenseAmounts>;
+  overallExpenses?: ExpenseAmounts;
+  /** 旧版餐饮没有三餐划分，单独保留原值，不能猜测属于哪一餐。 */
+  unallocatedFood?: number;
   id: string; // New sheets use the journey ID; old sheets retain their city ID.
   tripId?: string; // Missing only on legacy city sheets awaiting manual assignment.
   cityCode: string; // Retained so old backups and city-based records remain readable.
@@ -38,6 +60,9 @@ export interface TripPlan {
   actual: CategoryAmounts;
   manualActualTotal: number | null;
   reminderDays: number;
+  /** 同行人 AA 分账成员与逐笔分摊记录。 */
+  splitMembers?: string[];
+  splitItems?: ExpenseSplitItem[];
 }
 
 export interface TravelMedia {
@@ -80,6 +105,8 @@ export interface JourneyPlace {
   cityCode: string;
   name: string;
   reviewText: string;
+  /** 每次保存独立保留；缺省时兼容旧版单条文字及备份。 */
+  reviewNotes?: Array<{ id: string; text: string; createdAt: string }>;
   reviewAudioId: string | null;
   createdAt: string;
 }
@@ -100,9 +127,13 @@ export interface Badge {
 export interface LocalProfile {
   id: 'profile';
   nickname: string;
+  avatar?: string;
+  motto?: string;
 }
 
 export interface AppSnapshot {
+  aiPlans: AiTravelPlan[];
+  plannerPreferences: PlannerPreferences[];
   marks: CityMark[];
   entries: DayEntry[];
   plans: TripPlan[];

@@ -1,5 +1,5 @@
-import type { BudgetCategory, CategoryAmounts, DayPeriod } from './types';
-import { BUDGET_CATEGORIES } from './types';
+import type { BudgetCategory, CategoryAmounts, DayPeriod } from './types.ts';
+import { BUDGET_CATEGORIES } from './types.ts';
 
 /**
  * Create stable local record IDs on both HTTPS and a phone's LAN HTTP preview.

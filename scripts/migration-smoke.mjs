@@ -36,7 +36,7 @@ try {
   }, { mark, entry, media, bytes: [...pixel] });
   await page.goto(origin, { waitUntil: 'networkidle' });
   const upgraded = await page.evaluate(async () => {
-    const request = indexedDB.open('travel-footprints', 2);
+    const request = indexedDB.open('travel-footprints');
     const db = await new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
     const tx = db.transaction(['trips', 'places', 'entries', 'media', 'mediaFiles'], 'readonly');
     const get = (name) => new Promise((resolve) => { const item = tx.objectStore(name).getAll(); item.onsuccess = () => resolve(item.result); });
@@ -60,7 +60,7 @@ try {
   page.once('dialog', (dialog) => void dialog.accept());
   await page.locator('input[type="file"][accept^=".zip"]').setInputFiles({ name: 'legacy.zip', mimeType: 'application/zip', buffer: archive });
   await page.getByText('备份已导入，旅行记录和媒体已恢复。').waitFor();
-  await page.getByRole('button', { name: '旅行记录' }).click();
+  await page.getByRole('button', { name: '旅行手账' }).click();
   await page.getByRole('heading', { name: '太原市 · 2025-07-08' }).waitFor();
   process.stdout.write('IndexedDB v1 upgrade and ZIP v1 import: OK\n');
 } finally {
