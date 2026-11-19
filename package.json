@@ -1,0 +1,20 @@
+{
+  "name": "travel-footprints-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix web run dev",
+    "dev:phone": "npm --prefix web run dev:phone",
+    "build": "npm --prefix web run build",
+    "start": "npm --prefix web run start",
+    "preview": "npm --prefix web run preview",
+    "test:web": "node web/scripts/smoke.mjs",
+    "test:migration": "node web/scripts/migration-smoke.mjs",
+    "test:finance": "node web/scripts/finance-smoke.mjs",
+    "test:maps": "node web/scripts/validate-maps.mjs",
+    "test:planner": "npm --prefix web run test:planner",
+    "test:city-record": "node web/scripts/city-record-smoke.mjs",
+    "test:mobile": "node web/scripts/mobile-smoke.mjs",
+    "test:visit-confirm": "node web/scripts/visit-confirm-smoke.mjs",
+    "test:theme": "node web/scripts/theme-smoke.mjs"
+  }
+}
