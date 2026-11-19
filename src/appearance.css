@@ -345,7 +345,7 @@
   box-shadow: 0 5px 0 var(--candy-offset), 0 12px 24px -12px rgba(178, 92, 66, .16);
 }
 
-:root[data-appearance="candy"] :is(.journey-card, .badge-card, .warm-highlight-card, .saved-city-card, .appearance-option):hover {
+:root[data-appearance="candy"] :is(.journey-card, .badge-card, .warm-highlight-card, .appearance-option):hover {
   transform: translateY(-4px) rotate(-0.4deg);
   transition: transform .25s cubic-bezier(.34, 1.56, .64, 1), box-shadow .2s ease, border-color .2s ease;
 }
@@ -381,9 +381,8 @@
 }
 
 :root[data-appearance="candy"] .saved-city-card {
-  border-radius: 20px;
-  border: 2px dashed color-mix(in srgb, var(--ink) 16%, transparent);
-  box-shadow: 0 4px 0 color-mix(in srgb, var(--ink) 8%, transparent);
+  border-radius: 16px;
+  border-color: var(--candy-border);
 }
 
 :root[data-appearance="candy"] .map-province-filter {

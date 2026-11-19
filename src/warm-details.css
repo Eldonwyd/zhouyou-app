@@ -845,11 +845,6 @@ input, select, textarea { border-radius: 10px; }
 .journey-card h2 { margin-top: 11px; font-size: 17px; font-family: var(--ui-sans); font-weight: 700; }
 .journey-card > strong { padding: 9px 10px 12px; }
 
-.saved-city-card { border-radius: 15px; padding: 18px; border-color: transparent; background: var(--app-sage); }
-.saved-city-card:nth-child(3n+2) { background: var(--app-peach); }
-.saved-city-card:nth-child(3n) { background: var(--app-blue); }
-.saved-city-card:hover { border-color: var(--line-strong); transform: translateY(-2px); box-shadow: var(--elev-card); }
-.saved-city-card span { font-size: 11px; color: var(--ink-2); }
 
 .place-card { border-radius: 18px; padding: 8px; box-shadow: var(--elev-card); }
 .place-card .journey-cover { border-radius: 12px; }
@@ -1952,8 +1947,6 @@ input, select, textarea { border-radius: 10px; }
   .warm-note-paper { padding: 20px; }
   .warm-note-paper h3 { margin: 14px 0 8px; }
   .warm-memory-counts { padding-top: 12px; }
-  .saved-city-card { padding: 15px; }
-  .saved-city-card span { font-size: 10px; }
   .warm-profile-avatar { border-radius: 22px; }
   .warm-profile-banner { padding-top: 26px; }
   .warm-achievement-intro > .travel-icon { flex: 0 0 44px; width: 44px; height: 44px; padding: 10px; border-radius: 14px; }

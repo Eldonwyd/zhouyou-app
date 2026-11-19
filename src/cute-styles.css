@@ -685,84 +685,115 @@
 
 .saved-city-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(225px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr));
+  gap: 16px;
 }
 .saved-city-card {
-  position: relative;
-  display: flex !important;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 16px 18px 15px !important;
-  border-radius: 18px;
-  text-align: left;
-  cursor: pointer;
-  transition: transform .22s cubic-bezier(.34, 1.56, .64, 1), box-shadow .2s ease, border-color .2s ease;
-}
-.saved-city-card:nth-child(4n + 1) { background: var(--app-sage); }
-.saved-city-card:nth-child(4n + 2) { background: var(--app-peach); }
-.saved-city-card:nth-child(4n + 3) { background: var(--app-blue); }
-.saved-city-card:nth-child(4n) { background: var(--app-honey); }
-
-.saved-city-top {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  box-shadow: 0 6px 12px -9px color-mix(in srgb, var(--ink) 38%, transparent);
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.saved-city-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--line-strong);
+  background: var(--surface);
+  box-shadow: 0 12px 20px -12px color-mix(in srgb, var(--ink) 50%, transparent);
+}
+.saved-city-card:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+.saved-city-cover {
+  position: relative;
+  display: block;
   width: 100%;
-  gap: 8px;
+  height: clamp(88px, 9vw, 122px);
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+/* 用等宽的正方形显示一格插画，再由外层裁成横向封面，避免拉伸。 */
+.saved-city-illustration {
+  position: absolute;
+  inset: 50% 0 auto;
+  aspect-ratio: 1;
+  transform: translateY(-50%);
+  background-image: url('./city-postcards.webp');
+  background-size: 400% 300%;
+  background-repeat: no-repeat;
+}
+.saved-city-cover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .saved-city-province-pill {
-  padding: 2px 9px;
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  padding: 3px 8px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 84%, transparent);
-  color: var(--ink-2);
-  font-size: 10.5px !important;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 11px;
   font-weight: 600;
+  line-height: 1.35;
 }
-.saved-city-stamp {
-  position: static;
-  font-size: 12px;
-  color: var(--warm-green);
-  opacity: .72;
+.saved-city-caption {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto 1fr;
+  width: 100%;
+  flex: 1;
+  gap: 4px 8px;
+  padding: 11px 12px 13px;
 }
 .saved-city-name {
-  font-size: 17px !important;
+  grid-column: 1 / -1;
+  min-width: 0;
+  font-size: 17px;
   font-weight: 700;
   color: var(--ink);
   line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 .saved-city-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding-right: 34px;
-}
-.saved-city-meta > span {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 74%, transparent);
+  align-items: center;
+  align-self: end;
+  gap: 3px 8px;
   color: var(--ink-2);
-  font-size: 11px !important;
+  font-size: 11px;
   font-weight: 500;
+  line-height: 1.35;
 }
 .saved-city-arrow {
-  position: absolute;
-  right: 14px;
-  bottom: 14px;
-  width: 28px;
-  height: 28px;
+  align-self: end;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  color: var(--ink) !important;
+  background: var(--surface-2);
+  color: var(--ink);
   display: grid;
   place-items: center;
-  font-size: 14px !important;
-  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
   transition: transform .2s ease;
 }
 .saved-city-card:hover .saved-city-arrow {
-  transform: translateX(3px);
+  transform: translateX(2px);
 }
 
 /* 城市记录 / 旅程详情页顶部横幅 */
@@ -1679,7 +1710,9 @@
   .warm-record-filter input { min-width: 0; width: 100%; }
   .saved-city-overview { padding: 18px 16px !important; }
   .saved-city-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .saved-city-card { padding: 13px 13px 12px !important; }
+  .saved-city-cover { height: 82px; }
+  .saved-city-caption { padding: 9px 9px 11px; }
+  .saved-city-name { font-size: 15px; }
   .passport-hero-card { padding: 20px 18px; }
   .passport-hero-top { flex-direction: column; align-items: flex-start; }
   .passport-emblem-box { display: none; }
