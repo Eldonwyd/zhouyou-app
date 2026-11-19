@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "node scripts/dev.mjs",
     "dev:phone": "vite --host 0.0.0.0 --port 5175 --configLoader runner",
     "build": "tsc --noEmit && vite build && node scripts/write-precache.mjs",
-    "preview": "vite preview --host 127.0.0.1",
+    "preview": "node server/index.mjs --production",
     "check": "tsc --noEmit",
     "test:maps": "node scripts/validate-maps.mjs",
     "test:web": "node scripts/smoke.mjs",
@@ -15,7 +15,10 @@
     "test:finance": "node scripts/finance-smoke.mjs",
     "test:city-record": "node scripts/city-record-smoke.mjs",
     "test:mobile": "node scripts/mobile-smoke.mjs",
-    "test:visit-confirm": "node scripts/visit-confirm-smoke.mjs"
+    "test:visit-confirm": "node scripts/visit-confirm-smoke.mjs",
+    "start": "node server/index.mjs --production",
+    "test:planner:live": "node scripts/planner-live.mjs",
+    "setup:xhs": "node --use-system-ca scripts/setup-xhs.mjs --install"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
