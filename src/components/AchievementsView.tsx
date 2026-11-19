@@ -5,6 +5,9 @@ import { AchievementBadgeArt, CuteSticker, HighlightEmptyArt, getTravelerLevel }
 import { createLocalId, downloadBlob } from '../utils';
 import { themeColor } from '../theme';
 
+// 每站沿用应用内的旅行图标，等级数超过现有图标时仍可显示默认地图图标。
+const travelerStopIcons = ['leaf', 'detail', 'map', 'camera', 'mountain', 'train', 'sun', 'plane'];
+
 interface AchievementsViewProps {
   marks: CityMark[];
   entries: DayEntry[];
@@ -291,8 +294,8 @@ export default function AchievementsView({
 
         <section className="level-roadmap" aria-labelledby="traveler-roadmap-title">
           <div className="level-roadmap-head">
+            <span className="level-roadmap-icon"><TravelIcon name="map" /></span>
             <h3 id="traveler-roadmap-title">旅人成长路线</h3>
-            <span>点亮城市，解锁新的旅人称号</span>
           </div>
           <ol className="level-roadmap-steps" role="list">
             {levelInfo.tiers.map((tier) => {
@@ -307,14 +310,17 @@ export default function AchievementsView({
                   className={`level-step is-${status}`}
                   aria-current={isCurrent ? 'step' : undefined}
                 >
-                  <div className="level-step-top">
-                    <span className="level-step-number">Lv.{tier.level}</span>
+                  <div className="level-step-marker">
+                    <TravelIcon name={travelerStopIcons[tier.level - 1] ?? 'map'} />
                     {isReached && <span className="level-step-check" role="img" aria-label="已达成">✓</span>}
+                  </div>
+                  <div className="level-step-card">
+                    <span className="level-step-number">Lv.{tier.level}</span>
                     {isCurrent && <span className="level-step-status">当前</span>}
                     {isNext && <span className="level-step-status">下一站</span>}
+                    <strong className="level-step-title">{tier.title}</strong>
+                    <span className="level-step-threshold">{tier.minCities} 座城市</span>
                   </div>
-                  <strong className="level-step-title">{tier.title}</strong>
-                  <span className="level-step-threshold">{tier.minCities} 座城市</span>
                 </li>
               );
             })}
