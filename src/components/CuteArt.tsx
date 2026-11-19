@@ -492,42 +492,65 @@ export function AchievementBadgeArt({ id, unlocked }: { id: string; unlocked: bo
   );
 }
 
-export interface TravelerLevelInfo {
+export interface TravelerLevelTier {
   level: number;
+  minCities: number;
   title: string;
   subtitle: string;
-  current: number;
-  nextTarget: number | null;
-  progressPct: number;
 }
 
-/** 根据已去城市与旅行天数计算旅人成长等级，用于个人中心、成就页与侧边栏小卡片。 */
-export function getTravelerLevel(visitedCities: number, travelDays: number): TravelerLevelInfo {
-  const score = visitedCities * 2 + Math.min(travelDays, 60);
-  const tiers = [
-    { level: 1, min: 0, title: '新手小旅人', subtitle: '刚背上小书包，准备出发啦' },
-    { level: 2, min: 2, title: '见习背包客', subtitle: '第一枚城市邮戳已经落袋' },
-    { level: 3, min: 8, title: '城市漫游家', subtitle: '把街角微风收进小册子里' },
-    { level: 4, min: 18, title: '山河收集控', subtitle: '足迹越画越宽，故事越来越暖' },
-    { level: 5, min: 34, title: '星辰大玩家', subtitle: '行走的风景画册与快乐制造机' },
-  ];
-  let currentTier = tiers[0];
-  let nextTier: (typeof tiers)[number] | null = tiers[1];
-  for (let i = 0; i < tiers.length; i += 1) {
-    if (score >= tiers[i].min) {
-      currentTier = tiers[i];
-      nextTier = tiers[i + 1] ?? null;
+export const TRAVELER_LEVEL_TIERS: TravelerLevelTier[] = [
+  { level: 1, minCities: 0, title: '新手小旅人', subtitle: '刚背上小书包，准备出发啦' },
+  { level: 2, minCities: 1, title: '见习背包客', subtitle: '第一枚城市邮戳已经落袋' },
+  { level: 3, minCities: 5, title: '城市漫游家', subtitle: '把街角微风收进小册子里' },
+  { level: 4, minCities: 12, title: '风景收集控', subtitle: '足迹越画越宽，故事越来越暖' },
+  { level: 5, minCities: 25, title: '山河探索官', subtitle: '走过山海湖川，阅尽四季风物' },
+  { level: 6, minCities: 45, title: '九州巡游者', subtitle: '大半个中国都留下你的笑声' },
+  { level: 7, minCities: 75, title: '星辰大玩家', subtitle: '行走的风景画册与快乐制造机' },
+  { level: 8, minCities: 120, title: '传奇环游家', subtitle: '满级达成！把山河岁月酿成永恒纪念' },
+];
+
+export interface TravelerLevelInfo {
+  level: number;
+  maxLevel: number;
+  title: string;
+  subtitle: string;
+  visitedCities: number;
+  currentMinCities: number;
+  nextTarget: number | null;
+  nextTitle: string | null;
+  remainingCities: number;
+  progressPct: number;
+  tiers: TravelerLevelTier[];
+}
+
+/** 按已点亮城市数计算旅人成长等级（共 8 级，规则透明直观）。 */
+export function getTravelerLevel(visitedCities: number, _travelDays = 0): TravelerLevelInfo {
+  let currentTier = TRAVELER_LEVEL_TIERS[0];
+  let nextTier: TravelerLevelTier | null = TRAVELER_LEVEL_TIERS[1];
+  for (let i = 0; i < TRAVELER_LEVEL_TIERS.length; i += 1) {
+    if (visitedCities >= TRAVELER_LEVEL_TIERS[i].minCities) {
+      currentTier = TRAVELER_LEVEL_TIERS[i];
+      nextTier = TRAVELER_LEVEL_TIERS[i + 1] ?? null;
     }
   }
+  const span = nextTier ? Math.max(1, nextTier.minCities - currentTier.minCities) : 1;
+  const gained = nextTier ? Math.max(0, visitedCities - currentTier.minCities) : 1;
   const progressPct = nextTier
-    ? Math.min(100, Math.max(8, Math.round(((score - currentTier.min) / (nextTier.min - currentTier.min)) * 100)))
+    ? Math.min(100, Math.round((gained / span) * 100))
     : 100;
+
   return {
     level: currentTier.level,
+    maxLevel: TRAVELER_LEVEL_TIERS.length,
     title: currentTier.title,
     subtitle: currentTier.subtitle,
-    current: score,
-    nextTarget: nextTier?.min ?? null,
+    visitedCities,
+    currentMinCities: currentTier.minCities,
+    nextTarget: nextTier?.minCities ?? null,
+    nextTitle: nextTier?.title ?? null,
+    remainingCities: nextTier ? Math.max(0, nextTier.minCities - visitedCities) : 0,
     progressPct,
+    tiers: TRAVELER_LEVEL_TIERS,
   };
 }

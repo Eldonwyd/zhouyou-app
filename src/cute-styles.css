@@ -925,6 +925,19 @@
   display: grid;
   gap: 6px;
 }
+.passport-xp-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4px 12px;
+  font-size: 13px;
+}
+.passport-xp-nums {
+  color: var(--ink-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
 .passport-xp-track {
   height: 9px;
   border-radius: 999px;
@@ -969,6 +982,108 @@
   width: 34px;
   height: 34px;
 }
+
+/* 路线按护照内部可用宽度换列，兼顾窄屏和桌面的侧栏。 */
+.level-roadmap {
+  container: traveler-roadmap / inline-size;
+  --roadmap-accent-ink: color-mix(in srgb, var(--warm-green) 55%, var(--ink));
+  --roadmap-accent-line: color-mix(in srgb, var(--warm-green) 52%, var(--line));
+  margin-bottom: 18px;
+  padding: clamp(10px, 2vw, 18px);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 75%, var(--app-sage));
+}
+.level-roadmap-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin-bottom: 12px;
+}
+.level-roadmap-head h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.4;
+}
+.level-roadmap-head > span {
+  color: var(--ink-2);
+  font-size: 12px;
+}
+.level-roadmap-steps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@container traveler-roadmap (min-width: 520px) {
+  .level-roadmap-steps { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+}
+.level-step {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px clamp(8px, 1.1vw, 14px) 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.level-step-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+  min-height: 20px;
+  margin-bottom: 2px;
+}
+.level-step-number {
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.level-step-title {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.35;
+}
+.level-step-threshold {
+  color: var(--ink-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.level-step-check,
+.level-step-status {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  min-height: 20px;
+  border-radius: 999px;
+  color: var(--roadmap-accent-ink);
+  background: color-mix(in srgb, var(--warm-green) 14%, var(--surface));
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+.level-step-status { padding-inline: 5px; }
+
+/* 当前等级用实线和着色突出，下一站用虚线；文字在不同主题下仍能区分状态。 */
+.level-step.is-current {
+  border-color: var(--roadmap-accent-line);
+  background: color-mix(in srgb, var(--warm-green) 10%, var(--surface));
+  box-shadow: inset 0 0 0 1px var(--roadmap-accent-line);
+}
+.level-step.is-current .level-step-number { color: var(--roadmap-accent-ink); }
+.level-step.is-next { border: 1px dashed var(--roadmap-accent-line); }
+.level-step.is-next .level-step-status { background: transparent; }
 
 .warm-achievements .metric-grid.passport-metrics {
   display: grid;

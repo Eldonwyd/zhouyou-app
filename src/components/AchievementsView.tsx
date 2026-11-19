@@ -258,20 +258,27 @@ export default function AchievementsView({
         <div className="passport-hero-top">
           <div className="passport-level-copy">
             <div className="passport-level-badges">
-              <span className="level-pill">Lv.{levelInfo.level} {levelInfo.title}</span>
+              <span className="level-pill">Lv.{levelInfo.level} / {levelInfo.maxLevel} · {levelInfo.title}</span>
               <span className="stamp-counter-pill">已集章 {unlockedPresetCount + badges.length} 枚</span>
             </div>
             <h2>走过的路，每一站都闪闪发光。</h2>
             <p>{levelInfo.subtitle}</p>
             <div className="passport-xp-wrap">
-              <div className="passport-xp-track" aria-hidden="true">
-                <span style={{ width: `${levelInfo.progressPct}%` }} />
+              <div className="passport-xp-head">
+                <strong>
+                  {levelInfo.nextTarget !== null
+                    ? `再点亮 ${levelInfo.remainingCities} 座城市 → 升级 Lv.${levelInfo.level + 1} ${levelInfo.nextTitle}`
+                    : `已达成满级 Lv.${levelInfo.maxLevel} ${levelInfo.title} ✦`}
+                </strong>
+                <span className="passport-xp-nums">
+                  {levelInfo.nextTarget !== null
+                    ? `${levelInfo.visitedCities} / ${levelInfo.nextTarget} 城（${levelInfo.progressPct}%）`
+                    : `已点亮 ${levelInfo.visitedCities} 城 · 100%`}
+                </span>
               </div>
-              <small>
-                {levelInfo.nextTarget
-                  ? `成长进度 ${levelInfo.current} / ${levelInfo.nextTarget}（点亮城市或累积天数继续升级）`
-                  : '已达成最高旅人称号，继续收藏更多风景吧 ✦'}
-              </small>
+              <div className="passport-xp-track" role="progressbar" aria-valuenow={levelInfo.progressPct} aria-valuemin={0} aria-valuemax={100} aria-label="旅人等级进度">
+                <span style={{ width: `${Math.max(levelInfo.progressPct, levelInfo.visitedCities > 0 ? 4 : 0)}%` }} />
+              </div>
             </div>
           </div>
           <div className="passport-emblem-box">
@@ -281,6 +288,38 @@ export default function AchievementsView({
             </div>
           </div>
         </div>
+
+        <section className="level-roadmap" aria-labelledby="traveler-roadmap-title">
+          <div className="level-roadmap-head">
+            <h3 id="traveler-roadmap-title">旅人成长路线</h3>
+            <span>点亮城市，解锁新的旅人称号</span>
+          </div>
+          <ol className="level-roadmap-steps" role="list">
+            {levelInfo.tiers.map((tier) => {
+              // 用同一套等级结果标记已达成、当前与下一站，满级时自然没有下一站。
+              const isCurrent = tier.level === levelInfo.level;
+              const isReached = tier.level < levelInfo.level;
+              const isNext = tier.level === levelInfo.level + 1;
+              const status = isCurrent ? 'current' : isReached ? 'reached' : isNext ? 'next' : 'upcoming';
+              return (
+                <li
+                  key={tier.level}
+                  className={`level-step is-${status}`}
+                  aria-current={isCurrent ? 'step' : undefined}
+                >
+                  <div className="level-step-top">
+                    <span className="level-step-number">Lv.{tier.level}</span>
+                    {isReached && <span className="level-step-check" role="img" aria-label="已达成">✓</span>}
+                    {isCurrent && <span className="level-step-status">当前</span>}
+                    {isNext && <span className="level-step-status">下一站</span>}
+                  </div>
+                  <strong className="level-step-title">{tier.title}</strong>
+                  <span className="level-step-threshold">{tier.minCities} 座城市</span>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
 
         <div className="metric-grid passport-metrics">
           <div className="metric-card metric-sage">
