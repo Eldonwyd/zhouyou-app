@@ -30,6 +30,7 @@ asarUnpack:
   - '**/node_modules/onnxruntime-node/**/*'
 
 npmRebuild: false
+publish: null
 
 win:
   icon: build/icon.ico
