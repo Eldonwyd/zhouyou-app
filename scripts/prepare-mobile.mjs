@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const sourceIcon = path.join(webRoot, 'build', 'icon.png');
+const sourceIcon = path.join(webRoot, 'electron', 'resources', 'icon.png');
 const platform = process.argv[2] || 'all';
 
 async function exists(target) {

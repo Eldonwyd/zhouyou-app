@@ -119,6 +119,7 @@ jobs:
             aligned.apk
 
           "${BUILD_TOOLS_DIR}/apksigner" verify "${SIGNED_APK}"
+          rm -f dist-artifacts/*.idsig
           ls -lh dist-artifacts
       - uses: actions/upload-artifact@v4
         with:

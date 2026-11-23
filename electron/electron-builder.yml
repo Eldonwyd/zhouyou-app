@@ -3,15 +3,14 @@ productName: Zhouyou Map
 copyright: Copyright © 2026 Zhouyou Map Contributors
 
 directories:
-  buildResources: build
+  buildResources: electron/resources
   output: release
 
 files:
   - dist/**/*
   - dist-electron/**/*
   - electron/**/*
-  - build/icon.png
-  - build/icon.ico
+  - '!electron/electron-builder.yml'
   - package.json
   - '!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}'
   - '!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}'
@@ -33,7 +32,7 @@ npmRebuild: false
 publish: null
 
 win:
-  icon: build/icon.ico
+  icon: electron/resources/icon.ico
   target:
     - target: nsis
       arch:
@@ -55,7 +54,7 @@ portable:
   artifactName: Zhouyou-Map-${version}-win-${arch}-portable.${ext}
 
 mac:
-  icon: build/icon.png
+  icon: electron/resources/icon.png
   category: public.app-category.travel
   hardenedRuntime: false
   gatekeeperAssess: false
@@ -71,7 +70,7 @@ dmg:
   title: 周游地图 ${version}
 
 linux:
-  icon: build/icon.png
+  icon: electron/resources/icon.png
   category: Utility
   maintainer: Eldonwyd <https://github.com/Eldonwyd/zhouyou-app>
   synopsis: Travel footprint map, journal & AI itinerary planner

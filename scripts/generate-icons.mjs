@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const sourceSvg = path.join(webRoot, 'assets', 'icon.svg');
+const resourcesDir = path.join(webRoot, 'electron', 'resources');
+const sourceSvg = path.join(resourcesDir, 'icon.svg');
 
 /**
  * 将多尺寸 PNG 帧打包为标准 Windows ICO（PNG-in-ICO，Vista+ / Windows 10/11 原生支持）。
@@ -42,21 +43,21 @@ async function renderPng(svgBuffer, size) {
 
 const svgBuffer = await readFile(sourceSvg);
 
-await mkdir(path.join(webRoot, 'build'), { recursive: true });
+await mkdir(resourcesDir, { recursive: true });
 await mkdir(path.join(webRoot, 'public', 'icons'), { recursive: true });
 await mkdir(path.join(webRoot, 'docs', 'assets'), { recursive: true });
 
-// 1. Electron / Capacitor 1024x1024 master PNG + 512x512 Linux PNG
+// 1. Electron / Capacitor 1024x1024 master PNG
 const png1024 = await renderPng(svgBuffer, 1024);
-await writeFile(path.join(webRoot, 'build', 'icon.png'), png1024);
+await writeFile(path.join(resourcesDir, 'icon.png'), png1024);
 await writeFile(path.join(webRoot, 'docs', 'assets', 'icon.png'), await renderPng(svgBuffer, 256));
 await writeFile(path.join(webRoot, 'docs', 'assets', 'icon.svg'), svgBuffer);
 
-// 2. Windows multi-size .ico (build/icon.ico & public/favicon.ico)
+// 2. Windows multi-size .ico (electron/resources/icon.ico & public/favicon.ico)
 const icoSizes = [16, 24, 32, 48, 64, 128, 256];
 const icoFrames = await Promise.all(icoSizes.map(async (size) => ({ size, buffer: await renderPng(svgBuffer, size) })));
 const icoBuffer = buildIco(icoFrames);
-await writeFile(path.join(webRoot, 'build', 'icon.ico'), icoBuffer);
+await writeFile(path.join(resourcesDir, 'icon.ico'), icoBuffer);
 await writeFile(path.join(webRoot, 'public', 'favicon.ico'), buildIco(icoFrames.filter((f) => [16, 32, 48].includes(f.size))));
 await writeFile(path.join(webRoot, 'public', 'favicon.svg'), svgBuffer);
 

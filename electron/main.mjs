@@ -220,7 +220,7 @@ function buildAppMenu() {
 }
 
 function createWindow() {
-  const iconPath = path.join(projectRoot, 'build', process.platform === 'win32' ? 'icon.ico' : 'icon.png');
+  const iconPath = path.join(__dirname, 'resources', process.platform === 'win32' ? 'icon.ico' : 'icon.png');
   mainWindow = new BrowserWindow({
     width: 1360,
     height: 860,
