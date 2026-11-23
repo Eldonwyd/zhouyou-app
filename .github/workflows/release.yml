@@ -1,0 +1,288 @@
+name: Build & Release Multi-Platform Apps
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（例如 1.0.0，留空则读取 package.json 版本）'
+        required: false
+        default: ''
+      prerelease:
+        description: '标记为 Pre-release 预览版'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    name: Resolve Release Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            VER="${TAG#v}"
+          elif [[ -n "${{ inputs.version }}" ]]; then
+            VER="${{ inputs.version }}"
+            VER="${VER#v}"
+            TAG="v${VER}"
+          else
+            VER=$(node -p "require('./package.json').version")
+            TAG="v${VER}"
+          fi
+          echo "version=${VER}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Release target: ${TAG} (version ${VER})"
+
+  build-windows:
+    name: Desktop · Windows (x64)
+    needs: prepare
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Sync version
+        shell: pwsh
+        run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
+      - name: Build web, server & Windows installers
+        run: npm run desktop:win
+      - name: Collect Windows artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist-artifacts | Out-Null
+          Get-ChildItem -Path release -Filter "*.exe" | Copy-Item -Destination dist-artifacts
+          Get-ChildItem dist-artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-windows
+          path: dist-artifacts/*
+
+  build-macos:
+    name: Desktop · macOS (arm64 & x64)
+    needs: prepare
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Sync version
+        run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
+      - name: Build web, server & macOS DMG (Apple Silicon + Intel)
+        run: npm run desktop:mac
+      - name: Collect macOS artifacts
+        run: |
+          mkdir -p dist-artifacts
+          cp release/*.dmg dist-artifacts/
+          ls -lh dist-artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-macos
+          path: dist-artifacts/*
+
+  build-linux:
+    name: Desktop · Linux (AppImage & deb)
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Sync version
+        run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
+      - name: Build web, server & Linux packages
+        run: npm run desktop:linux
+      - name: Collect Linux artifacts
+        run: |
+          mkdir -p dist-artifacts
+          cp release/*.AppImage release/*.deb dist-artifacts/
+          ls -lh dist-artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-linux
+          path: dist-artifacts/*
+
+  build-android:
+    name: Mobile · Android (APK)
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - run: npm ci
+      - name: Sync version
+        run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
+      - name: Build web & prepare Capacitor Android project
+        run: |
+          npm run build
+          npx cap add android
+          node scripts/prepare-mobile.mjs android
+          npx cap sync android
+      - name: Assemble & sign Android APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+          cd ..
+
+          UNSIGNED_APK="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          SIGNED_APK="dist-artifacts/Zhouyou-Map-${{ needs.prepare.outputs.version }}-android.apk"
+          mkdir -p dist-artifacts
+
+          BUILD_TOOLS_DIR=$(ls -d "${ANDROID_HOME}/build-tools/"* | sort -V | tail -n 1)
+          "${BUILD_TOOLS_DIR}/zipalign" -v -p 4 "${UNSIGNED_APK}" aligned.apk
+
+          if [[ -n "${ANDROID_KEYSTORE_BASE64}" ]]; then
+            echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > release.keystore
+            KS_PASS="${ANDROID_KEYSTORE_PASSWORD}"
+            KEY_ALIAS="${ANDROID_KEY_ALIAS}"
+            KEY_PASS="${ANDROID_KEY_PASSWORD}"
+          else
+            # 未配置自定义签名证书时自动生成临时发布密钥，确保 APK 可在安卓手机直接安装。
+            KS_PASS="zhouyou-release-key"
+            KEY_ALIAS="zhouyou"
+            KEY_PASS="zhouyou-release-key"
+            keytool -genkeypair -v -keystore release.keystore -alias "${KEY_ALIAS}" \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "${KS_PASS}" -keypass "${KEY_PASS}" \
+              -dname "CN=Zhouyou Map, OU=OpenSource, O=Zhouyou, L=China, ST=China, C=CN"
+          fi
+
+          "${BUILD_TOOLS_DIR}/apksigner" sign \
+            --ks release.keystore \
+            --ks-pass "pass:${KS_PASS}" \
+            --ks-key-alias "${KEY_ALIAS}" \
+            --key-pass "pass:${KEY_PASS}" \
+            --out "${SIGNED_APK}" \
+            aligned.apk
+
+          "${BUILD_TOOLS_DIR}/apksigner" verify "${SIGNED_APK}"
+          ls -lh dist-artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-android
+          path: dist-artifacts/*
+
+  build-ios:
+    name: Mobile · iOS (Unsigned IPA)
+    needs: prepare
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Sync version
+        run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
+      - name: Build web & prepare Capacitor iOS project
+        run: |
+          npm run build
+          npx cap add ios
+          node scripts/prepare-mobile.mjs ios
+          npx cap sync ios
+      - name: Build unsigned iOS IPA (for AltStore / SideStore / TrollStore / Sideloadly)
+        run: |
+          set -euo pipefail
+          mkdir -p dist-artifacts ios-build
+          if [[ -d "ios/App/App.xcworkspace" ]]; then
+            xcodebuild -workspace ios/App/App.xcworkspace \
+              -scheme App \
+              -configuration Release \
+              -sdk iphoneos \
+              -derivedDataPath ios-build \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              AD_HOC_CODE_SIGNING_ALLOWED=YES \
+              build
+          else
+            xcodebuild -project ios/App/App.xcodeproj \
+              -scheme App \
+              -configuration Release \
+              -sdk iphoneos \
+              -derivedDataPath ios-build \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              AD_HOC_CODE_SIGNING_ALLOWED=YES \
+              build
+          fi
+          APP_PATH=$(find ios-build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
+          mkdir -p ipa-stage/Payload
+          cp -R "${APP_PATH}" ipa-stage/Payload/
+          (cd ipa-stage && zip -qry "../dist-artifacts/Zhouyou-Map-${{ needs.prepare.outputs.version }}-ios-unsigned.ipa" Payload)
+          ls -lh dist-artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-ios
+          path: dist-artifacts/*
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [prepare, build-windows, build-macos, build-linux, build-android, build-ios]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Download all platform builds
+        uses: actions/download-artifact@v4
+        with:
+          path: release-files
+          merge-multiple: true
+
+      - name: Generate SHA256SUMS.txt
+        working-directory: release-files
+        run: |
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Build Release Notes
+        run: node scripts/generate-release-notes.mjs "${{ needs.prepare.outputs.version }}" release-files release-notes.md
+
+      - name: Create or Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: Zhouyou Map ${{ needs.prepare.outputs.tag }}
+          body_path: release-notes.md
+          prerelease: ${{ inputs.prerelease || false }}
+          generate_release_notes: true
+          files: release-files/*

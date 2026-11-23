@@ -4,8 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#102c3b" />
-    <meta name="description" content="在地图上记录去过和计划前往的中国城市，整理旅程与花费。" />
-    <title>旅行足迹</title>
+    <meta name="description" content="在地图上记录去过和计划前往的中国城市，整理旅程与花费，支持多模型 AI 智能规划。" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="周游地图" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="./favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <title>周游地图</title>
     <script>
       // 首帧前应用已保存的主题，避免深色模式下先闪白。
       try { var t = localStorage.getItem('travel-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}

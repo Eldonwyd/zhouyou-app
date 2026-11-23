@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>下载周游地图 · Zhouyou Map 全平台客户端</title>
+    <meta name="description" content="下载周游地图 Windows / macOS / Linux 电脑桌面版与 Android / iOS 手机版客户端，或立即体验在线 PWA 网页版。" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
+    <style>
+      :root {
+        --bg: #fffaf4;
+        --surface: #ffffff;
+        --surface-soft: #fff3e6;
+        --ink: #162c38;
+        --muted: #5a6d78;
+        --accent: #ef6351;
+        --accent-dark: #d44b3a;
+        --teal: #1d6478;
+        --border: rgba(22, 44, 56, 0.1);
+        --shadow: 0 18px 45px rgba(22, 44, 56, 0.08);
+        --radius: 22px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f1b24;
+          --surface: #162633;
+          --surface-soft: #1d3142;
+          --ink: #f4f7f9;
+          --muted: #9eb3c2;
+          --accent: #ff7866;
+          --accent-dark: #ef5e4c;
+          --teal: #5bc0d8;
+          --border: rgba(255, 255, 255, 0.1);
+          --shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", sans-serif;
+        background: radial-gradient(circle at 12% 8%, rgba(255, 138, 101, 0.16), transparent 38%),
+                    radial-gradient(circle at 88% 12%, rgba(29, 100, 120, 0.16), transparent 42%),
+                    var(--bg);
+        color: var(--ink);
+        line-height: 1.6;
+        min-height: 100vh;
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 36px 20px 72px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 42px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        color: inherit;
+        font-weight: 800;
+        font-size: 18px;
+      }
+      .brand img { width: 42px; height: 42px; border-radius: 12px; }
+      .nav-links { display: flex; gap: 12px; flex-wrap: wrap; }
+      .nav-links a {
+        text-decoration: none;
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 600;
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        transition: transform 0.15s ease, border-color 0.15s ease;
+      }
+      .nav-links a:hover { transform: translateY(-1px); border-color: var(--accent); color: var(--ink); }
+
+      .hero {
+        text-align: center;
+        max-width: 760px;
+        margin: 0 auto 48px;
+      }
+      .hero-icon {
+        width: 96px;
+        height: 96px;
+        border-radius: 24px;
+        box-shadow: 0 14px 30px rgba(239, 99, 81, 0.25);
+        margin-bottom: 18px;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--teal);
+        background: var(--surface-soft);
+        border: 1px solid var(--border);
+        padding: 6px 14px;
+        border-radius: 999px;
+        margin-bottom: 14px;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(28px, 4.8vw, 44px);
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+      }
+      .subtitle {
+        margin: 0 0 26px;
+        color: var(--muted);
+        font-size: 16px;
+      }
+      .hero-cta {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 13px 24px;
+        border-radius: 14px;
+        font-weight: 700;
+        font-size: 15px;
+        text-decoration: none;
+        border: 1px solid transparent;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        cursor: pointer;
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+        color: #fff;
+        box-shadow: 0 10px 24px rgba(239, 99, 81, 0.3);
+      }
+      .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(239, 99, 81, 0.38); }
+      .btn-secondary {
+        background: var(--surface);
+        color: var(--ink);
+        border-color: var(--border);
+      }
+      .btn-secondary:hover { transform: translateY(-2px); border-color: var(--teal); }
+
+      .section-title {
+        font-size: 20px;
+        font-weight: 800;
+        margin: 34px 0 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 18px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 22px;
+        box-shadow: var(--shadow);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        position: relative;
+      }
+      .card.is-recommended {
+        border: 2px solid var(--accent);
+      }
+      .badge {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #fff;
+        background: var(--accent);
+        padding: 3px 10px;
+        border-radius: 999px;
+      }
+      .card-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .os-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        background: var(--surface-soft);
+        display: grid;
+        place-items: center;
+        font-size: 22px;
+        flex-shrink: 0;
+      }
+      .card h3 { margin: 0; font-size: 18px; }
+      .card small { color: var(--muted); font-size: 13px; }
+      .card p { margin: 0; color: var(--muted); font-size: 14px; }
+      .dl-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: auto;
+        padding-top: 6px;
+      }
+      .dl-link {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 14px;
+        border-radius: 12px;
+        background: var(--surface-soft);
+        color: var(--ink);
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 600;
+        border: 1px solid var(--border);
+        transition: border-color 0.15s ease, transform 0.12s ease;
+      }
+      .dl-link:hover { border-color: var(--accent); transform: translateX(2px); }
+      .dl-meta { font-size: 12px; color: var(--muted); font-weight: 500; }
+
+      .tips {
+        margin-top: 36px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+        box-shadow: var(--shadow);
+      }
+      .tips h2 { margin: 0 0 14px; font-size: 18px; }
+      .tips ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 14px; display: grid; gap: 10px; }
+      .tips code {
+        background: var(--surface-soft);
+        color: var(--ink);
+        padding: 2px 7px;
+        border-radius: 6px;
+        font-size: 13px;
+      }
+      footer {
+        text-align: center;
+        margin-top: 48px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      footer a { color: var(--teal); text-decoration: none; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <a class="brand" href="./">
+          <img src="./icons/icon-192.png" alt="周游地图图标" />
+          <span>周游地图 · Zhouyou Map</span>
+        </a>
+        <nav class="nav-links">
+          <a href="./">🌐 在线网页版</a>
+          <a href="https://github.com/Eldonwyd/zhouyou-app" target="_blank" rel="noreferrer">GitHub 仓库</a>
+          <a href="https://github.com/Eldonwyd/zhouyou-app/releases" target="_blank" rel="noreferrer">全部历史版本</a>
+        </nav>
+      </header>
+
+      <section class="hero">
+        <img class="hero-icon" src="./icons/icon-512.png" alt="Zhouyou Map Logo" />
+        <div>
+          <span class="pill" id="release-pill">📦 正在获取最新版本信息…</span>
+        </div>
+        <h1>点亮你的中国旅行足迹</h1>
+        <p class="subtitle">
+          集中国足迹地图、旅行手账、账本与多模型 AI 行程规划于一体。<br />
+          桌面端内置完整本地 AI &amp; OCR 引擎开箱即用；手机端支持离线足迹与局域网互联。
+        </p>
+        <div class="hero-cta">
+          <a id="primary-download" class="btn btn-primary" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
+            ⬇️ 前往 GitHub Releases 下载
+          </a>
+          <a class="btn btn-secondary" href="./">
+            🌐 立即在浏览器使用（PWA）
+          </a>
+        </div>
+      </section>
+
+      <h2 class="section-title">💻 电脑桌面版（内置 AI 引擎与本地 OCR，免配置 Node.js）</h2>
+      <div class="grid">
+        <article class="card" data-os="windows">
+          <div class="card-head">
+            <div class="os-icon">🪟</div>
+            <div>
+              <h3>Windows</h3>
+              <small>Windows 10 / 11 (x64)</small>
+            </div>
+          </div>
+          <p>提供标准安装版与免安装绿色便携版，双击即用，所有旅行数据保存在本地。</p>
+          <div class="dl-list">
+            <a class="dl-link" data-asset="win-setup" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
+              <span>安装版 (.exe)</span>
+              <span class="dl-meta">推荐</span>
+            </a>
+            <a class="dl-link" data-asset="win-portable" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
+              <span>绿色便携版 (.exe)</span>
+              <span class="dl-meta">免安装</span>
+            </a>
+          </div>
+        </article>
+
+        <article class="card" data-os="macos">
+          <div class="card-head">
+            <div class="os-icon">🍎</div>
+            <div>
+              <h3>macOS</h3>
+              <small>Apple Silicon &amp; Intel</small>
+            </div>
+          </div>
+          <p>原生支持 M1/M2/M3/M4 与 Intel 芯片 Mac，拖入“应用程序”文件夹即可使用。</p>
+          <div class="dl-list">
+            <a class="dl-link" data-asset="mac-arm64" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
+              <span>Apple Silicon (.dmg)</span>
+              <span class="dl-meta">M1 - M4</span>
+            </a>
+            <a class="dl-link" data-asset="mac-x64" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
+              <span>Intel 芯片 (.dmg)</span>
+              <span class="dl-meta">x64</span>
+            </a>
+          </div>
+        </article>
+
+        <article class="card" data-os="linux">
+          <div class="card-head">
+            <div class="os-icon">🐧</div>
+            <div>
+              <h3>Linux</h3>
+              <small>Ubuntu / Debian / 通用发行版</small>
+            </div>
+          </div>
+          <p>提供开箱即用的 AppImage 通用包与 Debian/Ubuntu 原生 .deb 安装包。</p>
+          <div class="dl-list">
+            <a class="dl-link" data-asset="linux-appimage" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
+              <span>通用版 (.AppImage)</span>
+              <span class="dl-meta">x64</span>
+            </a>
+            <a class="dl-link" data-asset="linux-deb" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
+              <span>Debian / Ubuntu (.deb)</span>
+              <span class="dl-meta">amd64</span>
+            </a>
+          </div>
+        </article>
+      </div>
+
+      <h2 class="section-title">📱 手机移动端（离线足迹手账 + 局域网连接电脑 AI）</h2>
+      <div class="grid">
+        <article class="card" data-os="android">
+          <div class="card-head">
+            <div class="os-icon">🤖</div>
+            <div>
+              <h3>Android 安卓版</h3>
+              <small>Android 8.0 及以上</small>
+            </div>
+          </div>
+          <p>原生打包 APK，支持离线中国地图、相册照片/语音手账、每日账本、ZIP 备份及局域网 AI 规划。</p>
+          <div class="dl-list">
+            <a class="dl-link" data-asset="android-apk" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
+              <span>直接下载安装包 (.apk)</span>
+              <span class="dl-meta">通用架构</span>
+            </a>
+          </div>
+        </article>
+
+        <article class="card" data-os="ios">
+          <div class="card-head">
+            <div class="os-icon">📱</div>
+            <div>
+              <h3>iOS 苹果版</h3>
+              <small>iPhone / iPad</small>
+            </div>
+          </div>
+          <p>提供开源自签 <code>.ipa</code> 安装包，同时支持 Safari 一键「添加到主屏幕」免越狱免自签使用。</p>
+          <div class="dl-list">
+            <a class="dl-link" data-asset="ios-ipa" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
+              <span>iOS 客户端 (.ipa)</span>
+              <span class="dl-meta">AltStore / 巨魔</span>
+            </a>
+            <a class="dl-link" href="./">
+              <span>Safari PWA 一键安装</span>
+              <span class="dl-meta">免自签推荐</span>
+            </a>
+          </div>
+        </article>
+      </div>
+
+      <section class="tips">
+        <h2>🛠️ 安装与使用贴士</h2>
+        <ul>
+          <li><strong>iPhone 免自签安装（推荐）</strong>：使用 iOS 自带 <strong>Safari 浏览器</strong>打开 <a href="./">在线网页版</a>，点击底部「分享」按钮 → 选择 <strong>「添加到主屏幕」</strong>，即可在桌面生成原生图标、全屏离线使用。</li>
+          <li><strong>iPhone 自签 IPA 安装</strong>：下载 <code>.ipa</code> 后可通过 AltStore、SideStore、Sideloadly 或 TrollStore（巨魔商店）安装到设备。</li>
+          <li><strong>macOS 首次打开提示“无法验证开发者/已损坏”</strong>：因开源项目未购买苹果公证证书，在终端执行 <code>xattr -cr "/Applications/Zhouyou Map.app"</code> 即可正常启动。</li>
+          <li><strong>Windows SmartScreen 提示</strong>：点击「更多信息」→「仍要运行」即可完成安装。</li>
+          <li><strong>手机端如何开启 AI 行程规划</strong>：打开电脑桌面版 → 顶部菜单「应用」勾选 <strong>「允许局域网手机连接 AI 服务」</strong>，再将弹窗显示的局域网地址填入手机版「个人中心 → 远程 / 局域网 AI 服务」即可。</li>
+        </ul>
+      </section>
+
+      <footer>
+        开源遵循 MIT 协议 · <a href="https://github.com/Eldonwyd/zhouyou-app" target="_blank" rel="noreferrer">Eldonwyd/zhouyou-app</a>
+      </footer>
+    </div>
+
+    <script>
+      (function () {
+        const REPO = 'Eldonwyd/zhouyou-app';
+        const ua = navigator.userAgent || '';
+        const platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+        let detected = 'windows';
+        if (/Android/i.test(ua)) detected = 'android';
+        else if (/iPhone|iPad|iPod/i.test(ua) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1)) detected = 'ios';
+        else if (/Mac/i.test(platform) || /Macintosh/i.test(ua)) detected = 'macos';
+        else if (/Linux/i.test(platform) || /Linux/i.test(ua)) detected = 'linux';
+
+        const card = document.querySelector(`.card[data-os="${detected}"]`);
+        if (card) {
+          card.classList.add('is-recommended');
+          const badge = document.createElement('span');
+          badge.className = 'badge';
+          badge.textContent = '适合当前设备';
+          card.appendChild(badge);
+        }
+
+        const primaryLabels = {
+          windows: '⬇️ 下载 Windows 安装版 (.exe)',
+          macos: '⬇️ 下载 macOS 版 (.dmg)',
+          linux: '⬇️ 下载 Linux 版 (.AppImage)',
+          android: '⬇️ 下载 Android 安卓版 (.apk)',
+          ios: '⬇️ 下载 iOS 苹果版 (.ipa)',
+        };
+        const primaryAssetKey = {
+          windows: 'win-setup',
+          macos: 'mac-arm64',
+          linux: 'linux-appimage',
+          android: 'android-apk',
+          ios: 'ios-ipa',
+        };
+        const primaryBtn = document.getElementById('primary-download');
+        if (primaryBtn && primaryLabels[detected]) primaryBtn.textContent = primaryLabels[detected];
+
+        const pill = document.getElementById('release-pill');
+        fetch(`https://api.github.com/repos/${REPO}/releases/latest`)
+          .then((res) => (res.ok ? res.json() : Promise.reject(new Error('no-release'))))
+          .then((release) => {
+            const tag = release.tag_name || 'Latest';
+            if (pill) pill.textContent = `✨ 最新版本 ${tag} · 全平台已就绪`;
+            const assets = Array.isArray(release.assets) ? release.assets : [];
+            const matchers = {
+              'win-setup': (n) => /win.*setup\.exe$/i.test(n),
+              'win-portable': (n) => /win.*portable\.exe$/i.test(n),
+              'mac-arm64': (n) => /mac.*arm64\.dmg$/i.test(n),
+              'mac-x64': (n) => /mac.*x64\.dmg$/i.test(n),
+              'linux-appimage': (n) => /\.AppImage$/i.test(n),
+              'linux-deb': (n) => /\.deb$/i.test(n),
+              'android-apk': (n) => /\.apk$/i.test(n),
+              'ios-ipa': (n) => /\.ipa$/i.test(n),
+            };
+            for (const [key, test] of Object.entries(matchers)) {
+              const found = assets.find((a) => test(a.name));
+              if (!found) continue;
+              const link = document.querySelector(`a[data-asset="${key}"]`);
+              if (link) {
+                link.href = found.browser_download_url;
+                const meta = link.querySelector('.dl-meta');
+                if (meta && found.size) meta.textContent = `${(found.size / (1024 * 1024)).toFixed(1)} MB`;
+              }
+              if (primaryBtn && primaryAssetKey[detected] === key) {
+                primaryBtn.href = found.browser_download_url;
+              }
+            }
+          })
+          .catch(() => {
+            if (pill) pill.textContent = '📦 前往 GitHub Releases 获取最新全平台安装包';
+          });
+      })();
+    </script>
+  </body>
+</html>

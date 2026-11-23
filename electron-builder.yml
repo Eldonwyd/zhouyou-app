@@ -1,0 +1,84 @@
+appId: app.zhouyou.map
+productName: Zhouyou Map
+copyright: Copyright © 2026 Zhouyou Map Contributors
+
+directories:
+  buildResources: build
+  output: release
+
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - electron/**/*
+  - build/icon.png
+  - build/icon.ico
+  - package.json
+  - '!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}'
+  - '!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}'
+  - '!**/node_modules/*.d.ts'
+  - '!**/node_modules/.bin'
+  - '!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}'
+
+extraResources:
+  - from: data
+    to: data
+
+asar: true
+asarUnpack:
+  - '**/node_modules/sharp/**/*'
+  - '**/node_modules/@img/**/*'
+  - '**/node_modules/onnxruntime-node/**/*'
+
+npmRebuild: false
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: 周游地图
+  artifactName: Zhouyou-Map-${version}-win-${arch}-setup.${ext}
+
+portable:
+  artifactName: Zhouyou-Map-${version}-win-${arch}-portable.${ext}
+
+mac:
+  icon: build/icon.png
+  category: public.app-category.travel
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  identity: null
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+  artifactName: Zhouyou-Map-${version}-mac-${arch}.${ext}
+
+dmg:
+  title: 周游地图 ${version}
+
+linux:
+  icon: build/icon.png
+  category: Utility
+  maintainer: Eldonwyd <https://github.com/Eldonwyd/zhouyou-app>
+  synopsis: Travel footprint map, journal & AI itinerary planner
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  artifactName: Zhouyou-Map-${version}-linux-${arch}.${ext}
