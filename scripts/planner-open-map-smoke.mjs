@@ -56,11 +56,10 @@ try {
   await page.locator('.planner-number-marker').first().waitFor();
   assert.equal(mapQueries.length, beforeOpen, '展开地图不重新查坐标');
   await page.getByLabel('地图日期', { exact: true }).selectOption('2026-12-01');
-  await page.waitForFunction(() => document.querySelectorAll('.planner-number-marker').length === 3);
-  assert.ok((await page.locator('.planner-stop-label').allTextContents()).some((text) => text.includes('第一晚测试酒店')));
-  assert.ok(!(await page.locator('.planner-stop-label').allTextContents()).some((text) => text.includes('第二晚测试酒店')), JSON.stringify(await page.locator('.planner-stop-label').allTextContents()));
-  assert.deepEqual(await page.locator('.planner-number-marker').allTextContents(), ['1', '2', '3']);
-  assert.ok(await page.locator('.planner-route-arrow').count() > 0);
+  await page.waitForFunction(() => document.querySelectorAll('.planner-number-marker').length === 1);
+  assert.ok(!(await page.locator('.planner-stop-label').allTextContents()).some((text) => text.includes('测试酒店') || text.includes('测试固定餐厅')),
+    JSON.stringify(await page.locator('.planner-stop-label').allTextContents()));
+  assert.deepEqual(await page.locator('.planner-number-marker').allTextContents(), ['1']);
   assert.equal(await page.locator('.planner-map-places').count(), 0);
   await mkdir('.openai', { recursive: true });
   await page.locator('.planner-map').scrollIntoViewIfNeeded();

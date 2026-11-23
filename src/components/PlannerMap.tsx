@@ -2,11 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { PlannerContent, WishlistPlace } from '../planner-types';
-import { datedPlannerMapPlaces, plannerAmapUrl, plannerMapRouteStops } from '../planner-map';
+import { datedPlannerMapPlaces, plannerAmapUrl, plannerMapRouteStops, PLANNER_MAP_LOOKUP_VERSION } from '../planner-map';
 import type { PlannerMapPosition } from '../planner-map';
 import { plannerApi } from '../planner-api';
 import { plannerDisplayText } from '../planner-display';
 import { XHS_PLACE_KIND_LABELS } from '../planner-xhs';
+
+const DEFAULT_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const FALLBACK_TILE_URL = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
 
 /** 计划保存后自动准备坐标；只有底图在展开时加载，避免地图界面决定数据是否存在。 */
 export default function PlannerMap({ content, hotels = {}, wishlist = [], savedPositions = {}, onSavePositions, onScheduleWishlist }: {
@@ -30,7 +33,7 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
   const [stage, setStage] = useState('');
   const [error, setError] = useState('');
   const [tileError, setTileError] = useState(false);
-  const [tileUrl, setTileUrl] = useState('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
+  const [tileUrl, setTileUrl] = useState(DEFAULT_TILE_URL);
   const host = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const places = useMemo(() => datedPlannerMapPlaces(content, hotels), [content, hotels]);
@@ -38,6 +41,8 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
   const wishlistPlaces = useMemo(
     () =>
       wishlist
+        // 待选灵感池同样只定位景点和打卡点，餐饮与住宿不入地图。
+        .filter((item) => item.kind === 'sight' || item.kind === 'photo_spot')
         .map((item) => {
           const city = (item.city || defaultCity).trim();
           const name = (item.canonicalName || item.name).trim();
@@ -81,7 +86,7 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
     setStage('正在匹配行程地点');
     const pending = (JSON.parse(query) as typeof places).filter((place) => {
       const position = savedRef.current[place.key];
-      return !position || (position.status !== 'located' && (retry > 0 || position.lookupVersion !== 4));
+      return !position || (position.status !== 'located' && (retry > 0 || position.lookupVersion !== PLANNER_MAP_LOOKUP_VERSION));
     });
     if (!pending.length) { setStage(''); return; }
     // 逐地点保存，关闭地图不会取消；计划切换时已完成的坐标也不会丢失。
@@ -100,11 +105,11 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
             reason: failure instanceof Error ? failure.message : '地点查询失败，请重试' }], notice: '', tileUrl: '' };
         }
         if (controller.signal.aborted) return;
-        const resolved = result.positions.map((position) => ({ ...position, lookupVersion: 4 }));
+        const resolved = result.positions.map((position) => ({ ...position, lookupVersion: PLANNER_MAP_LOOKUP_VERSION }));
         await saveRef.current(resolved);
         for (const position of resolved) savedRef.current[position.key] = position;
         setPositions(Object.values(savedRef.current));
-        setNotice(result.notice);
+        if (result.notice) setNotice(result.notice);
         if (/^https:\/\/[^@\s]+\{z\}.*\{x\}.*\{y\}/.test(result.tileUrl)) setTileUrl(result.tileUrl);
       }
     })().catch((failure: unknown) => {
@@ -145,7 +150,15 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
     }).addTo(instance);
-    layer.on('tileerror', () => setTileError(true));
+    let tileErrors = 0;
+    layer.on('tileerror', () => {
+      tileErrors++;
+      if (tileErrors >= 3 && tileUrl === DEFAULT_TILE_URL) {
+        setTileUrl(FALLBACK_TILE_URL);
+        return;
+      }
+      if (tileErrors >= 3) setTileError(true);
+    });
     const resize = new ResizeObserver(() => {
       instance.invalidateSize({ pan: false });
       // 放大或旋转手机后重新计算已打开弹窗，避免其留在旧画布边缘被截断。
@@ -298,7 +311,7 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
 
   return <section className={`card planner-map ${expanded ? 'planner-map-expanded' : ''}`} aria-label="行程地图">
     <div className="planner-map-heading">
-      <div><h2>行程地图</h2><p className="muted">按天查看计划地点，点击标记可查看活动并前往高德。</p>
+      <div><h2>行程地图</h2><p className="muted">按天查看行程景点（不含餐饮与酒店），点击标记可查看活动并前往高德。</p>
         {!open && stage && <small role="status">{stage}</small>}
         {!open && error && <small role="alert">{error}</small>}
       </div>
@@ -313,9 +326,9 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
         <button className="secondary" disabled={Boolean(stage)} onClick={() => setRetry(retry + 1)}>重试定位与地图</button>
       </div>
       {stage && <p role="status">{stage}</p>}
-      {/* 直接展示覆盖率，避免地图上的少数点被误认为整份行程只有这些地点。 */}
-      <p className="muted" role="status">当前 {visible.length} 个地点，已定位 {visible.filter((place) => positionMap.get(place.key)?.status === 'located').length} 个
-        {visible.some((place) => positionMap.get(place.key)?.status !== 'located') && '；其余地点及原因见下方“待定位地点”。'}</p>
+      {/* 直接展示覆盖率，避免地图上的少数点被误认为整份行程只有这些景点。 */}
+      <p className="muted" role="status">当前 {visible.length} 个景点，已定位 {visible.filter((place) => positionMap.get(place.key)?.status === 'located').length} 个
+        {visible.some((place) => positionMap.get(place.key)?.status !== 'located') && '；其余景点及原因见下方“待定位景点”。'}</p>
       {adjustKey && <p role="status">{saving ? '正在保存位置…' : '请在地图上点击正确位置，点击后自动保存到该日期。'} <button className="text-button" disabled={saving} onClick={() => setAdjustKey('')}>取消</button></p>}
       {notice && <p className="planner-banner">{notice}</p>}
       {error && <p className="planner-error" role="alert">{error}</p>}
@@ -326,16 +339,18 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
         {wishlistPlaces.length > 0 ? `；★ 为待选灵感池点位（已定位 ${wishlistPlaces.filter((p) => positionMap.get(p.key)?.status === 'located').length}/${wishlistPlaces.length} 个），点击可直接排入行程。` : '。'}
       </small>
       {visible.some((place) => positionMap.get(place.key)?.status !== 'located') && <details className="planner-map-missing">
-        <summary>待定位地点（{visible.filter((place) => positionMap.get(place.key)?.status !== 'located').length}）</summary>
+        <summary>待定位景点（{visible.filter((place) => positionMap.get(place.key)?.status !== 'located').length}）</summary>
         <ul>{visible.filter((place) => positionMap.get(place.key)?.status !== 'located').map((place) =>
-          <li key={place.key}>{place.visits[0].date} · {place.name}：{positionMap.get(place.key)?.reason || (stage ? '等待定位' : '尚未取得位置')}</li>)}</ul>
+          <li key={place.key}>{place.visits[0].date} · {place.name}：{positionMap.get(place.key)?.reason || (stage ? '等待定位' : '尚未取得位置')}
+            {' '}<a href={plannerAmapUrl(place)} target="_blank" rel="noopener noreferrer">在高德地图查找</a></li>)}</ul>
         <select aria-label="选择待定位地点" value={adjustKey} onChange={(event) => setAdjustKey(event.target.value)}>
           <option value="">选择地点后在地图上点击位置</option>
           {visible.filter((place) => positionMap.get(place.key)?.status !== 'located').map((place) =>
             <option key={place.key} value={place.key}>{place.visits[0].date} · {place.name}</option>)}
         </select>
         {positionMap.get(adjustKey)?.candidates?.map((candidate, index) => <button className="text-button" key={index} disabled={saving}
-          onClick={() => void saveManualPosition({ key: adjustKey, status: 'located', latitude: candidate.latitude, longitude: candidate.longitude, source: '用户选择开放地图位置', coordinateSystem: 'WGS84' })}>{candidate.label}</button>)}
+          onClick={() => void saveManualPosition({ ...candidate, key: adjustKey, status: 'located', source: '手动确认',
+            coordinateSystem: candidate.amapLocation ? 'WGS84（由 GCJ-02 近似转换）' : 'WGS84' })}>{candidate.label}</button>)}
       </details>}
     </>}
   </section>;

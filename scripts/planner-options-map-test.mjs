@@ -30,7 +30,7 @@ fixture.days[1].activities.push(repeat);
 const places = collectPlannerMapPlaces(fixture);
 assert.equal(places.filter((place) => place.name === '丽江古城').length, 1);
 assert.equal(places.find((place) => place.name === '丽江古城').visits.length, 2);
-assert.ok(places.some((place) => place.visits.some((visit) => visit.lodging)));
+assert.ok(!places.some((place) => place.visits.some((visit) => visit.lodging)), '酒店与住宿建议不参与地图定位');
 const amap = new URL(plannerAmapUrl(places[0]));
 assert.equal(amap.origin, 'https://uri.amap.com');
 assert.equal(amap.searchParams.get('city'), '丽江市');

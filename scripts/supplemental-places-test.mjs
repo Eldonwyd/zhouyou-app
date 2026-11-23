@@ -11,8 +11,9 @@ assert.deepEqual(plannerPlaceSearchTarget('五华区翠湖公园', '昆明市'),
 assert.deepEqual(plannerPlaceSearchTarget('翠湖—南屏街片区', '昆明市'), { name: '南屏街', area: true });
 const content = plannerFixture();
 content.days[0].activities[1].location = '附近吃火锅';
-const meal = plannerMapRouteStops(content).find((place) => place.visits[0].title === content.days[0].activities[1].title);
-assert.match(meal.name, /丽江古城附近/);
+assert.equal(plannerMapRouteStops(content).find((place) => place.visits[0].title === content.days[0].activities[1].title), undefined, '吃饭地点不需要在地图上定位');
+content.days[0].activities[1].location = '美食林餐厅';
+assert.ok(!plannerMapRouteStops(content).some((place) => place.name === '美食林餐厅'), '具体餐厅同样不参与行程地图定位');
 
 let requests = 0;
 const lookup = createSupplementalPlaceLookup({ localRecords: [
