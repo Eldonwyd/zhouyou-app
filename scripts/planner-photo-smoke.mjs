@@ -7,6 +7,7 @@ import { shiftPlannerDates } from '../src/planner-domain.ts';
 
 /** 测试浏览器真实保存和 ZIP 往返；图片传输模拟，不依赖外站或消耗账户额度。 */
 const bytes = await sharp({ create: { width: 400, height: 240, channels: 3, background: '#278872' } }).webp().toBuffer();
+const qrcodeBytes = await sharp(bytes).png().toBuffer();
 const assetId = createHash('sha256').update(bytes).digest('hex');
 const photo = { url: 'https://images.example.org/cuihu.jpg', sourceUrl: 'https://example.org/kunming-cuihu', attribution: '测试来源 · 昆明翠湖', assetId };
 const plan = aiPlanFixture();
@@ -21,6 +22,7 @@ let offlineFiles = false;
 let imageSearchConfigured = false;
 let loggedIn = false;
 let holdPhotoRequests = false;
+const pendingQrcode = Promise.withResolvers();
 const heldPhotoRoutes = [];
 const errors = [];
 page.on('pageerror', (error) => errors.push(error.message));
@@ -41,8 +43,10 @@ await page.route('**/api/planner/**', async (route) => {
     return route.fulfill({ json: { connected: true, loggedIn, message: '小红书已登录，可优先站内搜图' } });
   }
   if (url.endsWith('/xhs-qrcode')) {
+    // 挂起取码，验证慢响应期间其他登录操作不会抢占本次请求。
+    await pendingQrcode.promise;
     loggedIn = true; // 模拟用户在手机确认，测试不接触真实账号。
-    return route.fulfill({ json: { loggedIn: false, image: `data:image/webp;base64,${bytes.toString('base64')}` } });
+    return route.fulfill({ json: { loggedIn: false, image: `data:image/png;base64,${qrcodeBytes.toString('base64')}` } });
   }
   if (url.includes('/health')) return route.fulfill({ json: { configured: true } });
   if (url.includes('/photo-file/')) {
@@ -80,7 +84,15 @@ try {
   await page.getByText('正在检查登录状态，通常需要约 10 秒。', { exact: true }).waitFor();
   assert.equal(await page.getByLabel('图片搜索 API Key').count(), 0);
   await page.getByRole('button', { name: '获取登录二维码', exact: true }).click();
-  await page.getByAltText('小红书登录二维码，请使用小红书 App 扫描', { exact: true }).waitFor();
+  try {
+    await page.getByText('正在连接小红书以获取二维码，通常需要约 10 秒。', { exact: true }).waitFor();
+    assert.equal(await page.getByRole('button', { name: '检查连接', exact: true }).isDisabled(), true);
+  } finally {
+    pendingQrcode.resolve();
+  }
+  const qrcode = page.getByAltText('小红书登录二维码，请使用小红书 App 扫描', { exact: true });
+  await qrcode.evaluate((image) => image.decode());
+  assert.equal(await page.getByRole('button', { name: '刷新二维码', exact: true }).isEnabled(), true);
   await page.getByText('小红书已登录，可优先站内搜图', { exact: true }).waitFor();
   await page.locator('.planner-photo-settings summary').filter({ hasText: '已登录' }).waitFor();
   assert.equal(await page.getByRole('button', { name: '获取登录二维码' }).count(), 0, 'no QR button once logged in');

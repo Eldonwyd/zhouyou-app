@@ -21,7 +21,7 @@ export default function PlannerPhotoSettings() {
   const activeRequest = useRef<AbortController | null>(null);
 
   async function run(nextAction: XhsAction, perform: (signal: AbortSignal) => Promise<void>) {
-    // 用户可以直接扫码，也可以返回检查。被切换掉的请求不得覆盖当前操作的结果。
+    // 允许扫码替换较慢的检查。检查按钮在取码期间禁用，避免主动取码被取消。
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
@@ -54,11 +54,12 @@ export default function PlannerPhotoSettings() {
 
   function getQrcode() {
     return run('qrcode', async (signal) => {
+      // 本地工具生成新码时会替换旧扫码会话，刷新期间先收起旧码。
+      setQrcode(null);
       const result = await requestXhs<{ loggedIn: boolean; image?: string }>('xhs-qrcode', {}, signal);
       signal.throwIfAborted();
       if (result.loggedIn) {
-        setXhs({ loggedIn: true, message: '小红书已登录' });
-        setQrcode(null);
+        setXhs({ loggedIn: true, message: '当前小红书会话已登录，无需再次扫码。' });
         return;
       }
       if (!result.image) throw new Error('小红书未返回登录二维码，请重试。');
@@ -111,18 +112,26 @@ export default function PlannerPhotoSettings() {
   }, [qrcode, opened, action]);
 
   const checking = action === 'check';
-  return <details className="card planner-photo-settings" onToggle={(event) => setOpened(event.currentTarget.open)}>
-    <summary>小红书登录{xhs?.loggedIn ? ' · 已登录' : ''}</summary>
+  const gettingQrcode = action === 'qrcode';
+  return <details className={`card planner-photo-settings${xhs?.loggedIn ? ' is-logged-in' : ''}`} onToggle={(event) => setOpened(event.currentTarget.open)}>
+    <summary>
+      <span className="planner-xhs-badge" aria-hidden="true">书</span>
+      <span className="planner-xhs-summary-label">小红书登录</span>
+      <span className={`planner-xhs-pill${xhs?.loggedIn ? ' ok' : ''}`}>{xhs?.loggedIn ? '已登录' : '扫码连接'}</span>
+      <span className="planner-xhs-chevron" aria-hidden="true" />
+    </summary>
     {opened && <div className="planner-photo-settings-content">
       <div>
-        <p role="status" className={xhs?.loggedIn && !checking ? 'planner-xhs-ok' : undefined}>{checking ? '正在检查登录状态，通常需要约 10 秒。' : xhs?.message}</p>
+        <p role="status" className={xhs?.loggedIn && !action ? 'planner-xhs-ok' : undefined}>
+          {checking ? '正在检查登录状态，通常需要约 10 秒。' : gettingQrcode ? '正在连接小红书以获取二维码，通常需要约 10 秒。' : xhs?.message}
+        </p>
         <p className="muted">登录后，需要时可读取小红书攻略、游客评论和图片；登录状态只保存在本机。票价、开放时间和交通仍以官方资料为准。</p>
         <div className="heading-actions">
-          <button className="secondary" disabled={checking} onClick={() => void check(true)}>
+          <button className="secondary" disabled={action !== null} onClick={() => void check(true)}>
             {checking ? `检查中…${waited} 秒` : '检查连接'}
           </button>
-          {(!xhs?.loggedIn || checking) && <button className="primary" disabled={action === 'qrcode'} onClick={() => void getQrcode()}>
-            {action === 'qrcode' ? '正在获取二维码…' : '获取登录二维码'}
+          {(!xhs?.loggedIn || action) && <button className="primary" disabled={gettingQrcode} onClick={() => void getQrcode()}>
+            {gettingQrcode ? '正在获取二维码…' : qrcode ? '刷新二维码' : '获取登录二维码'}
           </button>}
         </div>
         {qrcode && <>

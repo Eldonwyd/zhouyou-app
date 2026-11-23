@@ -1,0 +1,1230 @@
+/* ==========================================================================
+ * NeoRead 风格 AI 订阅/模型设置弹窗 & 优化版顶栏 AI / 小红书服务区
+ * 全面适配 5 套主题外观及浅色 / 深色模式
+ * ========================================================================== */
+
+/* ---------- 1. 品牌圆形图标 ---------- */
+.neo-brand-icon {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .12);
+}
+.neo-brand-icon svg {
+  width: 58%;
+  height: 58%;
+  display: block;
+}
+.neo-brand-icon.is-chatgpt { background: #141518; color: #fff; }
+.neo-brand-icon.is-claude { background: #d97757; color: #fff; }
+.neo-brand-icon.is-kimi { background: #141518; color: #fff; }
+.neo-brand-icon.is-gemini {
+  background: linear-gradient(135deg, #4285f4 0%, #7c5cff 52%, #e662a4 100%);
+  color: #fff;
+}
+.neo-brand-icon.is-deepseek {
+  background: linear-gradient(135deg, #3b6ef6 0%, #5b8cff 100%);
+  color: #fff;
+}
+.neo-brand-icon.is-api {
+  background: var(--surface-2);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+
+.neo-chevron {
+  transition: transform .18s ease;
+  display: block;
+}
+.neo-chevron.is-open { transform: rotate(90deg); }
+
+/* ---------- 2. 优化版 Image 2：AI 与小红书设置服务条（桌面 + 手机） ---------- */
+.planner-chrome .planner-service-toggle {
+  min-height: 40px;
+  padding: 6px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, .04);
+}
+.planner-service-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.planner-service-summary.ok { color: var(--teal); }
+.planner-service-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+/* AI 控制坞：清爽的品牌状态 + 内联模型切换器 + 思考强度分段控件 + 管理入口 */
+.planner-chrome .planner-ai-status,
+.planner-ai-status {
+  position: relative;
+  display: block;
+  margin: 0 0 14px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 2px 12px rgba(15, 23, 42, .035);
+  font-size: .86rem;
+  overflow: visible;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.planner-ai-status.is-unconfigured {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.planner-ai-status.is-busy {
+  border-color: color-mix(in srgb, var(--warm-green, var(--teal)) 38%, var(--line));
+}
+.ai-dock-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+/* 左侧：品牌图标 + 名称 + 安静的文字状态行（去除杂乱彩色药丸） */
+.ai-dock-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.planner-ai-avatar {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.planner-ai-avatar .planner-ai-status-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #16a34a;
+  border: 2px solid var(--surface);
+  box-shadow: none;
+}
+.planner-ai-avatar .planner-ai-status-dot.is-idle {
+  background: #d97706;
+}
+.ai-dock-identity {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.ai-dock-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.planner-ai-status .ai-dock-title-row strong {
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.ai-dock-provider-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px 2px 4px;
+  margin: -2px -4px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background .15s ease;
+}
+.ai-dock-provider-btn:hover,
+.ai-dock-provider-btn.is-open {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.ai-dock-auth-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  color: var(--muted);
+  white-space: nowrap;
+  line-height: 1.45;
+}
+.ai-dock-auth-tag.is-sub {
+  background: color-mix(in srgb, #16a34a 11%, transparent);
+  color: #15803d;
+}
+:root[data-theme="dark"] .ai-dock-auth-tag.is-sub {
+  color: #4ade80;
+}
+.ai-dock-subline {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ai-dock-net {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+}
+.ai-dock-net.is-on {
+  color: var(--ink-2, var(--muted));
+}
+.ai-dock-net-dot {
+  display: inline-block;
+  width: 5.5px;
+  height: 5.5px;
+  border-radius: 50%;
+  background: var(--muted);
+  opacity: .5;
+  flex: none;
+}
+.ai-dock-net.is-on .ai-dock-net-dot {
+  background: #16a34a;
+  opacity: 1;
+}
+:root[data-theme="dark"] .ai-dock-net.is-on .ai-dock-net-dot {
+  background: #4ade80;
+}
+.ai-dock-sep {
+  opacity: .45;
+  user-select: none;
+}
+.ai-dock-meta-item {
+  color: var(--muted);
+}
+
+/* 右侧控制区：模型下拉 + 思考强度分段控件 + 管理入口 */
+.ai-dock-controls {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.ai-dock-dropdown-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+.ai-dock-caret {
+  color: var(--muted);
+  flex: none;
+  transition: transform .16s ease, color .16s ease;
+}
+.ai-dock-caret.is-open {
+  transform: rotate(180deg);
+  color: var(--ink);
+}
+
+/* 1. 模型选择器按钮 */
+.ai-dock-model-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 9px 0 11px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--line) 92%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 56%, var(--surface));
+  color: var(--ink);
+  font-size: 12.5px;
+  cursor: pointer;
+  min-width: 0;
+  max-width: 245px;
+  transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+.ai-dock-model-trigger:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+.ai-dock-model-trigger.is-open {
+  border-color: var(--warm-green, var(--teal));
+  background: var(--surface);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--warm-green, var(--teal)) 12%, transparent);
+}
+.ai-dock-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  flex: none;
+  padding-right: 6px;
+  border-right: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  line-height: 1.1;
+}
+.ai-dock-model-value {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* 2. 思考强度分段控件 */
+.ai-dock-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  padding: 3px 3px 3px 9px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--line) 90%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 56%, var(--surface));
+  flex: 0 0 auto;
+}
+.ai-dock-thinking.is-fixed {
+  padding: 0 10px;
+}
+.ai-dock-thinking-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  padding-right: 4px;
+}
+.ai-dock-thinking-label svg {
+  opacity: .75;
+  flex: none;
+}
+.ai-dock-seg-track {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.ai-dock-seg-btn {
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.ai-dock-seg-btn:hover:not(:disabled):not(.is-active) {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+.ai-dock-seg-btn.is-active {
+  background: var(--surface);
+  color: var(--warm-green, var(--teal));
+  font-weight: 700;
+  border-color: color-mix(in srgb, var(--line) 75%, transparent);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .08);
+}
+
+/* 3. 管理 / 订阅入口按钮 */
+.ai-dock-settings-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 11px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--line) 92%, transparent);
+  background: var(--surface);
+  color: var(--ink-2, var(--ink));
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  cursor: pointer;
+  transition: border-color .16s ease, background .16s ease, color .16s ease;
+}
+.ai-dock-settings-btn:hover {
+  border-color: var(--warm-green, var(--line-strong));
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface-2) 50%, var(--surface));
+}
+.ai-dock-settings-btn.primary {
+  background: var(--warm-green, var(--teal));
+  border-color: transparent;
+  color: #fff;
+}
+.ai-dock-settings-btn.primary:hover {
+  filter: brightness(1.06);
+  color: #fff;
+}
+.ai-dock-settings-btn svg {
+  opacity: .76;
+  flex: none;
+}
+
+/* 浮层下拉面板（服务商 & 模型切换） */
+.ai-dock-popover {
+  position: absolute;
+  top: calc(100% + 7px);
+  z-index: 65;
+  min-width: 272px;
+  max-width: min(340px, calc(100vw - 32px));
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, .13), 0 2px 6px rgba(15, 23, 42, .05);
+  overflow: hidden;
+  animation: aiDockPopIn .14s ease-out;
+}
+.ai-dock-popover.is-providers { left: 0; top: calc(100% + 22px); }
+.ai-dock-popover.is-models { right: 0; }
+@keyframes aiDockPopIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ai-dock-popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 12px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+.ai-dock-refresh-link {
+  border: 0;
+  background: transparent;
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: var(--warm-green, var(--teal));
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.ai-dock-refresh-link:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--warm-green, var(--teal)) 10%, transparent);
+}
+.ai-dock-popover-list {
+  display: grid;
+  gap: 2px;
+  padding: 5px;
+  max-height: 276px;
+  overflow-y: auto;
+}
+.ai-dock-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: background .12s ease;
+}
+.ai-dock-option:hover {
+  background: color-mix(in srgb, var(--surface-2) 85%, transparent);
+}
+.ai-dock-option.is-selected {
+  background: color-mix(in srgb, var(--warm-green, var(--teal)) 10%, transparent);
+}
+.ai-dock-option-main {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+.ai-dock-option-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--ink);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-dock-option.is-selected .ai-dock-option-name {
+  color: var(--warm-green, var(--teal));
+}
+.ai-dock-option-sub {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-dock-latest-badge {
+  font-style: normal;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--warm-green, var(--teal)) 14%, transparent);
+  color: var(--warm-green, var(--teal));
+  line-height: 1.2;
+  flex: none;
+}
+.ai-dock-option-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.ai-dock-mini-tag {
+  font-size: 10px;
+  font-weight: 650;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  color: var(--muted);
+}
+.ai-dock-option-check {
+  display: inline-flex;
+  color: var(--warm-green, var(--teal));
+}
+.ai-dock-popover-empty {
+  padding: 14px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+.ai-dock-popover-foot {
+  padding: 5px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+.ai-dock-foot-btn {
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background .12s ease, color .12s ease;
+}
+.ai-dock-foot-btn:hover {
+  background: color-mix(in srgb, var(--surface-2) 85%, transparent);
+  color: var(--ink);
+}
+
+/* 错误内联提示 */
+.ai-dock-error {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  background: color-mix(in srgb, #dc2626 9%, var(--surface));
+  color: #b91c1c;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+:root[data-theme="dark"] .ai-dock-error {
+  color: #fca5a5;
+}
+.ai-dock-error button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+
+/* 小红书卡片：去除笨重偏移阴影，与 AI 卡片保持统一 NeoRead 轻卡片视觉语言 */
+:root .planner-chrome .planner-photo-settings {
+  margin: 0;
+  padding: 7px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, .04);
+}
+:root .planner-chrome .planner-photo-settings[open] {
+  border-radius: 16px;
+  padding: 12px 16px 16px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, .06);
+}
+.planner-chrome .planner-photo-settings summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.planner-chrome .planner-photo-settings summary::before {
+  display: none;
+}
+.planner-xhs-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ff385c 0%, #e11d48 100%);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+.planner-xhs-summary-label {
+  color: var(--ink);
+  font-weight: 650;
+}
+.planner-xhs-pill {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.planner-xhs-pill.ok {
+  background: color-mix(in srgb, #16a34a 13%, transparent);
+  color: #15803d;
+}
+:root[data-theme="dark"] .planner-xhs-pill.ok { color: #4ade80; }
+.planner-xhs-chevron {
+  width: 6px;
+  height: 6px;
+  border-right: 1.6px solid var(--muted);
+  border-bottom: 1.6px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform .16s ease;
+  margin-left: 2px;
+  flex: 0 0 auto;
+}
+.planner-photo-settings[open] .planner-xhs-chevron {
+  transform: rotate(45deg);
+}
+
+/* ---------- 3. NeoRead 风格 AI 服务与订阅设置弹窗 ---------- */
+.neo-ai-dialog {
+  width: min(680px, calc(100vw - 24px));
+  max-height: calc(100vh - 36px);
+  padding: 22px 22px 24px;
+  border-radius: 22px;
+  background: var(--paper);
+}
+.neo-ai-header {
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.neo-ai-header h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 750;
+}
+.neo-ai-current {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+}
+.neo-close-btn {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 20px;
+  line-height: 1;
+}
+.neo-close-btn:hover { background: var(--surface-2); }
+
+.neo-provider-stack {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.neo-provider-card {
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+  background: var(--surface);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, .05), 0 1px 2px rgba(15, 23, 42, .03);
+  overflow: hidden;
+  transition: border-color .18s ease, box-shadow .18s ease, opacity .18s ease;
+}
+.neo-provider-card:hover {
+  border-color: var(--line-strong);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, .08);
+}
+.neo-provider-card.is-active {
+  border-color: color-mix(in srgb, #16a34a 45%, var(--line));
+}
+.neo-provider-card.is-dimmed {
+  opacity: .76;
+}
+.neo-provider-card.is-dimmed:hover {
+  opacity: 1;
+}
+
+.neo-provider-row {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  min-height: 76px;
+  cursor: pointer;
+}
+.neo-provider-lead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1;
+}
+.neo-provider-title-group {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  flex: 1;
+}
+.neo-provider-name-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+.neo-provider-name-line strong {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -.01em;
+}
+.neo-status-text {
+  font-size: 12.5px;
+  color: var(--ink-2, var(--muted));
+  font-weight: 500;
+}
+.neo-status-text.is-muted { color: var(--muted); }
+.neo-model-pill {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2, var(--muted));
+  border: 1px solid var(--line);
+}
+
+.neo-quota-summary {
+  display: grid;
+  gap: 3px;
+  max-width: 440px;
+}
+.neo-quota-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--ink-2, var(--ink));
+}
+.neo-quota-head strong {
+  font-size: 12.5px;
+  color: #15803d;
+}
+:root[data-theme="dark"] .neo-quota-head strong { color: #4ade80; }
+.neo-quota-dash { color: var(--muted); }
+.neo-quota-summary small {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.neo-quota-bar {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+  margin: 2px 0;
+}
+.neo-quota-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #16a34a, #22c55e);
+}
+
+.neo-provider-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.neo-provider-top-badge { min-height: 18px; display: flex; align-items: center; }
+.neo-check-badge {
+  color: #16a34a;
+  display: inline-flex;
+  align-items: center;
+}
+:root[data-theme="dark"] .neo-check-badge { color: #4ade80; }
+.neo-provider-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.neo-icon-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.neo-icon-btn:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* 展开的卡片抽屉 */
+.neo-provider-drawer {
+  padding: 15px 18px 18px;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-2) 48%, var(--surface));
+  display: grid;
+  gap: 13px;
+}
+.neo-drawer-field {
+  display: grid;
+  gap: 6px;
+}
+.neo-drawer-field label {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--ink-2, var(--ink));
+}
+.neo-model-picker-row select {
+  width: 100%;
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 6px 12px;
+  font-size: 13px;
+}
+.neo-custom-model-row,
+.neo-paste-code-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.neo-custom-model-row input,
+.neo-paste-code-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.neo-auth-flow-box {
+  padding: 13px 14px;
+  border-radius: 13px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  display: grid;
+  gap: 9px;
+}
+.neo-auth-flow-title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink);
+}
+.neo-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2563eb;
+  flex: none;
+  animation: neoPulse 1.4s ease-in-out infinite;
+}
+@keyframes neoPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .4; transform: scale(.85); }
+}
+
+.neo-device-code-box {
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.neo-device-code-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.neo-device-code-row code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  color: var(--ink);
+}
+.neo-cmd-snippet {
+  padding: 8px 11px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  overflow-x: auto;
+}
+.neo-cmd-snippet code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.neo-drawer-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.neo-drawer-actions .primary,
+.neo-drawer-actions .secondary,
+.neo-link-btn {
+  min-height: 34px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+.neo-danger-link { color: #dc2626 !important; }
+:root[data-theme="dark"] .neo-danger-link { color: #f87171 !important; }
+
+/* API 面板内的快捷模型标签 */
+.neo-api-model-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 4px;
+}
+.neo-model-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-2, var(--muted));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.neo-model-chip:hover { border-color: var(--line-strong); color: var(--ink); }
+.neo-model-chip.active {
+  background: var(--seg-active, var(--ink));
+  color: #fff;
+  border-color: transparent;
+}
+
+/* 顶部测速按钮、思考档位分段控件、能力标签与速度徽章 */
+.neo-header-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.neo-bench-btn {
+  min-height: 30px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.neo-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.neo-refresh-btn {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 4px;
+}
+.neo-model-caps {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.neo-cap-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--surface-2);
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+.neo-cap-pill.is-ok {
+  background: color-mix(in srgb, #16a34a 10%, transparent);
+  color: #15803d;
+  border-color: color-mix(in srgb, #16a34a 24%, transparent);
+}
+.neo-cap-pill.is-ocr {
+  background: color-mix(in srgb, #d97706 11%, transparent);
+  color: #b45309;
+  border-color: color-mix(in srgb, #d97706 26%, transparent);
+}
+:root[data-theme="dark"] .neo-cap-pill.is-ok { color: #4ade80; }
+:root[data-theme="dark"] .neo-cap-pill.is-ocr { color: #fbbf24; }
+
+.neo-thinking-block {
+  display: grid;
+  gap: 7px;
+}
+.neo-thinking-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.neo-thinking-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.neo-thinking-caption {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--ink-2, var(--ink));
+}
+.neo-thinking-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 3px;
+  border-radius: 11px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.neo-thinking-pill {
+  min-height: 28px;
+  padding: 3px 11px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.neo-thinking-pill:hover { color: var(--ink); background: var(--surface-2); }
+.neo-thinking-pill.active {
+  background: var(--seg-active, var(--ink));
+  color: #fff;
+}
+
+.planner-ai-thinking-btn {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--teal) 26%, var(--line));
+  background: color-mix(in srgb, var(--teal) 9%, var(--surface));
+  color: var(--ink-2, var(--ink));
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  line-height: 1.45;
+  transition: border-color .15s ease, background .15s ease;
+}
+.planner-ai-thinking-btn:hover {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 16%, var(--surface));
+}
+
+.neo-speed-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.neo-speed-pill.is-fast {
+  background: color-mix(in srgb, #16a34a 14%, transparent);
+  color: #15803d;
+}
+.neo-speed-pill.is-normal {
+  background: color-mix(in srgb, #d97706 14%, transparent);
+  color: #b45309;
+}
+.neo-speed-pill.is-slow {
+  background: color-mix(in srgb, #dc2626 14%, transparent);
+  color: #b91c1c;
+}
+:root[data-theme="dark"] .neo-speed-pill.is-fast { color: #4ade80; }
+:root[data-theme="dark"] .neo-speed-pill.is-normal { color: #fbbf24; }
+:root[data-theme="dark"] .neo-speed-pill.is-slow { color: #f87171; }
+
+.neo-saved-row-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ---------- 4. 响应式适配（平板 / 手机） ---------- */
+@media (max-width: 1040px) {
+  .ai-dock-row {
+    flex-wrap: wrap;
+    gap: 10px 12px;
+  }
+  .planner-ai-status:not(.is-unconfigured) .ai-dock-brand {
+    flex: 1 1 100%;
+    padding-right: 114px;
+  }
+  .planner-ai-status:not(.is-unconfigured) .ai-dock-settings-btn {
+    position: absolute;
+    top: 11px;
+    right: 12px;
+    height: 32px;
+    padding: 0 10px;
+    margin-left: 0;
+  }
+  .ai-dock-controls {
+    margin-left: 0;
+    width: 100%;
+    padding-top: 9px;
+    border-top: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .ai-dock-dropdown-wrap.is-model-wrap {
+    flex: 1 1 200px;
+  }
+  .ai-dock-model-trigger {
+    width: 100%;
+    max-width: none;
+  }
+  .ai-dock-model-value {
+    flex: 1;
+    text-align: left;
+  }
+  .ai-dock-popover.is-models {
+    left: 0;
+    right: auto;
+    width: max(100%, 268px);
+  }
+}
+
+@media (max-width: 850px) {
+  .planner-chrome .planner-photo-settings {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 15px;
+    margin: 8px 0 0;
+  }
+  .planner-chrome .planner-ai-status {
+    margin: 8px 0 0;
+    padding: 10px 12px;
+    border-radius: 15px;
+  }
+}
+
+@media (max-width: 600px) {
+  .neo-ai-dialog {
+    padding: 16px 14px 18px;
+    border-radius: 18px;
+  }
+  .neo-provider-row {
+    padding: 13px 14px;
+    min-height: 68px;
+  }
+  .neo-provider-drawer { padding: 12px 14px 14px; }
+  .ai-dock-thinking {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .ai-dock-seg-track {
+    flex: 1;
+    min-width: 0;
+  }
+  .ai-dock-seg-btn {
+    flex: 1;
+    padding: 0 5px;
+    font-size: 11.5px;
+  }
+  .ai-dock-popover.is-models {
+    width: 100%;
+    min-width: 0;
+  }
+}

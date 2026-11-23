@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { plannerApiUrl } from '../api-base';
 import { getPlannerPhotoBlob } from '../db';
 import { calculatePlannerBudget, plannerFillEstimates, plannerLocalTransport } from '../planner-domain';
 import { plannerDisplayText } from '../planner-display';
@@ -7,7 +8,7 @@ import { currency } from '../utils';
 
 /** 优先加载服务端本地图；若服务未启动或离线则回退 IndexedDB 缓存，再失败则展示柔和占位卡而非裂图图标。 */
 function PlanCardPhoto({ title, assetId, url }: { title: string; assetId?: string; url?: string }) {
-  const primarySrc = assetId ? `${import.meta.env.BASE_URL}api/planner/photo-file/${assetId}` : (url ?? '');
+  const primarySrc = assetId ? plannerApiUrl(`photo-file/${assetId}`) : (url ?? '');
   const [src, setSrc] = useState(primarySrc);
   const [triedIdb, setTriedIdb] = useState(false);
   const [failed, setFailed] = useState(!primarySrc);

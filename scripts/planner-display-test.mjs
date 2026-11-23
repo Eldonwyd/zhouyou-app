@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { plannerExportText, splitAnswerLinks } from '../src/planner-display.ts';
+import { plannerExportText, plannerTransferSelection, splitAnswerLinks } from '../src/planner-display.ts';
 import { plannerShortStage } from '../src/planner-stage.ts';
 
 /** 回答里的链接单独列为“相关链接”；进度只显示正在做什么。 */
@@ -22,6 +22,26 @@ assert.ok(!inline.body.includes('http'));
 assert.equal(inline.links.length, 1);
 assert.equal(splitAnswerLinks('没有任何链接的回答。').links.length, 0);
 assert.equal(splitAnswerLinks('相关链接：坏链接 javascript:alert(1)').links.length, 0);
+
+// 同一路段单人可步行，同行三人时分摊车费后打车更划算。手动选择优先于实时推荐。
+const transferOptions = [
+  { mode: 'walk', distanceKm: 1.2, durationMinutes: 16 },
+  { mode: 'subway', durationMinutes: 18, costCents: 200, recommended: true },
+  { mode: 'taxi', distanceKm: 2.4, durationMinutes: 8, costCents: 1100 },
+];
+assert.deepEqual(plannerTransferSelection(transferOptions, 1), { recommendedIndex: 0, chosenIndex: 0 });
+assert.deepEqual(plannerTransferSelection(transferOptions, 3), { recommendedIndex: 2, chosenIndex: 2 });
+assert.deepEqual(plannerTransferSelection(transferOptions, 3, 1), { recommendedIndex: 2, chosenIndex: 1 });
+assert.equal(plannerTransferSelection(transferOptions, 3, 99).chosenIndex, 2);
+
+// 同等耗时和票价时优先少绕路；长距离步行与短距离步行即使耗时相同也会得到不同评分。
+assert.equal(plannerTransferSelection([
+  { mode: 'bus', distanceKm: 6, durationMinutes: 15, costCents: 200, recommended: true },
+  { mode: 'subway', distanceKm: 3, durationMinutes: 15, costCents: 200 },
+], 1).chosenIndex, 1);
+assert.equal(plannerTransferSelection([{ ...transferOptions[0], distanceKm: 3 }, transferOptions[1]], 1).chosenIndex, 1);
+assert.equal(plannerTransferSelection([{ mode: 'walk' }, { mode: 'bus', recommended: true }], 1).chosenIndex, 1);
+assert.equal(plannerTransferSelection([], 1).chosenIndex, -1);
 
 assert.equal(plannerShortStage('正在优先检索小红书攻略与游玩评价，同时核对官方资料'), '搜索资料中…');
 assert.equal(plannerShortStage('正在安排每日路线、交通与住宿片区'), '规划行程中…');

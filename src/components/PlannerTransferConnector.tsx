@@ -1,7 +1,8 @@
-import { useState, type MouseEvent, type ReactNode } from 'react';
+import { useId, useRef, useState, type MouseEvent, type ReactNode, type Ref } from 'react';
 import {
   formatTransferOption,
   plannerDisplayText,
+  plannerTransferSelection,
   type GapTransferInfo,
 } from '../planner-display';
 import type {
@@ -149,21 +150,21 @@ export function CuteTransportIcon({ mode, size = 26 }: { mode: PlannerTransferMo
 export function TransferOptionRow({
   option,
   content,
-  showRecommendedBadge = false,
+  recommended = Boolean(option.recommended),
   selected = false,
-  interactive = false,
-  collapsedOthersCount = 0,
+  disclosure,
+  buttonRef,
+  disabled = false,
   onClick,
-  onToggleExpand,
 }: {
   option: PlannerTransferOption;
   content: PlannerContent;
-  showRecommendedBadge?: boolean;
+  recommended?: boolean;
   selected?: boolean;
-  interactive?: boolean;
-  collapsedOthersCount?: number;
+  disclosure?: { controls: string; expanded: boolean; count: number };
+  buttonRef?: Ref<HTMLButtonElement>;
+  disabled?: boolean;
   onClick?: (event: MouseEvent) => void;
-  onToggleExpand?: (event: MouseEvent) => void;
 }) {
   const formatted = formatTransferOption(option);
   const body = (
@@ -171,81 +172,72 @@ export function TransferOptionRow({
       <span className={`planner-transfer-badge mode-${formatted.mode}`}>
         <CuteTransportIcon mode={formatted.mode} size={22} />
       </span>
-      <div className="planner-transfer-option-body">
-        <div className="planner-transfer-option-main">
-          <strong className="planner-transfer-option-title">
-            {plannerDisplayText(formatted.title, content)}
-          </strong>
-          {selected ? (
-            <span className="planner-transfer-selected-tag">✓ 已选</span>
-          ) : (
-            showRecommendedBadge && formatted.recommended && (
-              <span className="planner-transfer-rec">推荐</span>
-            )
-          )}
-          {formatted.stations && (
-            <span className="planner-transfer-stations">
-              {plannerDisplayText(formatted.stations, content)}
+      <span className="planner-transfer-option-body">
+        <span className="planner-transfer-option-main">
+          <span className="planner-transfer-title-group">
+            <strong className="planner-transfer-option-title">
+              {plannerDisplayText(formatted.title, content)}
+            </strong>
+            {recommended && <span className="planner-transfer-rec">推荐</span>}
+            {selected && <span className="planner-transfer-selected-tag">✓ 已选</span>}
+          </span>
+          {(formatted.stations || formatted.metrics.length > 0 || formatted.carpool) && (
+            <span className="planner-transfer-meta-group">
+              {formatted.stations && (
+                <span className="planner-transfer-stations">
+                  {plannerDisplayText(formatted.stations, content)}
+                </span>
+              )}
+              <span className="planner-transfer-metrics">
+                {formatted.metrics.map((metric, idx) => {
+                  const isFare = /¥/.test(metric);
+                  return (
+                    <span
+                      className={`planner-transfer-metric${isFare ? ' is-fare' : ''}`}
+                      key={`${metric}-${idx}`}
+                    >
+                      {plannerDisplayText(metric, content)}
+                    </span>
+                  );
+                })}
+                {formatted.carpool && (
+                  <span className="planner-transfer-metric is-carpool">
+                    {plannerDisplayText(formatted.carpool, content)}
+                  </span>
+                )}
+              </span>
             </span>
           )}
-          <span className="planner-transfer-metrics">
-            {formatted.metrics.map((metric, idx) => {
-              const isFare = /¥/.test(metric);
-              return (
-                <span
-                  className={`planner-transfer-metric${isFare ? ' is-fare' : ''}`}
-                  key={`${metric}-${idx}`}
-                >
-                  {plannerDisplayText(metric, content)}
-                </span>
-              );
-            })}
-            {formatted.carpool && (
-              <span className="planner-transfer-metric is-carpool">
-                {plannerDisplayText(formatted.carpool, content)}
-              </span>
-            )}
-          </span>
-        </div>
+        </span>
         {formatted.note && (
           <small className="planner-transfer-note">
             {plannerDisplayText(formatted.note, content)}
           </small>
         )}
-      </div>
-      {interactive && (
-        collapsedOthersCount > 0 ? (
-          <span
-            className="planner-transfer-switch-pill"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onToggleExpand?.(event);
-            }}
-          >
-            其他 {collapsedOthersCount} 种 ▾
-          </span>
-        ) : (
-          <span className={`planner-transfer-check${selected ? ' is-checked' : ''}`} aria-hidden="true">
-            {selected ? '✓' : ''}
-          </span>
-        )
-      )}
+      </span>
+      {disclosure ? (
+        <span className="planner-transfer-switch-pill">
+          {disclosure.expanded ? '收起 ▴' : `其他 ${disclosure.count} 种 ▾`}
+        </span>
+      ) : onClick && <span className="planner-transfer-check" aria-hidden="true" />}
     </>
   );
 
-  const className = `planner-transfer-option mode-${formatted.mode}${formatted.recommended ? ' is-recommended' : ''}${selected ? ' is-selected' : ''}${interactive ? ' is-clickable' : ''}`;
-  if (interactive) {
+  const className = `planner-transfer-option mode-${formatted.mode}${recommended ? ' is-recommended' : ''}${selected ? ' is-selected' : ''}${onClick ? ' is-clickable' : ''}`;
+  if (onClick) {
     return (
       <button
         type="button"
+        ref={buttonRef}
         className={className}
         data-mode={formatted.mode}
-        aria-pressed={selected}
+        disabled={disabled}
+        aria-expanded={disclosure?.expanded}
+        aria-controls={disclosure?.controls}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          onClick?.(event);
+          onClick(event);
         }}
       >
         {body}
@@ -268,50 +260,56 @@ function SelectableTransferOptions({
   options: PlannerTransferOption[];
   content: PlannerContent;
   selectedIndex?: number;
-  onSelectOption?: (index: number) => void;
+  onSelectOption: (index: number) => Promise<boolean>;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const canSelect = options.length > 1 && Boolean(onSelectOption);
-  const hasValidSelection =
-    canSelect &&
-    selectedIndex !== undefined &&
-    selectedIndex >= 0 &&
-    selectedIndex < options.length;
-  const folded = hasValidSelection && !expanded;
+  const [saving, setSaving] = useState(false);
+  const alternativesId = useId();
+  const disclosureButton = useRef<HTMLButtonElement>(null);
+  const { chosenIndex, recommendedIndex } = plannerTransferSelection(options, content.request.people, selectedIndex);
+  if (chosenIndex < 0) return null;
+  const canExpand = options.length > 1;
 
-  if (folded) {
-    const chosen = options[selectedIndex];
-    return (
-      <div className="planner-transfer-options-list is-folded">
-        <TransferOptionRow
-          option={chosen}
-          content={content}
-          selected
-          interactive
-          collapsedOthersCount={options.length - 1}
-          onClick={() => setExpanded(true)}
-          onToggleExpand={() => setExpanded(true)}
-        />
-      </div>
-    );
+  // 等手动选择保存成功再折叠，避免短暂显示旧选项；失败时保持展开以便重试。
+  async function chooseOption(index: number) {
+    setSaving(true);
+    try {
+      if (await onSelectOption(index)) {
+        setExpanded(false);
+        disclosureButton.current?.focus();
+      }
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <div className="planner-transfer-options-list">
-      {options.map((option, index) => (
-        <TransferOptionRow
-          key={`${option.mode}-${option.line ?? ''}-${index}`}
-          option={option}
-          content={content}
-          showRecommendedBadge={options.length > 1}
-          selected={hasValidSelection && index === selectedIndex}
-          interactive={canSelect}
-          onClick={() => {
-            onSelectOption?.(index);
-            setExpanded(false);
-          }}
-        />
-      ))}
+      <TransferOptionRow
+        option={options[chosenIndex]}
+        content={content}
+        recommended={canExpand && chosenIndex === recommendedIndex}
+        selected={canExpand}
+        disclosure={canExpand ? { controls: alternativesId, expanded, count: options.length - 1 } : undefined}
+        buttonRef={disclosureButton}
+        onClick={canExpand ? () => setExpanded((isExpanded) => !isExpanded) : undefined}
+      />
+      {canExpand && (
+        <div id={alternativesId} hidden={!expanded}>
+          {expanded && <div className="planner-transfer-options-list">
+            {options.map((option, index) => index !== chosenIndex && (
+              <TransferOptionRow
+                key={`${option.mode}-${option.line ?? ''}-${index}`}
+                option={option}
+                content={content}
+                recommended={index === recommendedIndex}
+                disabled={saving}
+                onClick={() => void chooseOption(index)}
+              />
+            ))}
+          </div>}
+        </div>
+      )}
     </div>
   );
 }
@@ -331,7 +329,7 @@ export function TransferBridgeCard({
   routeLabel?: string;
   selected?: boolean;
   selectedOptionIndex?: number;
-  onSelectOption?: (index: number) => void;
+  onSelectOption: (index: number) => Promise<boolean>;
   children: ReactNode;
 }) {
   return (
@@ -365,7 +363,7 @@ export function DirectTransferBridge({
   content: PlannerContent;
   routeLabel: string;
   selectedOptionIndex?: number;
-  onSelectOption?: (index: number) => void;
+  onSelectOption: (index: number) => Promise<boolean>;
 }) {
   return (
     <div className="planner-transfer-bridge planner-transfer-direct" role="note" aria-label={`两站交通：${routeLabel}`}>

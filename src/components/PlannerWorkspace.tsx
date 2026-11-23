@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import MobileDisclosure from './MobileDisclosure';
 import type { ComponentProps, FormEvent } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import FinanceView from './PlanView';
@@ -89,6 +90,7 @@ import { plannerXiaohongshuSearchUrl } from '../planner-photo';
 import { getPlannerPhotoBlob, savePlannerMapPositions, type recordPlannerJournalVisit } from '../db';
 import { plannerJournalActivityKey, plannerJournalCity, plannerJournalVisitFor } from '../planner-journal';
 import { plannerAmapUrl } from '../planner-map';
+import { plannerApiUrl } from '../api-base';
 import { plannerApi } from '../planner-api';
 import { ticketPlanSignature } from '../planner-ticket-signature';
 import { needsTicketPreparation } from '../planner-ticket-display';
@@ -349,7 +351,7 @@ function PlacePhoto({
       {photo && !failed && !loadingLocal ? (
         <>
           <img
-            src={localUrl || (photo.assetId ? `${import.meta.env.BASE_URL}api/planner/photo-file/${photo.assetId}` : photo.url)}
+            src={localUrl || (photo.assetId ? plannerApiUrl(`photo-file/${photo.assetId}`) : photo.url)}
             alt={title}
             loading="lazy"
             referrerPolicy="no-referrer"
@@ -959,6 +961,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
   const [tab, setTab] = useState<PlannerTab>(
     props.provinceIntent ? 'discover' : 'itineraries',
   );
+  const [serviceToolsExpanded, setServiceToolsExpanded] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(props.aiPlans[0]?.id ?? null);
   const [financeKey, setFinanceKey] = useState<string | null>(null);
   const [creating, setCreating] = useState(props.aiPlans.length === 0);
@@ -1128,32 +1131,34 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
   }, [ticketPlanId, missingTransferSig, busy, bookingDialog, aiStatus?.configured]);
 
   /** 记住用户在某段交通中点选的方案下标（选中后其余方案折叠，刷新页面保持选中）。 */
-  function selectTransferOption(selectionKey: string, index: number) {
+  async function selectTransferOption(selectionKey: string, index: number): Promise<boolean> {
     const planId = activePlan?.id;
-    if (!planId) return;
-    void (async () => {
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const current = plansRef.current.find((plan) => plan.id === planId);
-        if (!current) return;
-        if (current.selectedTransfers?.[selectionKey] === index) return;
-        try {
-          await props.onSaveAi(
-            {
-              ...current,
-              version: current.version + 1,
-              contentVersion: current.contentVersion ?? current.version,
-              updatedAt: new Date().toISOString(),
-              selectedTransfers: { ...current.selectedTransfers, [selectionKey]: index },
-            },
-            current.version,
-          );
-          break;
-        } catch {
-          if (attempt === 1) break;
-          await new Promise((resolve) => window.setTimeout(resolve, 120));
+    if (!planId) return false;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const current = plansRef.current.find((plan) => plan.id === planId);
+      if (!current) return false;
+      if (current.selectedTransfers?.[selectionKey] === index) return true;
+      try {
+        await props.onSaveAi(
+          {
+            ...current,
+            version: current.version + 1,
+            contentVersion: current.contentVersion ?? current.version,
+            updatedAt: new Date().toISOString(),
+            selectedTransfers: { ...current.selectedTransfers, [selectionKey]: index },
+          },
+          current.version,
+        );
+        return true;
+      } catch (error) {
+        if (attempt === 1) {
+          report(error);
+          return false;
         }
+        await new Promise((resolve) => window.setTimeout(resolve, 120));
       }
-    })();
+    }
+    return false;
   }
 
   // 住宿/餐饮按所选档次和餐别补全预估价后再显示和计算合计（旧计划也立即生效）；编辑仍基于原计划。
@@ -1173,7 +1178,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
 
   useEffect(() => {
     const healthController = new AbortController();
-    fetch(new URL(`${import.meta.env.BASE_URL}api/planner/health`, window.location.href), {
+    fetch(plannerApiUrl('health'), {
       signal: healthController.signal,
     })
       .then((response) => response.json())
@@ -1909,7 +1914,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
 
   return (
     <div className="planner-workspace" data-task-running={busy || undefined}>
-      <div className="planner-chrome">
+      <div className="planner-chrome" data-tools-expanded={serviceToolsExpanded}>
         <div className="planner-chrome-bar">
           <div className="planner-tabs" role="tablist" aria-label="计划模块">
             {(
@@ -1933,9 +1938,26 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
               </button>
             ))}
           </div>
-          <PlannerPhotoSettings />
+          <button
+            type="button"
+            className="mobile-disclosure-toggle planner-service-toggle"
+            aria-expanded={serviceToolsExpanded}
+            aria-controls="planner-photo-tools planner-ai-tools"
+            onClick={() => setServiceToolsExpanded((expanded) => !expanded)}
+          >
+            <span>AI 与小红书设置</span>
+            {aiStatus && (
+              <small className={aiStatus.configured ? 'planner-service-summary ok' : 'planner-service-summary'}>
+                <i className="planner-service-dot" aria-hidden="true" />
+                {aiStatus.configured ? (aiStatus.label ?? aiStatus.model ?? 'AI 已配置') : 'AI 待配置'}
+              </small>
+            )}
+          </button>
+          <div id="planner-photo-tools" className="planner-service-panel"><PlannerPhotoSettings /></div>
         </div>
-        <PlannerAiStatusBar status={aiStatus} onOpen={() => setAiSettingsOpen(true)} onChange={setAiStatus} />
+        <div id="planner-ai-tools" className="planner-service-panel">
+          <PlannerAiStatusBar status={aiStatus} onOpen={() => setAiSettingsOpen(true)} onChange={setAiStatus} />
+        </div>
       </div>
       {aiSettingsOpen && (
         <PlannerAiSettings onClose={() => setAiSettingsOpen(false)} onSaved={setAiStatus} />
@@ -2132,8 +2154,8 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
         </div>
       ) : (
         <div className="content-page">
-          <div className="section-heading">
-            <div>
+          <div className="section-heading planner-itinerary-heading">
+            <div className="planner-itinerary-heading-copy">
               <span className="eyebrow">YOUR NEXT JOURNEY</span>
               <h1>我的旅行计划</h1>
               <p>先规划，再出发。随时问，明确要求才修改。</p>
@@ -2199,6 +2221,10 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                   setRequest((previous) => ({ ...previous, luggageMode }));
                   setDurations([]);
                 }} />
+                <MobileDisclosure
+                  label="预订与小红书参考"
+                  value={draftBookings.length || request.references?.length ? `${draftBookings.length} 项预订 · ${request.references?.length ?? 0} 篇参考` : '选填'}
+                >
                 <div className="booking-backfill-box">
                   <div className="heading-actions">
                     <strong>已订车票 / 机票 / 酒店</strong>
@@ -2276,6 +2302,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                       </div>
                     </>}
                   </div>
+                  </MobileDisclosure>
                   <RequestFields
                     value={request}
                     onChange={(value) => {
@@ -2558,16 +2585,14 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                               if (booking && isTransportBooking(booking)) return <TransportBookingCard
                                 key={activity.id} booking={booking} disabled={busy}
                                 onEdit={() => setBookingDialog({ initial: booking, editing: true })} />;
-                              // 只有同一天两站之间的市内接驳使用两卡之间的紧凑交通条，跨城交通和预订单保留完整卡片。
-                              const compactTransfer = !booking && isIntraCityTransferCard(activity, activitiesById, day.activities);
                               const savedActTransfers = activity.kind === 'transport' && !activity.transferOptions?.length
                                 ? activePlan.legTransfers?.[plannerTransportActivityKey(activity, activePlan.content.request)]
                                 : undefined;
+                              // 旧行程补查到的市内交通选项也使用可切换的紧凑交通条。
+                              const transferActivity = savedActTransfers?.length ? { ...activity, transferOptions: savedActTransfers } : activity;
+                              const compactTransfer = !booking && isIntraCityTransferCard(transferActivity, activitiesById, day.activities);
                               const transferOptions = activity.kind === 'transport' && !booking
-                                ? plannerTransferOptions(
-                                  savedActTransfers?.length ? { ...activity, transferOptions: savedActTransfers } : activity,
-                                  activePlan.content.request,
-                                )
+                                ? plannerTransferOptions(transferActivity, activePlan.content.request)
                                 : [];
                               const prevActivity = prevById.get(activity.id);
                               const prevBooking = prevActivity ? activePlan.bookings?.find((item) => item.id === prevActivity.bookingId) : undefined;
@@ -2622,7 +2647,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                                               key={`${option.mode}-${index}`}
                                               option={option}
                                               content={activePlan.content}
-                                              showRecommendedBadge={transferOptions.length > 1}
+                                              recommended={transferOptions.length > 1 && Boolean(option.recommended)}
                                             />
                                           ))}
                                         </div>
@@ -2679,11 +2704,13 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                                   />
                                   <div className="planner-activity-actions">
                                     {!booking && <button className="text-button" disabled={busy}
+                                      title={activePlan.activityGuides?.[activity.id] ? '重新生成详细攻略' : 'AI 详细攻略'}
+                                      aria-label={activePlan.activityGuides?.[activity.id] ? '重新生成详细攻略' : 'AI 详细攻略'}
                                       onClick={() => void generateActivityGuide(activity)}>
-                                      {activePlan.activityGuides?.[activity.id] ? '重新生成详细攻略' : 'AI 详细攻略'}
+                                      {activePlan.activityGuides?.[activity.id] ? '重生成攻略' : '详细攻略'}
                                     </button>}
                                     <a className="text-button" href={plannerAmapUrl({ city: activity.city, name: activity.location || activity.photoQuery || activity.title })}
-                                      target="_blank" rel="noopener noreferrer">在高德地图查看</a>
+                                      target="_blank" rel="noopener noreferrer" aria-label="在高德地图查看" title="在高德地图查看">高德地图</a>
                                     <button
                                       className="text-button"
                                       disabled={busy || activity.locked}
@@ -2694,12 +2721,14 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                                     <button
                                       className="text-button"
                                       disabled={busy || activity.locked || Boolean(booking)}
+                                      aria-label="AI 只改本模块"
+                                      title="用 AI 单独微调这一项安排"
                                       onClick={() => {
                                         setScopeId(activity.id);
                                         focusPlannerChat();
                                       }}
                                     >
-                                      AI 只改本模块
+                                      AI 微调
                                     </button>
                                     <button
                                       className="text-button"

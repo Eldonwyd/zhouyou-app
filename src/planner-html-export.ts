@@ -1,8 +1,9 @@
+import { plannerApiUrl } from './api-base.ts';
 import type { AiTravelPlan, PackingCategory, PlannerCost } from './planner-types.ts';
 import type { TripPlan } from './types.ts';
 import { BUDGET_LABELS } from './types.ts';
 import { calculatePlannerBudget, PLANNER_PERIODS, plannerActivitiesByTime, plannerDurationLabel, plannerFillEstimates, plannerParty } from './planner-domain.ts';
-import { formatTransferOption, isIntraCityTransferCard, plannerDisplayText, plannerExportText, plannerGapTransfer, plannerTransferDisplay, plannerTransferOptions, plannerTransportActivityKey, splitAnswerLinks } from './planner-display.ts';
+import { formatTransferOption, isIntraCityTransferCard, plannerDisplayText, plannerExportText, plannerGapTransfer, plannerTransferDisplay, plannerTransferOptions, plannerTransferSelection, plannerTransportActivityKey, splitAnswerLinks } from './planner-display.ts';
 import type { PlannerTransferModeKind } from './planner-types.ts';
 import { plannerAmapUrl } from './planner-map.ts';
 import { plannerLuggageNoteText } from './planner-luggage.ts';
@@ -186,11 +187,9 @@ export function buildOfflineRoadbookHtml(
     walk: '🚶', subway: '🚇', bus: '🚌', taxi: '🚕', drive: '🚗', train: '🚄', flight: '✈️', other: '🧭',
   };
   const renderTransferBridgeHtml = (opts: ReturnType<typeof plannerTransferOptions>, selectedIndex?: number) => {
-    const visible =
-      selectedIndex !== undefined && selectedIndex >= 0 && selectedIndex < opts.length
-        ? [opts[selectedIndex]]
-        : opts;
-    const rows = visible.map((opt) => {
+    // 导出页沿用同一推荐和手动选择，离线也能展开查看其他方案。
+    const { chosenIndex } = plannerTransferSelection(opts, content.request.people, selectedIndex);
+    const rows = opts.map((opt) => {
       const fmt = formatTransferOption(opt);
       return `<div class="transfer-opt mode-${escapeHtml(fmt.mode)}">
         <span class="transfer-emoji">${modeIcons[fmt.mode]}</span>
@@ -202,8 +201,11 @@ export function buildOfflineRoadbookHtml(
           ${fmt.note ? `<small>${escapeHtml(plannerExportText(fmt.note, content))}</small>` : ''}
         </div>
       </div>`;
-    }).join('');
-    return `<div class="transfer-bridge">${rows}</div>`;
+    });
+    const alternatives = rows.length > 1
+      ? `<details class="guide-box"><summary>其他 ${rows.length - 1} 种交通方式</summary>${rows.filter((_, index) => index !== chosenIndex).join('')}</details>`
+      : '';
+    return `<div class="transfer-bridge">${rows[chosenIndex] ?? ''}${alternatives}</div>`;
   };
   const activitiesById = new Map(content.days.flatMap((day) => day.activities.map((activity) => [activity.id, activity] as const)));
   const daysHtml = content.days
@@ -222,10 +224,9 @@ export function buildOfflineRoadbookHtml(
                 const savedActOpts = act.kind === 'transport' && !act.transferOptions?.length
                   ? plan.legTransfers?.[plannerTransportActivityKey(act, content.request)]
                   : undefined;
-                const transferOpts = act.kind === 'transport'
-                  ? plannerTransferOptions(savedActOpts?.length ? { ...act, transferOptions: savedActOpts } : act, content.request)
-                  : [];
-                const compact = isIntraCityTransferCard(act, activitiesById, day.activities);
+                const transferAct = savedActOpts?.length ? { ...act, transferOptions: savedActOpts } : act;
+                const transferOpts = plannerTransferOptions(transferAct, content.request);
+                const compact = isIntraCityTransferCard(transferAct, activitiesById, day.activities);
                 if (compact && transferOpts.length) {
                   return renderTransferBridgeHtml(transferOpts, plan.selectedTransfers?.[act.id]);
                 }
@@ -508,7 +509,7 @@ export async function exportOfflineRoadbook(plan: AiTravelPlan, tripPlan?: TripP
     try {
       let blob = await getPlannerPhotoBlob(assetId);
       if (!blob && typeof fetch === 'function') {
-        const res = await fetch(`${import.meta.env.BASE_URL}api/planner/photo-file/${assetId}`);
+        const res = await fetch(plannerApiUrl(`photo-file/${assetId}`));
         if (res.ok) blob = await res.blob();
       }
       if (blob) photoDataUrls[assetId] = await compressPhotoForHtml(blob);

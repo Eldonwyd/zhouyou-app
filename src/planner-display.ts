@@ -43,6 +43,54 @@ const MODE_LABELS: Record<PlannerTransferModeKind, string> = {
 
 const INTRA_CITY_MODES = new Set<PlannerTransferModeKind>(['walk', 'subway', 'bus', 'taxi', 'drive']);
 
+/** 首次显示时按市内出行的时间成本排序，已有手动选择时直接沿用其下标。 */
+export function plannerTransferSelection(
+  options: readonly PlannerTransferOption[],
+  people: number,
+  selectedIndex?: number,
+) {
+  const recommendedIndex = plannerRecommendedTransferIndex(options, people);
+  const hasSavedChoice = selectedIndex !== undefined && Number.isInteger(selectedIndex) && Boolean(options[selectedIndex]);
+  return { recommendedIndex, chosenIndex: hasSavedChoice ? selectedIndex : recommendedIndex };
+}
+
+function plannerRecommendedTransferIndex(options: readonly PlannerTransferOption[], people: number): number {
+  if (!options.length) return -1;
+  const markedIndex = options.findIndex((option) => option.recommended);
+  const fallbackIndex = Math.max(0, markedIndex);
+  if (options.length === 1 || options.some((option) => !INTRA_CITY_MODES.has(option.mode))) return fallbackIndex;
+
+  const partySize = Number.isFinite(people) ? Math.max(1, Math.floor(people)) : 1;
+  const shortestDistance = options.reduce((shortest, { distanceKm }) =>
+    distanceKm != null && distanceKm > 0 ? Math.min(shortest, distanceKm) : shortest, Infinity);
+  // 以分钟为单位综合比较：每人每元折合 2 分钟，步行超过 500 米后每公里加 5 分钟，已知路线每绕行 1 公里加 1 分钟。
+  // 出租车按每车 4 位乘客估算，避免大团按一辆车分摊。有缺失票价时给中等权重，避免视同免费。
+  let bestIndex = fallbackIndex;
+  let bestScore = Infinity;
+  options.forEach((option, index) => {
+    const distance = option.distanceKm != null && Number.isFinite(option.distanceKm) && option.distanceKm > 0
+      ? option.distanceKm : null;
+    const minutes = option.durationMinutes != null && Number.isFinite(option.durationMinutes) && option.durationMinutes > 0
+      ? option.durationMinutes : null;
+    // 缺少步行里程或耗时时，按约 4.5 公里/小时由另一项补估；其他方式只比较有耗时的选项。
+    const walking = option.mode === 'walk';
+    const duration = minutes ?? (walking && distance !== null ? distance * 60 / 4.5 : null);
+    if (duration === null) return;
+    const walkingKm = walking ? (distance ?? duration * 4.5 / 60) : 0;
+    const perVehicle = (option.costUnit ?? (option.mode === 'taxi' || option.mode === 'drive' ? 'vehicle' : 'person')) === 'vehicle';
+    const unitsPerPerson = perVehicle ? (option.mode === 'taxi' ? Math.ceil(partySize / 4) : 1) / partySize : 1;
+    const fareMinutes = walking ? 0 : option.costCents != null && Number.isFinite(option.costCents) && option.costCents >= 0
+      ? option.costCents / 100 * unitsPerPerson * 2 : 5;
+    const detourKm = distance === null ? 0 : distance - shortestDistance;
+    const score = duration + Math.max(0, walkingKm - 0.5) * 5 + detourKm + fareMinutes;
+    if (score < bestScore || (score === bestScore && index === fallbackIndex)) {
+      bestIndex = index;
+      bestScore = score;
+    }
+  });
+  return bestIndex;
+}
+
 export function detectTransferModes(text: string): PlannerTransferModeKind[] {
   const raw = String(text ?? '');
   const modes: PlannerTransferModeKind[] = [];
