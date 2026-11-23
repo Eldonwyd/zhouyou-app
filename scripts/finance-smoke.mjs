@@ -14,6 +14,7 @@ page.on('pageerror', (error) => pageErrors.push(error.message));
 try {
   await page.goto('http://127.0.0.1:5173/', { waitUntil: 'networkidle' });
   await page.locator('.sidebar').getByRole('button', { name: '旅行手账' }).click();
+  await page.locator('.journal-page .section-heading').getByRole('button', { name: '按省份选择城市', exact: true }).click();
   await page.locator('.province-choice-grid button').filter({ hasText: '贵州省' }).click();
   await page.locator('.city-choice-grid button').filter({ hasText: '安顺市' }).click();
   await page.getByRole('heading', { name: '安顺市 · 旅行手账' }).waitFor();
@@ -68,7 +69,7 @@ try {
   await page.locator('.province-choice-grid button').filter({ hasText: '贵州省' }).click();
   await page.locator('.city-choice-grid button').filter({ hasText: '黔南布依族苗族自治州' }).click();
   await page.locator('.journey-card').filter({ hasText: '贵州山水计划' }).waitFor();
-  await page.getByRole('button', { name: '查看全部旅行' }).click();
+  await page.getByRole('button', { name: '返回手账总览' }).click();
   await page.locator('.journey-card').filter({ hasText: '贵州山水计划' }).waitFor();
   await page.getByRole('button', { name: '旅途成就' }).click();
   assert.match(await page.locator('.metric-card').nth(1).innerText(), /0/);

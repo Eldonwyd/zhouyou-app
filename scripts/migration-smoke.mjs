@@ -61,7 +61,8 @@ try {
   await page.locator('input[type="file"][accept^=".zip"]').setInputFiles({ name: 'legacy.zip', mimeType: 'application/zip', buffer: archive });
   await page.getByText('备份已导入，旅行记录和媒体已恢复。').waitFor();
   await page.getByRole('button', { name: '旅行手账' }).click();
-  await page.getByRole('heading', { name: '太原市 · 2025-07-08' }).waitFor();
+  // 同一旅行也可能出现在欢迎页推荐区，验证手账列表里的实际记录。
+  await page.locator('.journey-card').getByRole('heading', { name: '太原市 · 2025-07-08' }).waitFor();
   process.stdout.write('IndexedDB v1 upgrade and ZIP v1 import: OK\n');
 } finally {
   await browser.close();

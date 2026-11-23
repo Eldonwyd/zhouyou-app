@@ -382,7 +382,11 @@ export async function deleteMediaRecord(id: string): Promise<void> {
 
 /** Snapshot lists lightweight metadata; photo and video Blobs are fetched on demand. */
 export async function loadSnapshot(): Promise<AppSnapshot> {
-  const [marks, entries, plans, media, badges, profile, trips, places, aiPlans, plannerPreferences] = await Promise.all(STORE_NAMES.map((name) => getAll(name)));
+  // 同一个只读事务读取关联表，避免跨标签页写入时导出不对应的旅行、地点和账本。
+  const database = await openDatabase();
+  const transaction = database.transaction(STORE_NAMES, 'readonly');
+  const [marks, entries, plans, media, badges, profile, trips, places, aiPlans, plannerPreferences]
+    = await Promise.all(STORE_NAMES.map((name) => requestResult(transaction.objectStore(name).getAll())));
   const snapshot = { marks, entries, plans, media, badges, profile, trips, places, aiPlans, plannerPreferences } as AppSnapshot;
   return { ...snapshot, aiPlans: snapshot.aiPlans.map(upgradeLegacyBookingSchedule) };
 }
@@ -624,15 +628,22 @@ export async function replaceSnapshot(snapshot: AppSnapshot, files: MediaFile[],
   const database = await openDatabase();
   const transaction = database.transaction([...STORE_NAMES, 'mediaFiles', 'mediaPreviews', 'plannerPhotoFiles'], 'readwrite');
   const completion = transactionDone(transaction);
-  for (const name of STORE_NAMES) {
-    const store = transaction.objectStore(name);
-    store.clear();
-    for (const item of snapshot[name]) store.put(item);
+  try {
+    for (const name of STORE_NAMES) {
+      const store = transaction.objectStore(name);
+      store.clear();
+      for (const item of snapshot[name]) store.put(item);
+    }
+    transaction.objectStore('mediaFiles').clear();
+    transaction.objectStore('mediaPreviews').clear();
+    for (const file of files) transaction.objectStore('mediaFiles').put(file);
+    transaction.objectStore('plannerPhotoFiles').clear();
+    for (const photo of plannerPhotos) transaction.objectStore('plannerPhotoFiles').put(photo);
+    await completion;
+  } catch (error) {
+    // put() 也可能同步抛错。显式回滚，避免之前排队的 clear() 被提交。
+    try { transaction.abort(); } catch { /* 事务可能已因写入错误而回滚。 */ }
+    await completion.catch(() => undefined);
+    throw error;
   }
-  transaction.objectStore('mediaFiles').clear();
-  transaction.objectStore('mediaPreviews').clear();
-  for (const file of files) transaction.objectStore('mediaFiles').put(file);
-  transaction.objectStore('plannerPhotoFiles').clear();
-  for (const photo of plannerPhotos) transaction.objectStore('plannerPhotoFiles').put(photo);
-  await completion;
 }

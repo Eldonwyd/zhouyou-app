@@ -1,9 +1,10 @@
 import { BlobReader, BlobWriter, TextReader, TextWriter, ZipReader, ZipWriter } from '@zip.js/zip.js';
 import type { Entry, FileEntry } from '@zip.js/zip.js';
 import type { AppSnapshot, Badge, CityMark, DayEntry, Journey, JourneyPlace, MediaFile, TravelMedia } from './types';
-import { getMediaBlob, getPlannerPhotoBlob, replaceSnapshot } from './db';
+import { getMediaBlob, getPlannerPhotoBlob, loadSnapshot, replaceSnapshot, STORE_NAMES } from './db';
 import { downloadBlob, localDay } from './utils';
 import { validatePlannerContent } from './planner-domain';
+import { upgradeLegacyBookingSchedule } from './planner-booking';
 
 interface BackupManifest {
   format: 'travel-footprints-backup';
@@ -33,8 +34,9 @@ function isFileEntry(entry: Entry | undefined): entry is FileEntry {
   return Boolean(entry && !entry.directory && 'getData' in entry);
 }
 
-/** Binary assets stay in separate ZIP members, including every original photo. */
-export async function exportBackup(snapshot: AppSnapshot): Promise<void> {
+/** 从数据库读取最新的已保存记录，再把原始媒体作为独立文件装入 ZIP。 */
+export async function exportBackup(): Promise<void> {
+  const snapshot = await loadSnapshot();
   const photoIds = plannerPhotoIds(snapshot);
   const manifest = {
     format: 'travel-footprints-backup', version: 3, exportedAt: new Date().toISOString(),
@@ -105,9 +107,24 @@ function upgradeLegacyData(data: BackupManifest['data']): AppSnapshot {
   return { ...old, entries, media, trips: [...trips.values()], places };
 }
 
-/** Validate every file and relationship before replacing the browser database. */
-export async function importBackup(file: File): Promise<AppSnapshot> {
-  const reader = new ZipReader(new BlobReader(file));
+/** 照片编号是内容的 SHA-256。手机通过局域网 HTTP 打开时，浏览器可能不提供 SubtleCrypto。 */
+async function plannerPhotoDigest(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const digest = globalThis.crypto?.subtle
+    ? new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', bytes))
+    : (await import('fast-sha256')).hash(bytes);
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+/** 先读取和校验备份，确认后再用一个事务替换本机数据。 */
+export async function importBackup(
+  file: File,
+  confirmReplace: (snapshot: AppSnapshot) => boolean,
+): Promise<AppSnapshot | null> {
+  const reader = new ZipReader(new BlobReader(file), { checkSignature: true });
+  let snapshot: AppSnapshot;
+  const files: MediaFile[] = [];
+  const plannerPhotos: MediaFile[] = [];
   try {
     const entries = await reader.getEntries();
     const byName = new Map(entries.map((entry) => [entry.filename, entry]));
@@ -156,7 +173,6 @@ export async function importBackup(file: File): Promise<AppSnapshot> {
         }
       }
     }
-    const files: MediaFile[] = [];
     for (const media of normalized.media) {
       const member = byName.get(`media/${media.id}`);
       if (!isFileEntry(member)) throw new Error(`备份缺少媒体文件 ${media.fileName}`);
@@ -170,12 +186,11 @@ export async function importBackup(file: File): Promise<AppSnapshot> {
       badges.push({ id: badge.id, title: badge.title, linkedEntryId: badge.linkedEntryId,
         createdAt: badge.createdAt, image });
     }
-    const snapshot: AppSnapshot = { ...normalized, badges };
-    for (const rows of [snapshot.marks, snapshot.entries, snapshot.plans, snapshot.media,
-      snapshot.badges, snapshot.trips, snapshot.places, snapshot.aiPlans, snapshot.plannerPreferences]) {
+    snapshot = { ...normalized, badges, aiPlans: normalized.aiPlans.map(upgradeLegacyBookingSchedule) };
+    for (const name of STORE_NAMES) {
       const ids = new Set<string>();
-      for (const row of rows) {
-        if (typeof row.id !== 'string' || !row.id || ids.has(row.id)) throw new Error('备份包含无效或重复的记录 ID');
+      for (const row of snapshot[name]) {
+        if (!row || typeof row.id !== 'string' || !row.id || ids.has(row.id)) throw new Error('备份包含无效或重复的记录 ID');
         ids.add(row.id);
       }
     }
@@ -188,22 +203,20 @@ export async function importBackup(file: File): Promise<AppSnapshot> {
       throw new Error('备份中的旅行、账单与地点关联不完整');
     }
     const photoIds = plannerPhotoIds(snapshot);
-    const plannerPhotos: MediaFile[] = [];
     for (const id of photoIds) {
       if (!/^[a-f\d]{64}$/.test(id)) throw new Error('备份中的行程照片编号无效');
       const member = byName.get(`planner-photos/${id}.webp`);
       if (!isFileEntry(member) || member.uncompressedSize > 8 * 1024 * 1024) throw new Error('备份中的行程照片缺失或过大');
       const blob = await member.getData(new BlobWriter('image/webp'));
-      const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
-      const actualId = [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, '0')).join('');
-      if (actualId !== id) throw new Error('备份中的行程照片已损坏');
+      if (await plannerPhotoDigest(blob) !== id) throw new Error('备份中的行程照片已损坏');
       const bitmap = await createImageBitmap(blob);
       bitmap.close();
       plannerPhotos.push({ id, blob });
     }
-    await replaceSnapshot(snapshot, files, plannerPhotos);
-    return snapshot;
   } finally {
     await reader.close();
   }
+  if (!confirmReplace(snapshot)) return null;
+  await replaceSnapshot(snapshot, files, plannerPhotos);
+  return snapshot;
 }
