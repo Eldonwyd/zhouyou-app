@@ -247,30 +247,33 @@ export default function App() {
 
   return <div className={`app-shell${page === 'map' ? ' is-map-page' : ''}`}>
     <aside className="sidebar">
-      <div className="brand"><div className="brand-symbol">旅</div><div><strong>旅行足迹</strong><span>自己的旅行小册子</span></div></div>
-      <nav aria-label="主导航">{NAV_ITEMS.map((item) => <button key={item.id} className={`nav-item nav-${item.id} ${page === item.id ? 'active' : ''}`} aria-current={page === item.id ? 'page' : undefined} onClick={() => openPage(item.id)}><span className="nav-icon"><TravelIcon name={item.id} /></span>{item.label}</button>)}</nav>
-      <div className="sidebar-postcard cute-deco" aria-hidden="true">
-        <div className="sidebar-postcard-frame"><TravelCover label="" /></div>
+      <div className="brand">
+        {/* 复用导航中的折叠地图图标，沿用品牌贴纸随主题切换的配色。 */}
+        <div className="brand-symbol"><TravelIcon name="map" /></div>
+        <div><strong>周游地图</strong><span>自己的旅行小册子</span></div>
       </div>
-      <div className="sidebar-doodle cute-deco" aria-hidden="true">
-        <svg className="sidebar-doodle-trail" viewBox="0 0 180 76" fill="none">
-          <path d="M18 58C44 26 78 24 108 42C128 54 148 44 162 20" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="3.5 4.5" opacity="0.45" />
-          <path d="M156 17l10-3-4 10-2.5-3.5L156 17Z" fill="var(--warm-green)" opacity="0.85" />
-          <circle cx="34" cy="24" r="2.2" fill="#f7b267" opacity="0.7" />
-          <circle cx="96" cy="18" r="1.8" fill="#7dc9b8" opacity="0.75" />
-          <circle cx="136" cy="58" r="2.2" fill="#f28482" opacity="0.65" />
-        </svg>
-        <CuteSticker kind="cloud" className="sidebar-doodle-item is-cloud" />
-        <CuteSticker kind="sparkle" className="sidebar-doodle-item is-sparkle" />
-        <CuteSticker kind="suitcase" className="sidebar-doodle-item is-suitcase" />
-        <CuteSticker kind="compass" className="sidebar-doodle-item is-compass" />
-        {/* 小邮戳和热气球沿用侧栏插画组件，和下面的路线组成一组贴纸。 */}
-        <CuteSticker kind="stamp" className="sidebar-doodle-item is-postmark" />
-        <TravelAvatar avatarId="balloon" nickname="" className="sidebar-doodle-item is-balloon" />
+      <nav aria-label="主导航">{NAV_ITEMS.map((item) => <button key={item.id} className={`nav-item nav-${item.id} ${page === item.id ? 'active' : ''}`} aria-current={page === item.id ? 'page' : undefined} onClick={() => openPage(item.id)}><span className="nav-icon"><TravelIcon name={item.id} /></span>{item.label}</button>)}</nav>
+      {/* 明信片和路线贴纸共用一块装饰区域，侧栏变高时一起移动。 */}
+      <div className="sidebar-art cute-deco" aria-hidden="true">
+        <div className="sidebar-postcard-frame"><TravelCover label="" /></div>
+        <div className="sidebar-doodle">
+          <svg className="sidebar-doodle-trail" viewBox="0 0 180 70" fill="none">
+            <path d="M12 53C36 26 67 23 98 39C125 53 148 43 164 21" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="3.5 4.5" opacity="0.45" />
+            <path d="m159 19 10-4-4 10-2-4z" fill="var(--warm-green)" opacity="0.85" />
+            <circle cx="32" cy="22" r="2.2" fill="#f7b267" opacity="0.7" />
+            <circle cx="95" cy="22" r="1.8" fill="#7dc9b8" opacity="0.75" />
+          </svg>
+          <CuteSticker kind="cloud" className="sidebar-doodle-item is-cloud" />
+          <CuteSticker kind="sparkle" className="sidebar-doodle-item is-sparkle" />
+          <CuteSticker kind="suitcase" className="sidebar-doodle-item is-suitcase" />
+          <CuteSticker kind="compass" className="sidebar-doodle-item is-compass" />
+          <CuteSticker kind="stamp" className="sidebar-doodle-item is-postmark" />
+          <TravelAvatar avatarId="balloon" nickname="" className="sidebar-doodle-item is-balloon" />
+        </div>
       </div>
       <div className="sidebar-footer"><span className="footer-dot" />本机保存 · 离线地图</div>
     </aside>
-    <div className="main-shell"><header className="topbar"><div><strong>{NAV_ITEMS.find((item) => item.id === page)?.label}</strong><span>把走过的路，留在地图上</span></div><div className="topbar-right"><ThemeSwitch /><span className="local-pill">本机版</span><button type="button" className="topbar-avatar-btn" aria-label={activeProfile?.nickname || '旅行者'} title="打开个人中心" onClick={() => openPage('profile')}><TravelAvatar avatarId={activeProfile?.avatar} nickname={activeProfile?.nickname || '旅行者'} className="avatar" /></button></div></header>
+    <div className="main-shell"><header className="topbar"><div className="topbar-title"><button type="button" className="topbar-mobile-brand" onClick={() => openPage('map')} aria-label="周游地图，返回地图足迹"><span className="brand-symbol topbar-brand-symbol" aria-hidden="true"><TravelIcon name="map" /></span><span className="topbar-brand-text"><b>周游地图</b><small>{NAV_ITEMS.find((item) => item.id === page)?.label}</small></span></button><strong className="topbar-page-title">{NAV_ITEMS.find((item) => item.id === page)?.label}</strong><span>把走过的路，留在地图上</span></div><div className="topbar-right"><ThemeSwitch /><span className="local-pill">本机版</span><button type="button" className="topbar-avatar-btn" aria-label={activeProfile?.nickname || '旅行者'} title="打开个人中心" onClick={() => openPage('profile')}><TravelAvatar avatarId={activeProfile?.avatar} nickname={activeProfile?.nickname || '旅行者'} className="avatar" /></button></div></header>
       <main>{!ready ? <div className="empty-state">正在读取本机旅行数据…</div> : <>
         {/* 保持规划组件挂载，让 AI 请求和小红书解析在浏览其他页面时继续。 */}
         {plannerOpened && <div hidden={page !== 'plan'}>
@@ -282,7 +285,7 @@ export default function App() {
         {page === 'map' && <MapView marks={effectiveMarks} activeProvinceCode={activeProvinceCode} setActiveProvinceCode={setActiveProvinceCode} onSelectCity={selectCity} onError={showError} onRecommendProvince={recommendProvince} />}
         {page === 'detail' && <DetailView city={selectedCity} marks={effectiveMarks} entries={snapshot.entries} media={snapshot.media} trips={snapshot.trips} aiPlans={snapshot.aiPlans} places={snapshot.places} targetEntryId={targetEntryId} targetPlaceId={targetPlaceId} onSaveEntry={saveEntry} onSaveMedia={saveMedia} onSaveMediaGroup={saveMediaGroup} onUpdateMedia={updateMedia} onDeleteMedia={deleteMedia} onSaveTrip={saveTrip} onSavePlace={savePlace} onSaveCityMark={saveMark} onUpdateMark={updateSelectedMark} onError={showError} onNotice={showNotice} />}
         {page === 'achievements' && <AchievementsView marks={effectiveMarks} entries={snapshot.entries} trips={snapshot.trips} media={snapshot.media} badges={snapshot.badges} onSaveBadge={saveBadge} onOpenEntry={openEntry} onError={showError} onNotice={showNotice} />}
-        {page === 'profile' && <ProfileView snapshot={snapshot} onSaveProfile={saveProfile} onImported={(data) => {
+        {page === 'profile' && <ProfileView snapshot={snapshot} activeProvinceCode={activeProvinceCode} onSaveProfile={saveProfile} onImported={(data) => {
           // 恢复备份会替换行程数据，清除上一份数据上打开的规划会话。
           setPlannerOpened(false);
           setSnapshot(data);

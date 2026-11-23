@@ -1,0 +1,603 @@
+/* 折叠区在桌面直接排列原有子元素，手机上通过按钮保留所有入口。 */
+button.mobile-disclosure-toggle,
+.map-zoom-phone { display: none; }
+div.mobile-disclosure-body,
+.planner-service-panel { display: contents; }
+
+/* 点击切换类控件仅在键盘导航时显示焦点框，避免触摸点击后残留红色外框误导选中态。 */
+:is(.nav-item, .planner-tabs button, .map-province-filter button, .mobile-disclosure-toggle, .appearance-mode button, .primary, .secondary, .topbar-mobile-brand):focus:not(:focus-visible) {
+  outline: none;
+}
+:is(.nav-item, .planner-tabs button, .map-province-filter button, .mobile-disclosure-toggle, .appearance-mode button):focus:not(:focus-visible) {
+  box-shadow: none;
+}
+
+@media (max-width: 850px) {
+  /* 保持纵向滚动槽一致且极细，避免在短页与长页之间切页时底栏按钮发生 2px 水平抖动。 */
+  html { overflow-y: scroll; }
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+
+  /* 移动端顶栏展示轻巧品牌标识，避免与页面 H1 大标题重复。 */
+  .topbar {
+    height: 56px;
+    padding: 0 14px;
+    z-index: 25;
+  }
+  .topbar-page-title { display: none; }
+  .topbar .topbar-mobile-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 4px 6px 4px 0;
+    border: 0;
+    background: none;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: left;
+  }
+  /* 覆盖 style.css 窄屏下隐藏 .topbar span 的旧规则，让手机顶栏品牌图标与名称稳定可见。 */
+  .topbar .topbar-mobile-brand span.topbar-brand-symbol {
+    display: inline-grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    margin-left: 0;
+    color: #fffefa;
+    flex: none;
+  }
+  .topbar .topbar-mobile-brand span.topbar-brand-symbol .travel-icon { width: 18px; height: 18px; }
+  .topbar .topbar-mobile-brand span.topbar-brand-text {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-left: 0;
+  }
+  .topbar .topbar-mobile-brand .topbar-brand-text b {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+  }
+  .topbar .topbar-mobile-brand .topbar-brand-text small { display: none; }
+  .topbar-right { gap: 8px; }
+  .topbar .theme-switch {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    justify-content: center;
+  }
+  .topbar .theme-switch .theme-switch-label { display: none; }
+  .topbar .avatar { width: 38px; height: 38px; }
+
+  /* 底部导航栏：去掉生硬整格边框，采用“柔和图标胶囊 + 清晰文字高亮”，适配安全区并遮罩底边。 */
+  .app-shell .sidebar {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 30;
+    width: 100%;
+    height: auto;
+    min-height: 68px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    border-right: 0;
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -6px 20px -8px rgba(0, 0, 0, .12);
+    backdrop-filter: blur(18px) saturate(1.3);
+  }
+  .app-shell .sidebar nav {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 2px;
+    height: auto;
+  }
+  .main-shell {
+    padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+  .app-shell .sidebar .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 54px;
+    padding: 3px 0;
+    gap: 3px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.2;
+    box-shadow: none;
+  }
+  .app-shell .sidebar .nav-item:hover { transform: none; background: transparent; color: var(--ink); }
+  .app-shell .sidebar .nav-item .nav-icon {
+    width: 44px;
+    height: 28px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    transition: transform .2s cubic-bezier(.34, 1.56, .64, 1), background-color .18s ease, color .18s ease, box-shadow .18s ease;
+  }
+  .app-shell .sidebar .nav-item:not(.active) .nav-icon {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    box-shadow: none;
+  }
+  .app-shell .sidebar .nav-item .nav-icon .travel-icon { width: 20px; height: 20px; }
+  .app-shell .sidebar .nav-item.active {
+    background: transparent;
+    color: var(--ink);
+    font-weight: 700;
+    box-shadow: none;
+  }
+  .app-shell .sidebar .nav-item.active .nav-icon { transform: translateY(-1px); }
+  .app-shell .sidebar .nav-item.nav-map.active .nav-icon { background: var(--app-sage); color: var(--app-sage-ink); }
+  .app-shell .sidebar .nav-item.nav-plan.active .nav-icon { background: var(--app-blue); color: var(--app-blue-ink); }
+  .app-shell .sidebar .nav-item.nav-detail.active .nav-icon { background: var(--app-peach); color: var(--app-peach-ink); }
+  .app-shell .sidebar .nav-item.nav-achievements.active .nav-icon { background: var(--app-honey); color: var(--app-honey-ink); }
+  .app-shell .sidebar .nav-item.nav-profile.active .nav-icon { background: var(--app-lilac); color: var(--app-lilac-ink); }
+  .app-shell .sidebar .nav-item:focus-visible,
+  .planner-tabs button:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
+  }
+
+  /* 地图页抬头统一左对齐，与其余四页保持一致阅读基线。 */
+  .map-heading-main {
+    text-align: left;
+    gap: 3px;
+  }
+}
+
+@media (max-width: 600px) {
+  /* 各页沿用同一侧边距，给表单、卡片和列表多留一些横向空间。 */
+  .main-shell :is(.content-page, .map-page) { padding: 14px 14px 24px; }
+  .main-shell .content-page > .section-heading { margin-bottom: 12px; gap: 10px; }
+  .main-shell .content-page > .section-heading h1 {
+    font-size: clamp(23px, 6.4vw, 27px);
+    text-wrap: balance;
+  }
+  .main-shell .content-page > .section-heading p,
+  .empty-state p,
+  .postcard-desc,
+  .highlight-empty-copy p,
+  .profile-privacy-note,
+  .warm-profile-banner .profile-motto,
+  .warm-badges .card-heading p,
+  .backup-card > p,
+  .warm-storage > p {
+    line-height: 1.58;
+    text-wrap: pretty;
+  }
+  .empty-state h2,
+  .postcard-info h2,
+  .highlight-empty-copy h3 {
+    text-wrap: balance;
+  }
+  /* 移动端触屏隐藏浏览器原生多行文本框缩放角标。 */
+  textarea, .planner-workspace textarea { resize: none; }
+
+  button.mobile-disclosure-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-height: 42px;
+    margin: 0;
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-2);
+    color: var(--ink);
+    text-align: start;
+    font: 650 13px/1.35 var(--ui-sans);
+  }
+  .mobile-disclosure-toggle > span { flex: 1; }
+  .mobile-disclosure-toggle > small {
+    min-width: 0;
+    max-width: 46%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .mobile-disclosure-toggle::after {
+    content: "";
+    flex: 0 0 7px;
+    height: 7px;
+    border: solid currentColor;
+    border-width: 0 1.5px 1.5px 0;
+    transform: translateY(-2px) rotate(45deg);
+    opacity: .72;
+  }
+  .mobile-disclosure-toggle[aria-expanded="true"]::after { transform: translateY(2px) rotate(225deg); }
+  div.mobile-disclosure-body[data-expanded="false"] { display: none; }
+
+  /* 首页地图紧凑构图：保持地图清晰可点，同时让「足迹总览」完整进入首屏。 */
+  .map-zoom-desktop { display: none; }
+  .map-zoom-phone { display: inline; }
+  .main-shell .map-page { padding: 12px 12px 22px; }
+  .map-page > .map-heading { margin-bottom: 10px; }
+  .map-page > .map-heading h1 { font-size: 24px; line-height: 1.25; }
+  .map-page > .map-heading p { font-size: 12px; }
+  .map-page .map-layout { gap: 12px; }
+  .map-page .map-card { min-height: 0; }
+  .map-page .map-toolbar { top: 10px; left: 10px; right: 10px; }
+  .map-page .map-canvas { height: clamp(320px, 43dvh, 390px); }
+  .map-page .map-control-group button { min-width: 36px; height: 34px; }
+  .map-page .map-bottom { flex-flow: row wrap; align-items: center; gap: 4px 10px; padding: 7px 12px; }
+  .map-page .map-side { padding: 14px; gap: 11px; }
+  .map-page .map-province-filter button { height: 38px; }
+  .map-page .province-list { gap: 7px; }
+  .map-page .province-list button { height: 36px; border-radius: 11px; }
+
+  /* 行程规划：精简头部堆叠高度，让核心表单在首屏露出更多内容。 */
+  .planner-chrome { padding: 10px 14px 0; }
+  .planner-chrome[data-tools-expanded="false"] .planner-service-panel { display: none; }
+  .planner-chrome .planner-chrome-bar { margin-bottom: 0; gap: 8px; }
+  .planner-tabs { padding: 4px; gap: 4px; }
+  .planner-tabs button { padding: 8px 4px; min-height: 36px; font-size: 12.5px; }
+  .planner-service-toggle { min-height: 38px; padding: 5px 12px; }
+  .planner-chrome .planner-ai-status { margin: 8px 0 0; }
+  .planner-chrome .planner-banner { margin: 8px 0 0; }
+  .planner-workspace > .content-page { padding-top: 12px; padding-bottom: 56px; }
+  .planner-itinerary-heading { margin-bottom: 12px !important; align-items: center !important; }
+  .planner-itinerary-heading > .primary { padding: 8px 14px; min-height: 38px; font-size: 12.5px; }
+  /* 行程总览操作区改为规整双列栅格，消除右侧参差留白；折叠态 AI 助手与行程地图收紧纵向空隙。 */
+  .planner-overview { padding: 15px 14px; gap: 12px; margin-bottom: 14px; }
+  .planner-overview-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+  .planner-overview-actions > button {
+    width: 100%;
+    min-height: 38px;
+    padding: 7px 8px;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    justify-content: center;
+  }
+  .planner-overview-actions > .text-button {
+    min-height: 32px;
+    padding: 4px 6px;
+    text-align: center;
+  }
+  .planner-chat-top { padding: 12px 14px; margin-bottom: 14px; }
+  .planner-chat-heading { gap: 8px 10px; }
+  .planner-chat-heading h2 { font-size: 16px; }
+  .planner-map { padding: 14px; margin: 12px 0 16px; }
+  .planner-map-heading { gap: 10px; }
+  .planner-map-heading h2 { font-size: 17px; margin: 0 0 3px; }
+  .planner-map-heading p { margin: 0; line-height: 1.5; }
+  .planner-map-heading .planner-map-actions { margin: 0; width: 100%; }
+  .planner-map-heading .planner-map-actions > button { min-height: 38px; padding: 7px 16px; font-size: 12.5px; }
+  .planner-ai-launcher { bottom: 82px; right: 12px; padding: 9px 14px; font-size: 12px; }
+  .planner-create .mobile-disclosure-toggle[aria-expanded="true"] { margin-bottom: 8px; }
+
+  /* 1. 移动端竖版旅程登机牌 + 底部可撕式出发提醒副券 */
+  .planner-overview-timeline {
+    padding: 0;
+    gap: 0;
+    border-radius: min(var(--tl-radius, 20px), 20px);
+  }
+  .planner-trip-timeline {
+    padding: 13px 13px 12px;
+    gap: 10px;
+  }
+  .planner-trip-sky-doodle {
+    width: 144px;
+    top: 2px;
+    right: 6px;
+    opacity: .38;
+  }
+  .planner-trip-clock {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .planner-trip-status {
+    gap: 10px;
+    align-items: center;
+  }
+  .planner-trip-sticker {
+    flex: 0 0 46px;
+    width: 46px;
+    height: 46px;
+    border-radius: 15px;
+    padding: 3px;
+  }
+  .planner-trip-status h3 {
+    font-size: 16.5px;
+  }
+  .planner-trip-state-pill {
+    padding: 2px 7.5px;
+    font-size: 10.5px;
+  }
+  .planner-trip-status p {
+    margin-top: 2px;
+    font-size: 11.5px;
+  }
+  .planner-trip-device-time {
+    align-self: flex-start;
+    padding: 3.5px 9px;
+    font-size: 10.5px;
+  }
+  .planner-trip-days {
+    grid-auto-columns: minmax(90px, 1fr);
+    gap: 10px;
+    padding: 2px 1px 5px;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .planner-trip-days::-webkit-scrollbar { display: none; }
+  .planner-trip-days > li { scroll-snap-align: start; }
+  .planner-trip-days > li:not(:last-child)::after {
+    left: calc(100% + 1px);
+    width: 8px;
+    background:
+      radial-gradient(circle at 2px 3px, var(--tl-peach-ink) 1.5px, transparent 1.7px),
+      radial-gradient(circle at 6px 3px, var(--tl-sky-ink) 1.5px, transparent 1.7px);
+  }
+  .planner-trip-day-link {
+    padding: 0;
+    border-radius: min(var(--tl-card-radius, 14px), 14px);
+  }
+  .planner-trip-day-link:hover { transform: none; }
+  .planner-trip-day-head {
+    padding: 5.5px 7px 5px;
+    gap: 4px;
+  }
+  .planner-trip-day-num { display: none; }
+  .planner-trip-day-stamp {
+    width: 17px;
+    height: 17px;
+    flex-basis: 17px;
+    font-size: 9.5px;
+  }
+  .planner-trip-day-head time {
+    margin-left: auto;
+    padding: 1px 6px;
+    font-size: 10px;
+  }
+  .planner-trip-day-body {
+    padding: 6.5px 7px 7.5px;
+    gap: 6px;
+  }
+  .planner-trip-day-meta {
+    gap: 4px;
+    justify-content: flex-start;
+  }
+  .planner-trip-day-art {
+    width: 16px;
+    height: 16px;
+    flex-basis: 16px;
+  }
+  .planner-trip-day-title { display: none; }
+  .planner-trip-day-num-mobile {
+    display: inline;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+  .planner-trip-day-track { height: 6px; }
+  .planner-trip-day-pin { width: 11px; height: 11px; border-width: 2px; }
+
+  .planner-calendar-export {
+    padding: 11px 13px 12px;
+    gap: 7px;
+    border-radius: 0;
+  }
+  .planner-calendar-stub-head { gap: 5px; }
+  .planner-calendar-charm { width: 20px; height: 20px; flex-basis: 20px; }
+  .planner-calendar-stub-title { font-size: 11px; }
+  .planner-calendar-controls {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 7px;
+  }
+  .planner-calendar-export label {
+    padding: 3px 5px 3px 9px;
+    font-size: 11.5px;
+    gap: 5px;
+    flex: 0 0 auto;
+  }
+  .planner-calendar-export select {
+    height: 26px;
+    min-width: 52px;
+    padding: 1px 6px;
+    font-size: 11.5px;
+  }
+  .planner-calendar-export button.planner-calendar-btn {
+    min-height: 34px;
+    height: 34px;
+    padding: 4px 12px;
+    font-size: 11.5px;
+    gap: 5px;
+    flex: 1 1 132px;
+  }
+  .planner-calendar-export button .travel-icon { width: 13px; height: 13px; flex-basis: 13px; }
+  .planner-calendar-hint { font-size: 10.5px; line-height: 1.35; text-align: left; }
+
+  /* 2. 市内交通卡片：改为“头行 + 通栏横向信息胶囊 + 通栏步行提示”，彻底消除细长竖排留白。 */
+  .planner-transfer-bridge-summary { padding: 6px 8px; gap: 4px; }
+  .planner-transfer-option {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px 8px;
+    padding: 9px 10px;
+  }
+  .planner-transfer-option-body,
+  .planner-transfer-option-main { display: contents; }
+  .planner-transfer-badge {
+    grid-column: 1;
+    grid-row: 1;
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+  }
+  .planner-transfer-title-group {
+    grid-column: 2;
+    grid-row: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 6px;
+    min-width: 0;
+  }
+  .planner-transfer-option-title { font-size: 13px; }
+  .planner-transfer-rec,
+  .planner-transfer-selected-tag { padding: 1px 6px; font-size: 10.5px; }
+  .planner-transfer-switch-pill,
+  .planner-transfer-check {
+    grid-column: 3;
+    grid-row: 1;
+    margin-left: 0;
+  }
+  .planner-transfer-switch-pill { padding: 3px 8px; font-size: 11px; }
+  .planner-transfer-meta-group {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px 6px;
+  }
+  .planner-transfer-stations,
+  .planner-transfer-metric { padding: 2px 8px; font-size: 11.5px; }
+  .planner-transfer-note {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    font-size: 11.5px;
+    line-height: 1.45;
+    margin-top: -1px;
+  }
+
+  /* 3. 行程活动操作栏：统一单行排布、清晰完整文案（详细攻略 / 高德地图 / 编辑 / AI 微调 / 锁定 / 收藏）不折两行。 */
+  .planner-activity-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .planner-activity-actions::-webkit-scrollbar { display: none; }
+  .planner-activity-actions > :is(button, a) {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-size: 11.5px;
+    padding: 3px 1px;
+  }
+  .planner-journal-row { margin-top: 6px; }
+  .planner-journal-action { padding: 4px 11px; font-size: 11.5px; }
+
+  /* 4. 全站移动端留白统一收紧：消除各卡片与模块之间的多余空白。 */
+  .empty-state { padding: 26px 14px; }
+  .planner-create, .planner-discovery-form { padding: 14px; margin-bottom: 14px; }
+  .planner-day { margin-bottom: 20px; }
+  .planner-day-heading { margin: 4px 0 12px; gap: 10px; }
+  .planner-day-heading h2 { font-size: 18px; margin-bottom: 2px; }
+  .planner-period h3 { margin: 10px 0 8px; }
+  .planner-activity-content { padding: 13px 14px; }
+  .planner-notes { margin: 10px 0; padding: 10px 12px; }
+  .planner-sidebar { gap: 12px; }
+  .planner-sidebar > .card { padding: 14px; }
+  .map-province-hero { padding: 11px 12px; gap: 7px; }
+  .warm-profile-banner { margin-bottom: 14px; }
+  .warm-profile .profile-grid { gap: 14px; }
+  .warm-profile .profile-grid > .card { padding: 15px 14px; }
+  .warm-badges .badge-card { padding: 28px 10px 12px; }
+  .warm-record-filter { margin-bottom: 12px; }
+  .finance-page .finance-journeys { padding: 14px; }
+  /* 手机可直接从底部导航进入手账，预算页留给行程选择与记账。 */
+  .finance-page .finance-create-journey { display: none; }
+  .finance-page .finance-journeys > .empty-state { padding: 18px 8px; }
+  .finance-page .finance-journey-grid,
+  .finance-page .planner-grid { margin-top: 10px; }
+  .finance-page .planner-summary { grid-row: 1; }
+
+  /* 手账：平衡顶部操作按钮重量，强化明信片与手账便签氛围。 */
+  .journal-page > .section-heading .heading-actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .journal-page > .section-heading .heading-actions > button {
+    min-height: 40px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+  }
+  .journal-page .compact-journal-hero { gap: 12px; margin-bottom: 14px; }
+  .journal-page .warm-featured.compact-postcard {
+    grid-template-columns: clamp(92px, 28vw, 112px) minmax(0, 1fr);
+    min-height: 128px;
+  }
+  .journal-page .postcard-thumb-frame { min-height: 108px; }
+  .journal-page .compact-note-card { gap: 10px; padding: 12px; }
+  .journal-page .compact-note-card > .mobile-disclosure-toggle {
+    min-height: 38px;
+    padding: 6px 10px;
+    border-style: dashed;
+    background: color-mix(in srgb, var(--app-peach) 42%, var(--surface));
+  }
+  .journal-page .compact-note-card > .mobile-disclosure-toggle > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+  }
+  .journal-page .compact-note-card > .mobile-disclosure-toggle > span::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--app-peach-ink);
+    flex: none;
+  }
+  .journal-page .warm-memory-counts.compact-counts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    margin: 0;
+    padding-top: 0;
+    border: 0;
+  }
+  .journal-page .warm-memory-counts dd { font-variant-numeric: tabular-nums; }
+  .journal-page .journal-empty-card { min-height: 0; padding: 14px; }
+  .journal-page :is(.journal-trip-hero, .city-record-hero, .upload-station) { padding: 16px; }
+
+  /* 成就、个人中心：风格工坊直接以横向预览卡展示，离线地图维持简洁折叠条。 */
+  .warm-achievements .warm-badges .card-heading > div > p { margin-block: 4px; }
+  .warm-achievements .badge-wall-actions { gap: 6px; }
+  .warm-achievements .badge-grid[data-expanded="false"] > .preset-badge:nth-child(n + 5) { display: none; }
+  .warm-achievements .badge-wall-toggle { margin-top: 10px; }
+  .warm-profile > .profile-offline-maps { margin-bottom: 14px; padding: 10px 12px; }
+  .warm-profile > .profile-offline-maps > .card-heading { display: none; }
+  .warm-profile .profile-offline-maps .mobile-disclosure-toggle {
+    border: 0;
+    background: transparent;
+    padding-inline: 4px;
+  }
+  .warm-profile .profile-offline-map-controls { grid-template-columns: minmax(0, 1fr); }
+  .warm-profile .profile-offline-map-controls > button { min-height: 44px; }
+}
+
+/* 320px 超窄屏兜底：确保市级地图返回按钮与缩放控件之间留出清晰间隔，不发生重叠。 */
+@media (max-width: 375px) {
+  .map-page .map-back-button { height: 32px; padding: 0 9px; font-size: 11.5px; }
+  .map-page .map-level-chip { padding: 5px 9px; font-size: 11px; }
+  .map-page .map-control-group button { min-width: 30px; height: 32px; padding: 0 5px; font-size: 12.5px; }
+}

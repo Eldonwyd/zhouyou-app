@@ -1,23 +1,28 @@
 import { useEffect, useState } from 'react';
+import { plannerApiUrl } from '../api-base';
 import { getMediaPreview, getPlannerPhotoBlob } from '../db';
 import type { AiTravelPlan, PlannerPhoto } from '../planner-types';
-import { TravelIcon } from './TravelArt';
+import northPostcards from '../city-postcards-north.webp';
+import southPostcards from '../city-postcards-south.webp';
+import shandongPostcards from '../city-postcards-shandong.webp';
+import genericPostcards from '../city-postcards-generic.webp';
+import { IllustratedJourneyCover } from './CuteArt';
 
 // 每一行按图集从左到右排列。只有明确对应的行政区划代码才使用地标插画。
 const CITY_ART_SHEETS = {
-  north: [
+  [northPostcards]: [
     '110100', '120100', '130300', '140200',
     '150700', '150500', '210100', '211200',
     '220600', '220200', '220400', '220300',
     '220500', '222400', '220100', '231000',
   ],
-  south: [
+  [southPostcards]: [
     '310100', '320100', '320500', '320200',
     '321000', '321100', '330100', '330600',
     '340100', '341000', '440100', '440300',
     '610100', '610400', '610300', '610600',
   ],
-  shandong: [
+  [shandongPostcards]: [
     '370700', '370100', '370200', '370300',
     '370600', '371000', '370900', '371100',
     '370800', '371300', '370500', '370400',
@@ -29,6 +34,18 @@ const CITY_CODE_ALIASES: Readonly<Record<string, string>> = {
 const cityArt = new Map(Object.entries(CITY_ART_SHEETS).flatMap(([sheet, cities]) =>
   cities.map((code, tile) => [code, { sheet, tile }] as const),
 ));
+
+type CoverIllustration = { sheet: string; tile: number };
+
+/** 用行政区划代码稳定分配通用风景，新增城市无需维护配图表。 */
+function genericCityIllustration(cityCode: string): CoverIllustration {
+  let hash = 2166136261;
+  for (const character of cityCode) {
+    hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
+  }
+  // 取 FNV-1a 哈希的高四位，映射到图集的 16 格。
+  return { sheet: genericPostcards, tile: hash >>> 28 };
+}
 
 /** 先选行程里的景点照片，加载失败时仍可尝试预订或餐饮等活动的已存照片。 */
 export function findJournalPlannerPhotos(plans: AiTravelPlan[]): Map<string, PlannerPhoto[]> {
@@ -83,7 +100,7 @@ function PlannerCoverPhoto({ photo, onUnavailable }: { photo: PlannerPhoto; onUn
   }, [assetId]);
 
   // 离线优先读取已验证的本地照片；旧行程还可以使用服务端缓存或保存的原图地址。
-  const serverSrc = assetId ? `${import.meta.env.BASE_URL}api/planner/photo-file/${assetId}` : '';
+  const serverSrc = assetId ? plannerApiUrl(`photo-file/${assetId}`) : '';
   const sources = [...new Set([localSrc, serverSrc, url].filter(Boolean))];
   const src = sources[sourceIndex];
   if (!src || localSrc === null) return null;
@@ -99,19 +116,36 @@ function PlannerCoverPhotos({ photos }: { photos: PlannerPhoto[] }) {
   return photo ? <PlannerCoverPhoto key={photoIndex} photo={photo} onUnavailable={() => setPhotoIndex(photoIndex + 1)} /> : null;
 }
 
-/** 城市卡、置顶明信片和旅行卡共享封面；未配图的城市使用中性地图图案。 */
+/** 每张图集为四行四列，裁出城市对应的一格，再由封面容器居中裁切。 */
+function CityCoverIllustration({ preferred, fallback }: {
+  preferred: CoverIllustration | undefined;
+  fallback: CoverIllustration;
+}) {
+  const [current, setCurrent] = useState<CoverIllustration | null>(preferred ?? fallback);
+  if (!current) return null;
+  const { sheet, tile } = current;
+  return (
+    <span className="journal-cover-illustration">
+      <img key={sheet} src={sheet} alt="" loading="lazy"
+        onError={() => setCurrent(sheet === fallback.sheet ? null : fallback)}
+        style={{ left: `${-(tile % 4) * 100}%`, top: `${-Math.floor(tile / 4) * 100}%` }} />
+    </span>
+  );
+}
+
+/** 城市卡、置顶明信片和旅行卡共享照片、地标插画和通用风景。 */
 export default function JournalCover({ cityCode, photoId, plannerPhotos }: {
   cityCode?: string;
   photoId?: string;
   plannerPhotos?: PlannerPhoto[];
 }) {
-  const illustration = cityCode ? cityArt.get(CITY_CODE_ALIASES[cityCode] ?? cityCode) : undefined;
+  const cityKey = cityCode ? CITY_CODE_ALIASES[cityCode] ?? cityCode : 'journal';
+  const illustration = cityArt.get(cityKey);
   return (
     <span className="journal-cover-art" aria-hidden="true">
-      {illustration ? (
-        <span className="journal-cover-illustration" data-sheet={illustration.sheet}
-          style={{ backgroundPosition: `${(illustration.tile % 4) * 100 / 3}% ${Math.floor(illustration.tile / 4) * 100 / 3}%` }} />
-      ) : <span className="journal-cover-placeholder"><TravelIcon name="map" /></span>}
+      {/* 图集尚未加载或无法读取时，内嵌风景仍能填满封面。 */}
+      <IllustratedJourneyCover seed={cityKey} />
+      <CityCoverIllustration key={cityKey} preferred={illustration} fallback={genericCityIllustration(cityKey)} />
       {photoId && <RecordedCoverPhoto key={photoId} photoId={photoId} />}
       {plannerPhotos?.length ? <PlannerCoverPhotos
         key={JSON.stringify(plannerPhotos.map((photo) => [photo.assetId, photo.url]))} photos={plannerPhotos} /> : null}

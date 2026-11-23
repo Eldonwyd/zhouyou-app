@@ -182,6 +182,8 @@ export default function AchievementsView({
   const [title, setTitle] = useState('');
   const [linkedEntryId, setLinkedEntryId] = useState('');
   const [imageName, setImageName] = useState('');
+  const [roadmapExpanded, setRoadmapExpanded] = useState(false);
+  const [badgeWallExpanded, setBadgeWallExpanded] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const visited = marks.filter((mark) => mark.visited);
@@ -239,6 +241,16 @@ export default function AchievementsView({
     catch (error) { onError(error instanceof Error ? error.message : '海报生成失败'); }
   }
 
+  function showBadgeCreator(): void {
+    const creator = document.getElementById('badge-creator');
+    // 先把键盘焦点移到表单，再滚动，避免窄屏上从页首继续按 Tab。
+    creator?.focus({ preventScroll: true });
+    creator?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+      block: 'start',
+    });
+  }
+
   return (
     <div className="content-page warm-achievements">
       <div className="section-heading">
@@ -247,8 +259,9 @@ export default function AchievementsView({
           <p>走过的每一站，都在悄悄攒成亮晶晶的纪念印章。</p>
         </div>
         <button
-          className="primary"
-          onClick={() => document.getElementById('badge-creator')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+          type="button"
+          className="primary desktop-badge-create"
+          onClick={showBadgeCreator}
         >
           ＋ 手作一枚纪念章
         </button>
@@ -264,8 +277,25 @@ export default function AchievementsView({
               <span className="level-pill">Lv.{levelInfo.level} / {levelInfo.maxLevel} · {levelInfo.title}</span>
               <span className="stamp-counter-pill">已集章 {unlockedPresetCount + badges.length} 枚</span>
             </div>
-            <h2>走过的路，每一站都闪闪发光。</h2>
-            <p>{levelInfo.subtitle}</p>
+            <h2 className="passport-desktop-intro">走过的路，每一站都闪闪发光。</h2>
+            <p className="passport-desktop-intro">{levelInfo.subtitle}</p>
+            {/* 手机把当前称号作为主要信息，保留等级徽章与罗盘角标，沿用桌面进度条。 */}
+            <div className="passport-mobile-level">
+              <div className="passport-mobile-level-main">
+                <div className="passport-mobile-badges">
+                  <span className="level-pill passport-mobile-level-number">Lv.{levelInfo.level} / {levelInfo.maxLevel}</span>
+                  <span className="stamp-counter-pill">已集章 {unlockedPresetCount + badges.length} 枚</span>
+                </div>
+                <h2>{levelInfo.title}</h2>
+                <p className="passport-mobile-subtitle">{levelInfo.subtitle}</p>
+              </div>
+              <div className="passport-emblem-box passport-mobile-emblem" aria-hidden="true">
+                <CuteSticker kind="compass" className="passport-compass-icon" />
+                <div className="passport-fallback-icon">
+                  <TravelIcon name="mountain" />
+                </div>
+              </div>
+            </div>
             <div className="passport-xp-wrap">
               <div className="passport-xp-head">
                 <strong>
@@ -278,6 +308,10 @@ export default function AchievementsView({
                     ? `${levelInfo.visitedCities} / ${levelInfo.nextTarget} 城（${levelInfo.progressPct}%）`
                     : `已点亮 ${levelInfo.visitedCities} 城 · 100%`}
                 </span>
+              </div>
+              <div className="passport-mobile-progress">
+                <strong>{levelInfo.nextTarget !== null ? `下一站 · Lv.${levelInfo.level + 1} ${levelInfo.nextTitle}` : '已达成满级'}</strong>
+                {levelInfo.nextTarget !== null && <span>还差 {levelInfo.remainingCities} 城</span>}
               </div>
               <div className="passport-xp-track" role="progressbar" aria-valuenow={levelInfo.progressPct} aria-valuemin={0} aria-valuemax={100} aria-label="旅人等级进度">
                 <span style={{ width: `${Math.max(levelInfo.progressPct, levelInfo.visitedCities > 0 ? 4 : 0)}%` }} />
@@ -296,8 +330,36 @@ export default function AchievementsView({
           <div className="level-roadmap-head">
             <span className="level-roadmap-icon"><TravelIcon name="map" /></span>
             <h3 id="traveler-roadmap-title">旅人成长路线</h3>
+            <button
+              type="button"
+              className="level-roadmap-toggle"
+              aria-expanded={roadmapExpanded}
+              aria-controls="traveler-roadmap-steps"
+              onClick={() => setRoadmapExpanded((expanded) => !expanded)}
+            >
+              {roadmapExpanded ? '收起' : `查看全部 ${levelInfo.maxLevel} 级`}
+              <span aria-hidden="true" />
+            </button>
           </div>
-          <ol className="level-roadmap-steps" role="list">
+          {!roadmapExpanded && (
+            <div className="level-roadmap-mini-preview" aria-hidden="true">
+              <span className="roadmap-mini-node is-current">
+                <span className="roadmap-mini-icon"><TravelIcon name={travelerStopIcons[levelInfo.level - 1] ?? 'map'} /></span>
+                <span><b>Lv.{levelInfo.level}</b> {levelInfo.title}</span>
+              </span>
+              <span className="roadmap-mini-rail" />
+              {levelInfo.nextTitle ? (
+                <span className="roadmap-mini-node is-next">
+                  <span className="roadmap-mini-icon"><TravelIcon name={travelerStopIcons[levelInfo.level] ?? 'map'} /></span>
+                  <span><b>Lv.{levelInfo.level + 1}</b> {levelInfo.nextTitle}</span>
+                </span>
+              ) : (
+                <span className="roadmap-mini-node is-done">✦ 已达成满级</span>
+              )}
+            </div>
+          )}
+          {/* 同一份等级列表在宽屏常显，窄屏按需展开，避免两端的达成状态分叉。 */}
+          <ol id="traveler-roadmap-steps" className="level-roadmap-steps" role="list" data-expanded={roadmapExpanded}>
             {levelInfo.tiers.map((tier) => {
               // 用同一套等级结果标记已达成、当前与下一站，满级时自然没有下一站。
               const isCurrent = tier.level === levelInfo.level;
@@ -358,15 +420,21 @@ export default function AchievementsView({
             <h2>旅途集章册</h2>
             <p className="muted">走过城市、拍下照片、录下语音，都会自动点亮对应的贴纸印章。</p>
           </div>
-          <span className="badge-wall-counter">已解锁 {unlockedPresetCount} / {presetBadges.length}{badges.length ? ` · 专属 ${badges.length}` : ''}</span>
+          <div className="badge-wall-actions">
+            <span className="badge-wall-counter">已解锁 {unlockedPresetCount} / {presetBadges.length}{badges.length ? ` · 专属 ${badges.length}` : ''}</span>
+            <button type="button" className="secondary mobile-badge-create" onClick={showBadgeCreator}>
+              ＋ 手作纪念章
+            </button>
+          </div>
         </div>
 
-        <div className="badge-grid">
+        {/* 手机首屏预览四枚预设徽章，自制徽章始终保留在墙上。 */}
+        <div id="achievement-badge-grid" className="badge-grid" data-expanded={badgeWallExpanded}>
           {presetBadges.map((badge) => {
             const unlocked = badge.current >= badge.threshold;
             const pct = Math.min(100, Math.round((badge.current / badge.threshold) * 100));
             return (
-              <div className={`badge-card ${unlocked ? 'is-unlocked' : 'locked'}`} key={badge.id}>
+              <div className={`badge-card preset-badge ${unlocked ? 'is-unlocked' : 'locked'}`} key={badge.id}>
                 <span className={`badge-status-pill ${unlocked ? 'is-done' : ''}`}>
                   {unlocked ? '已点亮 ✦' : `${Math.min(badge.current, badge.threshold)}/${badge.threshold}${badge.unit}`}
                 </span>
@@ -395,8 +463,17 @@ export default function AchievementsView({
             />
           ))}
         </div>
+        <button
+          type="button"
+          className="mobile-disclosure-toggle badge-wall-toggle"
+          aria-expanded={badgeWallExpanded}
+          aria-controls="achievement-badge-grid"
+          onClick={() => setBadgeWallExpanded((expanded) => !expanded)}
+        >
+          <span>{badgeWallExpanded ? '收起预设徽章' : `查看全部 ${presetBadges.length} 枚预设徽章`}</span>
+        </button>
 
-        <div className="badge-creator" id="badge-creator">
+        <div className="badge-creator" id="badge-creator" tabIndex={-1}>
           <div className="badge-creator-head">
             <div>
               <h3>手作专属纪念章</h3>

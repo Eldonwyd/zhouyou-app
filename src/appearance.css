@@ -417,7 +417,8 @@
   display: none !important;
 }
 :root[data-appearance="white"] .passport-fallback-icon,
-:root[data-appearance="white"] .backup-fallback-icon {
+:root[data-appearance="white"] .backup-fallback-icon,
+:root[data-appearance="white"] .finance-fallback-icon {
   display: grid !important;
 }
 
@@ -576,6 +577,226 @@
  * ========================================================================== */
 :root[data-appearance="warm"] .washi-tape {
   opacity: 0.55;
+}
+
+/* ==========================================================================
+ * 6.5. 行程安排登机牌时间轴 & 提醒副券 —— 5 套风格专属定制（含深色模式）
+ * ========================================================================== */
+
+/* 糖果贴纸 candy：波点马卡龙立体登机牌 + 立体糖果描边 + Q弹日卡 */
+:root[data-appearance="candy"] .planner-overview-timeline {
+  --tl-radius: 24px;
+  --tl-border-w: 2px;
+  --tl-border: var(--candy-border);
+  --tl-seam: color-mix(in srgb, var(--style-accent) 34%, var(--candy-border));
+  --tl-bg:
+    radial-gradient(circle at 12px 12px, color-mix(in srgb, var(--style-accent) 9%, transparent) 1.6px, transparent 1.7px),
+    linear-gradient(135deg, #fff6ee 0%, #fffdf9 54%, #fff2d8 100%);
+  --tl-stub-bg: linear-gradient(160deg, #fff3cf 0%, #ffe6d8 100%);
+  --tl-shadow: 0 4px 0 var(--candy-offset), 0 10px 22px -12px rgba(178, 92, 66, .18);
+  --tl-card-radius: 16px;
+  --tl-card-shadow: 0 3px 0 color-mix(in srgb, var(--day-ink) 20%, transparent);
+  background-size: 20px 20px, 100% 100%;
+}
+:root[data-appearance="candy"] .planner-trip-day-link {
+  border-width: 1.5px;
+  border-color: color-mix(in srgb, var(--day-ink) 30%, var(--surface));
+}
+:root[data-appearance="candy"] .planner-trip-day-link:hover {
+  transform: translateY(-3px) rotate(-0.6deg);
+  box-shadow: 0 5px 0 color-mix(in srgb, var(--day-ink) 24%, transparent);
+}
+:root[data-appearance="candy"] .planner-calendar-export label {
+  border-width: 1.5px;
+  border-color: var(--candy-border);
+  border-radius: 999px;
+}
+:root[data-appearance="candy"] .planner-calendar-export select {
+  border-radius: 999px;
+  border-color: var(--candy-border);
+}
+:root[data-appearance="candy"] .city-guide-action {
+  box-shadow: 0 2px 0 color-mix(in srgb, currentColor 16%, transparent);
+}
+
+/* 简洁纯白 white：纯白清爽登机牌 + 灵动柔彩日卡 + 利落方圆角 */
+:root[data-appearance="white"] .planner-overview-timeline {
+  --tl-radius: 14px;
+  --tl-border-w: 1px;
+  --tl-border: var(--line);
+  --tl-seam: color-mix(in srgb, var(--ink) 16%, var(--line));
+  --tl-bg: linear-gradient(135deg, #ffffff 0%, #fbfcfd 62%, #f7faf8 100%);
+  --tl-stub-bg: linear-gradient(160deg, #fffcf2 0%, #fafbfc 100%);
+  --tl-shadow: 0 4px 16px -8px rgba(38, 41, 46, .08);
+  --tl-card-radius: 11px;
+  --tl-card-shadow: 0 1px 2px rgba(38, 41, 46, .04);
+}
+:root[data-appearance="white"] .planner-trip-sticker {
+  border-radius: 13px;
+  transform: none;
+}
+:root[data-appearance="white"] .planner-calendar-export button.planner-calendar-btn {
+  border-radius: 10px;
+}
+:root[data-appearance="white"] .city-guide-action {
+  border-radius: 9px;
+}
+
+/* 复古手账 journal：方格奶油车票 + 邮戳质感双层日卡 + 温暖焦糖投影 */
+:root[data-appearance="journal"] .planner-overview-timeline {
+  --tl-mint-bg: #e5efe0;
+  --tl-mint-ink: #4a6b48;
+  --tl-sky-bg: #e1ecf0;
+  --tl-sky-ink: #3f6678;
+  --tl-peach-bg: #f6e1d3;
+  --tl-peach-ink: #a65436;
+  --tl-lilac-bg: #efe3ec;
+  --tl-lilac-ink: #7d5370;
+  --tl-honey-bg: #f6e7c4;
+  --tl-honey-ink: #946c2a;
+  --tl-radius: 9px;
+  --tl-border-w: 1.5px;
+  --tl-border: color-mix(in srgb, var(--style-accent) 34%, var(--line));
+  --tl-seam: color-mix(in srgb, var(--style-accent) 44%, var(--line));
+  --tl-bg:
+    linear-gradient(to right, color-mix(in srgb, var(--line) 42%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--line) 42%, transparent) 1px, transparent 1px),
+    linear-gradient(135deg, #fffcf5 0%, #faf3e4 100%);
+  --tl-stub-bg: linear-gradient(160deg, #f5e9ce 0%, #f1e1c4 100%);
+  --tl-shadow: 3px 4px 0 color-mix(in srgb, var(--style-accent) 14%, transparent);
+  --tl-card-radius: 8px;
+  --tl-card-shadow: 2px 2px 0 color-mix(in srgb, var(--day-ink) 18%, transparent);
+  background-size: 18px 18px, 18px 18px, 100% 100%;
+}
+:root[data-appearance="journal"] .planner-trip-status h3 {
+  font-family: var(--ui-serif);
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+:root[data-appearance="journal"] .planner-trip-sticker {
+  border-radius: 10px;
+}
+:root[data-appearance="journal"] .planner-trip-day-link {
+  border-style: dashed;
+}
+:root[data-appearance="journal"] .planner-calendar-export label,
+:root[data-appearance="journal"] .planner-calendar-export select,
+:root[data-appearance="journal"] .planner-calendar-export button.planner-calendar-btn {
+  border-radius: 7px;
+}
+:root[data-appearance="journal"] .city-guide-action {
+  border-radius: 6px;
+}
+
+/* 海盐晴空 coast：清澈海风票卡 + 海玻璃/落日珊瑚/晴空三色双层浮卡 */
+:root[data-appearance="coast"] .planner-overview-timeline {
+  --tl-peach-bg: #ffece3;
+  --tl-peach-ink: #cc6149;
+  --tl-radius: 24px;
+  --tl-border-w: 1px;
+  --tl-border: color-mix(in srgb, var(--style-accent) 26%, var(--line));
+  --tl-seam: color-mix(in srgb, var(--style-accent) 34%, var(--line));
+  --tl-bg: linear-gradient(135deg, #e7f5fe 0%, #ffffff 55%, #e6f7f5 100%);
+  --tl-stub-bg: linear-gradient(160deg, #fff9e5 0%, #eaf6fd 100%);
+  --tl-shadow: 0 10px 26px -14px rgba(55, 127, 173, .22);
+  --tl-card-radius: 17px;
+  --tl-card-shadow: 0 4px 12px -6px rgba(55, 127, 173, .18);
+}
+:root[data-appearance="coast"] .planner-calendar-export label,
+:root[data-appearance="coast"] .planner-calendar-export select {
+  border-radius: 999px;
+}
+
+/* 草木暖日 warm：奶油草木森系登机牌 + 柔和暖蜜副券 */
+:root[data-appearance="warm"] .planner-overview-timeline {
+  --tl-radius: 20px;
+  --tl-border-w: 1.5px;
+  --tl-border: color-mix(in srgb, var(--app-sage-ink) 22%, var(--line));
+  --tl-seam: color-mix(in srgb, var(--app-honey-ink) 36%, var(--line));
+  --tl-bg: linear-gradient(135deg, #f2f6ea 0%, #fffefa 54%, #fbf2dd 100%);
+  --tl-stub-bg: linear-gradient(160deg, #f9efd4 0%, #f9e8db 100%);
+  --tl-shadow: 0 8px 22px -14px rgba(72, 92, 62, .16);
+  --tl-card-radius: 14px;
+}
+
+/* 5 套风格的深色模式登机牌背景与副券适配 */
+:root[data-theme="dark"][data-appearance="candy"] .planner-overview-timeline {
+  --tl-bg:
+    radial-gradient(circle at 12px 12px, rgba(255, 156, 138, .10) 1.6px, transparent 1.7px),
+    linear-gradient(135deg, #2d2229 0%, #241c22 56%, #312621 100%);
+  --tl-stub-bg: linear-gradient(160deg, #352b22 0%, #372529 100%);
+  --tl-shadow: 0 4px 0 var(--candy-offset), 0 12px 24px -12px rgba(0, 0, 0, .5);
+}
+:root[data-theme="dark"][data-appearance="white"] .planner-overview-timeline {
+  --tl-bg: linear-gradient(135deg, #212529 0%, #1c1f22 60%, #1f2623 100%);
+  --tl-stub-bg: linear-gradient(160deg, #26251f 0%, #212428 100%);
+}
+:root[data-theme="dark"][data-appearance="journal"] .planner-overview-timeline {
+  --tl-mint-bg: #283326;
+  --tl-mint-ink: #a8cc99;
+  --tl-sky-bg: #24323a;
+  --tl-sky-ink: #9cc2d6;
+  --tl-peach-bg: #3d2b22;
+  --tl-peach-ink: #e8a789;
+  --tl-lilac-bg: #362933;
+  --tl-lilac-ink: #d4a6c4;
+  --tl-honey-bg: #3c3220;
+  --tl-honey-ink: #e8c77d;
+  --tl-bg:
+    linear-gradient(to right, rgba(215, 184, 135, .07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(215, 184, 135, .07) 1px, transparent 1px),
+    linear-gradient(135deg, #302820 0%, #272019 100%);
+  --tl-stub-bg: linear-gradient(160deg, #382f22 0%, #33271e 100%);
+}
+:root[data-theme="dark"][data-appearance="coast"] .planner-overview-timeline {
+  --tl-peach-bg: #3c2929;
+  --tl-peach-ink: #ff9f8c;
+  --tl-bg: linear-gradient(135deg, #1b2d3a 0%, #182530 56%, #182e32 100%);
+  --tl-stub-bg: linear-gradient(160deg, #2c2d23 0%, #1c2d3a 100%);
+}
+:root[data-theme="dark"][data-appearance="warm"] .planner-overview-timeline {
+  --tl-bg: linear-gradient(135deg, #232f24 0%, #1f2820 54%, #2e2a1f 100%);
+  --tl-stub-bg: linear-gradient(160deg, #322c1f 0%, #312622 100%);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-appearance="candy"] .planner-overview-timeline {
+    --tl-bg:
+      radial-gradient(circle at 12px 12px, rgba(255, 156, 138, .10) 1.6px, transparent 1.7px),
+      linear-gradient(135deg, #2d2229 0%, #241c22 56%, #312621 100%);
+    --tl-stub-bg: linear-gradient(160deg, #352b22 0%, #372529 100%);
+    --tl-shadow: 0 4px 0 var(--candy-offset), 0 12px 24px -12px rgba(0, 0, 0, .5);
+  }
+  :root:not([data-theme="light"])[data-appearance="white"] .planner-overview-timeline {
+    --tl-bg: linear-gradient(135deg, #212529 0%, #1c1f22 60%, #1f2623 100%);
+    --tl-stub-bg: linear-gradient(160deg, #26251f 0%, #212428 100%);
+  }
+  :root:not([data-theme="light"])[data-appearance="journal"] .planner-overview-timeline {
+    --tl-mint-bg: #283326;
+    --tl-mint-ink: #a8cc99;
+    --tl-sky-bg: #24323a;
+    --tl-sky-ink: #9cc2d6;
+    --tl-peach-bg: #3d2b22;
+    --tl-peach-ink: #e8a789;
+    --tl-lilac-bg: #362933;
+    --tl-lilac-ink: #d4a6c4;
+    --tl-honey-bg: #3c3220;
+    --tl-honey-ink: #e8c77d;
+    --tl-bg:
+      linear-gradient(to right, rgba(215, 184, 135, .07) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(215, 184, 135, .07) 1px, transparent 1px),
+      linear-gradient(135deg, #302820 0%, #272019 100%);
+    --tl-stub-bg: linear-gradient(160deg, #382f22 0%, #33271e 100%);
+  }
+  :root:not([data-theme="light"])[data-appearance="coast"] .planner-overview-timeline {
+    --tl-peach-bg: #3c2929;
+    --tl-peach-ink: #ff9f8c;
+    --tl-bg: linear-gradient(135deg, #1b2d3a 0%, #182530 56%, #182e32 100%);
+    --tl-stub-bg: linear-gradient(160deg, #2c2d23 0%, #1c2d3a 100%);
+  }
+  :root:not([data-theme="light"])[data-appearance="warm"] .planner-overview-timeline {
+    --tl-bg: linear-gradient(135deg, #232f24 0%, #1f2820 54%, #2e2a1f 100%);
+    --tl-stub-bg: linear-gradient(160deg, #322c1f 0%, #312622 100%);
+  }
 }
 
 /* ==========================================================================
@@ -902,12 +1123,155 @@
   .appearance-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 600px) {
-  .warm-profile > .appearance-settings { padding: 20px; }
-  .appearance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; margin: 18px 0; }
-  .appearance-option:last-child:nth-child(odd) { grid-column: 1 / -1; }
-  .appearance-preview { height: 92px; }
-  .appearance-name { font-size: 13px; flex-wrap: wrap; }
-  .appearance-mode { align-items: flex-start; }
-  .appearance-mode > div:last-child { width: 100%; }
-  .appearance-mode button { flex: 1; }
+  .warm-profile > .appearance-settings {
+    padding: 16px 16px 14px;
+    margin-bottom: 14px;
+  }
+  .warm-profile > .appearance-settings > .card-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .warm-profile > .appearance-settings > .card-heading h2 {
+    font-size: 16px;
+    margin: 0;
+  }
+  .warm-profile > .appearance-settings > .card-heading p {
+    display: none;
+  }
+  .appearance-autosave-pill {
+    padding: 3px 9px;
+    font-size: 10.5px;
+    flex-shrink: 0;
+  }
+  /* 手机端横向滑动展示全部 5 套皮肤迷你界面预览，保持个人中心首屏清爽并露出可滑暗示 */
+  .appearance-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    gap: 10px;
+    margin: 0 0 12px;
+    padding: 3px 2px 6px;
+    scrollbar-width: none;
+  }
+  .appearance-grid::-webkit-scrollbar { display: none; }
+  .appearance-option {
+    flex: 0 0 146px;
+    scroll-snap-align: start;
+    padding: 7px 7px 10px;
+    border-radius: 15px;
+  }
+  .appearance-option:hover { transform: none; }
+  .appearance-preview {
+    height: 76px;
+    padding: 6px;
+    gap: 5px;
+  }
+  .appearance-name {
+    padding: 8px 2px 2px;
+    font-size: 12.5px;
+    gap: 4px;
+    flex-wrap: nowrap;
+  }
+  .appearance-name strong { white-space: nowrap; }
+  .appearance-tag {
+    font-size: 9.5px;
+    padding: 1.5px 5px;
+    white-space: nowrap;
+  }
+  .appearance-option > small {
+    padding: 0 2px;
+    font-size: 10.5px;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .appearance-mode {
+    align-items: center;
+    padding-top: 12px;
+    gap: 8px 12px;
+  }
+  .appearance-mode > div:first-child small { display: none; }
+  .appearance-mode > div:last-child { flex: 1; min-width: 196px; }
+  .appearance-mode button { flex: 1; padding: 7px 8px; min-height: 36px; }
+}
+
+/* ==========================================================================
+ * 8. 移动端多风格细腻差异化（5 套风格在底部导航、圆角、描边与质感上保持统一语言）
+ * ========================================================================== */
+@media (max-width: 850px) {
+  :root[data-appearance="candy"] .sidebar {
+    border-right: 0;
+    border-top: 2px solid var(--candy-border);
+    background: color-mix(in srgb, var(--surface) 97%, var(--paper));
+  }
+  :root[data-appearance="candy"] .nav-item,
+  :root[data-appearance="candy"] .nav-item:hover,
+  :root[data-appearance="candy"] .nav-item.active {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+  }
+  :root[data-appearance="candy"] .nav-item.active .nav-icon {
+    border: 1.5px solid var(--candy-border);
+    box-shadow: 0 2px 0 var(--candy-offset);
+  }
+  :root[data-appearance="candy"] :is(
+    .card, .map-card, .map-side, .journey-card, .place-card,
+    .warm-note-paper, .warm-featured, .warm-profile-banner,
+    .passport-hero-card, .warm-highlight-card, .badge-card,
+    .planner-overview, .planner-activity, .warm-record-filter
+  ) {
+    border-radius: 22px;
+    box-shadow: 0 4px 0 var(--candy-offset), 0 10px 20px -12px rgba(178, 92, 66, .14);
+  }
+
+  :root[data-appearance="white"] .sidebar {
+    border-top: 1px solid var(--line);
+    background: color-mix(in srgb, var(--surface) 98%, transparent);
+  }
+  :root[data-appearance="white"] .nav-item.active .nav-icon {
+    border-radius: 10px;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent);
+  }
+
+  :root[data-appearance="journal"] .sidebar {
+    border-top: 1.5px solid color-mix(in srgb, var(--style-accent) 28%, var(--line));
+    background: color-mix(in srgb, var(--surface) 97%, var(--paper));
+  }
+  :root[data-appearance="journal"] .nav-item.active .nav-icon {
+    border-radius: 7px;
+    border: 1px dashed color-mix(in srgb, var(--style-accent) 45%, var(--line));
+    box-shadow: 1.5px 2px 0 color-mix(in srgb, var(--style-accent) 14%, transparent);
+  }
+  :root[data-appearance="journal"] .topbar-brand-text b {
+    font-family: var(--ui-serif);
+    letter-spacing: 0.04em;
+  }
+
+  :root[data-appearance="coast"] .sidebar {
+    border-right: 0;
+    border-top: 1px solid var(--line);
+    background: color-mix(in srgb, var(--surface) 94%, var(--paper));
+    box-shadow: 0 -8px 24px -10px rgba(55, 127, 173, .16);
+  }
+  :root[data-appearance="coast"] .nav-item.active .nav-icon {
+    border-radius: 999px;
+    box-shadow: 0 3px 10px -4px rgba(55, 127, 173, .32);
+  }
+
+  :root[data-appearance="warm"] .sidebar {
+    border-top: 1px solid var(--line);
+    background: color-mix(in srgb, var(--surface) 96%, var(--paper));
+  }
+  :root[data-appearance="warm"] .nav-item.active .nav-icon {
+    border-radius: 12px;
+  }
 }

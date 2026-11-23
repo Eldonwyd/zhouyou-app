@@ -387,6 +387,17 @@ export default function DetailView(props: DetailViewProps) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  /** 清除城市和详情选择，回到总览，同时保留之前的列表筛选。 */
+  function returnToJournalOverview(): void {
+    setShowAll(true);
+    setBrowseCity(null);
+    setCityBrowserOpen(false);
+    setSelectedTripId(null);
+    setSelectedPlaceId(null);
+    setEditingTrip(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   useEffect(() => {
     if (!targetEntryId) return;
     const entry = entries.find((item) => item.id === targetEntryId);
@@ -722,8 +733,22 @@ export default function DetailView(props: DetailViewProps) {
   }
 
   return <div className="content-page journal-page">
-    <div className="section-heading"><div><span className="eyebrow">MEMORY JOURNAL</span><h1>{scopeCity ? `${scopeCity.name} · 旅行手账` : '我的旅行手账'}</h1><p>一段旅程、几座城市，把每个地点的照片和故事收在一起。</p></div>
-      <div className="heading-actions"><button className="secondary" onClick={() => { setCityBrowserOpen(!cityBrowserOpen); setSelectedTripId(null); setSelectedPlaceId(null); }}>{cityBrowserOpen ? '收起城市选择' : '按省份选择城市'}</button>{scopeCity && <button className="secondary" onClick={() => { setShowAll(true); setBrowseCity(null); setCityBrowserOpen(false); setSelectedTripId(null); setSelectedPlaceId(null); setEditingTrip(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>查看全部旅行</button>}<button className="primary" onClick={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }}>＋ 新建旅行</button></div></div>
+    <div className="section-heading">
+      <div>
+        {scopeCity && <button type="button" className="secondary journal-back-button" onClick={returnToJournalOverview}>
+          <span aria-hidden="true">←</span> 返回手账总览
+        </button>}
+        <span className="eyebrow">MEMORY JOURNAL</span>
+        <h1>{scopeCity ? `${scopeCity.name} · 旅行手账` : '我的旅行手账'}</h1>
+        <p>一段旅程、几座城市，把每个地点的照片和故事收在一起。</p>
+      </div>
+      <div className="heading-actions">
+        <button type="button" className="secondary" onClick={() => { setCityBrowserOpen(!cityBrowserOpen); setSelectedTripId(null); setSelectedPlaceId(null); }}>
+          {cityBrowserOpen ? '收起城市选择' : '按省份选择城市'}
+        </button>
+        <button type="button" className="primary" onClick={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }}>＋ 新建旅行</button>
+      </div>
+    </div>
     {cityBrowserOpen && !selectedTrip && !editingTrip && <TravelCityBrowser trips={trips} places={places} marks={marks} selectedCityCode={scopeCityCode} onSelectCity={(pickedCity) => { setBrowseCity(pickedCity); setShowAll(false); setSelectedTripId(null); }} onShowAll={() => { setShowAll(true); setBrowseCity(null); setCityBrowserOpen(false); setSelectedTripId(null); }} onError={onError} />}
     {city && !browseCity && !showAll && !selectedTrip && <div className="card status-card"><div><strong>{city.name}的城市状态</strong><p>{trips.some((trip) => trip.cities.some((item) => item.code === city.id && trip.status !== 'planned')) ? '这座城市已包含在去过的旅行中，地图会保持点亮。' : '确认去过的城市会点亮地图，也可以在这里取消手动标记。'}</p></div><label className="checkbox"><input type="checkbox" checked={city.visited} disabled={trips.some((trip) => trip.status !== 'planned' && trip.cities.some((item) => item.code === city.id))} onChange={(event) => void onUpdateMark(event.target.checked)} />已去过</label></div>}
     {editingTrip && <JourneyEditor key={editingTrip === 'new' ? 'new' : editingTrip.id} initial={editingTrip === 'new' ? null : editingTrip} initialCity={scopeCityMark} lockedCityCodes={editingTrip === 'new' ? [] : places.filter((place) => place.tripId === editingTrip.id).map((place) => place.cityCode)} onSave={saveTrip} onCancel={() => setEditingTrip(null)} onError={onError} />}

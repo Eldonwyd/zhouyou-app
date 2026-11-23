@@ -5,6 +5,9 @@ import { currency, sumAmounts } from '../utils';
 import type { AiTravelPlan } from '../planner-types';
 import { calculatePlannerBudget, plannerFillEstimates } from '../planner-domain';
 import DailyLedger from './DailyLedger';
+import MobileDisclosure from './MobileDisclosure';
+import { CuteSticker } from './CuteArt';
+import { TravelIcon } from './TravelArt';
 import { seedAiExpenses } from '../finance';
 
 interface PlanViewProps {
@@ -155,25 +158,25 @@ export default function PlanView({ city, marks, trips, plans, aiPlans, selectedF
     } catch { /* The transaction leaves the original sheet intact. */ }
   }
 
-  return <div className="content-page"><div className="section-heading"><div><span className="eyebrow">TRIP PLANNER</span>
+  return <div className="content-page finance-page"><div className="section-heading"><div><span className="eyebrow">TRIP PLANNER</span>
     <h1>{city && !showAll ? `${city.name} · 预算与账本` : '全部旅行 · 预算与账本'}</h1>
     <p>每次旅行有独立的预算与实际花费，多座城市共用同一本账。</p></div>
     <div className="heading-actions">{city && <button className="secondary" onClick={() => { setShowAll(!showAll); setActiveKey(null); }}>{showAll ? `只看${city.name}` : '查看全部旅行'}</button>}
       {draft && <button className="primary" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '保存计划'}</button>}</div></div>
 
     <section className="card finance-journeys"><div className="card-heading"><div><h2>选择行程</h2><p>选择“我的行程”中的计划或已有旅行，分别管理预算与实际花费。</p></div>
-      <button className="secondary" onClick={onCreateJourney}>前往旅行手账新建</button></div>
+      <button className="secondary finance-create-journey" onClick={onCreateJourney}>前往旅行手账新建</button></div>
       <label>当前行程<select aria-label="账本对应行程" disabled={saving} value={activeItem?.key ?? ''} onChange={(event) => { setShowAll(true); setActiveKey(event.target.value); }}>
         {!activeItem && <option value="">请选择行程</option>}
         {financeItems.map((item) => <option key={item.key} value={item.key}>{item.title} · {item.dates}</option>)}
       </select></label>
-      {visibleItems.length ? <div className="finance-journey-grid">{visibleItems.map((item) => {
+      {visibleItems.length ? <MobileDisclosure label="行程预算列表" value={`${visibleItems.length} 段行程`}><div className="finance-journey-grid">{visibleItems.map((item) => {
         const total = item.plan ? sumAmounts(item.plan.budget) : 0;
         const actual = item.plan ? item.plan.manualActualTotal ?? sumAmounts(item.plan.actual) : 0;
         return <button key={item.key} disabled={saving} className={`finance-journey-card ${activeItem?.key === item.key ? 'active' : ''}`} onClick={() => setActiveKey(item.key)}>
           <span className="eyebrow">{item.dates}</span><strong>{item.title}</strong><small>{item.cities}</small>
           <span>预算 {currency(total)} · 已花 {currency(actual)}</span></button>;
-      })}</div> : <div className="empty-state"><h2>{city && !showAll ? `还没有${city.name}的旅行` : '还没有可记账的行程'}</h2><p>{city && !showAll ? '新建旅行并选择这座城市后，就能按整次旅程管理预算与花费。' : '先在「我的行程」生成计划，或在「旅行手账」新建旅行，就能开始记账。'}</p></div>}
+      })}</div></MobileDisclosure> : <div className="empty-state finance-empty-state"><div className="finance-empty-art" aria-hidden="true"><CuteSticker kind="suitcase" className="finance-empty-suitcase" /><span className="finance-fallback-icon"><TravelIcon name="plan" /></span></div><h2>{city && !showAll ? `还没有${city.name}的旅行` : '还没有可记账的行程'}</h2><p>{city && !showAll ? '新建旅行并选择这座城市后，就能按整次旅程管理预算与花费。' : '先在「我的行程」生成计划，或在「旅行手账」新建旅行，就能开始记账。'}</p></div>}
     </section>
 
     {draft && activeItem && <>

@@ -61,28 +61,30 @@
   flex-shrink: 0;
 }
 
-/* ---------- 侧边栏空白处可爱手账小装饰（沉底贴合页脚，无卡片负担） ---------- */
-.sidebar nav {
-  margin-bottom: 18px;
-}
-/* 独立的明信片占用导航和底部贴纸之间的留白，复用旅行封面插画与主题色。 */
-.sidebar-postcard {
-  display: grid;
-  flex: 1 0 0;
+/* ---------- 侧边栏手账装饰 ---------- */
+/* 把多余的高度留在装饰组上下，明信片与路线之间的距离随窗口变化有明确上下限。 */
+.sidebar-art {
+  display: flex;
+  flex: 1 1 0;
   min-height: 0;
-  place-items: center;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(12px, 2vh, 22px);
+  padding-block: 12px;
+  container: sidebar-art / size;
   pointer-events: none;
   user-select: none;
 }
 .sidebar-postcard-frame {
   position: relative;
-  width: min(78%, 132px);
-  padding: 6px 6px 10px;
+  width: min(83%, 146px);
+  padding: 6px 6px 9px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 7px;
   background: var(--surface);
-  box-shadow: 0 5px 14px color-mix(in srgb, var(--ink) 9%, transparent);
-  transform: rotate(-5deg);
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--ink) 8%, transparent);
+  transform: rotate(-4deg);
 }
 .sidebar-postcard-frame::after {
   content: "";
@@ -102,83 +104,91 @@
   aspect-ratio: 16 / 9;
   border-radius: 3px;
 }
-@media (max-height: 760px), (max-width: 850px) {
-  .sidebar-postcard { display: none; }
-}
 .sidebar-doodle {
   position: relative;
-  margin-top: auto;
-  margin-bottom: 14px;
-  height: 150px;
-  flex-shrink: 0;
-  pointer-events: none;
-  user-select: none;
+  width: min(100%, 170px);
+  height: 112px;
   color: var(--muted);
 }
 .sidebar-doodle-trail {
   position: absolute;
-  inset: auto 6px 12px;
-  width: calc(100% - 12px);
-  height: 86px;
+  inset: auto 0 3px;
+  width: 100%;
+  height: auto;
 }
+/* 图案沿路线分布，使用比例定位，让宽窄两档侧栏保留相同的构图。 */
 .sidebar-doodle-item {
   position: absolute;
   filter: drop-shadow(0 4px 8px rgba(70, 52, 42, .08));
 }
 .sidebar-doodle-item.is-cloud {
-  bottom: 76px;
-  left: 10px;
-  width: 48px;
-  height: 30px;
+  top: 24%;
+  left: 3%;
+  width: 42px;
+  height: 27px;
   color: var(--muted);
   opacity: .92;
   animation: sidebarFloatSlow 5.4s ease-in-out infinite;
 }
 .sidebar-doodle-item.is-sparkle {
-  bottom: 80px;
-  right: 46px;
-  width: 24px;
-  height: 24px;
+  top: 31%;
+  right: 28%;
+  width: 21px;
+  height: 21px;
   opacity: .95;
   animation: sidebarFloatSlow 4.2s ease-in-out 0.6s infinite;
 }
 .sidebar-doodle-item.is-suitcase {
-  bottom: 10px;
-  left: 24px;
-  width: 42px;
-  height: 42px;
+  bottom: 0;
+  left: 15%;
+  width: 36px;
+  height: 36px;
   transform: rotate(-8deg);
   animation: sidebarFloatTilt 6s ease-in-out 0.3s infinite;
 }
 .sidebar-doodle-item.is-compass {
-  bottom: 12px;
-  right: 20px;
-  width: 36px;
-  height: 36px;
+  bottom: 1px;
+  right: 12%;
+  width: 32px;
+  height: 32px;
   transform: rotate(9deg);
   animation: sidebarFloatTiltRev 5.6s ease-in-out 1s infinite;
 }
 .sidebar-doodle-item.is-postmark {
-  bottom: 107px;
-  left: 40%;
-  width: 28px;
-  height: 28px;
+  top: 4%;
+  left: 36%;
+  width: 25px;
+  height: 25px;
   color: var(--warm-green);
   opacity: .72;
   transform: rotate(-14deg);
 }
 .sidebar-doodle-item.is-balloon {
-  bottom: 109px;
-  right: 9px;
-  width: 33px;
-  height: 33px;
+  top: 0;
+  right: 7%;
+  width: 32px;
+  height: 32px;
   animation: sidebarFloatSlow 6.1s ease-in-out .8s infinite;
 }
-/* 较矮的桌面仍给主导航和页脚留出空间。 */
-@media (max-height: 640px) {
-  .sidebar-doodle { height: 112px; }
+/* 地图和手账的导航高度不同，按装饰区实际可用高度决定显示哪些图案。 */
+@container sidebar-art (height < 230px) {
+  .sidebar-postcard-frame { display: none; }
+}
+@container sidebar-art (height < 112px) {
+  .sidebar-doodle { height: 92px; }
+  .sidebar-doodle-item.is-cloud { top: 12%; }
+  .sidebar-doodle-item.is-sparkle { top: 17%; }
   .sidebar-doodle-item.is-postmark,
   .sidebar-doodle-item.is-balloon { display: none; }
+}
+@container sidebar-art (height < 92px) {
+  .sidebar-doodle { display: none; }
+}
+@media (max-width: 850px) {
+  .sidebar-art { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-doodle .sidebar-doodle-item { animation: none; }
 }
 @keyframes sidebarFloatSlow {
   0%, 100% { transform: translateY(0); }
@@ -192,10 +202,6 @@
   0%, 100% { transform: translateY(0) rotate(9deg); }
   50% { transform: translateY(-4px) rotate(13deg); }
 }
-.sidebar-footer {
-  margin-top: 0 !important;
-}
-
 /* ---------- 地图右侧「全部 / 已点亮 / 待探索」胶囊筛选条 ---------- */
 .map-province-filter {
   flex: none;
@@ -420,7 +426,7 @@
   height: 28px;
   z-index: 4;
 }
-.warm-note-paper > .note-paper-head {
+.warm-note-paper .note-paper-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -460,7 +466,7 @@
 }
 .note-mini-link:hover:not(:disabled) { opacity: .85; }
 
-.warm-note-paper > .note-memo-box {
+.warm-note-paper .note-memo-box {
   position: relative;
   flex: 1;
   display: flex;
@@ -574,6 +580,7 @@
 /* 多套风景插画封面 */
 .illustrated-mini-cover {
   position: relative;
+  display: block;
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -799,32 +806,20 @@
   width: max(100cqw, 100cqh);
   aspect-ratio: 1;
   transform: translate(-50%, -50%);
-  background-size: 400% 400%;
-  background-repeat: no-repeat;
+  overflow: hidden;
 }
-.journal-cover-illustration[data-sheet="north"] { background-image: url('./city-postcards-north.webp'); }
-.journal-cover-illustration[data-sheet="south"] { background-image: url('./city-postcards-south.webp'); }
-.journal-cover-illustration[data-sheet="shandong"] { background-image: url('./city-postcards-shandong.webp'); }
-.journal-cover-placeholder,
+.journal-cover-illustration > img {
+  position: absolute;
+  display: block;
+  width: 400%;
+  height: 400%;
+  max-width: none;
+}
 .journal-cover-photo {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-}
-.journal-cover-placeholder {
-  display: grid;
-  place-items: center;
-  color: var(--warm-green);
-  background:
-    radial-gradient(circle, color-mix(in srgb, var(--warm-green) 19%, transparent) 1px, transparent 1px) 0 0 / 12px 12px,
-    linear-gradient(145deg, var(--surface-2), var(--warm-soft));
-}
-.journal-cover-placeholder .travel-icon {
-  width: 32px;
-  height: 32px;
-}
-.journal-cover-photo {
   object-fit: cover;
 }
 .saved-city-province-pill {
@@ -883,6 +878,29 @@
 }
 .saved-city-card:hover .saved-city-arrow {
   transform: translateX(2px);
+}
+
+/* 返回键复用手账主题的纸面和点缀色，跟随外观与明暗设置。 */
+.journal-page .journal-back-button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  margin-bottom: 12px;
+  padding: 4px 12px 4px 6px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.journal-back-button > span {
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  border-radius: 50%;
+  background: var(--app-peach);
+  color: var(--app-peach-ink);
+  font-size: 15px;
+  line-height: 1;
 }
 
 /* 城市记录 / 旅程详情页顶部横幅 */
@@ -999,6 +1017,11 @@
   margin-bottom: 26px;
   box-shadow: var(--elev-card);
 }
+.passport-mobile-level,
+.passport-mobile-progress,
+.level-roadmap-toggle,
+.level-roadmap-mini-preview { display: none; }
+
 .passport-sparkle {
   position: absolute;
   top: 16px;
@@ -1351,6 +1374,8 @@
   font-size: 11.5px !important;
   font-weight: 700;
 }
+.mobile-badge-create { display: none; }
+
 .warm-badges .badge-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
@@ -1677,6 +1702,8 @@
   font-weight: 600;
   color: var(--ink);
 }
+.profile-mobile-stats { display: none; }
+
 .profile-edit-toggle {
   margin-left: auto;
   flex-shrink: 0;
@@ -1871,8 +1898,6 @@
 }
 
 @media (max-width: 850px) {
-  .sidebar nav { margin-bottom: 0; }
-  .sidebar-doodle { display: none; }
   .journal-empty-steps { grid-template-columns: 1fr; }
   .warm-achievements .metric-grid.passport-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .profile-dressup-fields { grid-template-columns: 1fr; }
@@ -1881,10 +1906,51 @@
 }
 
 @media (max-width: 600px) {
-  .warm-featured.compact-postcard { grid-template-columns: 118px minmax(0, 1fr); gap: 12px; padding: 12px; min-height: 146px; }
-  .postcard-thumb-frame { min-height: 120px; }
-  .postcard-info h2 { font-size: 18px; margin: 7px 0 4px; }
-  .postcard-mini-plane { display: none; }
+  /* 内容页标题按阅读顺序左对齐，让说明与首张卡片保持稳定的间距。 */
+  .content-page > .section-heading {
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .content-page > .section-heading h1 { margin-bottom: 4px; }
+  .content-page > .section-heading p { margin-top: 0; line-height: 1.65; }
+
+  /* 手机首屏先展示护照，操作放回对应的徽章与备份区域。 */
+  .section-heading > .desktop-badge-create,
+  .section-heading > .desktop-backup-link { display: none; }
+  .warm-badges .card-heading { gap: 10px; }
+  .badge-wall-actions {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+  .badge-wall-actions .mobile-badge-create {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .warm-profile .backup-card .heading-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .warm-profile .backup-card .heading-actions > button {
+    min-height: 44px;
+    padding: 8px;
+    font-size: 12px;
+    white-space: normal;
+  }
+
+  .warm-featured.compact-postcard { grid-template-columns: 108px minmax(0, 1fr); gap: 12px; padding: 12px; min-height: 140px; }
+  .postcard-thumb-frame { min-height: 114px; }
+  .postcard-info h2 { font-size: 17.5px; margin: 6px 0 4px; }
+  .postcard-mini-plane { width: 24px; height: 16px; opacity: .72; }
   .warm-memory-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .warm-record-filter { padding: 14px 15px !important; }
   .record-filter-controls { width: 100%; }
@@ -1896,17 +1962,353 @@
   .saved-city-cover { height: 82px; }
   .saved-city-caption { padding: 9px 9px 11px; }
   .saved-city-name { font-size: 15px; }
-  .passport-hero-card { padding: 20px 18px; }
-  .passport-hero-top { flex-direction: column; align-items: flex-start; }
-  .passport-emblem-box { display: none; }
   .warm-badges .badge-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
   .warm-badges .badge-card { padding: 34px 10px 14px; }
   .cute-badge-medallion { width: 68px; height: 68px; }
   .cute-badge-medallion svg { width: 48px; height: 48px; }
   .highlight-empty-card { flex-direction: column; text-align: center; }
-  .profile-banner-main { flex-wrap: wrap; gap: 14px; }
-  .profile-float-plane { display: none; }
-  .profile-edit-toggle { width: 100%; margin-left: 0; }
+  /* 手机名片的头像、资料和统计共用一张网格，长昵称和签名都能完整换行。 */
+  .warm-profile .warm-profile-banner { padding: 16px; }
+  .warm-profile .profile-banner-main {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px 12px;
+  }
+  .warm-profile .profile-banner-info { display: contents; }
+  .warm-profile .warm-profile-avatar {
+    width: clamp(52px, 17vw, 70px);
+    height: clamp(52px, 17vw, 70px);
+    border-radius: 22px;
+    font-size: 26px;
+  }
+  .warm-profile .avatar-edit-dot { width: 22px; height: 22px; font-size: 10px; }
+  .warm-profile .profile-name-row { gap: 4px 6px; grid-column: 2; min-width: 0; }
+  .warm-profile .profile-name-row h2 {
+    flex-basis: 100%;
+    font-size: clamp(20px, 6vw, 25px);
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+  .warm-profile .profile-name-row > span { padding: 2px 7px; }
+  .warm-profile .profile-motto {
+    grid-column: 1 / -1;
+    margin: 0 !important;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+  .warm-profile .profile-quick-chips { display: none; }
+  .warm-profile .profile-mobile-stats {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .warm-profile .profile-mobile-stats > span {
+    display: grid;
+    grid-template-columns: auto auto;
+    place-items: center;
+    justify-content: center;
+    gap: 2px 4px;
+    padding: 8px 4px;
+    border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surface) 90%, transparent);
+    font-size: 12px;
+  }
+  .warm-profile .profile-mobile-stats > span:nth-child(1) { background: color-mix(in srgb, var(--app-sage) 45%, var(--surface)); }
+  .warm-profile .profile-mobile-stats > span:nth-child(2) { background: color-mix(in srgb, var(--app-blue) 45%, var(--surface)); }
+  .warm-profile .profile-mobile-stats > span:nth-child(3) { background: color-mix(in srgb, var(--app-peach) 45%, var(--surface)); }
+  .warm-profile .profile-mobile-stats strong {
+    font-size: clamp(16px, 5vw, 20px);
+    font-weight: 750;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+  .warm-profile .profile-stat-label { grid-column: 1 / -1; color: var(--muted); font-size: 11px; }
+  .warm-profile .profile-edit-toggle {
+    grid-column: 1 / -1;
+    width: auto;
+    justify-self: end;
+    min-height: 38px;
+    margin-left: 0;
+    padding: 6px 16px;
+    font-size: 12.5px;
+    box-shadow: none;
+  }
+  .warm-profile .profile-float-plane {
+    display: block;
+    top: 10px;
+    right: 12px;
+    width: 34px;
+    height: 22px;
+    opacity: .5;
+    pointer-events: none;
+  }
+  .warm-profile .profile-float-sparkle {
+    display: block;
+    bottom: 12px;
+    left: 14px;
+    right: auto;
+    width: 22px;
+    height: 22px;
+    opacity: .72;
+    pointer-events: none;
+  }
+  .warm-profile .profile-dressup-drawer { gap: 14px; margin-top: 16px; padding-top: 14px; }
+  .warm-profile .profile-dressup-fields { gap: 10px; }
+  .warm-profile .profile-dressup-actions > button { min-height: 44px; }
   .avatar-picker-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .profile-bento-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+  /* 先读当前等级与升级目标，保留和纸胶带、罗盘贴纸与徽章质感，再展示 2x2 统计与可展开路线。 */
+  .warm-achievements { padding-inline: 16px; }
+  .warm-achievements > .section-heading { margin-bottom: 14px; }
+  .warm-achievements .passport-hero-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 18px 16px 16px;
+    margin-bottom: 16px;
+  }
+  .warm-achievements :is(.passport-level-badges, .passport-desktop-intro, .passport-xp-head) { display: none; }
+  .warm-achievements .passport-hero-top > .passport-emblem-box { display: none; }
+  .warm-achievements .passport-hero-card > .washi-tape {
+    width: 68px;
+    height: 18px;
+    top: -9px;
+    right: 22px;
+  }
+  .warm-achievements .passport-sparkle {
+    top: 8px;
+    right: 68px;
+    width: 22px;
+    height: 22px;
+    opacity: .75;
+    pointer-events: none;
+  }
+  .warm-achievements .passport-hero-top { display: block; margin: 0; }
+  .passport-mobile-level {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .passport-mobile-level-main {
+    min-width: 0;
+    flex: 1;
+  }
+  .passport-mobile-badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .passport-mobile-level-number {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .passport-mobile-level h2 { margin: 0 0 2px; font-size: clamp(22px, 6.2vw, 26px); }
+  .passport-mobile-subtitle {
+    margin: 0 !important;
+    font-size: 12px !important;
+    color: var(--muted) !important;
+    line-height: 1.45;
+  }
+  .passport-mobile-level .stamp-counter-pill { flex-shrink: 0; padding: 3px 8px; font-size: 11px; }
+  .passport-mobile-emblem {
+    flex: 0 0 50px;
+    width: 50px;
+    height: 50px;
+    border-radius: 16px;
+    margin-top: 2px;
+  }
+  .passport-mobile-emblem .passport-compass-icon { width: 38px; height: 38px; }
+  .passport-mobile-emblem .passport-fallback-icon .travel-icon { width: 24px; height: 24px; }
+  .warm-achievements .passport-xp-wrap {
+    max-width: none;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+  }
+  .passport-mobile-progress {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 2px 8px;
+    font-size: 12px;
+  }
+  .passport-mobile-progress span { color: var(--muted); white-space: nowrap; }
+  .warm-achievements .passport-xp-track { height: 7px; }
+
+  .warm-achievements .metric-grid.passport-metrics {
+    grid-row: 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0;
+    border: 0;
+  }
+  .warm-achievements .passport-metrics .metric-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 2px 6px;
+    padding: 10px 12px;
+    border-radius: 13px;
+    text-align: left;
+  }
+  .warm-achievements .passport-metrics .metric-card span {
+    grid-column: 1;
+    grid-row: 1;
+    font-size: 11.5px;
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .warm-achievements .passport-metrics .metric-card strong {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    align-self: center;
+    order: 0;
+    font-size: 22px;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+  .warm-achievements .passport-metrics .metric-card small {
+    display: block;
+    grid-column: 1;
+    grid-row: 2;
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+
+  .warm-achievements .level-roadmap {
+    grid-row: 3;
+    margin: 0;
+    padding: 6px 12px 10px;
+    border-radius: 14px;
+  }
+  .level-roadmap-mini-preview {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    margin-top: 2px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--roadmap-card) 85%, transparent);
+    border: 1px solid color-mix(in srgb, var(--roadmap-edge) 75%, transparent);
+    font-size: 11.5px;
+    min-width: 0;
+  }
+  .roadmap-mini-node {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--roadmap-ink);
+  }
+  .roadmap-mini-node b { font-weight: 700; }
+  .roadmap-mini-node.is-current { color: var(--roadmap-pine); font-weight: 600; }
+  .roadmap-mini-node.is-next { color: var(--roadmap-clay); }
+  .roadmap-mini-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+  }
+  .roadmap-mini-node.is-current .roadmap-mini-icon {
+    background: var(--roadmap-pine);
+    color: var(--roadmap-pine-inverse);
+  }
+  .roadmap-mini-node.is-next .roadmap-mini-icon {
+    background: var(--roadmap-clay-soft);
+    color: var(--roadmap-clay);
+  }
+  .roadmap-mini-icon .travel-icon { width: 12px; height: 12px; }
+  .roadmap-mini-rail {
+    flex: 1;
+    min-width: 12px;
+    border-top: 2px dashed var(--roadmap-pine-line);
+    opacity: .7;
+  }
+  .warm-achievements .level-roadmap-head { gap: 7px; margin: 0; }
+  .warm-achievements .level-roadmap-icon { flex-basis: 26px; height: 26px; border-radius: 8px; }
+  .warm-achievements .level-roadmap-head h3 { font-size: 14px; }
+  .level-roadmap-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    margin-inline-start: auto;
+    padding: 0 5px;
+    border: 0;
+    background: transparent;
+    color: var(--roadmap-pine);
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .level-roadmap-toggle span {
+    width: 6px;
+    height: 6px;
+    border: solid currentColor;
+    border-width: 0 1.5px 1.5px 0;
+    transform: translateY(-1px) rotate(45deg);
+  }
+  .level-roadmap-toggle[aria-expanded="true"] span { transform: translateY(2px) rotate(225deg); }
+  .warm-achievements .level-roadmap-steps[data-expanded="false"] { display: none; }
+  .warm-achievements .level-roadmap-steps {
+    --roadmap-marker-size: 26px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    padding: 4px 0 8px;
+  }
+  .warm-achievements .level-step {
+    grid-template-columns: var(--roadmap-marker-size) minmax(0, 1fr);
+    grid-template-rows: auto;
+    align-items: center;
+    gap: 8px;
+  }
+  /* 纵向路线从圆标中线连到下一站，最后一站自然收尾。 */
+  .warm-achievements .level-step:not(:last-child)::before {
+    display: block;
+    top: 50%;
+    inset-inline-start: calc(var(--roadmap-marker-size) / 2 - 1px);
+    width: 0;
+    height: calc(100% + 6px);
+    border: 0;
+    border-inline-start: 2px dashed var(--roadmap-edge);
+  }
+  .warm-achievements .level-step.is-reached::before { border-inline-start: 2px solid var(--roadmap-pine-line); }
+  .warm-achievements .level-step:last-child::before { display: none; }
+  .warm-achievements .level-step-marker .travel-icon { width: 14px; height: 14px; }
+  .warm-achievements .level-step-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 6px 8px;
+    gap: 2px 6px;
+    border-radius: 9px;
+  }
+  .warm-achievements .level-step-title { grid-column: 1; grid-row: 2; font-size: 13px; }
+  .warm-achievements .level-step-threshold { grid-column: 2; grid-row: 2; font-size: 11px; white-space: nowrap; }
+
+  /* 其余卡片以相同内边距和标题节奏排列，保持手作入口及收藏内容的位置。 */
+  .warm-achievements > :is(.warm-badges, .warm-year-review) { padding: 15px; }
+  .warm-achievements :is(.warm-badges, .warm-highlights, .warm-year-review) .card-heading { gap: 6px 10px; }
+  .warm-achievements .warm-badges .badge-grid { margin-top: 12px; }
+  .warm-achievements .badge-creator { padding: 14px; margin-top: 18px; }
+  .warm-achievements .badge-creator > .primary { min-height: 44px; }
 }

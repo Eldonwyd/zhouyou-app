@@ -3,6 +3,7 @@ import type { PlannerPhoto } from '../planner-types';
 import { TravelCover, TravelIcon } from './TravelArt';
 import { CuteSticker } from './CuteArt';
 import JournalCover from './JournalCover';
+import MobileDisclosure from './MobileDisclosure';
 
 /** 首页照片与便笺取自真实记录；紧凑双卡明信片与手账便签，把空间留给城市和旅行列表。 */
 export default function JournalWelcome({
@@ -95,6 +96,7 @@ export default function JournalWelcome({
       <aside className="warm-note-paper compact-note-card">
         <span className="washi-tape tape-center" aria-hidden="true" />
         <CuteSticker kind="sparkle" className="note-float-sparkle" />
+        <MobileDisclosure label="最近便签" value={notePlace?.name}>
         <div className="note-paper-head">
           <span className="warm-note-label"><TravelIcon name="detail" />最近便签</span>
           <div className="note-head-right">
@@ -121,6 +123,7 @@ export default function JournalWelcome({
           </div>
           <p>{noteText || '挑一座去过的城市，贴几张照片或写几句当时的天气与心情。'}</p>
         </div>
+        </MobileDisclosure>
 
         <dl className="warm-memory-counts compact-counts">
           <div className="count-pill-sage"><dt>旅行</dt><dd>{trips.length}</dd></div>

@@ -7,6 +7,8 @@ import './warm.css';
 import './warm-details.css';
 import './cute-styles.css';
 import './appearance.css';
+import './phone.css';
+import './planner-ai-neo.css';
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

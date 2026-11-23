@@ -145,7 +145,7 @@ try {
   assert.equal(cityMark?.visited, true);
   // The all-records view must include both dated journeys and cities that
   // still keep their photos directly under the city rather than a journey.
-  await page.getByRole('button', { name: '查看全部旅行' }).click();
+  await page.getByRole('button', { name: '返回手账总览' }).click();
   await page.locator('.saved-city-card').filter({ hasText: '安顺市' }).waitFor();
   await page.locator('.saved-city-card').filter({ hasText: '贵阳市' }).waitFor();
   await page.locator('.journey-card').filter({ hasText: '贵州瀑布之旅' }).waitFor();
@@ -153,7 +153,7 @@ try {
   await page.locator('.saved-city-card').filter({ hasText: '贵阳市' }).click();
   await page.getByRole('heading', { name: '贵阳市的城市记录' }).waitFor();
   await page.locator('.place-card').filter({ hasText: '城市日记' }).waitFor();
-  await page.getByRole('button', { name: '查看全部旅行' }).click();
+  await page.getByRole('button', { name: '返回手账总览' }).click();
   await page.reload({ waitUntil: 'networkidle' });
   await page.locator('.sidebar').getByRole('button', { name: '旅行手账' }).click();
   await page.locator('.saved-city-card').first().waitFor();

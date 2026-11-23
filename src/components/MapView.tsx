@@ -8,8 +8,7 @@ import type { EChartsType } from 'echarts/core';
 import { themeColor, useAppearanceStyle, useDarkTheme } from '../theme';
 import type { AdministrativeFeature, AdministrativeGeoJSON, CityMark } from '../types';
 import {
-  cacheProvinceMap, fillForStatus, listCachedProvinceCodes, loadNationalMap, loadProvinceMap,
-  pointInFeature, provinceColor, removeCachedProvinceMap, statusForCity, statusForProvince,
+  fillForStatus, loadNationalMap, loadProvinceMap, pointInFeature, provinceColor, statusForCity, statusForProvince,
 } from '../map-data';
 
 interface MapViewProps {
@@ -118,13 +117,11 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
   const [retryAttempt, setRetryAttempt] = useState(0);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('正在加载地图…');
-  const [cachedCodes, setCachedCodes] = useState<string[]>([]);
-  const [cacheBusy, setCacheBusy] = useState(false);
   const [provinceFilter, setProvinceFilter] = useState<'all' | 'visited' | 'unvisited'>('all');
   const hoveredRegionRef = useRef<string | null>(null);
-  // Dense administrative labels collide on narrow screens. The city list
-  // remains visible below the map, while a touched region shows its label.
+  // 手机端无鼠标悬浮提示，全国和省内市级地图均直接显示名称，重叠交给 ECharts hideOverlap 自动避让。
   const [compactMap, setCompactMap] = useState(() => window.matchMedia('(max-width: 560px)').matches);
+  const showMapLabels = true;
 
   useEffect(() => {
     const query = window.matchMedia('(max-width: 560px)');
@@ -136,10 +133,6 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
   const activeProvince = useMemo(() => nationalMap?.features.find((feature) =>
     String(feature.properties.adcode) === activeProvinceCode), [nationalMap, activeProvinceCode]);
   activeProvinceRef.current = activeProvince;
-
-  useEffect(() => {
-    listCachedProvinceCodes().then(setCachedCodes).catch(() => undefined);
-  }, []);
 
   useEffect(() => {
     // Fetches may finish after a return, a province switch or an unmount.
@@ -169,7 +162,7 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
         const detail = error instanceof Error ? error.message : '未知错误';
         // Keep the concrete cause visible in the map after the toast expires.
         setNotice(loadingProvince && !navigator.onLine
-          ? '当前地区尚未缓存，请联网后选择缓存'
+          ? '当前地区尚未缓存，请联网后前往个人中心的「离线地图」下载。'
           : `${loadingProvince ? '市级' : '全国'}地图加载失败：${detail}`);
         onError(detail);
       } finally {
@@ -253,7 +246,7 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
       };
     };
     const nationalLayoutSize = () => Math.min(
-      chart.getWidth() * 0.96,
+      chart.getWidth() * (compactMap ? 1.02 : 0.96),
       chart.getHeight() * 0.94 * ((135.1 - 73.4) / (53.6 - 18)) * 0.75,
     );
     const { mapColors, data } = buildSeriesVisuals(currentMap);
@@ -271,12 +264,12 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
         type: 'map', map: mapName, roam: true, scaleLimit: { min: 0.8, max: 12 },
         boundingCoords: activeProvinceCode ? undefined : [[73.4, 53.6], [135.1, 18]],
         // 微微下移并留出顶部工具栏余量，避免最北端城市落到顶部按钮下方导致不好点。
-        layoutCenter: activeProvinceCode ? ['50%', '52%'] : ['50%', '52%'],
+        layoutCenter: activeProvinceCode ? ['50%', '52%'] : ['50%', compactMap ? '53%' : '52%'],
         layoutSize: activeProvinceCode ? '86%' : nationalLayoutSize(),
         zoom: 1,
         selectedMode: false,
         label: {
-          show: !compactMap, fontSize: activeProvinceCode ? 11 : 10, color: mapColors.label,
+          show: showMapLabels, fontSize: activeProvinceCode ? (compactMap ? 9.5 : 11) : (compactMap ? 9 : 10), color: mapColors.label,
           formatter: ({ name }: { name: string }) => shortRegionLabel(name),
         },
         labelLayout: layoutLabels,
@@ -398,7 +391,7 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
     chart.setOption({
       tooltip: { backgroundColor: mapColors.tooltip },
       series: [{
-        label: { show: !compactMap, color: mapColors.label },
+        label: { show: showMapLabels, fontSize: activeProvinceCode ? (compactMap ? 9.5 : 11) : (compactMap ? 9 : 10), color: mapColors.label },
         itemStyle: { borderColor: mapColors.border, areaColor: mapColors.area },
         emphasis: {
           label: { color: mapColors.strong },
@@ -407,7 +400,7 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
         data,
       }],
     });
-  }, [currentMap, activeProvinceCode, compactMap, marks, dark, appearance]);
+  }, [currentMap, activeProvinceCode, showMapLabels, compactMap, marks, dark, appearance]);
 
   function adjustZoom(multiplier: number): void {
     const chart = chartRef.current;
@@ -416,21 +409,6 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
     const series = option.series?.[0];
     const zoom = Math.max(0.8, Math.min(12, (Number(series?.zoom) || 1) * multiplier));
     chart.setOption({ series: [{ zoom }] });
-  }
-
-  async function toggleCache(): Promise<void> {
-    if (!activeProvinceCode) return;
-    setCacheBusy(true);
-    try {
-      if (cachedCodes.includes(activeProvinceCode)) await removeCachedProvinceMap(activeProvinceCode);
-      else await cacheProvinceMap(activeProvinceCode);
-      setCachedCodes(await listCachedProvinceCodes());
-      setNotice(cachedCodes.includes(activeProvinceCode) ? '该地区离线缓存已删除' : '该地区市级地图已缓存');
-    } catch (error) {
-      onError(error instanceof Error ? error.message : '缓存操作失败');
-    } finally {
-      setCacheBusy(false);
-    }
   }
 
   const highlightRegion = useCallback((name: string | null) => {
@@ -484,13 +462,8 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
     <div className="map-page">
       <div className="section-heading map-heading">
         <div className="map-heading-main">
-          <span className="eyebrow">TRAVEL ATLAS</span>
           <h1>中国旅行地图</h1>
-          <p>点选省份探索城市 · 滚轮缩放 · 拖动漫游</p>
-        </div>
-        <div className="breadcrumb">
-          <button type="button" onClick={() => setActiveProvinceCode(null)} className={!activeProvinceCode ? 'current' : ''}>全国</button>
-          {activeProvince && <><span>›</span><strong>{activeProvince.properties.name}</strong></>}
+          <p>点选省份探索城市 · <span className="map-zoom-desktop">滚轮缩放</span><span className="map-zoom-phone">双指缩放</span> · 拖动漫游</p>
         </div>
       </div>
       <div className="map-layout">
@@ -539,9 +512,6 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
               </div>
               <div className="map-province-actions">
                 <button type="button" className="primary province-ai-button" onClick={() => onRecommendProvince(activeProvince.properties.name)}>✦ AI 推荐怎么玩</button>
-                <button type="button" className="secondary province-cache-button" onClick={toggleCache} disabled={cacheBusy || !provinceMap}>
-                  {cacheBusy ? '处理中…' : cachedCodes.includes(activeProvinceCode!) ? '删除离线' : '缓存离线'}
-                </button>
               </div>
             </div>
             <div className="map-list-header">

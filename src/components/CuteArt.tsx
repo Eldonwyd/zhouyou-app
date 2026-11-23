@@ -259,7 +259,7 @@ export function IllustratedJourneyCover({ seed, label }: { seed: string; label?:
   const variant = hash % 4;
 
   return (
-    <div className="illustrated-mini-cover" aria-hidden="true">
+    <span className="illustrated-mini-cover" aria-hidden="true">
       {variant === 0 && (
         <svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice">
           <rect width="320" height="180" fill="var(--cover-sky-top, #fceee4)" />
@@ -318,7 +318,7 @@ export function IllustratedJourneyCover({ seed, label }: { seed: string; label?:
         </svg>
       )}
       {label && <span className="illustrated-mini-tag">{label}</span>}
-    </div>
+    </span>
   );
 }
 

@@ -31,12 +31,17 @@ try {
     }
 
     await assertFits('map');
+    // 全国地图在手机上也应显示省名，省内地图仍按屏幕宽度控制城市标签密度。
+    await page.waitForFunction(() => window.__travelMapChart?.getOption().series[0].map === 'china');
+    const provinceLabelsVisible = await page.evaluate(() => window.__travelMapChart.getOption().series[0].label.show);
+    assert.equal(provinceLabelsVisible, true, `${width}px national map province labels`);
     await page.screenshot({ path: path.join(os.tmpdir(), `travel-map-${width}.png`), fullPage: true });
     await page.locator('.province-list button').filter({ hasText: '贵州' }).click();
     const back = page.getByRole('button', { name: '返回全国' });
     await back.waitFor();
+    await page.waitForFunction(() => window.__travelMapChart?.getOption().series[0].map === 'province-520000');
     const labelsVisible = await page.evaluate(() => window.__travelMapChart?.getOption().series[0].label.show);
-    assert.equal(labelsVisible, width > 560, `${width}px map label density`);
+    assert.equal(labelsVisible, true, `${width}px province map city labels`);
     const controls = await page.locator('.map-control-group').boundingBox();
     const backBox = await back.boundingBox();
     assert.ok(backBox && controls && backBox.x + backBox.width <= controls.x,
@@ -89,7 +94,7 @@ try {
       await page.getByRole('button', { name: '保存旅行' }).click();
       await page.getByRole('heading', { name: '手机局域网旅行' }).waitFor();
       await page.getByRole('button', { name: /返回城市记录与旅行列表/ }).click();
-      await page.getByRole('button', { name: '查看全部旅行' }).click();
+      await page.getByRole('button', { name: '返回手账总览' }).click();
       await page.locator('.saved-city-card').filter({ hasText: '安顺市' }).waitFor();
       await page.locator('.journey-card').filter({ hasText: '手机局域网旅行' }).waitFor();
       await assertFits('all journeys and cities');
@@ -98,7 +103,7 @@ try {
 
     for (const section of ['行程规划', '旅行手账', '旅途成就', '个人中心']) {
       await page.locator('.nav-item').filter({ hasText: section }).click();
-      await page.locator('.content-page').waitFor();
+      await page.locator('.content-page:visible').waitFor();
       await assertFits(section);
     }
     await page.screenshot({ path: path.join(os.tmpdir(), `travel-mobile-${width}.png`), fullPage: true });
