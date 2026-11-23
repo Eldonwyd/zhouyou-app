@@ -1,3 +1,4 @@
+import { plannerApiUrl } from './api-base';
 import { cachePlannerResponsePhotos } from './planner-photo-cache';
 
 /** Consume server progress without exposing the provider key to the browser. */
@@ -7,7 +8,7 @@ export async function plannerApi<T>(
   signal: AbortSignal,
   onProgress: (stage: string) => void,
 ): Promise<T> {
-  const url = new URL(`${import.meta.env.BASE_URL}api/planner/${endpoint}`, window.location.href);
+  const url = plannerApiUrl(endpoint);
   let response: Response;
   try {
     response = await fetch(url, {
@@ -18,7 +19,7 @@ export async function plannerApi<T>(
     });
   } catch (error) {
     if (signal.aborted) throw error;
-    throw new Error('无法连接本地 AI 服务，请用 npm run dev 启动网页和服务');
+    throw new Error('无法连接 AI 服务：桌面版请直接重启应用，手机版请在「个人中心 → 远程 AI 服务」填写电脑/服务器地址');
   }
   if (!response.ok) {
     const error = (await response.json().catch(() => ({}))) as { error?: string };

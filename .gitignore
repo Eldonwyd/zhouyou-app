@@ -1,6 +1,9 @@
 node_modules/
 dist/
 dist-*/
+release/
+android/
+ios/
 *.log
 .env*
 !.env.example
@@ -9,3 +12,4 @@ dist-*/
 .xhs-local/
 xiaohongshu-mcp-windows-amd64.exe
 .models/
+.ai-auth.json

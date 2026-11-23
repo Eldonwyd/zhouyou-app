@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { AI_PROVIDERS } from './ai-provider.mjs';
+import { AI_PROVIDERS, defaultApiModel } from './ai-provider.mjs';
+import { pickDefaultModel } from './ai-catalog.mjs';
 
 /** 联网检索按服务商分三类：
  * - direct：有独立搜索接口，直接返回网址 + 正文（DeepSeek、智谱）。
@@ -11,6 +12,7 @@ export const SEARCH_KIND = {
   deepseek: 'direct', zhipu: 'direct',
   openai: 'citation', gemini: 'citation', anthropic: 'citation', qwen: 'citation',
   moonshot: 'none', doubao: 'none', custom: 'none',
+  'sub:chatgpt': 'citation', 'sub:claude': 'none', 'sub:kimi': 'none', 'sub:gemini': 'none',
 };
 
 const SEARCH_PROMPT = (query) => `请联网搜索：${query}\n只需搜索，简要列出找到的网页即可。`;
@@ -27,10 +29,13 @@ export function htmlToText(html) {
     .trim();
 }
 
-export function createWebSearch({ provider = 'deepseek', apiKey = '', model = '', baseUrl = '' } = {}, fetchImpl = fetch) {
-  const spec = AI_PROVIDERS[provider] ?? AI_PROVIDERS.custom;
-  const kind = apiKey ? SEARCH_KIND[provider] ?? 'none' : 'none';
-  const resolvedModel = model || spec.model;
+export function createWebSearch({ provider = 'deepseek', apiKey = '', model = '', baseUrl = '', getAccessToken = null } = {}, fetchImpl = fetch) {
+  const isChatGptSub = provider === 'sub:chatgpt';
+  const spec = isChatGptSub
+    ? { label: 'ChatGPT', baseUrl: 'https://api.openai.com/v1', model: pickDefaultModel('sub:chatgpt') }
+    : (AI_PROVIDERS[provider] ?? AI_PROVIDERS.custom);
+  const kind = (apiKey || getAccessToken) ? SEARCH_KIND[provider] ?? 'none' : 'none';
+  const resolvedModel = model || spec.model || defaultApiModel(provider);
   const base = (baseUrl || spec.baseUrl).replace(/\/+$/, '');
   const withTimeout = (signal, timeout) => AbortSignal.any([signal, AbortSignal.timeout(timeout)].filter(Boolean));
 
@@ -81,10 +86,12 @@ export function createWebSearch({ provider = 'deepseek', apiKey = '', model = ''
 
   // ---- 第二类：对话内置搜索，只取网址与标题 ----
   async function openaiSearch(query, signal, timeout) {
+    const token = getAccessToken ? await getAccessToken() : apiKey;
+    if (!token) throw new Error(`${spec.label} 授权已失效，联网检索不可用`);
     const result = await postJson(`${base}/responses`, {
       model: resolvedModel, input: SEARCH_PROMPT(query), tools: [{ type: 'web_search' }],
       include: ['web_search_call.action.sources'],
-    }, { Authorization: `Bearer ${apiKey}` }, signal, timeout);
+    }, { Authorization: `Bearer ${token}` }, signal, timeout);
     const found = [];
     for (const item of result.output ?? []) {
       if (item.type === 'web_search_call') for (const source of item.action?.sources ?? []) found.push({ url: source.url, title: source.title ?? '' });
@@ -143,7 +150,7 @@ export function createWebSearch({ provider = 'deepseek', apiKey = '', model = ''
     if (kind === 'none') return [];
     if (provider === 'deepseek') return deepseekSearch(query, count, needContent, signal, timeout);
     if (provider === 'zhipu') return zhipuSearch(query, count, needContent, signal, timeout);
-    const found = provider === 'openai' ? await openaiSearch(query, signal, timeout)
+    const found = (provider === 'openai' || provider === 'sub:chatgpt') ? await openaiSearch(query, signal, timeout)
       : provider === 'gemini' ? await geminiSearch(query, signal, timeout)
         : provider === 'anthropic' ? await claudeSearch(query, signal, timeout)
           : await qwenSearch(query, signal, timeout);

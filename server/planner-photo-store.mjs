@@ -6,8 +6,8 @@ import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import sharp from 'sharp';
 import { isPublicWebUrl } from '../src/planner-domain.ts';
+import { getDataPath } from './runtime-paths.mjs';
 
-const defaultDirectory = fileURLToPath(new URL('../.planner-photos/', import.meta.url));
 export const validPlannerPhotoId = (id) => typeof id === 'string' && /^[a-f\d]{64}$/.test(id);
 
 /** 所有图片下载逐跳检查地址，拒绝内网/本机/凭据 URL；不向图片站发送搜索密钥。 */
@@ -67,7 +67,7 @@ export async function fetchPlannerPhotoBytes(address, signal, fetchImpl = fetch)
 }
 
 /** 磁盘缓存只存已验证图片及可读来源；文件名由内容散列生成，重启服务后仍可复用。 */
-export function createPlannerPhotoStore({ directory = defaultDirectory, fetchImpl = fetch } = {}) {
+export function createPlannerPhotoStore({ directory = getDataPath('.planner-photos'), fetchImpl = fetch } = {}) {
   const keyFor = (query) => createHash('sha256').update(query).digest('hex');
   const atomicWrite = async (filename, bytes) => {
     const temporary = `${filename}.${crypto.randomUUID()}.tmp`;

@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import { getDataPath } from './runtime-paths.mjs';
 
 /** 本地配图检查：图上有没有文字、是不是拼图、是不是人像。全部在本机运行，不需要任何 Key。
  * 模型首次使用时从 ModelScope 下载并按 SHA-256 校验，之后离线可用：
@@ -184,7 +185,7 @@ async function collageMetrics(input) {
   };
 }
 
-export function createPhotoInspector({ directory = defaultDirectory, fetchImpl = fetch } = {}) {
+export function createPhotoInspector({ directory = getDataPath('.models'), fetchImpl = fetch } = {}) {
   let ready;
   const load = () => {
     ready ??= (async () => {

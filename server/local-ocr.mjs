@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import { getDataPath } from './runtime-paths.mjs';
 
 /**
  * 本地离线中文/英文/数字 OCR（基于 PP-OCRv5 Mobile ONNX，Apache-2.0）。
@@ -224,7 +225,7 @@ function groupIntoLines(items) {
     .filter(Boolean);
 }
 
-export function createLocalOcr({ directory = defaultDirectory, fetchImpl = fetch } = {}) {
+export function createLocalOcr({ directory = getDataPath('.models'), fetchImpl = fetch } = {}) {
   let readyPromise = null;
 
   async function load(onProgress) {

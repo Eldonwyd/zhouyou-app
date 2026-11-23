@@ -1,3 +1,4 @@
+import { plannerApiUrl } from './api-base';
 import { getPlannerPhotoBlob, savePlannerPhotoBlob } from './db';
 
 /** 下载已经在服务端通过验证的照片到浏览器本地；取消或保存失败不得假称成功。 */
@@ -14,7 +15,7 @@ export async function cachePlannerResponsePhotos<T>(result: T, signal: AbortSign
   for (const id of ids) {
     signal.throwIfAborted();
     if (await getPlannerPhotoBlob(id)) continue;
-    const response = await fetch(new URL(`${import.meta.env.BASE_URL}api/planner/photo-file/${id}`, window.location.href), { signal });
+    const response = await fetch(plannerApiUrl(`photo-file/${id}`), { signal });
     if (!response.ok) throw new Error('行程照片未能下载到本地，请重试');
     const blob = await response.blob();
     // 浏览器再次实际解码，避免服务器缓存文件损坏后仍保存成功。
