@@ -1,0 +1,24 @@
+name: ✨ 功能建议 (Feature Request)
+description: 提出新功能想法、交互优化或新平台适配建议
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: motivation
+    attributes:
+      label: 使用场景与需求背景
+      description: 你在记录旅行或规划行程时遇到了什么痛点？
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: 期望的实现方式
+      description: 描述你希望看到的功能形态或交互体验。
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充参考（可选）
+      description: 可以附上草图、参考产品截图或相关链接。

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📦 前往全平台下载中心
+    url: https://github.com/Eldonwyd/zhouyou-app/releases/latest
+    about: 下载 Windows / macOS / Linux / Android / iOS 最新客户端
+  - name: 🌐 打开在线网页版 / 下载门户
+    url: https://eldonwyd.github.io/zhouyou-app/download.html
+    about: 自动识别你的设备并跳转到对应安装包或 Safari PWA 网页版

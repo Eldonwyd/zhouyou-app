@@ -1,0 +1,48 @@
+name: 🐛 问题反馈 (Bug Report)
+description: 反馈程序崩溃、页面异常、地图显示错误或安装问题
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 使用平台
+      options:
+        - Windows 桌面版 (.exe)
+        - macOS 桌面版 (.dmg)
+        - Linux 桌面版 (.AppImage / .deb)
+        - Android 安卓版 (.apk)
+        - iOS 苹果版 (.ipa)
+        - 网页版 / PWA
+        - 源码本地开发 (npm run dev)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 应用版本 / 系统版本
+      placeholder: 例如：v1.0.0 / Windows 11 23H2 / iOS 18.2
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 清晰描述你遇到的问题以及原本预期的表现。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开「行程规划」页面
+        2. 点击「...」
+        3. 出现报错 / 界面异常
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 截图或错误日志（可选）
+      description: 请注意打码隐藏任何个人隐私与 API Key！
