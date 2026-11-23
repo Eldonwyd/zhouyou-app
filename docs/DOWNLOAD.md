@@ -2,10 +2,10 @@
 
 本指南详细介绍如何在 **Windows / macOS / Linux / Android / iOS / Web** 上下载、安装与配置 **周游地图（Zhouyou Map）**。
 
-> 🚀 **快捷入口**：
-> - **GitHub Releases 全部安装包**：[https://github.com/Eldonwyd/zhouyou-app/releases/latest](https://github.com/Eldonwyd/zhouyou-app/releases/latest)
-> - **智能设备识别下载中心**：[https://eldonwyd.github.io/zhouyou-app/download.html](https://eldonwyd.github.io/zhouyou-app/download.html)
-> - **在线网页版 / iOS PWA**：[https://eldonwyd.github.io/zhouyou-app/](https://eldonwyd.github.io/zhouyou-app/)
+> 🚀 **独立下载入口**：
+> - **💻 电脑桌面版独立下载页**：[https://eldonwyd.github.io/zhouyou-app/download-desktop.html](https://eldonwyd.github.io/zhouyou-app/download-desktop.html) · [GitHub 电脑版 Releases](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v)
+> - **📱 手机移动版独立下载页**：[https://eldonwyd.github.io/zhouyou-app/download-mobile.html](https://eldonwyd.github.io/zhouyou-app/download-mobile.html) · [GitHub 手机版 Releases](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v)
+> - **🌐 在线网页版 / iOS PWA**：[https://eldonwyd.github.io/zhouyou-app/](https://eldonwyd.github.io/zhouyou-app/)
 
 ---
 

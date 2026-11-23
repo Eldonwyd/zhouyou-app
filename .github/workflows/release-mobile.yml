@@ -1,13 +1,13 @@
-name: Build & Release Multi-Platform Apps
+name: Release Mobile App (Android / iOS)
 
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'mobile-v*.*.*'
   workflow_dispatch:
     inputs:
       version:
-        description: '版本号（例如 1.0.0，留空则读取 package.json 版本）'
+        description: '手机版版本号（例如 1.0.0，留空则读取 package.json）'
         required: false
         default: ''
       prerelease:
@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   prepare:
-    name: Resolve Release Version
+    name: Resolve Mobile Version
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.meta.outputs.version }}
@@ -30,97 +30,20 @@ jobs:
       - id: meta
         shell: bash
         run: |
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+          if [[ "${GITHUB_REF}" == refs/tags/mobile-v* ]]; then
             TAG="${GITHUB_REF#refs/tags/}"
-            VER="${TAG#v}"
+            VER="${TAG#mobile-v}"
           elif [[ -n "${{ inputs.version }}" ]]; then
             VER="${{ inputs.version }}"
+            VER="${VER#mobile-v}"
             VER="${VER#v}"
-            TAG="v${VER}"
+            TAG="mobile-v${VER}"
           else
             VER=$(node -p "require('./package.json').version")
-            TAG="v${VER}"
+            TAG="mobile-v${VER}"
           fi
           echo "version=${VER}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "Release target: ${TAG} (version ${VER})"
-
-  build-windows:
-    name: Desktop · Windows (x64)
-    needs: prepare
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - name: Sync version
-        shell: pwsh
-        run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
-      - name: Build web, server & Windows installers
-        run: npm run desktop:win
-      - name: Collect Windows artifacts
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path dist-artifacts | Out-Null
-          Get-ChildItem -Path release -Filter "*.exe" | Copy-Item -Destination dist-artifacts
-          Get-ChildItem dist-artifacts
-      - uses: actions/upload-artifact@v4
-        with:
-          name: artifacts-windows
-          path: dist-artifacts/*
-
-  build-macos:
-    name: Desktop · macOS (arm64 & x64)
-    needs: prepare
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - name: Sync version
-        run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
-      - name: Build web, server & macOS DMG (Apple Silicon + Intel)
-        run: npm run desktop:mac
-      - name: Collect macOS artifacts
-        run: |
-          mkdir -p dist-artifacts
-          cp release/*.dmg dist-artifacts/
-          ls -lh dist-artifacts
-      - uses: actions/upload-artifact@v4
-        with:
-          name: artifacts-macos
-          path: dist-artifacts/*
-
-  build-linux:
-    name: Desktop · Linux (AppImage & deb)
-    needs: prepare
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - name: Sync version
-        run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
-      - name: Build web, server & Linux packages
-        run: npm run desktop:linux
-      - name: Collect Linux artifacts
-        run: |
-          mkdir -p dist-artifacts
-          cp release/*.AppImage release/*.deb dist-artifacts/
-          ls -lh dist-artifacts
-      - uses: actions/upload-artifact@v4
-        with:
-          name: artifacts-linux
-          path: dist-artifacts/*
 
   build-android:
     name: Mobile · Android (APK)
@@ -138,10 +61,8 @@ jobs:
           java-version: 21
       - uses: android-actions/setup-android@v3
       - run: npm ci
-      - name: Sync version
-        run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
-      - name: Build web & prepare Capacitor Android project
-        run: |
+      - run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
+      - run: |
           npm run build
           npx cap add android
           node scripts/prepare-mobile.mjs android
@@ -171,7 +92,6 @@ jobs:
             KEY_ALIAS="${ANDROID_KEY_ALIAS}"
             KEY_PASS="${ANDROID_KEY_PASSWORD}"
           else
-            # 未配置自定义签名证书时自动生成临时发布密钥，确保 APK 可在安卓手机直接安装。
             KS_PASS="zhouyou-release-key"
             KEY_ALIAS="zhouyou"
             KEY_PASS="zhouyou-release-key"
@@ -193,7 +113,7 @@ jobs:
           ls -lh dist-artifacts
       - uses: actions/upload-artifact@v4
         with:
-          name: artifacts-android
+          name: mobile-android
           path: dist-artifacts/*
 
   build-ios:
@@ -207,15 +127,13 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Sync version
-        run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
-      - name: Build web & prepare Capacitor iOS project
-        run: |
+      - run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
+      - run: |
           npm run build
           npx cap add ios
           node scripts/prepare-mobile.mjs ios
           npx cap sync ios
-      - name: Build unsigned iOS IPA (for AltStore / SideStore / TrollStore / Sideloadly)
+      - name: Build unsigned iOS IPA
         run: |
           set -euo pipefail
           mkdir -p dist-artifacts ios-build
@@ -249,40 +167,29 @@ jobs:
           ls -lh dist-artifacts
       - uses: actions/upload-artifact@v4
         with:
-          name: artifacts-ios
+          name: mobile-ios
           path: dist-artifacts/*
 
-  publish-release:
-    name: Publish GitHub Release
-    needs: [prepare, build-windows, build-macos, build-linux, build-android, build-ios]
+  publish-mobile-release:
+    name: Publish Mobile GitHub Release
+    needs: [prepare, build-android, build-ios]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-
-      - name: Download all platform builds
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           path: release-files
           merge-multiple: true
-
-      - name: Generate SHA256SUMS.txt
-        working-directory: release-files
-        run: |
-          sha256sum * > SHA256SUMS.txt
-          cat SHA256SUMS.txt
-
-      - name: Build Release Notes
-        run: node scripts/generate-release-notes.mjs "${{ needs.prepare.outputs.version }}" release-files release-notes.md
-
-      - name: Create or Update GitHub Release
-        uses: softprops/action-gh-release@v2
+      - working-directory: release-files
+        run: sha256sum * > SHA256SUMS.txt
+      - run: node scripts/generate-release-notes.mjs "${{ needs.prepare.outputs.version }}" release-files release-notes.md mobile
+      - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
-          name: Zhouyou Map ${{ needs.prepare.outputs.tag }}
+          name: "📱 手机移动版 · Mobile v${{ needs.prepare.outputs.version }}"
           body_path: release-notes.md
           prerelease: ${{ inputs.prerelease || false }}
-          generate_release_notes: true
           files: release-files/*

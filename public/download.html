@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>下载周游地图 · Zhouyou Map 全平台客户端</title>
-    <meta name="description" content="下载周游地图 Windows / macOS / Linux 电脑桌面版与 Android / iOS 手机版客户端，或立即体验在线 PWA 网页版。" />
+    <title>周游地图 · 电脑版 &amp; 手机版独立下载中心</title>
+    <meta name="description" content="周游地图独立下载中心：电脑桌面版（Windows / macOS / Linux）与手机移动版（Android / iOS / PWA）分别提供独立下载。" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
     <style>
@@ -57,7 +57,7 @@
         justify-content: space-between;
         gap: 16px;
         flex-wrap: wrap;
-        margin-bottom: 42px;
+        margin-bottom: 36px;
       }
       .brand {
         display: flex;
@@ -69,7 +69,7 @@
         font-size: 18px;
       }
       .brand img { width: 42px; height: 42px; border-radius: 12px; }
-      .nav-links { display: flex; gap: 12px; flex-wrap: wrap; }
+      .nav-links { display: flex; gap: 10px; flex-wrap: wrap; }
       .nav-links a {
         text-decoration: none;
         color: var(--muted);
@@ -85,20 +85,79 @@
 
       .hero {
         text-align: center;
-        max-width: 760px;
-        margin: 0 auto 48px;
+        max-width: 780px;
+        margin: 0 auto 32px;
       }
       .hero-icon {
-        width: 96px;
-        height: 96px;
+        width: 92px;
+        height: 92px;
         border-radius: 24px;
         box-shadow: 0 14px 30px rgba(239, 99, 81, 0.25);
-        margin-bottom: 18px;
+        margin-bottom: 14px;
       }
-      .pill {
+      h1 {
+        margin: 0 0 10px;
+        font-size: clamp(28px, 4.6vw, 42px);
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+      }
+      .subtitle {
+        margin: 0 0 24px;
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      /* 独立电脑版 / 手机版切换栏 */
+      .mode-tabs {
         display: inline-flex;
+        gap: 8px;
+        padding: 6px;
+        border-radius: 16px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .mode-tab {
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        font-size: 15px;
+        font-weight: 700;
+        padding: 10px 20px;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+      .mode-tab.is-active {
+        background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+        color: #fff;
+      }
+
+      .section-panel { margin-top: 12px; }
+      .section-panel[hidden] { display: none; }
+      .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin: 24px 0 16px;
+      }
+      .section-title {
+        font-size: 21px;
+        font-weight: 800;
+        margin: 0;
+        display: flex;
         align-items: center;
         gap: 8px;
+      }
+      .release-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
         font-size: 13px;
         font-weight: 700;
         color: var(--teal);
@@ -106,60 +165,10 @@
         border: 1px solid var(--border);
         padding: 6px 14px;
         border-radius: 999px;
-        margin-bottom: 14px;
-      }
-      h1 {
-        margin: 0 0 12px;
-        font-size: clamp(28px, 4.8vw, 44px);
-        line-height: 1.2;
-        letter-spacing: -0.02em;
-      }
-      .subtitle {
-        margin: 0 0 26px;
-        color: var(--muted);
-        font-size: 16px;
-      }
-      .hero-cta {
-        display: flex;
-        justify-content: center;
-        gap: 12px;
-        flex-wrap: wrap;
-      }
-      .btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 13px 24px;
-        border-radius: 14px;
-        font-weight: 700;
-        font-size: 15px;
         text-decoration: none;
-        border: 1px solid transparent;
-        transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-        cursor: pointer;
       }
-      .btn-primary {
-        background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-        color: #fff;
-        box-shadow: 0 10px 24px rgba(239, 99, 81, 0.3);
-      }
-      .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(239, 99, 81, 0.38); }
-      .btn-secondary {
-        background: var(--surface);
-        color: var(--ink);
-        border-color: var(--border);
-      }
-      .btn-secondary:hover { transform: translateY(-2px); border-color: var(--teal); }
+      .release-tag:hover { border-color: var(--accent); }
 
-      .section-title {
-        font-size: 20px;
-        font-weight: 800;
-        margin: 34px 0 16px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
       .grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -176,9 +185,7 @@
         gap: 12px;
         position: relative;
       }
-      .card.is-recommended {
-        border: 2px solid var(--accent);
-      }
+      .card.is-recommended { border: 2px solid var(--accent); }
       .badge {
         position: absolute;
         top: 16px;
@@ -190,11 +197,7 @@
         padding: 3px 10px;
         border-radius: 999px;
       }
-      .card-head {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
+      .card-head { display: flex; align-items: center; gap: 12px; }
       .os-icon {
         width: 44px;
         height: 44px;
@@ -220,7 +223,7 @@
         align-items: center;
         justify-content: space-between;
         gap: 10px;
-        padding: 10px 14px;
+        padding: 11px 14px;
         border-radius: 12px;
         background: var(--surface-soft);
         color: var(--ink);
@@ -267,147 +270,157 @@
           <span>周游地图 · Zhouyou Map</span>
         </a>
         <nav class="nav-links">
+          <a href="./download-desktop.html">💻 电脑版专区</a>
+          <a href="./download-mobile.html">📱 手机版专区</a>
           <a href="./">🌐 在线网页版</a>
           <a href="https://github.com/Eldonwyd/zhouyou-app" target="_blank" rel="noreferrer">GitHub 仓库</a>
-          <a href="https://github.com/Eldonwyd/zhouyou-app/releases" target="_blank" rel="noreferrer">全部历史版本</a>
         </nav>
       </header>
 
       <section class="hero">
         <img class="hero-icon" src="./icons/icon-512.png" alt="Zhouyou Map Logo" />
-        <div>
-          <span class="pill" id="release-pill">📦 正在获取最新版本信息…</span>
-        </div>
-        <h1>点亮你的中国旅行足迹</h1>
+        <h1>选择你的设备版本</h1>
         <p class="subtitle">
-          集中国足迹地图、旅行手账、账本与多模型 AI 行程规划于一体。<br />
-          桌面端内置完整本地 AI &amp; OCR 引擎开箱即用；手机端支持离线足迹与局域网互联。
+          电脑桌面版与手机移动版均为独立客户端、独立发布与下载，数据保存在各自设备本地，也可随时通过 ZIP 备份互传。
         </p>
-        <div class="hero-cta">
-          <a id="primary-download" class="btn btn-primary" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
-            ⬇️ 前往 GitHub Releases 下载
-          </a>
-          <a class="btn btn-secondary" href="./">
-            🌐 立即在浏览器使用（PWA）
-          </a>
+        <div class="mode-tabs" role="tablist" aria-label="下载专区切换">
+          <button type="button" class="mode-tab is-active" data-tab="all" role="tab">📦 全部平台</button>
+          <button type="button" class="mode-tab" data-tab="desktop" role="tab">💻 电脑桌面版</button>
+          <button type="button" class="mode-tab" data-tab="mobile" role="tab">📱 手机移动版</button>
         </div>
       </section>
 
-      <h2 class="section-title">💻 电脑桌面版（内置 AI 引擎与本地 OCR，免配置 Node.js）</h2>
-      <div class="grid">
-        <article class="card" data-os="windows">
-          <div class="card-head">
-            <div class="os-icon">🪟</div>
-            <div>
-              <h3>Windows</h3>
-              <small>Windows 10 / 11 (x64)</small>
+      <!-- 电脑桌面版独立下载区 -->
+      <section class="section-panel" id="desktop" data-panel="desktop">
+        <div class="panel-header">
+          <h2 class="section-title">💻 电脑桌面版下载（独立客户端）</h2>
+          <a id="desktop-release-link" class="release-tag" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v" target="_blank" rel="noreferrer">
+            📦 正在查询电脑版最新 Release…
+          </a>
+        </div>
+        <div class="grid">
+          <article class="card" data-os="windows">
+            <div class="card-head">
+              <div class="os-icon">🪟</div>
+              <div>
+                <h3>Windows 电脑版</h3>
+                <small>Windows 10 / 11 (x64)</small>
+              </div>
             </div>
-          </div>
-          <p>提供标准安装版与免安装绿色便携版，双击即用，所有旅行数据保存在本地。</p>
-          <div class="dl-list">
-            <a class="dl-link" data-asset="win-setup" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
-              <span>安装版 (.exe)</span>
-              <span class="dl-meta">推荐</span>
-            </a>
-            <a class="dl-link" data-asset="win-portable" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
-              <span>绿色便携版 (.exe)</span>
-              <span class="dl-meta">免安装</span>
-            </a>
-          </div>
-        </article>
+            <p>内置完整本地 AI 行程规划与离线 OCR 引擎，无需安装 Node.js，提供标准安装版与免安装便携版。</p>
+            <div class="dl-list">
+              <a class="dl-link" data-asset="win-setup" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v">
+                <span>Windows 安装版 (.exe)</span>
+                <span class="dl-meta">推荐</span>
+              </a>
+              <a class="dl-link" data-asset="win-portable" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v">
+                <span>Windows 绿色便携版 (.exe)</span>
+                <span class="dl-meta">免安装</span>
+              </a>
+            </div>
+          </article>
 
-        <article class="card" data-os="macos">
-          <div class="card-head">
-            <div class="os-icon">🍎</div>
-            <div>
-              <h3>macOS</h3>
-              <small>Apple Silicon &amp; Intel</small>
+          <article class="card" data-os="macos">
+            <div class="card-head">
+              <div class="os-icon">🍎</div>
+              <div>
+                <h3>macOS 苹果电脑版</h3>
+                <small>Apple Silicon &amp; Intel</small>
+              </div>
             </div>
-          </div>
-          <p>原生支持 M1/M2/M3/M4 与 Intel 芯片 Mac，拖入“应用程序”文件夹即可使用。</p>
-          <div class="dl-list">
-            <a class="dl-link" data-asset="mac-arm64" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
-              <span>Apple Silicon (.dmg)</span>
-              <span class="dl-meta">M1 - M4</span>
-            </a>
-            <a class="dl-link" data-asset="mac-x64" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
-              <span>Intel 芯片 (.dmg)</span>
-              <span class="dl-meta">x64</span>
-            </a>
-          </div>
-        </article>
+            <p>原生支持 M1 / M2 / M3 / M4 与 Intel 芯片 Mac，内置完整桌面 AI 与离线地图能力。</p>
+            <div class="dl-list">
+              <a class="dl-link" data-asset="mac-arm64" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v">
+                <span>Apple Silicon 芯片 (.dmg)</span>
+                <span class="dl-meta">M1 - M4</span>
+              </a>
+              <a class="dl-link" data-asset="mac-x64" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v">
+                <span>Intel 芯片 (.dmg)</span>
+                <span class="dl-meta">x64</span>
+              </a>
+            </div>
+          </article>
 
-        <article class="card" data-os="linux">
-          <div class="card-head">
-            <div class="os-icon">🐧</div>
-            <div>
-              <h3>Linux</h3>
-              <small>Ubuntu / Debian / 通用发行版</small>
+          <article class="card" data-os="linux">
+            <div class="card-head">
+              <div class="os-icon">🐧</div>
+              <div>
+                <h3>Linux 电脑版</h3>
+                <small>Ubuntu / Debian / 通用发行版</small>
+              </div>
             </div>
-          </div>
-          <p>提供开箱即用的 AppImage 通用包与 Debian/Ubuntu 原生 .deb 安装包。</p>
-          <div class="dl-list">
-            <a class="dl-link" data-asset="linux-appimage" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
-              <span>通用版 (.AppImage)</span>
-              <span class="dl-meta">x64</span>
-            </a>
-            <a class="dl-link" data-asset="linux-deb" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
-              <span>Debian / Ubuntu (.deb)</span>
-              <span class="dl-meta">amd64</span>
-            </a>
-          </div>
-        </article>
-      </div>
+            <p>提供开箱即用的 AppImage 通用包与 Debian/Ubuntu 原生 .deb 安装包。</p>
+            <div class="dl-list">
+              <a class="dl-link" data-asset="linux-appimage" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v">
+                <span>Linux 通用版 (.AppImage)</span>
+                <span class="dl-meta">x64</span>
+              </a>
+              <a class="dl-link" data-asset="linux-deb" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v">
+                <span>Debian / Ubuntu (.deb)</span>
+                <span class="dl-meta">amd64</span>
+              </a>
+            </div>
+          </article>
+        </div>
+      </section>
 
-      <h2 class="section-title">📱 手机移动端（离线足迹手账 + 局域网连接电脑 AI）</h2>
-      <div class="grid">
-        <article class="card" data-os="android">
-          <div class="card-head">
-            <div class="os-icon">🤖</div>
-            <div>
-              <h3>Android 安卓版</h3>
-              <small>Android 8.0 及以上</small>
+      <!-- 手机移动版独立下载区 -->
+      <section class="section-panel" id="mobile" data-panel="mobile">
+        <div class="panel-header">
+          <h2 class="section-title">📱 手机移动版下载（独立客户端）</h2>
+          <a id="mobile-release-link" class="release-tag" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v" target="_blank" rel="noreferrer">
+            📦 正在查询手机版最新 Release…
+          </a>
+        </div>
+        <div class="grid">
+          <article class="card" data-os="android">
+            <div class="card-head">
+              <div class="os-icon">🤖</div>
+              <div>
+                <h3>Android 安卓手机版</h3>
+                <small>Android 8.0 及以上</small>
+              </div>
             </div>
-          </div>
-          <p>原生打包 APK，支持离线中国地图、相册照片/语音手账、每日账本、ZIP 备份及局域网 AI 规划。</p>
-          <div class="dl-list">
-            <a class="dl-link" data-asset="android-apk" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
-              <span>直接下载安装包 (.apk)</span>
-              <span class="dl-meta">通用架构</span>
-            </a>
-          </div>
-        </article>
+            <p>独立安装的原生安卓 APK，支持离线中国足迹地图、照片/视频/语音手账、每日账本、成就海报与 ZIP 备份。</p>
+            <div class="dl-list">
+              <a class="dl-link" data-asset="android-apk" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v">
+                <span>下载安卓安装包 (.apk)</span>
+                <span class="dl-meta">通用架构</span>
+              </a>
+            </div>
+          </article>
 
-        <article class="card" data-os="ios">
-          <div class="card-head">
-            <div class="os-icon">📱</div>
-            <div>
-              <h3>iOS 苹果版</h3>
-              <small>iPhone / iPad</small>
+          <article class="card" data-os="ios">
+            <div class="card-head">
+              <div class="os-icon">📱</div>
+              <div>
+                <h3>iOS 苹果手机版</h3>
+                <small>iPhone / iPad</small>
+              </div>
             </div>
-          </div>
-          <p>提供开源自签 <code>.ipa</code> 安装包，同时支持 Safari 一键「添加到主屏幕」免越狱免自签使用。</p>
-          <div class="dl-list">
-            <a class="dl-link" data-asset="ios-ipa" href="https://github.com/Eldonwyd/zhouyou-app/releases/latest">
-              <span>iOS 客户端 (.ipa)</span>
-              <span class="dl-meta">AltStore / 巨魔</span>
-            </a>
-            <a class="dl-link" href="./">
-              <span>Safari PWA 一键安装</span>
-              <span class="dl-meta">免自签推荐</span>
-            </a>
-          </div>
-        </article>
-      </div>
+            <p>提供独立开源 <code>.ipa</code> 安装包（支持 AltStore / SideStore / TrollStore / Sideloadly），亦可通过 Safari 一键添加到主屏幕免自签运行。</p>
+            <div class="dl-list">
+              <a class="dl-link" data-asset="ios-ipa" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v">
+                <span>下载 iOS 安装包 (.ipa)</span>
+                <span class="dl-meta">AltStore / 巨魔</span>
+              </a>
+              <a class="dl-link" href="./">
+                <span>Safari PWA 一键安装</span>
+                <span class="dl-meta">免自签推荐</span>
+              </a>
+            </div>
+          </article>
+        </div>
+      </section>
 
       <section class="tips">
-        <h2>🛠️ 安装与使用贴士</h2>
+        <h2>🛠️ 安装贴士</h2>
         <ul>
-          <li><strong>iPhone 免自签安装（推荐）</strong>：使用 iOS 自带 <strong>Safari 浏览器</strong>打开 <a href="./">在线网页版</a>，点击底部「分享」按钮 → 选择 <strong>「添加到主屏幕」</strong>，即可在桌面生成原生图标、全屏离线使用。</li>
-          <li><strong>iPhone 自签 IPA 安装</strong>：下载 <code>.ipa</code> 后可通过 AltStore、SideStore、Sideloadly 或 TrollStore（巨魔商店）安装到设备。</li>
-          <li><strong>macOS 首次打开提示“无法验证开发者/已损坏”</strong>：因开源项目未购买苹果公证证书，在终端执行 <code>xattr -cr "/Applications/Zhouyou Map.app"</code> 即可正常启动。</li>
-          <li><strong>Windows SmartScreen 提示</strong>：点击「更多信息」→「仍要运行」即可完成安装。</li>
-          <li><strong>手机端如何开启 AI 行程规划</strong>：打开电脑桌面版 → 顶部菜单「应用」勾选 <strong>「允许局域网手机连接 AI 服务」</strong>，再将弹窗显示的局域网地址填入手机版「个人中心 → 远程 / 局域网 AI 服务」即可。</li>
+          <li><strong>Windows</strong>：若弹出 SmartScreen 提示，点击「更多信息」→「仍要运行」即可。</li>
+          <li><strong>macOS</strong>：开源应用未购买苹果公证证书，首次打开若提示“已损坏”，在终端运行 <code>xattr -cr "/Applications/Zhouyou Map.app"</code> 即可。</li>
+          <li><strong>Linux</strong>：AppImage 需执行 <code>chmod +x Zhouyou-Map-*.AppImage &amp;&amp; ./Zhouyou-Map-*.AppImage</code>；Debian/Ubuntu 执行 <code>sudo apt install ./Zhouyou-Map-*.deb</code>。</li>
+          <li><strong>Android</strong>：下载 <code>.apk</code> 后直接点击安装（若提示未知来源应用，允许安装即可）。</li>
+          <li><strong>iOS 免自签</strong>：使用 iPhone 自带 <strong>Safari</strong> 打开 <a href="./">在线网页版</a>，点击底部「分享」→ <strong>「添加到主屏幕」</strong> 即可作为独立全屏 App 离线使用。</li>
         </ul>
       </section>
 
@@ -436,56 +449,87 @@
           card.appendChild(badge);
         }
 
-        const primaryLabels = {
-          windows: '⬇️ 下载 Windows 安装版 (.exe)',
-          macos: '⬇️ 下载 macOS 版 (.dmg)',
-          linux: '⬇️ 下载 Linux 版 (.AppImage)',
-          android: '⬇️ 下载 Android 安卓版 (.apk)',
-          ios: '⬇️ 下载 iOS 苹果版 (.ipa)',
-        };
-        const primaryAssetKey = {
-          windows: 'win-setup',
-          macos: 'mac-arm64',
-          linux: 'linux-appimage',
-          android: 'android-apk',
-          ios: 'ios-ipa',
-        };
-        const primaryBtn = document.getElementById('primary-download');
-        if (primaryBtn && primaryLabels[detected]) primaryBtn.textContent = primaryLabels[detected];
+        // 支持 #desktop / #mobile 或 ?tab=desktop / ?tab=mobile 独立访问
+        const tabs = document.querySelectorAll('.mode-tab');
+        const panels = document.querySelectorAll('[data-panel]');
+        function applyTab(tabName) {
+          const valid = ['all', 'desktop', 'mobile'].includes(tabName) ? tabName : 'all';
+          tabs.forEach((btn) => btn.classList.toggle('is-active', btn.dataset.tab === valid));
+          panels.forEach((el) => {
+            el.hidden = valid !== 'all' && el.dataset.panel !== valid;
+          });
+        }
+        const params = new URLSearchParams(window.location.search);
+        const initialTab = params.get('tab') || window.location.hash.replace('#', '') || 'all';
+        applyTab(initialTab);
+        tabs.forEach((btn) => btn.addEventListener('click', () => {
+          const target = btn.dataset.tab || 'all';
+          applyTab(target);
+          history.replaceState(null, '', target === 'all' ? './download.html' : `./download.html#${target}`);
+        }));
+        window.addEventListener('hashchange', () => applyTab(window.location.hash.replace('#', '') || 'all'));
 
-        const pill = document.getElementById('release-pill');
-        fetch(`https://api.github.com/repos/${REPO}/releases/latest`)
-          .then((res) => (res.ok ? res.json() : Promise.reject(new Error('no-release'))))
-          .then((release) => {
-            const tag = release.tag_name || 'Latest';
-            if (pill) pill.textContent = `✨ 最新版本 ${tag} · 全平台已就绪`;
-            const assets = Array.isArray(release.assets) ? release.assets : [];
-            const matchers = {
-              'win-setup': (n) => /win.*setup\.exe$/i.test(n),
-              'win-portable': (n) => /win.*portable\.exe$/i.test(n),
-              'mac-arm64': (n) => /mac.*arm64\.dmg$/i.test(n),
-              'mac-x64': (n) => /mac.*x64\.dmg$/i.test(n),
-              'linux-appimage': (n) => /\.AppImage$/i.test(n),
-              'linux-deb': (n) => /\.deb$/i.test(n),
-              'android-apk': (n) => /\.apk$/i.test(n),
-              'ios-ipa': (n) => /\.ipa$/i.test(n),
-            };
-            for (const [key, test] of Object.entries(matchers)) {
-              const found = assets.find((a) => test(a.name));
-              if (!found) continue;
-              const link = document.querySelector(`a[data-asset="${key}"]`);
-              if (link) {
-                link.href = found.browser_download_url;
-                const meta = link.querySelector('.dl-meta');
-                if (meta && found.size) meta.textContent = `${(found.size / (1024 * 1024)).toFixed(1)} MB`;
+        function bindAssets(release, matchers) {
+          if (!release || !Array.isArray(release.assets)) return;
+          for (const [key, test] of Object.entries(matchers)) {
+            const found = release.assets.find((a) => test(a.name));
+            if (!found) continue;
+            const link = document.querySelector(`a[data-asset="${key}"]`);
+            if (link) {
+              link.href = found.browser_download_url;
+              const meta = link.querySelector('.dl-meta');
+              if (meta && found.size) meta.textContent = `${(found.size / (1024 * 1024)).toFixed(1)} MB`;
+            }
+          }
+        }
+
+        const desktopTagEl = document.getElementById('desktop-release-link');
+        const mobileTagEl = document.getElementById('mobile-release-link');
+
+        fetch(`https://api.github.com/repos/${REPO}/releases?per_page=20`)
+          .then((res) => (res.ok ? res.json() : Promise.reject(new Error('api-error'))))
+          .then((releases) => {
+            const list = Array.isArray(releases) ? releases.filter((r) => !r.draft) : [];
+            const desktopRelease =
+              list.find((r) => /^desktop-v/i.test(r.tag_name || '')) ||
+              list.find((r) => (r.assets || []).some((a) => /\.(exe|dmg|AppImage|deb)$/i.test(a.name)));
+            const mobileRelease =
+              list.find((r) => /^mobile-v/i.test(r.tag_name || '')) ||
+              list.find((r) => (r.assets || []).some((a) => /\.(apk|ipa)$/i.test(a.name)));
+
+            if (desktopRelease) {
+              if (desktopTagEl) {
+                desktopTagEl.textContent = `✨ 电脑版最新 ${desktopRelease.tag_name} · 查看 Release`;
+                desktopTagEl.href = desktopRelease.html_url;
               }
-              if (primaryBtn && primaryAssetKey[detected] === key) {
-                primaryBtn.href = found.browser_download_url;
+              bindAssets(desktopRelease, {
+                'win-setup': (n) => /win.*setup\.exe$/i.test(n),
+                'win-portable': (n) => /win.*portable\.exe$/i.test(n),
+                'mac-arm64': (n) => /mac.*arm64\.dmg$/i.test(n),
+                'mac-x64': (n) => /mac.*x64\.dmg$/i.test(n),
+                'linux-appimage': (n) => /\.AppImage$/i.test(n),
+                'linux-deb': (n) => /\.deb$/i.test(n),
+              });
+            } else if (desktopTagEl) {
+              desktopTagEl.textContent = '📦 前往 GitHub Releases 查看电脑版';
+            }
+
+            if (mobileRelease) {
+              if (mobileTagEl) {
+                mobileTagEl.textContent = `✨ 手机版最新 ${mobileRelease.tag_name} · 查看 Release`;
+                mobileTagEl.href = mobileRelease.html_url;
               }
+              bindAssets(mobileRelease, {
+                'android-apk': (n) => /\.apk$/i.test(n),
+                'ios-ipa': (n) => /\.ipa$/i.test(n),
+              });
+            } else if (mobileTagEl) {
+              mobileTagEl.textContent = '📦 前往 GitHub Releases 查看手机版';
             }
           })
           .catch(() => {
-            if (pill) pill.textContent = '📦 前往 GitHub Releases 获取最新全平台安装包';
+            if (desktopTagEl) desktopTagEl.textContent = '📦 前往 GitHub Releases 查看电脑版';
+            if (mobileTagEl) mobileTagEl.textContent = '📦 前往 GitHub Releases 查看手机版';
           });
       })();
     </script>

@@ -1,0 +1,138 @@
+name: Release Desktop App (Windows / macOS / Linux)
+
+on:
+  push:
+    tags:
+      - 'desktop-v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '电脑版版本号（例如 1.0.0，留空则读取 package.json）'
+        required: false
+        default: ''
+      prerelease:
+        description: '标记为 Pre-release 预览版'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    name: Resolve Desktop Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/desktop-v* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            VER="${TAG#desktop-v}"
+          elif [[ -n "${{ inputs.version }}" ]]; then
+            VER="${{ inputs.version }}"
+            VER="${VER#desktop-v}"
+            VER="${VER#v}"
+            TAG="desktop-v${VER}"
+          else
+            VER=$(node -p "require('./package.json').version")
+            TAG="desktop-v${VER}"
+          fi
+          echo "version=${VER}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+  build-windows:
+    name: Desktop · Windows (x64)
+    needs: prepare
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - shell: pwsh
+        run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
+      - run: npm run desktop:win
+      - shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist-artifacts | Out-Null
+          Get-ChildItem -Path release -Filter "*.exe" | Copy-Item -Destination dist-artifacts
+          Get-ChildItem dist-artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-windows
+          path: dist-artifacts/*
+
+  build-macos:
+    name: Desktop · macOS (arm64 & x64)
+    needs: prepare
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
+      - run: npm run desktop:mac
+      - run: |
+          mkdir -p dist-artifacts
+          cp release/*.dmg dist-artifacts/
+          ls -lh dist-artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-macos
+          path: dist-artifacts/*
+
+  build-linux:
+    name: Desktop · Linux (AppImage & deb)
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
+      - run: npm run desktop:linux
+      - run: |
+          mkdir -p dist-artifacts
+          cp release/*.AppImage release/*.deb dist-artifacts/
+          ls -lh dist-artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-linux
+          path: dist-artifacts/*
+
+  publish-desktop-release:
+    name: Publish Desktop GitHub Release
+    needs: [prepare, build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-files
+          merge-multiple: true
+      - working-directory: release-files
+        run: sha256sum * > SHA256SUMS.txt
+      - run: node scripts/generate-release-notes.mjs "${{ needs.prepare.outputs.version }}" release-files release-notes.md desktop
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: "💻 电脑桌面版 · Desktop v${{ needs.prepare.outputs.version }}"
+          body_path: release-notes.md
+          prerelease: ${{ inputs.prerelease || false }}
+          files: release-files/*

@@ -37,11 +37,11 @@
 </p>
 
 <p>
-  <a href="#-下载与安装"><b>📥 立即下载</b></a>
+  <a href="#-电脑版下载"><b>💻 电脑版下载</b></a>
   &nbsp;·&nbsp;
-  <a href="https://eldonwyd.github.io/zhouyou-app/download.html"><b>🌐 在线下载中心</b></a>
+  <a href="#-手机版下载"><b>📱 手机版下载</b></a>
   &nbsp;·&nbsp;
-  <a href="https://eldonwyd.github.io/zhouyou-app/"><b>✨ 在线体验 (PWA)</b></a>
+  <a href="https://eldonwyd.github.io/zhouyou-app/"><b>✨ 在线网页版 (PWA)</b></a>
   &nbsp;·&nbsp;
   <a href="#-界面预览"><b>🖼️ 界面预览</b></a>
   &nbsp;·&nbsp;
@@ -74,25 +74,37 @@
 
 ---
 
-## 📥 下载与安装
+## 📥 下载与安装（电脑版与手机版独立下载）
 
-前往 **[GitHub Releases 最新版本页面](https://github.com/Eldonwyd/zhouyou-app/releases/latest)** 下载对应安装包，或打开 **[智能设备识别下载中心](https://eldonwyd.github.io/zhouyou-app/download.html)** 一键获取。
+电脑桌面版与手机移动版均为**完全独立的客户端**，拥有各自独立的下载专区与 GitHub Release 发布通道，按需选择对应入口即可：
 
-### 💻 电脑桌面版（内置完整 AI 规划与本地 OCR）
+### 💻 电脑版下载
 
-| 操作系统 | 架构 / 发行版 | 安装包格式 | 下载入口 |
+> 🔗 **电脑版独立下载页**：[https://eldonwyd.github.io/zhouyou-app/download-desktop.html](https://eldonwyd.github.io/zhouyou-app/download-desktop.html)  
+> 📦 **电脑版 GitHub Releases**：[https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v)
+
+内置完整本地 AI 行程规划与离线 OCR 引擎，**无需安装 Node.js**，双击即用：
+
+| 操作系统 | 架构 / 发行版 | 安装包格式 | 独立下载入口 |
 | :--- | :--- | :--- | :---: |
-| **Windows** | Windows 10 / 11 (x64) | 安装版 `.exe` / 绿色便携版 `.exe` | [![Download Windows](https://img.shields.io/badge/Windows-.exe%20安装版%20%2F%20便携版-0078D4?style=flat-square&logo=windows11&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases/latest) |
-| **macOS** | Apple Silicon (M1–M4) & Intel | `.dmg` 镜像 | [![Download macOS](https://img.shields.io/badge/macOS-.dmg%20arm64%20%2F%20x64-000000?style=flat-square&logo=apple&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases/latest) |
-| **Linux** | Ubuntu / Debian / 通用发行版 (x64) | `.AppImage` / `.deb` | [![Download Linux](https://img.shields.io/badge/Linux-.AppImage%20%2F%20.deb-E95420?style=flat-square&logo=linux&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases/latest) |
+| **Windows** | Windows 10 / 11 (x64) | 安装版 `.exe` / 绿色便携版 `.exe` | [![Download Windows](https://img.shields.io/badge/Windows-.exe%20安装版%20%2F%20便携版-0078D4?style=flat-square&logo=windows11&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v) |
+| **macOS** | Apple Silicon (M1–M4) & Intel | `.dmg` 镜像 | [![Download macOS](https://img.shields.io/badge/macOS-.dmg%20arm64%20%2F%20x64-000000?style=flat-square&logo=apple&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v) |
+| **Linux** | Ubuntu / Debian / 通用发行版 (x64) | `.AppImage` / `.deb` | [![Download Linux](https://img.shields.io/badge/Linux-.AppImage%20%2F%20.deb-E95420?style=flat-square&logo=linux&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v) |
 
-### 📱 手机移动端 & 在线网页版
+---
 
-| 平台 | 适用设备 | 安装方式 | 下载 / 打开 |
+### 📱 手机版下载
+
+> 🔗 **手机版独立下载页**：[https://eldonwyd.github.io/zhouyou-app/download-mobile.html](https://eldonwyd.github.io/zhouyou-app/download-mobile.html)  
+> 📦 **手机版 GitHub Releases**：[https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v)
+
+独立安装与离线使用中国足迹地图、旅行手账（照片/视频/语音）、每日账本、旅途成就与 ZIP 备份：
+
+| 平台 | 适用设备 | 安装方式 | 独立下载入口 |
 | :--- | :--- | :--- | :---: |
-| **Android (安卓)** | Android 8.0+ 手机 / 平板 | 直接安装 `.apk` | [![Download Android](https://img.shields.io/badge/Android-.apk%20直装包-3DDC84?style=flat-square&logo=android&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases/latest) |
-| **iOS (苹果手机)** | iPhone / iPad | `.ipa` 自签（AltStore / SideStore / TrollStore / Sideloadly） | [![Download iOS](https://img.shields.io/badge/iOS-.ipa%20自签客户端-000000?style=flat-square&logo=ios&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases/latest) |
-| **iOS / 全平台免安装** | Safari / Chrome 浏览器 | PWA「添加到主屏幕」（免自签、永不掉签） | [![Open Web PWA](https://img.shields.io/badge/Web%20PWA-立即打开体验-ef6351?style=flat-square&logo=safari&logoColor=white)](https://eldonwyd.github.io/zhouyou-app/) |
+| **Android (安卓)** | Android 8.0+ 手机 / 平板 | 直接安装 `.apk` | [![Download Android](https://img.shields.io/badge/Android-.apk%20直装包-3DDC84?style=flat-square&logo=android&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v) |
+| **iOS (苹果手机)** | iPhone / iPad | `.ipa` 自签（AltStore / SideStore / TrollStore / Sideloadly） | [![Download iOS](https://img.shields.io/badge/iOS-.ipa%20自签客户端-000000?style=flat-square&logo=ios&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v) |
+| **iOS / 手机免安装** | Safari / Chrome 浏览器 | PWA「添加到主屏幕」（免自签、永不掉签） | [![Open Web PWA](https://img.shields.io/badge/Web%20PWA-立即打开体验-ef6351?style=flat-square&logo=safari&logoColor=white)](https://eldonwyd.github.io/zhouyou-app/) |
 
 <details>
 <summary><b>📖 展开查看各系统安装贴士（macOS 已损坏修复 / iOS 免自签 / 手机连接电脑 AI）</b></summary>
@@ -252,16 +264,21 @@ npm run mobile:android  # 生成并同步 android/ 工程，可用 Android Studi
 npm run mobile:ios      # 生成并同步 ios/ 工程，可用 Xcode 构建 IPA
 ```
 
-### 3. 一键触发 GitHub Actions 全平台自动发版
+### 3. 一键触发 GitHub Actions 独立发版（电脑版 / 手机版分别发布）
 
-本仓库已内置完整的 CI/CD 流水线（[`.github/workflows/release.yml`](.github/workflows/release.yml)）：
+本仓库内置独立的桌面端与移动端 CI/CD 流水线（[`.github/workflows/release-desktop.yml`](.github/workflows/release-desktop.yml) 与 [`.github/workflows/release-mobile.yml`](.github/workflows/release-mobile.yml)）：
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+# 仅构建并发布电脑桌面版（Windows / macOS / Linux）
+git tag desktop-v1.0.0
+git push origin desktop-v1.0.0
+
+# 仅构建并发布手机移动版（Android APK / iOS IPA）
+git tag mobile-v1.0.0
+git push origin mobile-v1.0.0
 ```
 
-推送 `v*.*.*` 标签后（或在 GitHub 仓库 **Actions → Build & Release Multi-Platform Apps → Run workflow** 手动触发），GitHub Actions 将自动并行编译 **Windows、macOS、Linux、Android、iOS** 五大平台安装包，生成 `SHA256SUMS.txt` 并发布到 **GitHub Releases**！
+推送标签后（或在 GitHub 仓库 **Actions** 页面手动点击 **Run workflow**），GitHub Actions 将分别构建并发布独立的电脑版 / 手机版 GitHub Release，自动附带 `SHA256SUMS.txt`！
 
 <details>
 <summary><b>⚙️ 可选：配置 Android 持久化发布签名（推荐正式发版使用）</b></summary>
