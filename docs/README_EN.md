@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/icon.png" alt="Zhouyou Map Logo" width="124" height="124" />
+<img src="https://eldonwyd.github.io/zhouyou-app/icons/icon-512.png" alt="Zhouyou Map Logo" width="124" height="124" />
 
 # Zhouyou Map · 周游地图
 
@@ -40,9 +40,9 @@
 <br />
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="screenshots/desktop-map-dark.png" />
-  <source media="(prefers-color-scheme: light)" srcset="screenshots/desktop-map-light.png" />
-  <img src="screenshots/desktop-map-light.png" alt="Zhouyou Map Footprint Preview" width="100%" />
+  <source media="(prefers-color-scheme: dark)" srcset="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-dark.png" />
+  <source media="(prefers-color-scheme: light)" srcset="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-light.png" />
+  <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-light.png" alt="Zhouyou Map Footprint Preview" width="100%" />
 </picture>
 
 </div>
@@ -65,30 +65,30 @@
 <table>
   <tr>
     <td align="center" width="50%">
-      <img src="screenshots/desktop-planner.png" alt="AI Trip Planner" />
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner.png" alt="AI Trip Planner" />
       <br /><sub><b>One-Click AI Planner</b> · Scenic cards, budget breakdown & timeline</sub>
     </td>
     <td align="center" width="50%">
-      <img src="screenshots/desktop-journal.png" alt="Travel Journal" />
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-journal.png" alt="Travel Journal" />
       <br /><sub><b>Travel Journal</b> · Trip booklets & illustrated city postcards</sub>
     </td>
   </tr>
   <tr>
     <td align="center" width="50%">
-      <img src="screenshots/desktop-journal-detail.png" alt="Photo Memory Sheet" />
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-journal-detail.png" alt="Photo Memory Sheet" />
       <br /><sub><b>Photo & Voice Memories</b> · Revisit photos, notes & voice memos</sub>
     </td>
     <td align="center" width="50%">
-      <img src="screenshots/desktop-achievements.png" alt="Traveler Achievements" />
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-achievements.png" alt="Traveler Achievements" />
       <br /><sub><b>Traveler Roadmap & Badges</b> · 8 milestones & shareable posters</sub>
     </td>
   </tr>
 </table>
 
 <div align="center">
-  <img src="screenshots/mobile-map.png" alt="Mobile Footprint Map" width="245" />
+  <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/mobile-map.png" alt="Mobile Footprint Map" width="245" />
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="screenshots/mobile-journal.png" alt="Mobile Photo Journal" width="245" />
+  <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/mobile-journal.png" alt="Mobile Photo Journal" width="245" />
 </div>
 
 ---

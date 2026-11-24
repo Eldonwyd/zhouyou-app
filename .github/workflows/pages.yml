@@ -33,6 +33,11 @@ jobs:
       - name: Build static web / PWA app
         run: npm run build
 
+      - name: Copy README preview screenshots for reliable CDN loading
+        run: |
+          mkdir -p dist/screenshots
+          cp docs/screenshots/*.png dist/screenshots/
+
       - name: Add .nojekyll for GitHub Pages
         run: touch dist/.nojekyll
 
