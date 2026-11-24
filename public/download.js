@@ -278,31 +278,63 @@
     tourVpBtns.forEach((b) => b.classList.toggle('is-active', b.getAttribute('data-tour-viewport') === 'mobile'));
   }
 
-  /* ---------- 6. 界面精选画廊 & 浅/深地图切换 ---------- */
+  /* ---------- 6. 界面精选画廊 & 5 套皮肤点击切换预览 ---------- */
   const SHOTS = {
     'map-light': {
       local: './screenshots/desktop-map-light.png',
       fallback: `${FALLBACK_SHOT_BASE}desktop-map-light.png`,
-      title: '全国 34 省 × 370+ 城市足迹地图（浅色糖果贴纸风）',
-      desc: '点击任意省份丝滑下钻，逐城点亮已去过足迹，实时统计探索进度并支持离线缓存。',
+      title: '全国 34 省 × 370+ 城市足迹地图（浅色）',
+      desc: '点击任意省份下钻，逐城点亮已去过足迹，实时统计探索进度并支持离线缓存。',
     },
     'map-dark': {
       local: './screenshots/desktop-map-dark.png',
       fallback: `${FALLBACK_SHOT_BASE}desktop-map-dark.png`,
-      title: '全国 34 省 × 370+ 城市足迹地图（夜间深色星图）',
+      title: '全国 34 省 × 370+ 城市足迹地图（夜间深色）',
       desc: '深色护眼低眩光配色，夜晚翻看足迹与规划行程同样柔和清晰。',
     },
     planner: {
       local: './screenshots/desktop-planner.png',
       fallback: `${FALLBACK_SHOT_BASE}desktop-planner.png`,
-      title: '多模型 AI 一键规划路书 + 高德 / 小红书联动',
-      desc: '每日顺路排程、出发倒计时、实时预算拆解、离线 OCR 识票与单文件 HTML 路书导出。',
+      title: '多模型 AI 行程路书 + 高德 / 小红书联动',
+      desc: '每日顺路排程、出发倒计时、预算拆解、离线 OCR 识票与单文件 HTML 路书导出。',
     },
     journal: {
       local: './screenshots/desktop-journal.png',
       fallback: `${FALLBACK_SHOT_BASE}desktop-journal.png`,
-      title: '沉浸式照片手账与专属城市明信片',
-      desc: '按旅程或城市归档原图照片、视频与语音评语，自动点亮高光拍立得墙。',
+      title: '照片手账与专属城市明信片',
+      desc: '按旅程或城市归档原图照片、视频与语音评语，自动整理高光时刻。',
+    },
+  };
+  const SKIN_SHOTS = {
+    candy: {
+      local: './screenshots/skin-candy.png',
+      fallback: `${FALLBACK_SHOT_BASE}skin-candy.png`,
+      title: '糖果贴纸 · 明快珊瑚手绘风',
+      desc: '暖橘珊瑚主色搭配手绘贴纸与明信片元素，默认风格活泼轻快。',
+    },
+    white: {
+      local: './screenshots/skin-white.png',
+      fallback: `${FALLBACK_SHOT_BASE}skin-white.png`,
+      title: '纯白极简 · 干净留白松绿风',
+      desc: '克制清爽的纯白画布与松绿点缀，让中国地图与旅途照片成为绝对主角。',
+    },
+    journal: {
+      local: './screenshots/skin-journal.png',
+      fallback: `${FALLBACK_SHOT_BASE}skin-journal.png`,
+      title: '纸感手账 · 复古牛皮纸衬线风',
+      desc: '米黄纸张纹理与大地棕配色，翻看每一页都像翻开一本复古纸质手账。',
+    },
+    coast: {
+      local: './screenshots/skin-coast.png',
+      fallback: `${FALLBACK_SHOT_BASE}skin-coast.png`,
+      title: '海风海岸 · 蔚蓝清透海滨风',
+      desc: '清透的浅海蓝与深青色搭配，视觉凉爽通透，适合夏日看海与长途行程。',
+    },
+    warm: {
+      local: './screenshots/skin-warm.png',
+      fallback: `${FALLBACK_SHOT_BASE}skin-warm.png`,
+      title: '暖日手账 · 草木自然书卷风',
+      desc: '柔和的草木绿与暖日米白，安静耐看，适合长时间整理游记与账本。',
     },
   };
   const showcaseImg = document.getElementById('showcase-img');
@@ -311,13 +343,20 @@
   const mapToneSwitch = document.getElementById('map-tone-switch');
   const showcaseTabs = document.querySelectorAll('[data-shot-tab]');
   const toneBtns = document.querySelectorAll('[data-map-tone]');
+  const skinBtns = document.querySelectorAll('[data-skin-preview]');
   let activeShotTab = 'map';
   let activeMapTone = isDarkActive() ? 'dark' : 'light';
+  let activeSkin = isDarkActive() ? null : 'candy';
 
   function renderShowcase() {
     if (!showcaseImg) return;
-    const key = activeShotTab === 'map' ? `map-${activeMapTone}` : activeShotTab;
-    const spec = SHOTS[key] || SHOTS['map-light'];
+    let spec;
+    if (activeShotTab === 'map' && activeSkin && SKIN_SHOTS[activeSkin]) {
+      spec = SKIN_SHOTS[activeSkin];
+    } else {
+      const key = activeShotTab === 'map' ? `map-${activeMapTone}` : activeShotTab;
+      spec = SHOTS[key] || SHOTS['map-light'];
+    }
     showcaseImg.dataset.fallback = spec.fallback;
     showcaseImg.src = spec.local;
     showcaseImg.alt = spec.title;
@@ -326,6 +365,7 @@
     if (mapToneSwitch) mapToneSwitch.hidden = activeShotTab !== 'map';
     showcaseTabs.forEach((btn) => btn.classList.toggle('is-active', btn.getAttribute('data-shot-tab') === activeShotTab));
     toneBtns.forEach((btn) => btn.classList.toggle('is-active', btn.getAttribute('data-map-tone') === activeMapTone));
+    skinBtns.forEach((btn) => btn.classList.toggle('is-active', activeShotTab === 'map' && btn.getAttribute('data-skin-preview') === activeSkin));
   }
   if (showcaseImg) {
     showcaseImg.addEventListener('error', () => {
@@ -337,12 +377,25 @@
   showcaseTabs.forEach((btn) => {
     btn.addEventListener('click', () => {
       activeShotTab = btn.getAttribute('data-shot-tab') || 'map';
+      if (activeShotTab !== 'map') activeSkin = null;
+      else if (activeMapTone === 'light' && !activeSkin) activeSkin = 'candy';
       renderShowcase();
     });
   });
   toneBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
       activeMapTone = btn.getAttribute('data-map-tone') || 'light';
+      activeSkin = activeMapTone === 'dark' ? null : (activeSkin || 'candy');
+      renderShowcase();
+    });
+  });
+  skinBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const skin = btn.getAttribute('data-skin-preview');
+      if (!skin || !SKIN_SHOTS[skin]) return;
+      activeShotTab = 'map';
+      activeMapTone = 'light';
+      activeSkin = skin;
       renderShowcase();
     });
   });
@@ -425,17 +478,33 @@
     }
   }
 
-  // Hero 主下载按钮自动适配当前系统
+  // Hero 手机版 & 电脑版双下载按钮分别适配当前系统
+  const heroMobileBtn = document.getElementById('hero-mobile-dl');
+  const heroMobileLabel = document.getElementById('hero-mobile-dl-label');
   const heroPrimaryBtn = document.getElementById('hero-primary-dl');
   const heroPrimaryLabel = document.getElementById('hero-primary-dl-label');
-  const HERO_OS_MAP = {
-    windows: { label: '免费下载 Windows 电脑版', asset: 'win-setup', fallback: '#desktop' },
-    macos: { label: '免费下载 macOS 苹果版', asset: 'mac-arm64', fallback: '#desktop' },
-    linux: { label: '免费下载 Linux 电脑版', asset: 'linux-appimage', fallback: '#desktop' },
-    android: { label: '手机版下载 · PWA / 安卓 APK', asset: null, fallback: '#mobile' },
-    ios: { label: 'iPhone / iPad · PWA 免自签安装', asset: null, fallback: '#mobile' },
+
+  if (heroMobileLabel) {
+    heroMobileLabel.textContent =
+      detected === 'ios'
+        ? 'iPhone / iPad · PWA 免自签安装'
+        : detected === 'android'
+          ? '下载手机版（PWA / 安卓 APK）'
+          : '下载手机版（PWA / 安卓 / iOS）';
+  }
+  if (heroMobileBtn) {
+    heroMobileBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      jumpToDownload('mobile');
+    });
+  }
+
+  const HERO_DESKTOP_MAP = {
+    windows: { label: '下载 Windows 电脑版', asset: 'win-setup', fallback: '#desktop' },
+    macos: { label: '下载 macOS 苹果版', asset: 'mac-arm64', fallback: '#desktop' },
+    linux: { label: '下载 Linux 电脑版', asset: 'linux-appimage', fallback: '#desktop' },
   };
-  const heroSpec = HERO_OS_MAP[detected] || HERO_OS_MAP.windows;
+  const heroSpec = HERO_DESKTOP_MAP[detected] || { label: '下载电脑桌面版', asset: null, fallback: '#desktop' };
   if (heroPrimaryLabel) heroPrimaryLabel.textContent = heroSpec.label;
   if (heroPrimaryBtn) {
     if (heroSpec.asset && useEdgeProxy && INSTALL_ROUTE_BY_ASSET[heroSpec.asset]) {
@@ -508,7 +577,7 @@
     const verSource = desktopRelease || mobileRelease;
     if (verSource && heroVerEl) {
       const cleanVer = String(verSource.tag_name || '').replace(/^(desktop|mobile)-/i, '');
-      heroVerEl.textContent = cleanVer || 'v1.0.4';
+      heroVerEl.textContent = cleanVer || 'v1.0.9';
     }
 
     if (desktopRelease) {

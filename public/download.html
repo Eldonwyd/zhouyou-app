@@ -133,7 +133,7 @@
           <a class="hero-pill reveal" href="#download">
             <span class="hero-pill-dot" aria-hidden="true"></span>
             <span>全平台开源免费 · 官网高速直连</span>
-            <span class="hero-pill-ver" id="hero-latest-ver">v1.0.4</span>
+            <span class="hero-pill-ver" id="hero-latest-ver">v1.0.9</span>
           </a>
 
           <h1 class="hero-title reveal reveal-delay-1">
@@ -142,15 +142,24 @@
           </h1>
 
           <p class="hero-subtitle reveal reveal-delay-2" data-i18n="hero.sub">
-            一站式、本地隐私优先的跨平台旅游集成工具。在网页上直接点亮全国 34 省 370+ 城市足迹，下载客户端解锁多模型 AI 路书规划、离线 OCR 识票、高德 &amp; 小红书联动与原图照片手账。
+            记录你走过的全国 34 省 370+ 座城市，把照片手账、行程路线与预算账本收进一本本地小册子。网页版可直接试玩点亮地图，手机与电脑客户端支持离线原图归档与多模型 AI 规划。
           </p>
 
           <div class="hero-cta-row reveal reveal-delay-2">
-            <a id="hero-primary-dl" class="btn btn-primary" href="#download">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 18v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1" />
+            <a id="hero-mobile-dl" class="btn btn-primary" href="#mobile">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="6" y="2" width="12" height="20" rx="2.5" />
+                <line x1="12" y1="18" x2="12.01" y2="18" />
               </svg>
-              <span id="hero-primary-dl-label">免费下载客户端</span>
+              <span id="hero-mobile-dl-label">下载手机版（PWA / APK / iOS）</span>
+            </a>
+            <a id="hero-primary-dl" class="btn btn-teal" href="#desktop">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+              </svg>
+              <span id="hero-primary-dl-label">下载电脑桌面版</span>
             </a>
             <a class="btn btn-secondary" href="#tour">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -158,7 +167,7 @@
                 <line x1="9" y1="3" x2="9" y2="18" />
                 <line x1="15" y1="6" x2="15" y2="21" />
               </svg>
-              <span data-i18n="hero.tryBtn">立即在线漫游网页版</span>
+              <span data-i18n="hero.tryBtn">在线试玩网页版</span>
             </a>
           </div>
 
@@ -205,9 +214,9 @@
         <div class="container">
           <div class="section-head reveal">
             <span class="section-eyebrow" data-i18n="tour.eyebrow">INTERACTIVE WEB SANDBOX</span>
-            <h2 data-i18n="tour.h2">无需安装，就在这里直接试玩周游地图</h2>
+            <h2 data-i18n="tour.h2">直接在这里试玩网页版</h2>
             <p data-i18n="tour.p">
-              这不是静态截图——下面运行着真实的周游地图网页体验版。你可以直接点亮全国城市、下钻省级地图、切换 5 套皮肤与深浅色，并翻阅示例大理路书、路线地图与照片手账；在线模式已关闭 AI 调用与照片存储，下载客户端即可解锁完整能力。
+              点选省份即可下钻并点亮全国城市，也可以切换 5 套皮肤、翻看大理示例路书和照片手账；AI 规划与照片存储请在客户端中使用。
             </p>
           </div>
 
@@ -217,7 +226,7 @@
                 <span class="traffic-dots" aria-hidden="true"><i></i><i></i><i></i></span>
                 <span class="tour-address">
                   <span class="tour-address-live" aria-hidden="true"></span>
-                  <span>zhouyou.online · 网页漫游体验沙盒</span>
+                  <span>zhouyou.online · 网页试玩</span>
                 </span>
               </div>
               <div class="tour-chrome-controls">
@@ -228,16 +237,6 @@
                 <button type="button" id="tour-lock-toggle" class="btn btn-secondary btn-sm">🖱️ 点击开始交互</button>
                 <a class="btn btn-ghost btn-sm" href="./?demo=1&amp;tour=1" target="_blank" rel="noreferrer">↗ 全屏体验</a>
               </div>
-            </div>
-
-            <div class="tour-capability-bar">
-              <div class="tour-cap-list">
-                <span class="tour-cap ok"><b>✓</b> 自由点亮 / 取消点亮 370+ 城市</span>
-                <span class="tour-cap ok"><b>✓</b> 浏览示例大理路书、账本与成就</span>
-                <span class="tour-cap ok"><b>✓</b> 实时切换 5 套皮肤与深浅色</span>
-                <span class="tour-cap locked">🔒 AI 规划与照片存储需下载客户端</span>
-              </div>
-              <a class="btn btn-primary btn-sm" href="#download">解锁完整客户端 ↓</a>
             </div>
 
             <div id="tour-stage" class="tour-stage">
@@ -274,8 +273,8 @@
         <div class="container">
           <div class="section-head reveal">
             <span class="section-eyebrow" data-i18n="features.eyebrow">CRAFTED FOR EVERY JOURNEY</span>
-            <h2 data-i18n="features.h2">从做攻略到珍藏回忆，一个本地应用全搞定</h2>
-            <p data-i18n="features.p">不再在地图、攻略、记账、相册五个 App 之间反复切换。把出发前的规划与归来后的温暖回忆，连成一条流畅闭环。</p>
+            <h2 data-i18n="features.h2">旅途前后，一本小册子就够了</h2>
+            <p data-i18n="features.p">做攻略、查地图、记账和整理照片都在一处，不必在多个应用之间来回切换。</p>
           </div>
 
           <div class="bento-grid">
@@ -381,8 +380,8 @@
         <div class="container">
           <div class="section-head reveal">
             <span class="section-eyebrow" data-i18n="showcase.eyebrow">VISUAL CRAFT &amp; 5 SKINS</span>
-            <h2 data-i18n="showcase.h2">温暖手账质感，浅色明快、夜间护眼</h2>
-            <p data-i18n="showcase.p">内置 5 套独立视觉风格与浅色 / 深色 / 跟随系统模式，从糖果贴纸到暖日纸感手账，每一帧都像翻开一本用心装帧的旅行画册。</p>
+            <h2 data-i18n="showcase.h2">五套主题皮肤，浅色深色随心切换</h2>
+            <p data-i18n="showcase.p">内置 5 套独立视觉风格与明暗配色，点选下方任意色卡即可切换预览界面效果。</p>
           </div>
 
           <div class="showcase-wrap reveal">
@@ -400,43 +399,43 @@
             </div>
 
             <div class="showcase-stage">
-              <img id="showcase-img" src="./screenshots/desktop-map-light.png" alt="周游地图界面预览" />
+              <img id="showcase-img" src="./screenshots/skin-candy.png" alt="周游地图界面预览" />
             </div>
 
             <div class="showcase-caption">
               <div>
-                <strong id="showcase-title">全国 34 省 × 370+ 城市足迹地图</strong>
-                <div id="showcase-desc">点击任意省份丝滑下钻，逐城点亮已去过足迹，实时统计探索进度并支持离线缓存。</div>
+                <strong id="showcase-title">糖果贴纸 · 全国 34 省足迹地图</strong>
+                <div id="showcase-desc">明快珊瑚红搭配贴纸手绘元素，点选下方色卡可即时切换预览 5 套内置皮肤。</div>
               </div>
               <a class="btn btn-secondary btn-sm" href="#tour">去上方沙盒亲自点亮 ↑</a>
             </div>
 
-            <div class="skin-strip" aria-label="内置 5 套主题皮肤">
-              <div class="skin-pill">
+            <div class="skin-strip" role="group" aria-label="点击切换预览 5 套主题皮肤">
+              <button type="button" class="skin-pill is-active" data-skin-preview="candy">
                 <span class="skin-dots"><i style="background:#fff8f2"></i><i style="background:#e5634f"></i><i style="background:#ffd166"></i></span>
                 <strong>糖果贴纸</strong>
                 <small>明快珊瑚 × 贴纸手绘</small>
-              </div>
-              <div class="skin-pill">
+              </button>
+              <button type="button" class="skin-pill" data-skin-preview="white">
                 <span class="skin-dots"><i style="background:#ffffff"></i><i style="background:#467a58"></i><i style="background:#eceef0"></i></span>
                 <strong>纯白极简</strong>
                 <small>干净留白 × 松绿点缀</small>
-              </div>
-              <div class="skin-pill">
+              </button>
+              <button type="button" class="skin-pill" data-skin-preview="journal">
                 <span class="skin-dots"><i style="background:#f5efe3"></i><i style="background:#866041"></i><i style="background:#dfb267"></i></span>
                 <strong>纸感手账</strong>
                 <small>复古牛皮纸 × 温暖衬线</small>
-              </div>
-              <div class="skin-pill">
+              </button>
+              <button type="button" class="skin-pill" data-skin-preview="coast">
                 <span class="skin-dots"><i style="background:#f3f9fd"></i><i style="background:#1d6478"></i><i style="background:#6cc4d4"></i></span>
                 <strong>海风海岸</strong>
                 <small>蔚蓝海风 × 清透玻璃</small>
-              </div>
-              <div class="skin-pill">
+              </button>
+              <button type="button" class="skin-pill" data-skin-preview="warm">
                 <span class="skin-dots"><i style="background:#f7f6f0"></i><i style="background:#526c48"></i><i style="background:#d56a45"></i></span>
                 <strong>暖日手账</strong>
                 <small>草木自然 × 慢旅书卷气</small>
-              </div>
+              </button>
             </div>
           </div>
         </div>
@@ -447,29 +446,15 @@
         <div class="container">
           <div class="section-head reveal">
             <span class="section-eyebrow" data-i18n="compare.eyebrow">WEB TOUR VS CLIENT</span>
-            <h2 data-i18n="compare.h2">先在线游览体验，满意再装到你的设备</h2>
-            <p data-i18n="compare.p">清晰区分网页漫游沙盒与独立客户端的能力边界，零套路、零付费墙，全部核心能力下载即免费开源使用。</p>
+            <h2 data-i18n="compare.h2">先在线试玩，再装到手机或电脑</h2>
+            <p data-i18n="compare.p">网页版方便随手体验界面与地图点亮；手机与电脑客户端均完全免费开源，数据始终留在你的设备里。</p>
           </div>
 
           <div class="compare-grid">
-            <article class="compare-card reveal">
-              <span class="compare-badge">即开即玩 · 免安装</span>
-              <h3>网页在线漫游版</h3>
-              <p>适合先体验周游地图的视觉质感、地图下钻点亮与交互细节。</p>
-              <ul class="compare-list">
-                <li class="yes"><span class="mark">✓</span><span>自由点亮 / 取消点亮全国 370+ 城市</span></li>
-                <li class="yes"><span class="mark">✓</span><span>浏览完整大理示例路书、路线图与账本</span></li>
-                <li class="yes"><span class="mark">✓</span><span>实时切换 5 套皮肤、深浅色与中英文</span></li>
-                <li class="no"><span class="mark">✕</span><span>不支持 AI 生成 / 对话改行程与 OCR</span></li>
-                <li class="no"><span class="mark">✕</span><span>不支持上传与持久化保存照片 / 语音</span></li>
-              </ul>
-              <a class="btn btn-secondary" href="#tour">回到上方漫游沙盒</a>
-            </article>
-
-            <article class="compare-card reveal reveal-delay-1">
-              <span class="compare-badge" style="background:var(--teal-soft);color:var(--teal);">手机首选 · 免弹窗</span>
-              <h3>手机移动版（PWA / APK / IPA）</h3>
-              <p>随时随地记录旅途足迹、拍立得照片与语音评语，离线流畅运行。</p>
+            <article class="compare-card is-mobile-featured reveal">
+              <span class="compare-badge" style="background:var(--teal);color:#fff;">手机首选 · 随身记录</span>
+              <h3>手机移动版 · PWA / APK / iOS</h3>
+              <p>旅途中随时记录足迹、原图照片与现场语音，离线也能流畅翻看。</p>
               <ul class="compare-list">
                 <li class="yes"><span class="mark">✓</span><span>PWA 一键添加到主屏幕，离线可用且自动更新</span></li>
                 <li class="yes"><span class="mark">✓</span><span>原图照片、视频与语音评语永久存本机</span></li>
@@ -477,21 +462,35 @@
                 <li class="yes"><span class="mark">✓</span><span>局域网一键连接电脑端 AI 规划服务</span></li>
                 <li class="yes"><span class="mark">✓</span><span>ZIP v3 全量备份与电脑端无损互传</span></li>
               </ul>
-              <a class="btn btn-secondary" href="#mobile">获取手机版 / PWA</a>
+              <a class="btn btn-teal" href="#mobile">获取手机版 / PWA</a>
             </article>
 
-            <article class="compare-card is-featured reveal reveal-delay-2">
-              <span class="compare-badge">完全体 · 推荐主力</span>
-              <h3>电脑桌面版（Win / Mac / Linux）</h3>
-              <p>内置完整本地 Node.js AI 引擎与 ONNX 离线模型，无需配置环境，双击即用。</p>
+            <article class="compare-card is-featured reveal reveal-delay-1">
+              <span class="compare-badge">完整 AI · 桌面主力</span>
+              <h3>电脑桌面版 · Win / Mac / Linux</h3>
+              <p>内置本地 AI 规划引擎与 ONNX 离线模型，无需配置环境，双击即用。</p>
               <ul class="compare-list">
-                <li class="yes"><span class="mark">✓</span><span>多模型 AI 一键生成与多轮对话微调路书</span></li>
+                <li class="yes"><span class="mark">✓</span><span>多模型 AI 一键生成与多轮对话改行程</span></li>
                 <li class="yes"><span class="mark">✓</span><span>本机离线 PP-OCRv5 识别车票 / 机票 / 酒店</span></li>
-                <li class="yes"><span class="mark">✓</span><span>小红书攻略链接 / 截图智能解析加景点</span></li>
-                <li class="yes"><span class="mark">✓</span><span>大容量本地原图相册手账与单文件路书导出</span></li>
-                <li class="yes"><span class="mark">✓</span><span>可开启局域网共享，让手机端无线用 AI</span></li>
+                <li class="yes"><span class="mark">✓</span><span>小红书攻略链接 / 截图解析加景点</span></li>
+                <li class="yes"><span class="mark">✓</span><span>大容量本地原图手账与单文件路书导出</span></li>
+                <li class="yes"><span class="mark">✓</span><span>支持局域网共享，让手机无线用 AI</span></li>
               </ul>
               <a class="btn btn-primary" href="#desktop">下载电脑桌面版</a>
+            </article>
+
+            <article class="compare-card reveal reveal-delay-2">
+              <span class="compare-badge">即开即玩 · 免安装</span>
+              <h3>网页在线试玩版</h3>
+              <p>免下载打开即看，适合先体验地图点亮、皮肤切换与示例行程。</p>
+              <ul class="compare-list">
+                <li class="yes"><span class="mark">✓</span><span>自由点亮 / 取消点亮全国 370+ 城市</span></li>
+                <li class="yes"><span class="mark">✓</span><span>浏览完整大理示例路书、路线图与账本</span></li>
+                <li class="yes"><span class="mark">✓</span><span>实时切换 5 套皮肤、深浅色与中英文</span></li>
+                <li class="no"><span class="mark">✕</span><span>不支持 AI 生成 / 对话改行程与 OCR</span></li>
+                <li class="no"><span class="mark">✕</span><span>不支持上传与保存照片 / 语音文件</span></li>
+              </ul>
+              <a class="btn btn-secondary" href="#tour">回到上方网页试玩</a>
             </article>
           </div>
         </div>
@@ -704,9 +703,9 @@
           <div class="privacy-banner reveal">
             <div>
               <span class="section-eyebrow">LOCAL-FIRST ARCHITECTURE</span>
-              <h2>你的旅途与相册，只属于你自己的设备</h2>
+              <h2>你的旅途与相册，只留在自己的设备里</h2>
               <p>
-                灵感来自最纯粹的本地优先开源软件理念：没有账号绑架、没有云端付费扩容、没有隐藏埋点。周游地图把所有足迹、原图照片、AI 密钥与识别模型都留在本机，随时一键导出标准 ZIP 备份。
+                无需注册登录，也没有云端容量限制与广告埋点。足迹记录、原图照片、AI 密钥和离线识别模型全部保存在本机，换设备时一键导出标准 ZIP 备份即可无损迁移。
               </p>
             </div>
             <div class="privacy-points">
