@@ -460,18 +460,69 @@ const API_PROVIDERS: AiProviderMeta[] = [
   { id: 'custom', label: '其他 OpenAI 兼容接口', baseUrl: '', model: '', keyUrl: '', models: [] },
 ];
 
+/** 将模型展示名（如 "DeepSeek V4.1 Flash"）统一还原为真实 API 模型 ID（如 "deepseek-flash"）。 */
+function normalizeModelId(provider: string, rawModel?: string): string {
+  const trimmed = (rawModel ?? '').trim();
+  const isSub = provider.startsWith('sub:');
+  const subKey = isSub ? provider.slice(4) : '';
+  const providerMeta = isSub ? undefined : API_PROVIDERS.find((p) => p.id === provider);
+  const subSpec = isSub ? SUB_CATALOG[subKey] : undefined;
+  const catalog = subSpec?.models ?? providerMeta?.models ?? [];
+  const defaultId = subSpec?.defaultModel ?? providerMeta?.model ?? '';
+  if (!trimmed) return defaultId;
+
+  const exactId = catalog.find((m) => m.id === trimmed);
+  if (exactId) return exactId.id;
+
+  const lower = trimmed.toLowerCase();
+  const matchedInProvider = catalog.find(
+    (m) => m.id.toLowerCase() === lower || m.name.toLowerCase() === lower,
+  );
+  if (matchedInProvider) return matchedInProvider.id;
+
+  // 兜底：若用户误填了其他服务商目录中的模型展示名，也尝试按展示名还原
+  for (const p of API_PROVIDERS) {
+    const found = p.models.find((m) => m.name.toLowerCase() === lower);
+    if (found) return found.id;
+  }
+  for (const spec of Object.values(SUB_CATALOG)) {
+    const found = spec.models.find((m) => m.name.toLowerCase() === lower);
+    if (found) return found.id;
+  }
+  return trimmed;
+}
+
 function loadStore(): MobileAiStore {
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return { activeProvider: '', subCreds: {}, subModels: {}, subThinking: {}, apiConfigs: {} };
     const parsed = JSON.parse(raw) as Partial<MobileAiStore>;
-    return {
+    const store: MobileAiStore = {
       activeProvider: typeof parsed.activeProvider === 'string' ? parsed.activeProvider : '',
       subCreds: parsed.subCreds && typeof parsed.subCreds === 'object' ? parsed.subCreds : {},
       subModels: parsed.subModels && typeof parsed.subModels === 'object' ? parsed.subModels : {},
       subThinking: parsed.subThinking && typeof parsed.subThinking === 'object' ? parsed.subThinking : {},
       apiConfigs: parsed.apiConfigs && typeof parsed.apiConfigs === 'object' ? parsed.apiConfigs : {},
     };
+    let repaired = false;
+    for (const [provId, cfg] of Object.entries(store.apiConfigs)) {
+      if (!cfg || typeof cfg !== 'object') continue;
+      const fixed = normalizeModelId(provId, cfg.model);
+      if (fixed && fixed !== cfg.model) {
+        cfg.model = fixed;
+        repaired = true;
+      }
+    }
+    for (const [subKey, model] of Object.entries(store.subModels)) {
+      if (typeof model !== 'string') continue;
+      const fixed = normalizeModelId(`sub:${subKey}`, model);
+      if (fixed && fixed !== model) {
+        store.subModels[subKey] = fixed;
+        repaired = true;
+      }
+    }
+    if (repaired) saveStore(store);
+    return store;
   } catch {
     return { activeProvider: '', subCreds: {}, subModels: {}, subThinking: {}, apiConfigs: {} };
   }
@@ -1239,11 +1290,12 @@ export function buildMobileAiStatus(): MobileAiState {
   for (const [provId, cfg] of Object.entries(store.apiConfigs)) {
     if (!cfg?.apiKey) continue;
     const meta = API_PROVIDERS.find((p) => p.id === provId);
-    const modelMeta = meta?.models.find((m: ModelCatalogItem) => m.id === cfg.model);
+    const normalizedModel = normalizeModelId(provId, cfg.model || meta?.model || '');
+    const modelMeta = meta?.models.find((m: ModelCatalogItem) => m.id === normalizedModel);
     saved.push({
       id: provId,
       label: meta?.label || provId,
-      model: cfg.model || meta?.model || '',
+      model: normalizedModel,
       thinking: cfg.thinking || 'low',
       thinkingLevels: modelMeta?.thinkingLevels,
       vision: modelMeta?.vision ?? true,
@@ -1262,7 +1314,10 @@ export function buildMobileAiStatus(): MobileAiState {
   const activeSub = isSub ? subscriptions.find((s) => s.id === activeProvider) : undefined;
   const activeApiCfg = !isSub ? store.apiConfigs[activeProvider] : undefined;
   const activeApiMeta = !isSub ? API_PROVIDERS.find((p) => p.id === activeProvider) : undefined;
-  const activeModel = activeSub?.model || activeApiCfg?.model || activeApiMeta?.model || 'deepseek-flash';
+  const activeModel = normalizeModelId(
+    activeProvider,
+    activeSub?.model || activeApiCfg?.model || activeApiMeta?.model || 'deepseek-flash',
+  );
   const activeModelsList: ModelCatalogItem[] = activeSub?.models || activeApiMeta?.models || [];
   const activeModelMeta = activeModelsList.find((m: ModelCatalogItem) => m.id === activeModel);
 
@@ -1271,7 +1326,7 @@ export function buildMobileAiStatus(): MobileAiState {
     provider: activeProvider,
     authMode: isSub ? 'subscription' : 'api',
     label: activeItem?.label || activeApiMeta?.label || '',
-    model: activeModelMeta?.name || activeModel,
+    model: activeModel,
     modelId: activeModel,
     models: activeModelsList,
     baseUrl: activeApiCfg?.baseUrl || activeApiMeta?.baseUrl || '',
@@ -1319,17 +1374,55 @@ function parseSseResponsesText(sseBody: string): { text: string; inputTokens: nu
   return { text, inputTokens, outputTokens };
 }
 
+interface MobileCallOverride {
+  provider?: string;
+  apiKey?: string;
+  model?: string;
+  baseUrl?: string;
+  thinking?: string;
+}
+
 async function callMobileModel(
   systemPrompt: string,
   userPrompt: string,
-  { maxTokens = 4096, timeoutMs = 120000 }: { maxTokens?: number; timeoutMs?: number } = {},
-): Promise<{ text: string; latencyMs: number; model: string; provider: string }> {
+  {
+    maxTokens = 4096,
+    timeoutMs = 120000,
+    override,
+  }: { maxTokens?: number; timeoutMs?: number; override?: MobileCallOverride } = {},
+): Promise<{ text: string; latencyMs: number; model: string; provider: string; label: string; thinkingUsed: string }> {
   const status = buildMobileAiStatus();
-  if (!status.configured) throw new Error('请先在 AI 设置中登录订阅账号或填入 API Key');
-
   const store = loadStore();
-  const provider = status.provider;
-  const modelId = status.modelId || status.model;
+  const provider = (override?.provider || '').trim() || status.provider;
+  const isSub = provider.startsWith('sub:');
+  const subKey = isSub ? provider.slice(4) : '';
+  const apiMeta = !isSub ? API_PROVIDERS.find((p) => p.id === provider) : undefined;
+  const subMeta = isSub ? SUB_CATALOG[subKey] : undefined;
+  const savedApiCfg = !isSub ? store.apiConfigs[provider] : undefined;
+  const hasCred = isSub
+    ? Boolean(store.subCreds[subKey]?.access)
+    : Boolean((override?.apiKey || '').trim() || savedApiCfg?.apiKey);
+  if (!override && !status.configured) throw new Error('请先在 AI 设置中登录订阅账号或填入 API Key');
+  if (!hasCred) {
+    throw new Error(
+      isSub
+        ? `请先登录 ${subMeta?.name ?? provider} 订阅账号`
+        : `请先填写 ${apiMeta?.label || provider} 的 API Key`,
+    );
+  }
+
+  const rawModel =
+    (override?.model || '').trim() ||
+    (isSub ? store.subModels[subKey] : savedApiCfg?.model) ||
+    (provider === status.provider ? status.modelId || status.model : '');
+  const modelId = normalizeModelId(provider, rawModel);
+  const thinkingUsed =
+    (override?.thinking || '').trim() ||
+    (isSub ? store.subThinking[subKey] : savedApiCfg?.thinking) ||
+    status.thinking ||
+    'low';
+  const providerLabel = isSub ? `${subMeta?.name ?? subKey} 订阅` : (apiMeta?.label || provider);
+  const displayLabel = modelId ? `${providerLabel} · ${modelId}` : providerLabel;
   const startedAt = Date.now();
 
   let text = '';
@@ -1399,9 +1492,11 @@ async function callMobileModel(
       headers.Authorization = `Bearer ${cred.access}`;
     } else {
       const cfg = store.apiConfigs.anthropic;
-      if (!cfg?.apiKey) throw new Error('请先填写 Anthropic API Key');
-      url = `${(cfg.baseUrl || 'https://api.anthropic.com').replace(/\/+$/, '')}/v1/messages`;
-      headers['x-api-key'] = cfg.apiKey;
+      const apiKey = (override?.apiKey || '').trim() || cfg?.apiKey || '';
+      if (!apiKey) throw new Error('请先填写 Anthropic API Key');
+      const base = ((override?.baseUrl || '').trim() || cfg?.baseUrl || 'https://api.anthropic.com').replace(/\/+$/, '');
+      url = `${base}/v1/messages`;
+      headers['x-api-key'] = apiKey;
     }
 
     const resp = await transportHttpRequest({
@@ -1417,7 +1512,7 @@ async function callMobileModel(
       timeoutMs,
     });
     if (resp.status === 401 || resp.status === 403) {
-      throw new Error(`${status.label || provider} 鉴权失败（HTTP ${resp.status}），请检查登录状态或 API Key`);
+      throw new Error(`${providerLabel} 鉴权失败（HTTP ${resp.status}），请检查登录状态或 API Key`);
     }
     if (resp.status < 200 || resp.status >= 300) {
       throw new Error(`AI 请求失败（HTTP ${resp.status}）：${resp.body.slice(0, 180)}`);
@@ -1433,15 +1528,16 @@ async function callMobileModel(
     // OpenAI 兼容接口（DeepSeek / OpenAI / Gemini / 通义千问 / 智谱 / Kimi API / 豆包 / 自定义）
     const cfg = store.apiConfigs[provider];
     const meta = API_PROVIDERS.find((p) => p.id === provider);
-    if (!cfg?.apiKey) throw new Error(`请先填写 ${meta?.label || provider} 的 API Key`);
-    const base = (cfg.baseUrl || meta?.baseUrl || '').replace(/\/+$/, '');
+    const apiKey = (override?.apiKey || '').trim() || cfg?.apiKey || '';
+    if (!apiKey) throw new Error(`请先填写 ${meta?.label || provider} 的 API Key`);
+    const base = ((override?.baseUrl || '').trim() || cfg?.baseUrl || meta?.baseUrl || '').replace(/\/+$/, '');
     if (!base) throw new Error('请填写有效的接口地址（Base URL）');
     const url = /\/chat\/completions$/i.test(base) ? base : `${base}/chat/completions`;
     const resp = await transportHttpRequest({
       url,
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${cfg.apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -1476,14 +1572,21 @@ async function callMobileModel(
   }
   recordAiUsage({
     provider,
-    label: status.label || provider,
-    authMode: status.authMode,
+    label: providerLabel,
+    authMode: isSub ? 'subscription' : 'api',
     model: modelId,
     inputTokens,
     outputTokens,
   });
 
-  return { text: text.trim(), latencyMs: Date.now() - startedAt, model: modelId || '', provider };
+  return {
+    text: text.trim(),
+    latencyMs: Date.now() - startedAt,
+    model: modelId || '',
+    provider,
+    label: displayLabel,
+    thinkingUsed,
+  };
 }
 
 function extractJsonObject<T>(raw: string): T {
@@ -1524,7 +1627,10 @@ export async function handleMobilePlannerApi<T>(
           provider: prov,
           apiKey,
           baseUrl: typeof payload.baseUrl === 'string' && payload.baseUrl.trim() ? payload.baseUrl.trim() : (prev?.baseUrl || meta?.baseUrl || ''),
-          model: typeof payload.model === 'string' && payload.model.trim() ? payload.model.trim() : (prev?.model || meta?.model || ''),
+          model: normalizeModelId(
+            prov,
+            typeof payload.model === 'string' && payload.model.trim() ? payload.model.trim() : (prev?.model || meta?.model || ''),
+          ),
           thinking: typeof payload.thinking === 'string' ? payload.thinking : (prev?.thinking || 'low'),
         };
         store.activeProvider = prov;
@@ -1541,13 +1647,17 @@ export async function handleMobilePlannerApi<T>(
       const key = prov.slice(4);
       if (store.subCreds[key]?.access) {
         store.activeProvider = prov;
-        if (typeof payload.model === 'string' && payload.model.trim()) store.subModels[key] = payload.model.trim();
+        if (typeof payload.model === 'string' && payload.model.trim()) {
+          store.subModels[key] = normalizeModelId(prov, payload.model);
+        }
         if (typeof payload.thinking === 'string' && payload.thinking.trim()) store.subThinking[key] = payload.thinking.trim();
         saveStore(store);
       }
     } else if (store.apiConfigs[prov]?.apiKey) {
       store.activeProvider = prov;
-      if (typeof payload.model === 'string' && payload.model.trim()) store.apiConfigs[prov].model = payload.model.trim();
+      if (typeof payload.model === 'string' && payload.model.trim()) {
+        store.apiConfigs[prov].model = normalizeModelId(prov, payload.model);
+      }
       if (typeof payload.thinking === 'string' && payload.thinking.trim()) store.apiConfigs[prov].thinking = payload.thinking.trim();
       saveStore(store);
     }
@@ -1555,13 +1665,44 @@ export async function handleMobilePlannerApi<T>(
   }
 
   if (endpoint === 'ai-test') {
-    const res = await callMobileModel('你是一个连通性测试助手。', '请只回复：连接正常', { maxTokens: 32, timeoutMs: 25000 });
-    return {
-      ok: true,
-      reply: res.text || '连接正常',
-      latencyMs: res.latencyMs,
-      model: res.model,
-    } as unknown as T;
+    const override: MobileCallOverride | undefined =
+      typeof payload.provider === 'string' && payload.provider.trim()
+        ? {
+            provider: payload.provider.trim(),
+            apiKey: typeof payload.apiKey === 'string' ? payload.apiKey.trim() : undefined,
+            model: typeof payload.model === 'string' ? payload.model.trim() : undefined,
+            baseUrl: typeof payload.baseUrl === 'string' ? payload.baseUrl.trim() : undefined,
+            thinking: typeof payload.thinking === 'string' ? payload.thinking.trim() : undefined,
+          }
+        : undefined;
+    const startedAt = Date.now();
+    try {
+      const res = await callMobileModel('你是一个连通性测试助手。', '请只回复：连接正常', {
+        maxTokens: 32,
+        timeoutMs: 25000,
+        override,
+      });
+      const seconds = Math.round(res.latencyMs / 100) / 10;
+      const speedTier = seconds <= 2.5 ? 'fast' : seconds <= 7 ? 'normal' : 'slow';
+      return {
+        ok: true,
+        label: res.label,
+        seconds,
+        speedTier,
+        thinkingUsed: res.thinkingUsed,
+        reply: res.text || '连接正常',
+        latencyMs: res.latencyMs,
+        model: res.model,
+      } as unknown as T;
+    } catch (error) {
+      const seconds = Math.round((Date.now() - startedAt) / 100) / 10;
+      return {
+        ok: false,
+        seconds,
+        speedTier: 'unknown',
+        error: error instanceof Error ? error.message : String(error),
+      } as unknown as T;
+    }
   }
 
   if (endpoint === 'ai-models-refresh') {
@@ -1620,7 +1761,9 @@ export async function handleMobilePlannerApi<T>(
   if (endpoint === 'ai-sub-model') {
     const key = String(payload.provider || '').replace(/^sub:/, '');
     const store = loadStore();
-    if (typeof payload.model === 'string' && payload.model.trim()) store.subModels[key] = payload.model.trim();
+    if (typeof payload.model === 'string' && payload.model.trim()) {
+      store.subModels[key] = normalizeModelId(`sub:${key}`, payload.model);
+    }
     if (typeof payload.thinking === 'string' && payload.thinking.trim()) store.subThinking[key] = payload.thinking.trim();
     saveStore(store);
     return buildMobileAiStatus() as unknown as T;

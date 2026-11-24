@@ -1129,7 +1129,9 @@ export default function PlannerAiSettings({
       const savedApi = current.saved.find((item) => item.id === initialApiProvider);
       setApiProvider(initialApiProvider);
       setApiModel(
-        initialApiProvider === current.provider ? current.model : (savedApi?.model ?? spec?.model ?? ''),
+        initialApiProvider === current.provider
+          ? (current.modelId || current.model)
+          : (savedApi?.model ?? spec?.model ?? ''),
       );
       setApiBaseUrl(initialApiProvider === current.provider ? current.baseUrl : (spec?.baseUrl ?? ''));
       setApiThinking(
@@ -1572,17 +1574,31 @@ export default function PlannerAiSettings({
     const next = state?.providers.find((item) => item.id === id);
     const saved = apiSavedProfiles.find((item) => item.id === id);
     setApiProvider(id);
-    setApiModel(id === state?.provider ? state.model : (saved?.model ?? next?.model ?? ''));
+    setApiModel(
+      id === state?.provider
+        ? (state.modelId || state.model)
+        : (saved?.model ?? next?.model ?? ''),
+    );
     setApiBaseUrl(id === state?.provider ? state.baseUrl : (next?.baseUrl ?? ''));
     setApiThinking(id === state?.provider ? (state.thinking ?? 'low') : (saved?.thinking ?? 'low'));
     setApiKey('');
     setApiMessage(null);
   }
 
+  const resolveApiModelId = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return '';
+    const lower = trimmed.toLowerCase();
+    const matched = apiCatalog.find(
+      (item) => item.id === trimmed || item.id.toLowerCase() === lower || item.name.toLowerCase() === lower,
+    );
+    return matched ? matched.id : trimmed;
+  };
+
   const apiPayload = () => ({
     provider: apiProvider,
     apiKey: apiKey.trim(),
-    model: apiModel.trim(),
+    model: resolveApiModelId(apiModel),
     baseUrl: apiBaseUrl.trim(),
     thinking: apiThinking,
   });
