@@ -5,6 +5,11 @@ on:
     branches: [main]
   release:
     types: [published, edited, released]
+  workflow_run:
+    workflows:
+      - "Release Mobile App (Android / iOS)"
+      - "Release Desktop App (Windows / macOS / Linux)"
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -14,14 +19,17 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
