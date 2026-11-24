@@ -17,7 +17,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="./download.css?v=1.0.15" />
+    <link rel="stylesheet" href="./download.css?v=1.0.16" />
     <script>
       try {
         var t = localStorage.getItem('zhouyou-site-theme');
@@ -133,7 +133,7 @@
           <a class="hero-pill reveal" href="#download">
             <span class="hero-pill-dot" aria-hidden="true"></span>
             <span>全平台开源免费 · 官网高速直连</span>
-            <span class="hero-pill-ver" id="hero-latest-ver">v1.0.15</span>
+            <span class="hero-pill-ver" id="hero-latest-ver">v1.0.16</span>
           </a>
 
           <h1 class="hero-title reveal reveal-delay-1">
@@ -161,7 +161,7 @@
               </svg>
               <span id="hero-primary-dl-label">下载电脑桌面版</span>
             </a>
-            <a class="btn btn-secondary" href="#tour">
+            <a class="btn btn-secondary" href="#tour" data-open-tour>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
                 <line x1="9" y1="3" x2="9" y2="18" />
@@ -215,7 +215,7 @@
         </div>
       </section>
 
-      <!-- 核心交互区：网页版嵌入式在线漫游沙盒 (#tour) -->
+      <!-- 点击展开式在线试玩入口 (#tour) -->
       <section id="tour" class="tour-section">
         <div class="container">
           <div class="section-head reveal">
@@ -226,49 +226,14 @@
             </p>
           </div>
 
-          <div class="tour-shell reveal">
-            <div class="tour-chrome">
-              <div class="tour-chrome-left">
-                <span class="traffic-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                <span class="tour-address">
-                  <span class="tour-address-live" aria-hidden="true"></span>
-                  <span>zhouyou.online · 网页试玩</span>
-                </span>
-              </div>
-              <div class="tour-chrome-controls">
-                <div class="viewport-toggle" role="group" aria-label="切换桌面或手机预览视图">
-                  <button type="button" class="is-active" data-tour-viewport="desktop">💻 桌面视图</button>
-                  <button type="button" data-tour-viewport="mobile">📱 手机视图</button>
-                </div>
-                <button type="button" id="tour-lock-toggle" class="btn btn-secondary btn-sm">🖱️ 点击开始交互</button>
-                <a class="btn btn-ghost btn-sm" href="./?demo=1&amp;tour=1" target="_blank" rel="noreferrer">↗ 全屏体验</a>
-              </div>
+          <div class="tour-launcher-card reveal">
+            <div class="tour-launcher-copy">
+              <strong>🧭 免安装，点击立即进入在线试玩</strong>
+              <p>手机端将以原生 App 全屏尺寸展开，电脑端支持桌面/手机双视图切换，可随时一键关闭返回下载页。</p>
             </div>
-
-            <div id="tour-stage" class="tour-stage">
-              <div class="tour-frame-wrap">
-                <div id="tour-loading" class="tour-loading">
-                  <div>
-                    <div class="tour-spinner" aria-hidden="true"></div>
-                    <span>正在加载周游地图网页漫游沙盒…</span>
-                  </div>
-                </div>
-                <div id="tour-interact-veil" class="tour-interact-veil" role="button" tabindex="0" aria-label="点击进入交互式网页漫游">
-                  <span class="tour-veil-pill">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                    <span>点击画面进入实时交互 · 点亮你的中国地图</span>
-                  </span>
-                </div>
-                <iframe
-                  id="tour-iframe"
-                  class="tour-iframe"
-                  title="周游地图在线漫游体验版"
-                  loading="lazy"
-                  allow="clipboard-write"
-                ></iframe>
-              </div>
+            <div class="tour-launcher-actions">
+              <button type="button" class="btn btn-primary" data-open-tour>▶ 开始在线试玩</button>
+              <a class="btn btn-secondary" href="./?demo=1&amp;tour=1" target="_blank" rel="noreferrer">↗ 新标签打开</a>
             </div>
           </div>
         </div>
@@ -394,8 +359,8 @@
             <div class="showcase-toolbar">
               <div class="showcase-tabs" role="tablist" aria-label="界面截图切换">
                 <button type="button" class="showcase-tab is-active" data-shot-tab="map">🗺️ 足迹地图</button>
-                <button type="button" class="showcase-tab" data-shot-tab="planner">🤖 AI 行程路书</button>
-                <button type="button" class="showcase-tab" data-shot-tab="journal">📔 照片手账与明信片</button>
+                <button type="button" class="showcase-tab" data-shot-tab="planner">🤖 AI 路书</button>
+                <button type="button" class="showcase-tab" data-shot-tab="journal">📔 照片手账</button>
               </div>
               <div id="map-tone-switch" class="map-tone-switch">
                 <span>配色：</span>
@@ -413,7 +378,6 @@
                 <strong id="showcase-title">糖果贴纸 · 全国 34 省足迹地图</strong>
                 <div id="showcase-desc">明快珊瑚红搭配贴纸手绘元素，点选下方色卡可即时切换预览 5 套内置皮肤。</div>
               </div>
-              <a class="btn btn-secondary btn-sm" href="#tour">去上方沙盒亲自点亮 ↑</a>
             </div>
 
             <div class="skin-strip" role="group" aria-label="点击切换预览 5 套主题皮肤">
@@ -496,7 +460,7 @@
                 <li class="no"><span class="mark">✕</span><span>不支持 AI 生成 / 对话改行程与 OCR</span></li>
                 <li class="no"><span class="mark">✕</span><span>不支持上传与保存照片 / 语音文件</span></li>
               </ul>
-              <a class="btn btn-secondary" href="#tour">回到上方网页试玩</a>
+              <button type="button" class="btn btn-secondary" data-open-tour>▶ 点击开始网页试玩</button>
             </article>
           </div>
         </div>
@@ -832,6 +796,46 @@
       </div>
     </footer>
 
+    <!-- 全屏 / 浮层式在线试玩窗口（默认收起，点击「在线试玩」才展开） -->
+    <div id="tour-modal" class="tour-modal" role="dialog" aria-modal="true" aria-label="周游地图网页版在线试玩" hidden>
+      <div class="tour-shell">
+        <div class="tour-chrome">
+          <div class="tour-chrome-left">
+            <span class="traffic-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="tour-address">
+              <span class="tour-address-live" aria-hidden="true"></span>
+              <span>周游地图 · 在线试玩</span>
+            </span>
+          </div>
+          <div class="tour-chrome-controls">
+            <div class="viewport-toggle" role="group" aria-label="切换桌面或手机预览视图">
+              <button type="button" class="is-active" data-tour-viewport="desktop">💻 桌面视图</button>
+              <button type="button" data-tour-viewport="mobile">📱 手机视图</button>
+            </div>
+            <a class="btn btn-ghost btn-sm tour-open-newtab" href="./?demo=1&amp;tour=1" target="_blank" rel="noreferrer">↗ 新标签</a>
+            <button type="button" id="tour-close-btn" class="btn-tour-close" aria-label="关闭试玩">✕ 关闭试玩</button>
+          </div>
+        </div>
+
+        <div id="tour-stage" class="tour-stage">
+          <div class="tour-frame-wrap">
+            <div id="tour-loading" class="tour-loading">
+              <div>
+                <div class="tour-spinner" aria-hidden="true"></div>
+                <span>正在打开周游地图网页试玩…</span>
+              </div>
+            </div>
+            <iframe
+              id="tour-iframe"
+              class="tour-iframe"
+              title="周游地图在线试玩"
+              allow="clipboard-write"
+            ></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 微信 / QQ / 小红书内置浏览器右上角跳转引导遮罩 -->
     <div id="inapp-guide-mask" class="inapp-guide-mask" role="dialog" aria-modal="true" aria-labelledby="inapp-guide-title" hidden>
       <div class="inapp-guide-arrow" aria-hidden="true">
@@ -860,6 +864,6 @@
       </div>
     </div>
 
-    <script src="./download.js?v=1.0.15"></script>
+    <script src="./download.js?v=1.0.16"></script>
   </body>
 </html>

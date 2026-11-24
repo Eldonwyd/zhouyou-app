@@ -224,12 +224,12 @@
   if (guideMask) guideMask.addEventListener('click', (e) => { if (e.target === guideMask) closeInAppGuide(); });
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeInAppGuide(); });
 
-  /* ---------- 5. 嵌入式在线网页版漫游沙盒 (#tour) ---------- */
+  /* ---------- 5. 点击展开式全屏 / 浮层在线试玩窗口 ---------- */
+  const tourModal = document.getElementById('tour-modal');
+  const tourCloseBtn = document.getElementById('tour-close-btn');
   const tourIframe = document.getElementById('tour-iframe');
   const tourStage = document.getElementById('tour-stage');
   const tourLoading = document.getElementById('tour-loading');
-  const tourVeil = document.getElementById('tour-interact-veil');
-  const tourUnlockBtn = document.getElementById('tour-lock-toggle');
   const tourVpBtns = document.querySelectorAll('[data-tour-viewport]');
   let tourLoaded = false;
 
@@ -238,46 +238,41 @@
     tourLoaded = true;
     tourIframe.src = './?demo=1&tour=1&embed=1';
   }
+  function openTourModal() {
+    if (!tourModal) return;
+    loadTourIframe();
+    tourModal.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+  function closeTourModal() {
+    if (!tourModal || tourModal.hidden) return;
+    tourModal.hidden = true;
+    document.body.style.overflow = '';
+  }
+
   if (tourIframe) {
     tourIframe.addEventListener('load', () => {
       if (tourLoading) tourLoading.classList.add('is-hidden');
     });
-    if ('IntersectionObserver' in window) {
-      const tourIo = new IntersectionObserver(
-        (entries) => {
-          if (entries.some((e) => e.isIntersecting)) {
-            loadTourIframe();
-            tourIo.disconnect();
-          }
-        },
-        { rootMargin: '220px 0px' },
-      );
-      tourIo.observe(tourIframe);
-    } else {
-      loadTourIframe();
-    }
   }
+  document.querySelectorAll('[data-open-tour]').forEach((trigger) => {
+    trigger.addEventListener('click', (e) => {
+      e.preventDefault();
+      openTourModal();
+    });
+  });
+  if (tourCloseBtn) {
+    tourCloseBtn.addEventListener('click', closeTourModal);
+  }
+  if (tourModal) {
+    tourModal.addEventListener('click', (e) => {
+      if (e.target === tourModal) closeTourModal();
+    });
+  }
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeTourModal();
+  });
 
-  function setTourUnlocked(unlocked) {
-    if (!tourVeil) return;
-    tourVeil.classList.toggle('is-unlocked', unlocked);
-    if (tourUnlockBtn) {
-      tourUnlockBtn.textContent = unlocked ? '🔓 自由操作中' : '🖱️ 点击开始交互';
-    }
-  }
-  if (tourVeil) {
-    tourVeil.addEventListener('click', () => {
-      loadTourIframe();
-      setTourUnlocked(true);
-    });
-  }
-  if (tourUnlockBtn) {
-    tourUnlockBtn.addEventListener('click', () => {
-      loadTourIframe();
-      const next = tourVeil ? !tourVeil.classList.contains('is-unlocked') : true;
-      setTourUnlocked(next);
-    });
-  }
   tourVpBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
       const mode = btn.getAttribute('data-tour-viewport');
@@ -286,8 +281,7 @@
     });
   });
   if (isMobileDevice && tourStage) {
-    tourStage.classList.add('is-mobile-view');
-    tourVpBtns.forEach((b) => b.classList.toggle('is-active', b.getAttribute('data-tour-viewport') === 'mobile'));
+    tourStage.classList.remove('is-mobile-view');
   }
 
   /* ---------- 6. 界面精选画廊：3 页面 × 5 皮肤全交互切换（共 15 张实拍图） ---------- */
@@ -452,6 +446,7 @@
   // 接收嵌入式在线漫游页传来的「下载客户端」消息
   window.addEventListener('message', (event) => {
     if (!event.data || event.data.type !== 'zhouyou-tour-download') return;
+    closeTourModal();
     jumpToDownload(event.data.section || 'download');
   });
 
@@ -486,12 +481,9 @@
   const heroPrimaryLabel = document.getElementById('hero-primary-dl-label');
 
   if (heroMobileLabel) {
-    heroMobileLabel.textContent =
-      detected === 'ios'
-        ? '下载手机版 · PWA 免自签推荐'
-        : detected === 'android'
-          ? '下载手机版（PWA 推荐 / APK）'
-          : '下载手机版（PWA 推荐 / APK / iOS）';
+    heroMobileLabel.textContent = isMobileDevice
+      ? '手机版（PWA 推荐）'
+      : '下载手机版（PWA 推荐）';
   }
   if (heroMobileBtn) {
     heroMobileBtn.addEventListener('click', (e) => {
@@ -505,7 +497,7 @@
     macos: { label: '下载 macOS 苹果版', asset: 'mac-arm64', fallback: '#desktop' },
     linux: { label: '下载 Linux 电脑版', asset: 'linux-appimage', fallback: '#desktop' },
   };
-  const heroSpec = HERO_DESKTOP_MAP[detected] || { label: '下载电脑桌面版', asset: null, fallback: '#desktop' };
+  const heroSpec = HERO_DESKTOP_MAP[detected] || { label: isMobileDevice ? '电脑版下载' : '下载电脑桌面版', asset: null, fallback: '#desktop' };
   if (heroPrimaryLabel) heroPrimaryLabel.textContent = heroSpec.label;
   if (heroPrimaryBtn) {
     if (heroSpec.asset && useEdgeProxy && INSTALL_ROUTE_BY_ASSET[heroSpec.asset]) {
@@ -578,7 +570,7 @@
     const verSource = desktopRelease || mobileRelease;
     if (verSource && heroVerEl) {
       const cleanVer = String(verSource.tag_name || '').replace(/^(desktop|mobile)-/i, '');
-      heroVerEl.textContent = cleanVer || 'v1.0.15';
+      heroVerEl.textContent = cleanVer || 'v1.0.16';
     }
 
     if (desktopRelease) {
