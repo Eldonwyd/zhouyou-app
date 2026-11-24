@@ -10,6 +10,10 @@ import OfflineMapSettings from './OfflineMapSettings';
 interface ProfileViewProps {
   snapshot: AppSnapshot;
   activeProvinceCode: string | null;
+  demoMode?: boolean;
+  demoBusy?: boolean;
+  onLoadDemo?: () => void;
+  onClearDemo?: () => void;
   onSaveProfile: (profile: LocalProfile) => Promise<void>;
   onImported: (snapshot: AppSnapshot) => void;
   onError: (message: string) => void;
@@ -24,7 +28,7 @@ function readableBytes(bytes: number): string {
   return `${Math.ceil(bytes / 1024)} KB`;
 }
 
-export default function ProfileView({ snapshot, activeProvinceCode, onSaveProfile, onImported, onError, onNotice }: ProfileViewProps) {
+export default function ProfileView({ snapshot, activeProvinceCode, demoMode, demoBusy, onLoadDemo, onClearDemo, onSaveProfile, onImported, onError, onNotice }: ProfileViewProps) {
   const savedProfile = snapshot.profile[0];
   const [nickname, setNickname] = useState(savedProfile?.nickname ?? '旅行者');
   const [avatar, setAvatar] = useState(savedProfile?.avatar ?? 'bear');
@@ -373,6 +377,21 @@ export default function ProfileView({ snapshot, activeProvinceCode, onSaveProfil
             <p>包含城市足迹、旅行手账、地点回忆、AI 行程及修改历史、账本、原始照片视频和录音、徽章及个人名片。支持导入旧版本 ZIP。</p>
             <small>包含较多大体积视频时，打包可能需要十几秒，请耐心等待下载完成。</small>
           </details>
+        </section>
+
+        <section className="card" aria-labelledby="demo-mode-card-title">
+          <h2 id="demo-mode-card-title">演示模式与示例数据</h2>
+          <p className="muted">想先看看完整效果？一键载入内置示例（14 座点亮城市、完整大理 AI 路书、照片手账与每日账本），体验完随时可清空恢复空白。</p>
+          <div className="heading-actions" style={{ marginTop: 10 }}>
+            <button type="button" className="primary" disabled={demoBusy} onClick={onLoadDemo}>
+              {demoBusy ? '处理中…' : '✨ 载入示例数据'}
+            </button>
+            {demoMode ? (
+              <button type="button" className="secondary" disabled={demoBusy} onClick={onClearDemo}>
+                清空示例数据
+              </button>
+            ) : null}
+          </div>
         </section>
 
         <section className="card" aria-labelledby="remote-ai-server-title">

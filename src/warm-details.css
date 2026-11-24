@@ -3275,3 +3275,56 @@ input, select, textarea { border-radius: 10px; }
   .booking-form-grid .span-2 { grid-column: auto; }
   .xhs-mode-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------- 演示模式 / 一键示例数据引导条 ---------- */
+.demo-welcome-bar,
+.demo-active-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 10px 24px 0;
+  padding: 11px 18px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent, #ef6351) 24%, var(--line, rgba(0, 0, 0, .1)));
+  background: color-mix(in srgb, var(--app-peach, #fff3e6) 72%, var(--surface, #ffffff));
+  box-shadow: var(--elev-card, 0 8px 24px rgba(0, 0, 0, .05));
+}
+.demo-welcome-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 280px;
+}
+.demo-welcome-copy strong {
+  font-size: 14.5px;
+  color: var(--ink);
+}
+.demo-welcome-copy span {
+  font-size: 12.8px;
+  color: var(--muted);
+}
+.demo-welcome-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.demo-active-bar {
+  padding: 9px 16px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--app-sage, #eef7f1) 78%, var(--surface, #ffffff));
+  border-color: color-mix(in srgb, var(--warm-green, #2f7d57) 26%, var(--line, rgba(0, 0, 0, .08)));
+}
+.demo-active-bar span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.demo-active-bar button {
+  padding: 6px 12px;
+  font-size: 12.5px;
+}
