@@ -419,10 +419,10 @@ code, pre { font-family: var(--font-mono); }
 /* ---------- Hero 视觉首屏 ---------- */
 .hero-section {
   position: relative;
-  min-height: calc(100vh - 68px);
+  min-height: 100vh;
   display: flex;
   align-items: center;
-  padding: 64px 0 88px;
+  padding: 56px 0 112px;
   overflow: hidden;
 }
 .hero-topo-bg {
@@ -624,7 +624,7 @@ code, pre { font-family: var(--font-mono); }
 }
 
 /* ---------- 沉浸式在线网页版漫游体验区 (#tour) ---------- */
-.tour-section { padding: 56px 0 68px; }
+.tour-section { padding: 96px 0 72px; }
 /* ---------- 点击展开式在线试玩入口卡片 + 全屏试玩浮层 ---------- */
 .tour-launcher-card {
   max-width: 820px;
