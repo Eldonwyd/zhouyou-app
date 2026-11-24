@@ -71,28 +71,6 @@
 ## 🖼️ Screenshots
 
 <div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-dark.png" />
-    <source media="(prefers-color-scheme: light)" srcset="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-light.png" />
-    <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-light.png" alt="Interactive China Travel Footprint Map" width="100%" />
-  </picture>
-  <p><i><b>🗺️ Interactive China Footprint Map</b> — every visited province, city status, and exploration progress at a glance</i></p>
-</div>
-
-<table>
-  <tr>
-    <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-journal.png" alt="Travel Journal" />
-      <br /><b>📔 Travel Journal &amp; Postcards</b> — trip booklets, photo &amp; voice memories, and illustrated city postcards
-    </td>
-    <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-achievements.png" alt="Traveler Achievements" />
-      <br /><b>🏆 Traveler Achievements</b> — 8-stage roadmap, custom stamps &amp; shareable posters
-    </td>
-  </tr>
-</table>
-
-<div align="center">
   <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner.png" alt="One-Click AI Trip Planner" width="100%" />
   <p><i><b>🤖 One-Click AI Trip Planner</b> — scenic cards, budget breakdown, countdown, calendar export &amp; offline HTML roadbook</i></p>
 </div>
@@ -100,12 +78,16 @@
 <table>
   <tr>
     <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner-day.png" alt="Daily Itinerary with Amap and Xiaohongshu" />
-      <br /><b>🔗 Daily Plan · Amap &amp; Xiaohongshu</b> — one-click Amap navigation, Xiaohongshu search, AI tweaks &amp; live budget
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-dark.png" />
+        <source media="(prefers-color-scheme: light)" srcset="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-light.png" />
+        <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-light.png" alt="Interactive China Travel Footprint Map" />
+      </picture>
+      <br /><b>🗺️ China Footprint Map</b> — 34 provinces × 370+ cities, drill-down &amp; exploration progress
     </td>
     <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner-create.png" alt="Custom AI Plan Creation and Xiaohongshu Import" />
-      <br /><b>✨ Custom AI Plan &amp; Guide Import</b> — import tickets, hotels &amp; Xiaohongshu notes directly into your itinerary
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-journal.png" alt="Travel Journal" />
+      <br /><b>📔 Travel Journal &amp; Postcards</b> — trip booklets, original photos, voice notes &amp; illustrated postcards
     </td>
   </tr>
 </table>

@@ -43,7 +43,7 @@
   &nbsp;·&nbsp;
   <a href="#-手机版下载"><b>📱 手机版下载</b></a>
   &nbsp;·&nbsp;
-  <a href="#-界面预览"><b>🖼️ 界面预览</b></a>
+  <a href="#-界面精选"><b>🖼️ 界面精选</b></a>
   &nbsp;·&nbsp;
   <a href="#-核心亮点"><b>🧭 核心亮点</b></a>
   &nbsp;·&nbsp;
@@ -101,44 +101,26 @@
 
 ---
 
-## 🖼️ 界面预览
-
-<div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-dark.png" />
-    <source media="(prefers-color-scheme: light)" srcset="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-light.png" />
-    <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-light.png" alt="交互式中国旅行足迹地图" width="100%" />
-  </picture>
-  <p><i><b>🗺️ 中国旅行足迹地图</b> —— 34 省 × 370+ 城市点亮状态、省级下钻与探索进度一目了然</i></p>
-</div>
-
-<table>
-  <tr>
-    <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-journal.png" alt="旅行手账与城市明信片" />
-      <br /><b>📔 旅行手账与城市明信片</b> — 每次旅程独立成册，珍藏原图照片、语音评语与专属城市明信片
-    </td>
-    <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-achievements.png" alt="旅途成就与成长路线" />
-      <br /><b>🏆 旅途成就与成长路线</b> — 八阶旅人成长里程碑、手作纪念章与一键导出分享海报
-    </td>
-  </tr>
-</table>
+## 🖼️ 界面精选
 
 <div align="center">
   <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner.png" alt="AI 一键规划完整行程" width="100%" />
-  <p><i><b>🤖 AI 一键规划行程</b> —— 每日顺路行程、实景配图、预算拆解、出发倒计时、日历提醒、小红书加景点与离线 HTML 路书导出</i></p>
+  <p><i><b>🤖 AI 一键规划行程</b> —— 每日顺路行程、实景配图、预算拆解、出发倒计时、小红书加景点与离线 HTML 路书导出</i></p>
 </div>
 
 <table>
   <tr>
     <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner-day.png" alt="每日行程卡片与高德小红书联动" />
-      <br /><b>🔗 每日行程 · 联动高德 &amp; 小红书</b> — 一键跳转高德地图导航、去小红书搜同款、AI 局部微调与实时费用概览
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-dark.png" />
+        <source media="(prefers-color-scheme: light)" srcset="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-light.png" />
+        <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-light.png" alt="交互式中国旅行足迹地图" />
+      </picture>
+      <br /><b>🗺️ 中国旅行足迹地图</b> — 34 省 × 370+ 城市一键点亮、省级下钻与探索统计
     </td>
     <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner-create.png" alt="一键新建 AI 计划与小红书攻略导入" />
-      <br /><b>✨ AI 计划定制 &amp; 攻略导入</b> — 提前录入机票酒店、粘贴小红书链接或攻略截图，一键融入行程
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-journal.png" alt="旅行手账与城市明信片" />
+      <br /><b>📔 照片手账与城市明信片</b> — 每次旅程独立成册，珍藏原图、语音评语与专属城市明信片
     </td>
   </tr>
 </table>
