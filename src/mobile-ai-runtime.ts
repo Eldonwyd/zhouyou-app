@@ -1,3 +1,4 @@
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { jsonrepair } from 'jsonrepair';
 import { getPlannerApiOrigin } from './api-base';
 import type {
@@ -49,15 +50,12 @@ interface NativeAiBridgePlugin {
   ): Promise<{ remove: () => Promise<void> }>;
 }
 
+const NativeAiBridge = registerPlugin<NativeAiBridgePlugin>('NativeAiBridge');
+
 function getNativeBridge(): NativeAiBridgePlugin | null {
-  const cap = (window as unknown as {
-    Capacitor?: {
-      isNativePlatform?: () => boolean;
-      Plugins?: { NativeAiBridge?: NativeAiBridgePlugin };
-    };
-  }).Capacitor;
-  if (!cap?.isNativePlatform?.()) return null;
-  return cap.Plugins?.NativeAiBridge ?? null;
+  if (!Capacitor.isNativePlatform()) return null;
+  if (!Capacitor.isPluginAvailable('NativeAiBridge')) return null;
+  return NativeAiBridge;
 }
 
 /** 原生手机端且未指向外部远程服务器时，启用手机本机独立 AI 运行时。 */
@@ -649,7 +647,7 @@ async function finishOAuthLogin(session: ActiveLoginSession, code: string, retur
   }
 }
 
-async function startSubLogin(providerKey: string): Promise<Record<string, unknown>> {
+async function startSubLogin(providerKey: string, method?: string): Promise<Record<string, unknown>> {
   const key = providerKey.replace(/^sub:/, '') as 'chatgpt' | 'claude' | 'kimi' | 'gemini';
   if (key === 'gemini') {
     throw new Error('手机端不支持电脑命令行 Gemini CLI；请在下方「API Key」中填写 Google AI Studio 免费 API Key，即可直接用 Gemini 4 Neon。');
@@ -658,6 +656,86 @@ async function startSubLogin(providerKey: string): Promise<Record<string, unknow
   if (!bridge) throw new Error('未检测到手机原生网络桥接，请更新到最新版手机 APK');
 
   await cleanupLoginSession(key);
+
+  if (key === 'chatgpt' && method === 'device_code') {
+    const resp = await bridge.httpRequest({
+      url: 'https://auth.openai.com/api/accounts/deviceauth/usercode',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ client_id: CHATGPT_CLIENT_ID }),
+      timeoutMs: 25000,
+    });
+    if (resp.status < 200 || resp.status >= 300) {
+      throw new Error(`ChatGPT 设备码申请失败（HTTP ${resp.status}），请改用浏览器直接登录`);
+    }
+    const json = JSON.parse(resp.body) as { device_auth_id?: string; user_code?: string; interval?: number };
+    if (!json.device_auth_id || !json.user_code) throw new Error('ChatGPT 未返回有效设备码');
+    const authUrl = 'https://auth.openai.com/codex/device';
+    const session: ActiveLoginSession = {
+      key: 'chatgpt',
+      state: 'pending',
+      authUrl,
+      userCode: json.user_code,
+      verificationUri: authUrl,
+      instructions: `请在浏览器打开页面并输入设备码 ${json.user_code}，确认后会自动保存登录状态。`,
+    };
+    loginSessions.set('chatgpt', session);
+    void bridge.openExternalUrl({ url: authUrl }).catch(() => {});
+
+    const intervalMs = Math.max(3000, (Number(json.interval) || 5) * 1000);
+    const deadline = Date.now() + 15 * 60 * 1000;
+    void (async () => {
+      while (!session.cancelled && session.state === 'pending' && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, intervalMs));
+        if (session.cancelled || session.state !== 'pending') break;
+        try {
+          const poll = await bridge.httpRequest({
+            url: 'https://auth.openai.com/api/accounts/deviceauth/token',
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+              device_auth_id: json.device_auth_id,
+              user_code: json.user_code,
+            }),
+            timeoutMs: 20000,
+          });
+          if (poll.status >= 200 && poll.status < 300) {
+            const data = JSON.parse(poll.body || '{}') as { authorization_code?: string; code_verifier?: string };
+            if (data.authorization_code && data.code_verifier) {
+              const cred = await exchangeChatGptCode(
+                data.authorization_code,
+                data.code_verifier,
+                'https://auth.openai.com/deviceauth/callback',
+              );
+              const store = loadStore();
+              store.subCreds.chatgpt = cred;
+              store.activeProvider = 'sub:chatgpt';
+              if (!store.subModels.chatgpt) store.subModels.chatgpt = SUB_CATALOG.chatgpt.defaultModel;
+              if (!store.subThinking.chatgpt) store.subThinking.chatgpt = 'low';
+              saveStore(store);
+              quotaCache.delete('chatgpt');
+              session.state = 'completed';
+              return;
+            }
+          }
+        } catch {
+          // keep polling
+        }
+      }
+      if (!session.cancelled && session.state === 'pending') {
+        session.state = 'failed';
+        session.error = '设备码登录超时，请重试';
+      }
+    })();
+
+    return {
+      status: 'pending',
+      authUrl: session.authUrl,
+      userCode: session.userCode,
+      verificationUri: session.verificationUri,
+      instructions: session.instructions,
+    };
+  }
 
   if (key === 'kimi') {
     const resp = await bridge.httpRequest({
@@ -1380,7 +1458,7 @@ export async function handleMobilePlannerApi<T>(
   }
 
   if (endpoint === 'ai-sub-login') {
-    return await startSubLogin(String(payload.provider || '')) as unknown as T;
+    return await startSubLogin(String(payload.provider || ''), typeof payload.method === 'string' ? payload.method : undefined) as unknown as T;
   }
 
   if (endpoint === 'ai-sub-status') {

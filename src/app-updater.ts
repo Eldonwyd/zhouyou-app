@@ -1,3 +1,5 @@
+import { Capacitor, registerPlugin } from '@capacitor/core';
+
 export type AppPlatform = 'desktop-win' | 'desktop-mac' | 'desktop-linux' | 'android' | 'ios' | 'web';
 
 export interface ReleaseAsset {
@@ -57,11 +59,22 @@ const GITHUB_API_RELEASES_URL = 'https://api.github.com/repos/Eldonwyd/zhouyou-a
 export const DOWNLOAD_PORTAL_URL = 'https://eldonwyd.github.io/zhouyou-app/download.html';
 export const GITHUB_RELEASES_URL = 'https://github.com/Eldonwyd/zhouyou-app/releases';
 
+const NativeAppUpdater = registerPlugin<NativeAppUpdaterPlugin>('AppUpdater');
+
 function getCapacitor(): {
   isNativePlatform?: () => boolean;
   getPlatform?: () => string;
   Plugins?: { AppUpdater?: NativeAppUpdaterPlugin };
 } | undefined {
+  if (Capacitor.isNativePlatform()) {
+    return {
+      isNativePlatform: () => true,
+      getPlatform: () => Capacitor.getPlatform(),
+      Plugins: {
+        AppUpdater: Capacitor.isPluginAvailable('AppUpdater') ? NativeAppUpdater : undefined,
+      },
+    };
+  }
   return (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string; Plugins?: { AppUpdater?: NativeAppUpdaterPlugin } } }).Capacitor;
 }
 
