@@ -54,13 +54,15 @@
 
 <table>
   <tr>
-    <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/demo-ai-planner.gif" alt="AI 一键生成行程 → 地图自动连线 → 高铁票本地 OCR 自动记账" />
-      <br /><b>🤖 一句话生成行程 → 地图自动连线 → 高铁票本地 OCR 记账</b>
+    <td align="center">
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/demo-ai-planner.gif" width="100%" alt="AI 一键生成路书 → 展开交互路线地图 → 高德地图 / 小红书一键联动 → 预算账本" />
+      <br /><b>🤖 AI 一键生成路书 → 展开交互路线地图 → 高德地图 / 小红书联动 → 预算账本</b>
     </td>
-    <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/demo-map-journal.gif" alt="点亮中国省市地图 → 暖日手账与城市明信片 → 一键导出成就海报" />
-      <br /><b>🗺️ 一键点亮中国地图 → 暖日手账明信片 → 导出旅人成就海报</b>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/demo-map-journal.gif" width="100%" alt="下钻省市逐城点亮 → 照片手账与地点回忆 → 旅途成就与徽章" />
+      <br /><b>🗺️ 下钻省市逐城点亮 → 沉浸式照片手账与地点回忆 → 旅途成就与徽章</b>
     </td>
   </tr>
 </table>
