@@ -55,92 +55,9 @@ function setupUpdateIpc() {
     if (!isTrustedUpdateUrl(url)) {
       return { ok: false, error: '无效的更新包下载地址' };
     }
-    const rawName = path.basename(String(payload?.fileName || 'zhouyou-update.bin'));
-    const safeName = rawName.replace(/[^A-Za-z0-9._-]/g, '_') || 'zhouyou-update.bin';
-    const updatesDir = path.join(app.getPath('temp'), 'zhouyou-updates');
-    const filePath = path.join(updatesDir, safeName);
-
-    activeUpdateController?.abort();
-    const controller = new AbortController();
-    activeUpdateController = controller;
-
-    try {
-      await mkdir(updatesDir, { recursive: true });
-      sendUpdateProgress({ state: 'downloading', percent: 0, receivedBytes: 0, totalBytes: 0 });
-
-      const response = await fetch(url, {
-        redirect: 'follow',
-        headers: { 'User-Agent': `Zhouyou-Map/${app.getVersion()}` },
-        signal: controller.signal,
-      });
-      if (!response.ok || !response.body) {
-        throw new Error(`下载失败（HTTP ${response.status}）`);
-      }
-
-      const totalBytes = Number(response.headers.get('content-length') || 0);
-      let receivedBytes = 0;
-      let lastEmit = 0;
-
-      const out = createWriteStream(filePath);
-      const reader = response.body.getReader();
-      try {
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          receivedBytes += value.byteLength;
-          if (!out.write(Buffer.from(value))) {
-            await new Promise((resolve) => out.once('drain', resolve));
-          }
-          const now = Date.now();
-          if (now - lastEmit >= 120 || (totalBytes > 0 && receivedBytes >= totalBytes)) {
-            lastEmit = now;
-            const percent = totalBytes > 0 ? Math.min(99, Math.round((receivedBytes / totalBytes) * 100)) : 0;
-            sendUpdateProgress({ state: 'downloading', percent, receivedBytes, totalBytes });
-          }
-        }
-        await new Promise((resolve, reject) => {
-          out.end((err) => (err ? reject(err) : resolve()));
-        });
-      } catch (err) {
-        out.destroy();
-        await rm(filePath, { force: true }).catch(() => undefined);
-        throw err;
-      } finally {
-        reader.releaseLock();
-      }
-
-      sendUpdateProgress({ state: 'installing', percent: 100, receivedBytes, totalBytes: totalBytes || receivedBytes, filePath });
-
-      if (process.platform === 'win32' && /\.exe$/i.test(safeName)) {
-        // 启动 Windows 安装程序并关闭当前进程，便于原地覆盖升级并保留用户数据。
-        const child = spawn(filePath, [], { detached: true, stdio: 'ignore' });
-        child.unref();
-        setTimeout(() => app.quit(), 700);
-      } else if (process.platform === 'darwin') {
-        const openError = await shell.openPath(filePath);
-        if (openError) throw new Error(openError);
-      } else {
-        if (/\.AppImage$/i.test(safeName)) {
-          await chmod(filePath, 0o755).catch(() => undefined);
-          shell.showItemInFolder(filePath);
-        } else {
-          const openError = await shell.openPath(filePath);
-          if (openError) shell.showItemInFolder(filePath);
-        }
-      }
-
-      return { ok: true, filePath };
-    } catch (error) {
-      if (controller.signal.aborted) {
-        sendUpdateProgress({ state: 'cancelled' });
-        return { ok: false, cancelled: true };
-      }
-      const message = error instanceof Error ? error.message : '下载更新失败';
-      sendUpdateProgress({ state: 'error', error: message });
-      return { ok: false, error: message };
-    } finally {
-      if (activeUpdateController === controller) activeUpdateController = null;
-    }
+    // 统一交由系统默认浏览器安全下载新版安装包，避免桌面端自下载执行 .exe 触发杀毒软件误报。
+    await shell.openExternal(url);
+    return { ok: true, fallbackOpened: true };
   });
 }
 

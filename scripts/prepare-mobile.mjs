@@ -57,17 +57,17 @@ async function patchAndroid() {
     return;
   }
 
-  // 1. Patch AndroidManifest.xml for LAN AI server cleartext HTTP + microphone recording
+  // 1. Patch AndroidManifest.xml with minimal safe permissions and strict network_security_config
+  // 仅保留最基础的网络权限，移除 RECORD_AUDIO 与高风险的 REQUEST_INSTALL_PACKAGES，降低安全软件误报。
   const manifestPath = path.join(androidDir, 'app', 'src', 'main', 'AndroidManifest.xml');
   let manifest = await readFile(manifestPath, 'utf8');
-  if (!manifest.includes('android:usesCleartextTraffic')) {
-    manifest = manifest.replace('<application', '<application\n        android:usesCleartextTraffic="true"');
+  manifest = manifest.replace(/\s*android:usesCleartextTraffic="true"/g, '');
+  if (!manifest.includes('android:networkSecurityConfig')) {
+    manifest = manifest.replace('<application', '<application\n        android:networkSecurityConfig="@xml/network_security_config"');
   }
   const permissions = [
     'android.permission.INTERNET',
     'android.permission.ACCESS_NETWORK_STATE',
-    'android.permission.RECORD_AUDIO',
-    'android.permission.REQUEST_INSTALL_PACKAGES',
   ];
   for (const perm of permissions) {
     if (!manifest.includes(perm)) {
@@ -142,20 +142,21 @@ async function patchAndroid() {
     'utf8',
   );
 
-  // 4.5. Ensure FileProvider file_paths.xml exposes cache-path so AppUpdater can install downloaded APKs
+  // 4.5. Write strict network_security_config.xml: HTTPS-only for external hosts, cleartext only for localhost/127.0.0.1
   const xmlDir = path.join(resDir, 'xml');
   await mkdir(xmlDir, { recursive: true });
-  const filePathsXml = `<?xml version="1.0" encoding="utf-8"?>
-<paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <external-path name="my_images" path="." />
-    <cache-path name="my_cache_images" path="." />
-    <external-cache-path name="my_external_cache" path="." />
-    <files-path name="my_files" path="." />
-</paths>
+  const networkSecurityXml = `<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>
 `;
-  await writeFile(path.join(xmlDir, 'file_paths.xml'), filePathsXml, 'utf8');
+  await writeFile(path.join(xmlDir, 'network_security_config.xml'), networkSecurityXml, 'utf8');
 
-  // 5. Inject native AppUpdater Capacitor plugin (in-app APK download with progress + FileProvider install)
+  // 5. Inject minimal AppUpdater plugin (version info only; updates open via system browser to avoid REQUEST_INSTALL_PACKAGES risk flag)
   const javaPkgDir = path.join(androidDir, 'app', 'src', 'main', 'java', 'app', 'zhouyou', 'map');
   await mkdir(javaPkgDir, { recursive: true });
 
@@ -178,76 +179,17 @@ public class MainActivity extends BridgeActivity {
   const appUpdaterJava = `package app.zhouyou.map;
 
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.net.Uri;
 import android.os.Build;
-import android.provider.Settings;
-import androidx.core.content.FileProvider;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.Locale;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 @CapacitorPlugin(name = "AppUpdater")
 public class AppUpdaterPlugin extends Plugin {
-    private static final String APK_FILE_NAME = "zhouyou-update.apk";
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private final AtomicBoolean cancelled = new AtomicBoolean(false);
-    private final AtomicBoolean downloading = new AtomicBoolean(false);
-
-    private boolean isTrustedUpdateUrl(String rawUrl) {
-        try {
-            URL url = new URL(rawUrl);
-            if (!"https".equalsIgnoreCase(url.getProtocol())) return false;
-            String host = url.getHost().toLowerCase(Locale.US);
-            if ("github.com".equals(host)) {
-                return url.getPath().toLowerCase(Locale.US).startsWith("/eldonwyd/zhouyou-app/");
-            }
-            return "objects.githubusercontent.com".equals(host)
-                || "release-assets.githubusercontent.com".equals(host)
-                || "github-releases.githubusercontent.com".equals(host);
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    private void emitProgress(String state, int percent, long received, long total, String error) {
-        JSObject data = new JSObject();
-        data.put("state", state);
-        data.put("percent", percent);
-        data.put("receivedBytes", received);
-        data.put("totalBytes", total);
-        if (error != null && !error.isEmpty()) data.put("error", error);
-        notifyListeners("updateProgress", data);
-    }
-
-    private void launchApkInstaller(File apkFile) throws Exception {
-        Context context = getContext();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.getPackageManager().canRequestPackageInstalls()) {
-            Intent permIntent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + context.getPackageName()));
-            permIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            context.startActivity(permIntent);
-            throw new Exception("请先开启「允许安装未知应用」权限，开启后返回点击「重新打开安装器」即可升级");
-        }
-        Uri apkUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", apkFile);
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        context.startActivity(intent);
-    }
-
     @PluginMethod
     public void getVersionInfo(PluginCall call) {
         try {
@@ -264,152 +206,6 @@ public class AppUpdaterPlugin extends Plugin {
         } catch (Exception e) {
             call.reject("无法读取应用版本信息", e);
         }
-    }
-
-    @PluginMethod
-    public void cancelDownload(PluginCall call) {
-        cancelled.set(true);
-        call.resolve();
-    }
-
-    @PluginMethod
-    public void openDownloadedApk(PluginCall call) {
-        try {
-            File apkFile = new File(getContext().getCacheDir(), APK_FILE_NAME);
-            if (!apkFile.exists() || apkFile.length() == 0) {
-                call.reject("未找到已下载的安装包，请重新下载");
-                return;
-            }
-            launchApkInstaller(apkFile);
-            JSObject result = new JSObject();
-            result.put("ok", true);
-            call.resolve(result);
-        } catch (Exception e) {
-            call.reject("无法打开系统安装器：" + e.getMessage(), e);
-        }
-    }
-
-    @PluginMethod
-    public void downloadAndInstall(PluginCall call) {
-        String rawUrl = call.getString("url", "");
-        if (rawUrl == null || !isTrustedUpdateUrl(rawUrl)) {
-            call.reject("无效的更新包下载地址");
-            return;
-        }
-        if (!downloading.compareAndSet(false, true)) {
-            call.reject("正在下载更新中，请稍候");
-            return;
-        }
-        cancelled.set(false);
-
-        executor.execute(() -> {
-            File apkFile = new File(getContext().getCacheDir(), APK_FILE_NAME);
-            File tempFile = new File(getContext().getCacheDir(), APK_FILE_NAME + ".part");
-            HttpURLConnection conn = null;
-            try {
-                emitProgress("downloading", 0, 0, 0, null);
-                String currentUrl = rawUrl;
-                int status = 0;
-                for (int hop = 0; hop < 6; hop++) {
-                    if (cancelled.get()) break;
-                    URL target = new URL(currentUrl);
-                    conn = (HttpURLConnection) target.openConnection();
-                    conn.setInstanceFollowRedirects(false);
-                    conn.setConnectTimeout(25000);
-                    conn.setReadTimeout(30000);
-                    conn.setRequestProperty("User-Agent", "Zhouyou-Map-Android");
-                    status = conn.getResponseCode();
-                    if (status == HttpURLConnection.HTTP_MOVED_PERM
-                        || status == HttpURLConnection.HTTP_MOVED_TEMP
-                        || status == HttpURLConnection.HTTP_SEE_OTHER
-                        || status == 307
-                        || status == 308) {
-                        String loc = conn.getHeaderField("Location");
-                        conn.disconnect();
-                        conn = null;
-                        if (loc == null || loc.isEmpty()) {
-                            throw new Exception("重定向缺少目标地址");
-                        }
-                        currentUrl = new URL(target, loc).toString();
-                        continue;
-                    }
-                    break;
-                }
-
-                if (cancelled.get()) {
-                    emitProgress("cancelled", 0, 0, 0, null);
-                    JSObject res = new JSObject();
-                    res.put("ok", false);
-                    res.put("cancelled", true);
-                    call.resolve(res);
-                    return;
-                }
-
-                if (conn == null || status < 200 || status >= 300) {
-                    throw new Exception("下载失败（HTTP " + status + "）");
-                }
-
-                long totalBytes = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
-                    ? conn.getContentLengthLong()
-                    : conn.getContentLength();
-                long receivedBytes = 0;
-                long lastEmit = 0;
-
-                try (InputStream in = conn.getInputStream(); FileOutputStream out = new FileOutputStream(tempFile)) {
-                    byte[] buffer = new byte[16384];
-                    int len;
-                    while ((len = in.read(buffer)) != -1) {
-                        if (cancelled.get()) {
-                            break;
-                        }
-                        out.write(buffer, 0, len);
-                        receivedBytes += len;
-                        long now = System.currentTimeMillis();
-                        if (now - lastEmit >= 150 || (totalBytes > 0 && receivedBytes >= totalBytes)) {
-                            lastEmit = now;
-                            int pct = totalBytes > 0 ? (int) Math.min(99, (receivedBytes * 100L) / totalBytes) : 0;
-                            emitProgress("downloading", pct, receivedBytes, totalBytes, null);
-                        }
-                    }
-                    out.flush();
-                }
-
-                if (cancelled.get()) {
-                    //noinspection ResultOfMethodCallIgnored
-                    tempFile.delete();
-                    emitProgress("cancelled", 0, 0, 0, null);
-                    JSObject res = new JSObject();
-                    res.put("ok", false);
-                    res.put("cancelled", true);
-                    call.resolve(res);
-                    return;
-                }
-
-                if (apkFile.exists()) {
-                    //noinspection ResultOfMethodCallIgnored
-                    apkFile.delete();
-                }
-                if (!tempFile.renameTo(apkFile)) {
-                    throw new Exception("保存安装包失败");
-                }
-
-                emitProgress("installing", 100, receivedBytes, totalBytes > 0 ? totalBytes : receivedBytes, null);
-                launchApkInstaller(apkFile);
-
-                JSObject res = new JSObject();
-                res.put("ok", true);
-                call.resolve(res);
-            } catch (Exception e) {
-                //noinspection ResultOfMethodCallIgnored
-                tempFile.delete();
-                String msg = e.getMessage() != null ? e.getMessage() : "下载更新失败";
-                emitProgress("error", 0, 0, 0, msg);
-                call.reject(msg, e);
-            } finally {
-                if (conn != null) conn.disconnect();
-                downloading.set(false);
-            }
-        });
     }
 }
 `;

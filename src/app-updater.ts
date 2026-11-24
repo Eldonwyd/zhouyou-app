@@ -110,9 +110,8 @@ export function isNativeAppPlatform(): boolean {
 }
 
 export function hasNativeInAppInstaller(): boolean {
-  if (window.zhouyouDesktop?.downloadAndInstallUpdate) return true;
-  const cap = getCapacitor();
-  return Boolean(cap?.isNativePlatform?.() && cap.getPlatform?.() === 'android' && cap.Plugins?.AppUpdater?.downloadAndInstall);
+  // 手机端与电脑桌面端均不执行应用内下载安装（避免触发 REQUEST_INSTALL_PACKAGES / 杀毒误报），统一由系统浏览器安全下载更新。
+  return false;
 }
 
 /** 从 tag（如 desktop-v1.0.2 / mobile-v1.1.0 / v1.0.0）提取标准版本号。 */
@@ -308,62 +307,12 @@ export async function checkForAppUpdate(signal?: AbortSignal): Promise<AppUpdate
   };
 }
 
-/** 触发下载并安装更新：电脑桌面版与 Android 原生版直接应用内下载并拉起安装器；其余端打开下载链接。 */
+/** 触发更新：网页 PWA 直接刷新 Service Worker 缓存重载；手机端与桌面端统一由系统浏览器安全下载新版安装包。 */
 export async function installAppUpdate(
   info: AppUpdateInfo,
-  onProgress: (progress: AppUpdateProgress) => void,
+  _onProgress: (progress: AppUpdateProgress) => void,
 ): Promise<{ ok: boolean; cancelled?: boolean; fallbackOpened?: boolean; error?: string }> {
-  // 1. Electron 电脑桌面版：IPC 后台流式下载安装包并自动启动安装程序
-  if (window.zhouyouDesktop?.downloadAndInstallUpdate && info.downloadUrl && info.assetName) {
-    const unsubscribe = window.zhouyouDesktop.onUpdateProgress?.((p) => {
-      onProgress({
-        state: p.state,
-        percent: p.percent ?? 0,
-        receivedBytes: p.receivedBytes ?? 0,
-        totalBytes: p.totalBytes ?? info.assetSize,
-        error: p.error,
-      });
-    });
-    try {
-      const res = await window.zhouyouDesktop.downloadAndInstallUpdate({
-        url: info.downloadUrl,
-        fileName: info.assetName,
-        version: info.latestVersion,
-      });
-      return res;
-    } finally {
-      unsubscribe?.();
-    }
-  }
-
-  // 2. Android Capacitor 原生版：调用原生 AppUpdater 插件下载 APK 并拉起系统安装器
-  const cap = getCapacitor();
-  const nativeUpdater = cap?.isNativePlatform?.() && cap.getPlatform?.() === 'android' ? cap.Plugins?.AppUpdater : undefined;
-  if (nativeUpdater?.downloadAndInstall && info.downloadUrl) {
-    let listenerHandle: { remove: () => Promise<void> } | null = null;
-    if (nativeUpdater.addListener) {
-      listenerHandle = await nativeUpdater.addListener('updateProgress', (p) => {
-        onProgress({
-          state: p.state ?? 'downloading',
-          percent: p.percent ?? 0,
-          receivedBytes: p.receivedBytes ?? 0,
-          totalBytes: p.totalBytes ?? info.assetSize,
-          error: p.error,
-        });
-      });
-    }
-    try {
-      const res = await nativeUpdater.downloadAndInstall({ url: info.downloadUrl });
-      return { ok: Boolean(res?.ok), cancelled: Boolean(res?.cancelled) };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '下载更新失败';
-      return { ok: false, error: message };
-    } finally {
-      await listenerHandle?.remove().catch(() => undefined);
-    }
-  }
-
-  // 3. 网页 PWA：主动刷新 Service Worker、清理旧页面壳缓存并重载到最新版本
+  // 1. 网页 PWA：主动刷新 Service Worker、清理旧页面壳缓存并重载到最新版本
   if (info.platform === 'web') {
     try {
       if ('serviceWorker' in navigator) {
@@ -381,7 +330,7 @@ export async function installAppUpdate(
     return { ok: true };
   }
 
-  // 4. iOS / 浏览器 / 旧版 APK 兜底：直接打开安装包下载链接或下载页
+  // 2. 电脑桌面版与手机端：统一交由系统默认浏览器安全下载新版安装包，避免安全软件误报
   const targetUrl = info.downloadUrl || info.releaseUrl || DOWNLOAD_PORTAL_URL;
   window.open(targetUrl, '_blank', 'noopener,noreferrer');
   return { ok: true, fallbackOpened: true };
