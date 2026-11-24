@@ -155,6 +155,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(AppUpdaterPlugin.class);
+        registerPlugin(NativeAiBridgePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
@@ -394,7 +395,245 @@ public class AppUpdaterPlugin extends Plugin {
 `;
   await writeFile(path.join(javaPkgDir, 'AppUpdaterPlugin.java'), appUpdaterJava, 'utf8');
 
-  process.stdout.write('Patched Android project (Manifest, borderless adaptive icons, AppUpdater plugin, version) successfully.\n');
+  const nativeAiBridgeJava = `package app.zhouyou.map;
+
+import android.content.Intent;
+import android.net.Uri;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.URL;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+@CapacitorPlugin(name = "NativeAiBridge")
+public class NativeAiBridgePlugin extends Plugin {
+    private final ExecutorService httpPool = Executors.newCachedThreadPool();
+    private final Object oauthLock = new Object();
+    private ServerSocket oauthServer = null;
+
+    @PluginMethod
+    public void openExternalUrl(PluginCall call) {
+        String rawUrl = call.getString("url", "");
+        if (rawUrl == null || (!rawUrl.startsWith("https://") && !rawUrl.startsWith("http://"))) {
+            call.reject("无效的网址");
+            return;
+        }
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(rawUrl));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            JSObject res = new JSObject();
+            res.put("ok", true);
+            call.resolve(res);
+        } catch (Exception e) {
+            call.reject("无法打开浏览器：" + e.getMessage(), e);
+        }
+    }
+
+    @PluginMethod
+    public void httpRequest(PluginCall call) {
+        String rawUrl = call.getString("url", "");
+        String method = call.getString("method", "GET");
+        JSObject headersObj = call.getObject("headers", new JSObject());
+        String body = call.getString("body", null);
+        int timeoutMs = call.getInt("timeoutMs", 90000);
+
+        if (rawUrl == null || (!rawUrl.startsWith("https://") && !rawUrl.startsWith("http://"))) {
+            call.reject("无效的请求地址");
+            return;
+        }
+
+        httpPool.execute(() -> {
+            HttpURLConnection conn = null;
+            try {
+                URL url = new URL(rawUrl);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod(method != null ? method.toUpperCase() : "GET");
+                conn.setConnectTimeout(Math.min(30000, timeoutMs));
+                conn.setReadTimeout(timeoutMs);
+                conn.setInstanceFollowRedirects(true);
+
+                if (headersObj != null) {
+                    Iterator<String> keys = headersObj.keys();
+                    while (keys.hasNext()) {
+                        String key = keys.next();
+                        String val = headersObj.getString(key);
+                        if (val != null) conn.setRequestProperty(key, val);
+                    }
+                }
+
+                if (body != null && !method.equalsIgnoreCase("GET") && !method.equalsIgnoreCase("HEAD")) {
+                    byte[] payload = body.getBytes(StandardCharsets.UTF_8);
+                    conn.setDoOutput(true);
+                    conn.setFixedLengthStreamingMode(payload.length);
+                    try (OutputStream os = conn.getOutputStream()) {
+                        os.write(payload);
+                        os.flush();
+                    }
+                }
+
+                int status = conn.getResponseCode();
+                InputStream stream = status >= 400 ? conn.getErrorStream() : conn.getInputStream();
+                String responseBody = "";
+                if (stream != null) {
+                    try (InputStream in = stream; ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                        byte[] buf = new byte[16384];
+                        int n;
+                        while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+                        responseBody = new String(out.toByteArray(), StandardCharsets.UTF_8);
+                    }
+                }
+
+                JSObject respHeaders = new JSObject();
+                Map<String, List<String>> headerFields = conn.getHeaderFields();
+                if (headerFields != null) {
+                    for (Map.Entry<String, List<String>> entry : headerFields.entrySet()) {
+                        if (entry.getKey() != null && entry.getValue() != null && !entry.getValue().isEmpty()) {
+                            respHeaders.put(entry.getKey().toLowerCase(), entry.getValue().get(0));
+                        }
+                    }
+                }
+
+                JSObject result = new JSObject();
+                result.put("status", status);
+                result.put("body", responseBody);
+                result.put("headers", respHeaders);
+                call.resolve(result);
+            } catch (Exception e) {
+                String msg = e.getMessage() != null ? e.getMessage() : "网络请求失败";
+                call.reject(msg, e);
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        });
+    }
+
+    private void closeOAuthServerLocked() {
+        if (oauthServer != null) {
+            try { oauthServer.close(); } catch (Exception ignored) {}
+            oauthServer = null;
+        }
+    }
+
+    @PluginMethod
+    public void stopOAuthCallbackServer(PluginCall call) {
+        synchronized (oauthLock) {
+            closeOAuthServerLocked();
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void startOAuthCallbackServer(PluginCall call) {
+        int port = call.getInt("port", 1455);
+        String expectedPath = call.getString("callbackPath", "/auth/callback");
+
+        httpPool.execute(() -> {
+            ServerSocket server;
+            synchronized (oauthLock) {
+                closeOAuthServerLocked();
+                try {
+                    server = new ServerSocket(port, 4, InetAddress.getByName("127.0.0.1"));
+                    server.setSoTimeout(300000);
+                    oauthServer = server;
+                } catch (Exception e) {
+                    call.reject("本地回调端口 " + port + " 监听失败：" + e.getMessage(), e);
+                    return;
+                }
+            }
+
+            JSObject started = new JSObject();
+            started.put("ok", true);
+            started.put("port", port);
+            call.resolve(started);
+
+            try {
+                while (!server.isClosed()) {
+                    Socket socket = server.accept();
+                    try {
+                        socket.setSoTimeout(5000);
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+                        String requestLine = reader.readLine();
+                        if (requestLine == null) {
+                            socket.close();
+                            continue;
+                        }
+                        String[] parts = requestLine.split(" ");
+                        String rawTarget = parts.length >= 2 ? parts[1] : "/";
+                        String reqPath = rawTarget;
+                        String query = "";
+                        int qIdx = rawTarget.indexOf('?');
+                        if (qIdx >= 0) {
+                            reqPath = rawTarget.substring(0, qIdx);
+                            query = rawTarget.substring(qIdx + 1);
+                        }
+
+                        if (!reqPath.equals(expectedPath)) {
+                            String notFound = "HTTP/1.1 404 Not Found\\r\\nContent-Length: 0\\r\\nConnection: close\\r\\n\\r\\n";
+                            socket.getOutputStream().write(notFound.getBytes(StandardCharsets.UTF_8));
+                            socket.close();
+                            continue;
+                        }
+
+                        JSObject params = new JSObject();
+                        params.put("url", "http://localhost:" + port + rawTarget);
+                        if (!query.isEmpty()) {
+                            for (String pair : query.split("&")) {
+                                int eq = pair.indexOf('=');
+                                if (eq > 0) {
+                                    String k = URLDecoder.decode(pair.substring(0, eq), "UTF-8");
+                                    String v = URLDecoder.decode(pair.substring(eq + 1), "UTF-8");
+                                    params.put(k, v);
+                                }
+                            }
+                        }
+
+                        String html = "<!doctype html><html><head><meta charset=\\"utf-8\\"><meta name=\\"viewport\\" content=\\"width=device-width,initial-scale=1\\"><title>周游地图 · 登录成功</title></head><body style=\\"font-family:sans-serif;text-align:center;padding:48px 20px;background:#fff8f2;color:#3c2e2a\\"><h2 style=\\"color:#e05a47\\">✓ 授权成功</h2><p>已将登录信息传回「周游地图」，现在可以直接切回 App 使用。</p></body></html>";
+                        byte[] htmlBytes = html.getBytes(StandardCharsets.UTF_8);
+                        String resp = "HTTP/1.1 200 OK\\r\\nContent-Type: text/html; charset=utf-8\\r\\nContent-Length: " + htmlBytes.length + "\\r\\nConnection: close\\r\\n\\r\\n";
+                        OutputStream out = socket.getOutputStream();
+                        out.write(resp.getBytes(StandardCharsets.UTF_8));
+                        out.write(htmlBytes);
+                        out.flush();
+                        socket.close();
+
+                        notifyListeners("oauthCallback", params);
+                        break;
+                    } catch (Exception ignored) {
+                        try { socket.close(); } catch (Exception ignored2) {}
+                    }
+                }
+            } catch (Exception ignored) {
+                // timeout or closed
+            } finally {
+                synchronized (oauthLock) {
+                    if (oauthServer == server) closeOAuthServerLocked();
+                }
+            }
+        });
+    }
+}
+`;
+  await writeFile(path.join(javaPkgDir, 'NativeAiBridgePlugin.java'), nativeAiBridgeJava, 'utf8');
+
+  process.stdout.write('Patched Android project (Manifest, borderless adaptive icons, AppUpdater & NativeAiBridge plugins, version) successfully.\n');
 }
 
 async function patchIos() {

@@ -8,6 +8,7 @@ import { AVATAR_PRESETS, CuteSticker, TravelAvatar, getTravelerLevel } from './C
 import AppearanceSettings from './AppearanceSettings';
 import OfflineMapSettings from './OfflineMapSettings';
 import AppUpdateCard from './AppUpdateCard';
+import AiUsageSettingsCard from './AiUsageSettingsCard';
 import type { AppUpdateInfo } from '../app-updater';
 
 interface ProfileViewProps {
@@ -238,6 +239,7 @@ export default function ProfileView({
 
   if (settingsOpen) {
     const quickNavItems = [
+      { id: 'settings-ai-usage', label: t('AI 额度与用量', 'AI Quota & Usage') },
       { id: 'settings-language', label: t('语言', 'Language') },
       { id: 'travel-data-backup', label: t('数据导出与导入', 'Backup & Export') },
       { id: 'settings-offline-maps', label: t('离线地图', 'Offline Maps') },
@@ -276,6 +278,9 @@ export default function ProfileView({
             </button>
           ))}
         </nav>
+
+        {/* 0. AI 订阅额度与 API 用量统计 */}
+        <AiUsageSettingsCard />
 
         {/* 1. 语言设置 */}
         <section id="settings-language" className="card settings-language-card" aria-labelledby="settings-language-title">
@@ -566,21 +571,6 @@ export default function ProfileView({
       {/* 页面风格与明暗直接放在个人中心外面，方便随时换肤 */}
       <AppearanceSettings />
 
-      {/* 偏好与设置：收拢为一个简洁入口，点开进入设置页 */}
-      <section className="card profile-settings-entry-card profile-settings-compact-card" aria-label={t('偏好与设置', 'Preferences & Settings')}>
-        <button type="button" className="settings-entry-row" onClick={() => openSettings()}>
-          <span className="settings-entry-icon is-server"><TravelIcon name="settings" /></span>
-          <span className="settings-entry-copy">
-            <strong>{t('偏好与设置', 'Preferences & Settings')}</strong>
-            <small>{t('语言切换、数据备份、离线地图、应用更新与 AI 服务', 'Language, data backup, offline maps, updates & AI server')}</small>
-          </span>
-          <span className={`settings-entry-value ${availableUpdate ? 'is-safe' : ''}`}>
-            {availableUpdate ? t(`新版本 v${availableUpdate.latestVersion}`, `v${availableUpdate.latestVersion}`) : t('打开设置', 'Open')}
-          </span>
-          <span className="settings-entry-chevron" aria-hidden="true">›</span>
-        </button>
-      </section>
-
       {/* 双栏 Bento：回忆收藏 + 存储空间 */}
       <div className="profile-grid profile-home-grid">
         <section className="card warm-profile-info">
@@ -644,6 +634,21 @@ export default function ProfileView({
           <p className="muted">{t('照片与视频保存在当前浏览器本地，清理浏览器数据前可在「设置 → 数据导出与导入」留份备份。', 'Photos and videos are stored locally in this browser. Export a backup in Settings before clearing browser data.')}</p>
         </section>
       </div>
+
+      {/* 偏好与设置：放在个人中心最下面，点开进入设置页 */}
+      <section className="card profile-settings-entry-card profile-settings-compact-card" aria-label={t('偏好与设置', 'Preferences & Settings')}>
+        <button type="button" className="settings-entry-row" onClick={() => openSettings()}>
+          <span className="settings-entry-icon is-server"><TravelIcon name="settings" /></span>
+          <span className="settings-entry-copy">
+            <strong>{t('偏好与设置', 'Preferences & Settings')}</strong>
+            <small>{t('AI 订阅额度与 API 用量、语言、数据备份、离线地图与更新', 'AI quota & API usage, language, backup, offline maps & updates')}</small>
+          </span>
+          <span className={`settings-entry-value ${availableUpdate ? 'is-safe' : ''}`}>
+            {availableUpdate ? t(`新版本 v${availableUpdate.latestVersion}`, `v${availableUpdate.latestVersion}`) : t('打开设置', 'Open')}
+          </span>
+          <span className="settings-entry-chevron" aria-hidden="true">›</span>
+        </button>
+      </section>
     </div>
   );
 }

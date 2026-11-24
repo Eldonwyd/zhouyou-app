@@ -1,3 +1,16 @@
+/* 消除 Android/iOS WebView 点击按钮与标签时的默认蓝色高亮块 */
+*,
+button,
+a,
+summary,
+input,
+select,
+textarea,
+[role="button"],
+[role="tab"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* 统一安全区变量：同时兼容浏览器 env(safe-area-inset-*) 与 Capacitor SystemBars 注入的 --safe-area-inset-*。 */
 :root {
   --safe-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));

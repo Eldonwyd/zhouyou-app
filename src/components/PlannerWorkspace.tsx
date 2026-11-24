@@ -91,6 +91,7 @@ import { getPlannerPhotoBlob, savePlannerMapPositions, type recordPlannerJournal
 import { plannerJournalActivityKey, plannerJournalCity, plannerJournalVisitFor } from '../planner-journal';
 import { plannerAmapUrl } from '../planner-map';
 import { PLANNER_API_ORIGIN_EVENT, plannerApiUrl } from '../api-base';
+import { buildMobileAiStatus, isMobileNativeAiActive } from '../mobile-ai-runtime';
 import { plannerApi } from '../planner-api';
 import { ticketPlanSignature } from '../planner-ticket-signature';
 import { needsTicketPreparation } from '../planner-ticket-display';
@@ -1200,6 +1201,11 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
     let active = true;
     let healthController: AbortController | null = null;
     const probeHealth = () => {
+      if (isMobileNativeAiActive()) {
+        setAiStatus(normalizeAiStatus(buildMobileAiStatus()));
+        setAiBackendOffline(false);
+        return;
+      }
       healthController?.abort();
       healthController = new AbortController();
       const signal = AbortSignal.any([healthController.signal, AbortSignal.timeout(8000)]);

@@ -2,6 +2,9 @@ import { plannerApiUrl } from './api-base';
 import { cachePlannerResponsePhotos } from './planner-photo-cache';
 import { readLanguage } from './i18n';
 import { isWebTourMode } from './web-tour';
+import { handleMobilePlannerApi, isMobileNativeAiActive, recordAiUsage } from './mobile-ai-runtime';
+
+const USAGE_TRACKED_ENDPOINTS = new Set(['generate', 'chat', 'recommendations', 'duration', 'tickets', 'packing', 'transfers']);
 
 /** Consume server progress without exposing the provider key to the browser. */
 export async function plannerApi<T>(
@@ -14,6 +17,9 @@ export async function plannerApi<T>(
     throw new Error(readLanguage() === 'en'
       ? 'AI planning is disabled in Online Web Tour mode. Please download the Desktop or Mobile client for full AI capabilities.'
       : '在线体验模式暂不支持 AI 调用，请下载电脑桌面版或手机客户端解锁完整 AI 规划与离线 OCR。');
+  }
+  if (isMobileNativeAiActive()) {
+    return handleMobilePlannerApi<T>(endpoint, body, signal, onProgress);
   }
   const url = plannerApiUrl(endpoint);
   let response: Response;
@@ -34,8 +40,13 @@ export async function plannerApi<T>(
     const error = (await response.json().catch(() => ({}))) as { error?: string };
     throw new Error(error.error ?? `本地服务请求失败（${response.status}）`);
   }
-  if (!response.headers.get('content-type')?.includes('ndjson'))
-    return cachePlannerResponsePhotos(await response.json() as T, signal);
+  if (!response.headers.get('content-type')?.includes('ndjson')) {
+    const data = await response.json() as T;
+    if (USAGE_TRACKED_ENDPOINTS.has(endpoint)) {
+      recordAiUsage({ provider: 'server', label: '本地 / 远程 AI 服务', authMode: 'api' });
+    }
+    return cachePlannerResponsePhotos(data, signal);
+  }
   if (!response.body) throw new Error('浏览器不支持读取 AI 响应');
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -64,6 +75,9 @@ export async function plannerApi<T>(
   }
   if (signal.aborted) throw new DOMException('已取消', 'AbortError');
   if (result === undefined) throw new Error('AI 响应中断，原计划已保留，请重试');
+  if (USAGE_TRACKED_ENDPOINTS.has(endpoint)) {
+    recordAiUsage({ provider: 'server', label: '本地 / 远程 AI 服务', authMode: 'api' });
+  }
   onProgress(endpoint === 'photo' ? '正在保存照片到本地' : '正在保存照片与行程到本地');
   return cachePlannerResponsePhotos(result, signal);
 }
