@@ -4,6 +4,7 @@ import { BUDGET_CATEGORIES, BUDGET_LABELS, emptyAmounts } from '../types';
 import { currency, sumAmounts } from '../utils';
 import type { AiTravelPlan } from '../planner-types';
 import { calculatePlannerBudget, plannerFillEstimates } from '../planner-domain';
+import { useI18n } from '../i18n';
 import DailyLedger from './DailyLedger';
 import MobileDisclosure from './MobileDisclosure';
 import { CuteSticker } from './CuteArt';
@@ -35,6 +36,14 @@ interface FinanceItem {
   plan: TripPlan | null;
 }
 
+const BUDGET_LABELS_EN: Record<BudgetCategory, string> = {
+  transport: 'Transport',
+  lodging: 'Lodging',
+  tickets: 'Tickets',
+  food: 'Food',
+  other: 'Other',
+};
+
 /** A new budget belongs to one journey, even when that journey spans cities. */
 function freshPlan(journey: Journey): TripPlan {
   return {
@@ -45,10 +54,12 @@ function freshPlan(journey: Journey): TripPlan {
 }
 
 function AmountFields({ title, amounts, onChange }: { title: string; amounts: CategoryAmounts; onChange: (value: CategoryAmounts) => void }) {
-  return <div className="amount-section"><h3>{title}</h3><div className="amount-grid">{BUDGET_CATEGORIES.map((category: BudgetCategory) => <label key={category}>{BUDGET_LABELS[category]}<span className="money-input"><span>¥</span><input type="number" min="0" step="0.01" value={amounts[category] || ''} placeholder="0" onChange={(event) => onChange({ ...amounts, [category]: Math.max(0, Number(event.target.value) || 0) })} /></span></label>)}</div></div>;
+  const { isEn } = useI18n();
+  return <div className="amount-section"><h3>{title}</h3><div className="amount-grid">{BUDGET_CATEGORIES.map((category: BudgetCategory) => <label key={category}>{isEn ? BUDGET_LABELS_EN[category] : BUDGET_LABELS[category]}<span className="money-input"><span>¥</span><input type="number" min="0" step="0.01" value={amounts[category] || ''} placeholder="0" onChange={(event) => onChange({ ...amounts, [category]: Math.max(0, Number(event.target.value) || 0) })} /></span></label>)}</div></div>;
 }
 
 export default function PlanView({ city, marks, trips, plans, aiPlans, selectedFinanceKey, onPublishAi, onSave, onMoveLegacy, onCreateJourney, onError, onNotice }: PlanViewProps) {
+  const { t } = useI18n();
   const [showAll, setShowAll] = useState(Boolean(selectedFinanceKey) || !city);
   const [activeKey, setActiveKey] = useState<string | null>(selectedFinanceKey ?? null);
   const [draft, setDraft] = useState<TripPlan | null>(null);
@@ -70,8 +81,8 @@ export default function PlanView({ city, marks, trips, plans, aiPlans, selectedF
       plan: plans.find((plan) => plan.tripId === journey.id) ?? null,
     }));
     const legacyItems = plans.filter((plan) => !plan.tripId).map((plan) => ({
-      key: `legacy:${plan.id}`, title: `${marks.find((mark) => mark.id === plan.cityCode)?.name ?? plan.cityCode} · 旧版城市账单`,
-      dates: plan.startDate && plan.endDate ? `${plan.startDate} — ${plan.endDate}` : '尚未填写日期',
+      key: `legacy:${plan.id}`, title: `${marks.find((mark) => mark.id === plan.cityCode)?.name ?? plan.cityCode} · ${t('旧版城市账单', 'Legacy City Ledger')}`,
+      dates: plan.startDate && plan.endDate ? `${plan.startDate} — ${plan.endDate}` : t('尚未填写日期', 'Dates not set'),
       cities: marks.find((mark) => mark.id === plan.cityCode)?.name ?? plan.cityCode,
       journey: null, plan,
     }));
@@ -126,19 +137,19 @@ export default function PlanView({ city, marks, trips, plans, aiPlans, selectedF
       startDate: activeJourney.startDate, endDate: activeJourney.endDate,
     } : draft;
     if (updated.endDate && updated.startDate && updated.endDate < updated.startDate) {
-      onError('结束日期不能早于出发日期');
+      onError(t('结束日期不能早于出发日期', 'End date cannot be earlier than start date'));
       return;
     }
     setSaving(true);
     try {
       if (activeItem.aiPlan) {
-        if (!onPublishAi) throw new Error('无法关联行程，请重新打开预算与账本');
+        if (!onPublishAi) throw new Error(t('无法关联行程，请重新打开预算与账本', 'Unable to link itinerary. Reopen Budget & Ledger.'));
         const linked = await onPublishAi(activeItem.aiPlan, updated);
-        if (!linked.linkedTripId) throw new Error('行程关联失败');
+        if (!linked.linkedTripId) throw new Error(t('行程关联失败', 'Failed to link itinerary'));
         setActiveKey(`journey:${linked.linkedTripId}`);
       } else await onSave(updated);
-      onNotice('这次旅行的预算与账本已保存。');
-    } catch (error) { onError(error instanceof Error ? error.message : '账本保存失败'); }
+      onNotice(t('这次旅行的预算与账本已保存。', 'Trip budget and ledger saved.'));
+    } catch (error) { onError(error instanceof Error ? error.message : t('账本保存失败', 'Failed to save ledger')); }
     finally { setSaving(false); }
   }
 
@@ -154,39 +165,39 @@ export default function PlanView({ city, marks, trips, plans, aiPlans, selectedF
     try {
       await onMoveLegacy(draft.id, moved);
       setActiveKey(`journey:${destination.id}`);
-      onNotice(`旧版账单已归入“${destination.title}”。`);
+      onNotice(t(`旧版账单已归入“${destination.title}”。`, `Legacy ledger moved into "${destination.title}".`));
     } catch { /* The transaction leaves the original sheet intact. */ }
   }
 
   return <div className="content-page finance-page"><div className="section-heading"><div><span className="eyebrow">TRIP PLANNER</span>
-    <h1>{city && !showAll ? `${city.name} · 预算与账本` : '全部旅行 · 预算与账本'}</h1>
-    <p>每次旅行有独立的预算与实际花费，多座城市共用同一本账。</p></div>
-    <div className="heading-actions">{city && <button className="secondary" onClick={() => { setShowAll(!showAll); setActiveKey(null); }}>{showAll ? `只看${city.name}` : '查看全部旅行'}</button>}
-      {draft && <button className="primary" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '保存计划'}</button>}</div></div>
+    <h1>{city && !showAll ? t(`${city.name} · 预算与账本`, `${city.name} · Budget & Ledger`) : t('全部旅行 · 预算与账本', 'All Trips · Budget & Ledger')}</h1>
+    <p>{t('每次旅行有独立的预算与实际花费，多座城市共用同一本账。', 'Each trip has its own budget and actual expenses across all visited cities.')}</p></div>
+    <div className="heading-actions">{city && <button className="secondary" onClick={() => { setShowAll(!showAll); setActiveKey(null); }}>{showAll ? t(`只看${city.name}`, `${city.name} Only`) : t('查看全部旅行', 'All Trips')}</button>}
+      {draft && <button className="primary" disabled={saving} onClick={() => void save()}>{saving ? t('保存中…', 'Saving…') : t('保存计划', 'Save Budget')}</button>}</div></div>
 
-    <section className="card finance-journeys"><div className="card-heading"><div><h2>选择行程</h2><p>选择“我的行程”中的计划或已有旅行，分别管理预算与实际花费。</p></div>
-      <button className="secondary finance-create-journey" onClick={onCreateJourney}>前往旅行手账新建</button></div>
-      <label>当前行程<select aria-label="账本对应行程" disabled={saving} value={activeItem?.key ?? ''} onChange={(event) => { setShowAll(true); setActiveKey(event.target.value); }}>
-        {!activeItem && <option value="">请选择行程</option>}
+    <section className="card finance-journeys"><div className="card-heading"><div><h2>{t('选择行程', 'Select Trip')}</h2><p>{t('选择“我的行程”中的计划或已有旅行，分别管理预算与实际花费。', 'Pick an itinerary or saved trip to manage its budget and actual spending.')}</p></div>
+      <button className="secondary finance-create-journey" onClick={onCreateJourney}>{t('前往旅行手账新建', 'New Trip in Journal')}</button></div>
+      <label>{t('当前行程', 'Active Trip')}<select aria-label={t('账本对应行程', 'Ledger trip')} disabled={saving} value={activeItem?.key ?? ''} onChange={(event) => { setShowAll(true); setActiveKey(event.target.value); }}>
+        {!activeItem && <option value="">{t('请选择行程', 'Select a trip')}</option>}
         {financeItems.map((item) => <option key={item.key} value={item.key}>{item.title} · {item.dates}</option>)}
       </select></label>
-      {visibleItems.length ? <MobileDisclosure label="行程预算列表" value={`${visibleItems.length} 段行程`}><div className="finance-journey-grid">{visibleItems.map((item) => {
+      {visibleItems.length ? <MobileDisclosure label={t('行程预算列表', 'Trip Budgets')} value={t(`${visibleItems.length} 段行程`, `${visibleItems.length} trips`)}><div className="finance-journey-grid">{visibleItems.map((item) => {
         const total = item.plan ? sumAmounts(item.plan.budget) : 0;
         const actual = item.plan ? item.plan.manualActualTotal ?? sumAmounts(item.plan.actual) : 0;
         return <button key={item.key} disabled={saving} className={`finance-journey-card ${activeItem?.key === item.key ? 'active' : ''}`} onClick={() => setActiveKey(item.key)}>
           <span className="eyebrow">{item.dates}</span><strong>{item.title}</strong><small>{item.cities}</small>
-          <span>预算 {currency(total)} · 已花 {currency(actual)}</span></button>;
-      })}</div></MobileDisclosure> : <div className="empty-state finance-empty-state"><div className="finance-empty-art" aria-hidden="true"><CuteSticker kind="suitcase" className="finance-empty-suitcase" /><span className="finance-fallback-icon"><TravelIcon name="plan" /></span></div><h2>{city && !showAll ? `还没有${city.name}的旅行` : '还没有可记账的行程'}</h2><p>{city && !showAll ? '新建旅行并选择这座城市后，就能按整次旅程管理预算与花费。' : '先在「我的行程」生成计划，或在「旅行手账」新建旅行，就能开始记账。'}</p></div>}
+          <span>{t(`预算 ${currency(total)} · 已花 ${currency(actual)}`, `Budget ${currency(total)} · Spent ${currency(actual)}`)}</span></button>;
+      })}</div></MobileDisclosure> : <div className="empty-state finance-empty-state"><div className="finance-empty-art" aria-hidden="true"><CuteSticker kind="suitcase" className="finance-empty-suitcase" /><span className="finance-fallback-icon"><TravelIcon name="plan" /></span></div><h2>{city && !showAll ? t(`还没有${city.name}的旅行`, `No trips in ${city.name} yet`) : t('还没有可记账的行程', 'No trips to budget yet')}</h2><p>{city && !showAll ? t('新建旅行并选择这座城市后，就能按整次旅程管理预算与花费。', 'Create a trip with this city to track budgets and spending.') : t('先在「我的行程」生成计划，或在「旅行手账」新建旅行，就能开始记账。', 'Generate an itinerary in My Trips or create a trip in Journal to start budgeting.')}</p></div>}
     </section>
 
     {draft && activeItem && <>
-      {isLegacy && <section className="card legacy-finance"><h2>旧版城市账单</h2><p>这份账单原来按城市保存。选择包含该城市的一次旅行后，预算和花费会一同归入旅程。</p>
-        {matchingMoveTargets.length > 0 ? <div className="legacy-move-controls"><select aria-label="选择归入的旅行" value={moveTargetTripId} onChange={(event) => setMoveTargetTripId(event.target.value)}><option value="">选择旅行</option>{matchingMoveTargets.map((trip) => <option key={trip.id} value={trip.id}>{trip.title} · {trip.startDate}</option>)}</select><button className="secondary" disabled={!moveTargetTripId} onClick={() => void moveLegacy()}>归入旅行</button></div>
-          : <p className="muted">先新建一段包含这座城市的旅行，之后即可归档。旧账单仍可编辑。</p>}</section>}
+      {isLegacy && <section className="card legacy-finance"><h2>{t('旧版城市账单', 'Legacy City Ledger')}</h2><p>{t('这份账单原来按城市保存。选择包含该城市的一次旅行后，预算和花费会一同归入旅程。', 'This sheet was saved by city. Attach it to a matching trip to merge budget and expenses.')}</p>
+        {matchingMoveTargets.length > 0 ? <div className="legacy-move-controls"><select aria-label={t('选择归入的旅行', 'Choose target trip')} value={moveTargetTripId} onChange={(event) => setMoveTargetTripId(event.target.value)}><option value="">{t('选择旅行', 'Select trip')}</option>{matchingMoveTargets.map((trip) => <option key={trip.id} value={trip.id}>{trip.title} · {trip.startDate}</option>)}</select><button className="secondary" disabled={!moveTargetTripId} onClick={() => void moveLegacy()}>{t('归入旅行', 'Merge into Trip')}</button></div>
+          : <p className="muted">{t('先新建一段包含这座城市的旅行，之后即可归档。旧账单仍可编辑。', 'Create a trip with this city first to archive it. You can still edit this ledger.')}</p>}</section>}
       <div className="planner-grid"><section className="card planner-main"><h2>{activeItem.title}</h2>
-        <div className="entry-form">{activeJourney ? <div className="journey-finance-dates">旅行时间：{activeJourney.startDate} — {activeJourney.endDate}<small>修改日期请前往旅行手账编辑这次旅行。</small></div> : <><label>出发日期<input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} /></label><label>结束日期<input type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} /></label></>}
-          <label>同行人数<input type="number" min="1" step="1" value={draft.people} onChange={(event) => setDraft({ ...draft, people: Math.max(1, Math.floor(Number(event.target.value) || 1)) })} /></label></div>
-        <AmountFields title="分类预算" amounts={draft.budget} onChange={(budget) => setDraft({ ...draft, budget })} />
+        <div className="entry-form">{activeJourney ? <div className="journey-finance-dates">{t(`旅行时间：${activeJourney.startDate} — ${activeJourney.endDate}`, `Dates: ${activeJourney.startDate} — ${activeJourney.endDate}`)}<small>{t('修改日期请前往旅行手账编辑这次旅行。', 'Edit dates from Travel Journal.')}</small></div> : <><label>{t('出发日期', 'Start Date')}<input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} /></label><label>{t('结束日期', 'End Date')}<input type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} /></label></>}
+          <label>{t('同行人数', 'Travelers')}<input type="number" min="1" step="1" value={draft.people} onChange={(event) => setDraft({ ...draft, people: Math.max(1, Math.floor(Number(event.target.value) || 1)) })} /></label></div>
+        <AmountFields title={t('分类预算', 'Category Budget')} amounts={draft.budget} onChange={(budget) => setDraft({ ...draft, budget })} />
         <DailyLedger
           key={activeItem.key}
           plan={draft}
@@ -196,8 +207,8 @@ export default function PlanView({ city, marks, trips, plans, aiPlans, selectedF
           tripTitle={activeItem.title}
           onChange={setDraft}
         />
-      </section><aside className="card planner-summary"><span className="eyebrow">AT A GLANCE</span><h2>费用概览</h2><div className="summary-number"><span>总预算</span><strong>{currency(budgetTotal)}</strong></div><div className="summary-number"><span>人均预算</span><strong>{currency(budgetTotal / Math.max(1, draft.people))}</strong></div><div className="summary-number"><span>实际总额</span><strong>{currency(actualTotal)}</strong></div><div className="summary-number"><span>人均实际</span><strong>{currency(perPerson)}</strong></div>{draft.manualActualTotal !== null && <p className="muted">总额与分类明细差额：{currency(actualTotal - itemizedActual)}</p>}
-        <div className="progress-title"><span>预算使用进度</span><strong>{budgetTotal ? `${progress}%` : '尚未设置预算'}</strong></div><div className="progress-track"><div style={{ width: `${Math.min(progress, 100)}%` }} /></div><p className="muted">超过预算时仍显示实际百分比。</p>
+      </section><aside className="card planner-summary"><span className="eyebrow">AT A GLANCE</span><h2>{t('费用概览', 'Cost Summary')}</h2><div className="summary-number"><span>{t('总预算', 'Total Budget')}</span><strong>{currency(budgetTotal)}</strong></div><div className="summary-number"><span>{t('人均预算', 'Per Person Budget')}</span><strong>{currency(budgetTotal / Math.max(1, draft.people))}</strong></div><div className="summary-number"><span>{t('实际总额', 'Actual Spent')}</span><strong>{currency(actualTotal)}</strong></div><div className="summary-number"><span>{t('人均实际', 'Per Person Spent')}</span><strong>{currency(perPerson)}</strong></div>{draft.manualActualTotal !== null && <p className="muted">{t(`总额与分类明细差额：${currency(actualTotal - itemizedActual)}`, `Difference vs itemized: ${currency(actualTotal - itemizedActual)}`)}</p>}
+        <div className="progress-title"><span>{t('预算使用进度', 'Budget Usage')}</span><strong>{budgetTotal ? `${progress}%` : t('尚未设置预算', 'No budget set')}</strong></div><div className="progress-track"><div style={{ width: `${Math.min(progress, 100)}%` }} /></div><p className="muted">{t('超过预算时仍显示实际百分比。', 'Displays actual percentage even if over budget.')}</p>
       </aside></div>
     </>}
   </div>;

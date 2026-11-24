@@ -14,6 +14,7 @@ import CityGuideLinks from './CityGuideLinks';
 import { CuteSticker, IllustratedJourneyCover, JournalEmptyArt } from './CuteArt';
 import JournalCover, { findJournalPlannerPhotos } from './JournalCover';
 import type { AiTravelPlan } from '../planner-types';
+import { provinceDisplayName, useI18n } from '../i18n';
 
 interface DetailViewProps {
   city: CityMark | null;
@@ -65,17 +66,19 @@ function useMediaUrl(id: string | null, kind: TravelMedia['kind'], preview: bool
 }
 
 function MemoryThumbnail({ item, onOpen }: { item: TravelMedia; onOpen: () => void }) {
+  const { locale, t } = useI18n();
   const url = useMediaUrl(item.kind === 'photo' ? item.id : null, item.kind, true);
-  return <button className="memory-thumb" onClick={onOpen} aria-label={`打开 ${item.fileName}`}>
+  return <button className="memory-thumb" onClick={onOpen} aria-label={t(`打开 ${item.fileName}`, `Open ${item.fileName}`)}>
     {item.kind === 'photo' && url ? <img src={url} alt={item.fileName} loading="lazy" /> :
       <span className="memory-video-icon">{item.kind === 'video' ? '▶' : '♪'}</span>}
-    <small>{new Date(item.capturedAt).toLocaleDateString('zh-CN')}</small>
+    <small>{new Date(item.capturedAt).toLocaleDateString(locale)}</small>
   </button>;
 }
 
 function JourneyCover({ media, seed = 'trip', label }: { media: TravelMedia | undefined; seed?: string; label?: string }) {
+  const { t } = useI18n();
   const url = useMediaUrl(media?.kind === 'photo' ? media.id : null, 'photo', true);
-  return <div className="journey-cover">{url ? <img src={url} alt="旅行封面" /> : <IllustratedJourneyCover seed={seed} label={label} />}</div>;
+  return <div className="journey-cover">{url ? <img src={url} alt={t('旅行封面', 'Trip cover')} /> : <IllustratedJourneyCover seed={seed} label={label} />}</div>;
 }
 
 function SavedCityCard({ city, provinceName, photoId, onOpen }: {
@@ -84,6 +87,7 @@ function SavedCityCard({ city, provinceName, photoId, onOpen }: {
   photoId?: string;
   onOpen: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <button className="saved-city-card" type="button" onClick={onOpen}>
       <span className="saved-city-cover">
@@ -93,9 +97,9 @@ function SavedCityCard({ city, provinceName, photoId, onOpen }: {
       <span className="saved-city-caption">
         <strong className="saved-city-name">{city.name}</strong>
         <span className="saved-city-meta">
-          {city.tripCount > 0 && <span>{city.tripCount} 次旅行</span>}
-          {city.placeCount > 0 && <span>{city.placeCount} 个地点</span>}
-          {!city.tripCount && !city.placeCount && <span>{city.visited ? '已点亮' : '已保存'}</span>}
+          {city.tripCount > 0 && <span>{t(`${city.tripCount} 次旅行`, `${city.tripCount} trips`)}</span>}
+          {city.placeCount > 0 && <span>{t(`${city.placeCount} 个地点`, `${city.placeCount} places`)}</span>}
+          {!city.tripCount && !city.placeCount && <span>{city.visited ? t('已点亮', 'Visited') : t('已保存', 'Saved')}</span>}
         </span>
         <span className="saved-city-arrow" aria-hidden="true">→</span>
       </span>
@@ -104,26 +108,27 @@ function SavedCityCard({ city, provinceName, photoId, onOpen }: {
 }
 
 function AudioReview({ item, onDelete }: { item: TravelMedia; onDelete: (id: string) => void }) {
+  const { locale, t } = useI18n();
   const url = useMediaUrl(item.id, 'audio', false);
   const [failed, setFailed] = useState(false);
   return <div className="audio-review-card">
     <div className="audio-review-head">
-      <small>{new Date(item.capturedAt).toLocaleString('zh-CN')}</small>
+      <small>{new Date(item.capturedAt).toLocaleString(locale)}</small>
       <div className="audio-review-actions">
-        {url && <a className="audio-action-btn" href={url} download={item.fileName || `录音-${item.id}.webm`}>
+        {url && <a className="audio-action-btn" href={url} download={item.fileName || `audio-${item.id}.webm`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>
-          下载
+          {t('下载', 'Download')}
         </a>}
-        <button type="button" className="audio-action-btn danger" onClick={() => { if (window.confirm('删除这段语音评语？')) onDelete(item.id); }}>
+        <button type="button" className="audio-action-btn danger" onClick={() => { if (window.confirm(t('删除这段语音评语？', 'Delete this voice note?'))) onDelete(item.id); }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18m-2 0v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m-6 5v6m4-6v6" /></svg>
-          删除
+          {t('删除', 'Delete')}
         </button>
       </div>
     </div>
     <div className="audio-review">
       {url ? <audio src={url} controls preload="auto" onError={() => setFailed(true)} />
-        : <span className="muted">语音读取中；若长时间未显示，原始文件可能已丢失。</span>}
-      {failed && <p role="alert">这段录音无法播放，请下载检查或重新录制。</p>}
+        : <span className="muted">{t('语音读取中；若长时间未显示，原始文件可能已丢失。', 'Loading audio… If it does not appear, the original file may be missing.')}</span>}
+      {failed && <p role="alert">{t('这段录音无法播放，请下载检查或重新录制。', 'Unable to play this recording. Download to inspect or record again.')}</p>}
     </div>
   </div>;
 }
@@ -169,6 +174,7 @@ function JourneyEditor({ initial, initialCity, onSave, onCancel, onError, locked
   onError: (message: string) => void;
   lockedCityCodes: string[];
 }) {
+  const { lang, t } = useI18n();
   const [title, setTitle] = useState(initial?.title ?? '');
   const [status, setStatus] = useState<NonNullable<Journey['status']>>(initial?.status ?? 'visited');
   const [startDate, setStartDate] = useState(initial?.startDate ?? localDay(new Date()));
@@ -180,19 +186,19 @@ function JourneyEditor({ initial, initialCity, onSave, onCancel, onError, locked
   const [cityOptions, setCityOptions] = useState<AdministrativeFeature[]>([]);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { void loadNationalMap().then((data) => setProvinces(data.features)).catch(() => onError('全国地区列表加载失败')); }, [onError]);
+  useEffect(() => { void loadNationalMap().then((data) => setProvinces(data.features)).catch(() => onError(t('全国地区列表加载失败', 'Failed to load regions'))); }, [onError]);
   useEffect(() => {
     if (!provinceCode) { setCityOptions([]); return; }
     let active = true;
     loadProvinceMap(provinceCode).then((data) => { if (active) setCityOptions(data.features); })
-      .catch(() => { if (active) onError('该省城市列表加载失败'); });
+      .catch(() => { if (active) onError(t('该省城市列表加载失败', 'Failed to load cities for this province')); });
     return () => { active = false; };
   }, [provinceCode, onError]);
 
   function toggleCity(feature: AdministrativeFeature): void {
     const code = String(feature.properties.adcode);
     if (cities.some((city) => city.code === code)) {
-      if (lockedCityCodes.includes(code)) { onError('这个城市已有地点，请先保留它'); return; }
+      if (lockedCityCodes.includes(code)) { onError(t('这个城市已有地点，请先保留它', 'This city already has saved places and cannot be removed')); return; }
       setCities(cities.filter((city) => city.code !== code));
     } else {
       setCities([...cities, { code, name: feature.properties.name, provinceCode }]);
@@ -200,11 +206,11 @@ function JourneyEditor({ initial, initialCity, onSave, onCancel, onError, locked
   }
 
   async function submit(): Promise<void> {
-    if (!startDate || !endDate || endDate < startDate) { onError('请填写正确的旅行起止日期'); return; }
-    if (!cities.length) { onError('请至少选择一座城市'); return; }
+    if (!startDate || !endDate || endDate < startDate) { onError(t('请填写正确的旅行起止日期', 'Please select valid start and end dates')); return; }
+    if (!cities.length) { onError(t('请至少选择一座城市', 'Please select at least one city')); return; }
     setBusy(true);
     try {
-      await onSave({ id: initial?.id ?? createLocalId(), title: title.trim() || `${cities[0].name}之旅`, status,
+      await onSave({ id: initial?.id ?? createLocalId(), title: title.trim() || t(`${cities[0].name}之旅`, `Trip to ${cities[0].name}`), status,
         startDate, endDate, cities,
         companions: [...new Set(companions.split(/[、,，\n]+/).map((name) => name.trim()).filter(Boolean))],
         createdAt: initial?.createdAt ?? new Date().toISOString() });
@@ -212,30 +218,34 @@ function JourneyEditor({ initial, initialCity, onSave, onCancel, onError, locked
   }
 
   return <section className="card journey-editor">
-    <div className="card-heading"><h2>{initial ? '编辑旅行' : '新建一次旅行'}</h2><button className="text-button" onClick={onCancel}>取消</button></div>
+    <div className="card-heading"><h2>{initial ? t('编辑旅行', 'Edit Trip') : t('新建一次旅行', 'New Trip')}</h2><button className="text-button" onClick={onCancel}>{t('取消', 'Cancel')}</button></div>
     <div className="entry-form">
-      <label>旅行名称<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="例如：贵州的夏天" maxLength={40} /></label>
-      <label>开始日期<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} required /></label>
-      <label>结束日期<input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} required /></label>
-      <label>同行者（可选）<input value={companions} onChange={(event) => setCompanions(event.target.value)} placeholder="用顿号分隔姓名" /></label>
-      <label>旅行状态<select value={status} onChange={(event) => setStatus(event.target.value as NonNullable<Journey['status']>)}><option value="visited">已去过</option><option value="planned">计划中</option></select></label>
+      <label>{t('旅行名称', 'Trip Title')}<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t('例如：贵州的夏天', 'e.g. Summer in Guizhou')} maxLength={40} /></label>
+      <label>{t('开始日期', 'Start Date')}<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} required /></label>
+      <label>{t('结束日期', 'End Date')}<input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} required /></label>
+      <label>{t('同行者（可选）', 'Companions (optional)')}<input value={companions} onChange={(event) => setCompanions(event.target.value)} placeholder={t('用顿号分隔姓名', 'Separate names with commas')} /></label>
+      <label>{t('旅行状态', 'Status')}<select value={status} onChange={(event) => setStatus(event.target.value as NonNullable<Journey['status']>)}><option value="visited">{t('已去过', 'Visited')}</option><option value="planned">{t('计划中', 'Planned')}</option></select></label>
     </div>
-    <div className="city-picker"><strong>这次旅行包含的城市</strong><div className="city-picker-selected">{cities.map((city) => <span key={city.code}>{city.name}<button aria-label={`移除 ${city.name}`} onClick={() => {
-      if (lockedCityCodes.includes(city.code)) onError('这个城市已有地点，请先保留它');
+    <div className="city-picker"><strong>{t('这次旅行包含的城市', 'Cities in this trip')}</strong><div className="city-picker-selected">{cities.map((city) => <span key={city.code}>{city.name}<button aria-label={t(`移除 ${city.name}`, `Remove ${city.name}`)} onClick={() => {
+      if (lockedCityCodes.includes(city.code)) onError(t('这个城市已有地点，请先保留它', 'This city already has saved places and cannot be removed'));
       else setCities(cities.filter((item) => item.code !== city.code));
     }}>×</button></span>)}</div>
-      <label>添加城市所在省份<select value={provinceCode} onChange={(event) => setProvinceCode(event.target.value)}><option value="">选择省份</option>{provinces.map((province) => <option key={String(province.properties.adcode)} value={String(province.properties.adcode)}>{province.properties.name}</option>)}</select></label>
+      <label>{t('添加城市所在省份', 'Province')}<select value={provinceCode} onChange={(event) => setProvinceCode(event.target.value)}><option value="">{t('选择省份', 'Select province')}</option>{provinces.map((province) => {
+        const pCode = String(province.properties.adcode);
+        return <option key={pCode} value={pCode}>{provinceDisplayName(pCode, province.properties.name, lang)}</option>;
+      })}</select></label>
       <div className="city-picker-options">{cityOptions.map((feature) => {
         const code = String(feature.properties.adcode);
         return <label key={code}><input type="checkbox" checked={cities.some((city) => city.code === code)} onChange={() => toggleCity(feature)} />{feature.properties.name}</label>;
       })}</div>
     </div>
-    <button className="primary" disabled={busy} onClick={() => void submit()}>{busy ? '保存中…' : '保存旅行'}</button>
+    <button className="primary" disabled={busy} onClick={() => void submit()}>{busy ? t('保存中…', 'Saving…') : t('保存旅行', 'Save Trip')}</button>
   </section>;
 }
 
 /** This page keeps a trip's cities and places together, like pages in a diary. */
 export default function DetailView(props: DetailViewProps) {
+  const { lang, locale, t } = useI18n();
   const { city, marks, trips, aiPlans, places, entries, media, targetEntryId, targetPlaceId, onSaveTrip, onSavePlace,
     onSaveEntry, onSaveMedia, onSaveMediaGroup, onUpdateMedia, onDeleteMedia,
     onUpdateMark, onSaveCityMark, onError, onNotice } = props;
@@ -736,21 +746,21 @@ export default function DetailView(props: DetailViewProps) {
     <div className="section-heading">
       <div>
         {scopeCity && <button type="button" className="secondary journal-back-button" onClick={returnToJournalOverview}>
-          <span aria-hidden="true">←</span> 返回手账总览
+          <span aria-hidden="true">←</span> {t('返回手账总览', 'Back to Journal')}
         </button>}
         <span className="eyebrow">MEMORY JOURNAL</span>
-        <h1>{scopeCity ? `${scopeCity.name} · 旅行手账` : '我的旅行手账'}</h1>
-        <p>一段旅程、几座城市，把每个地点的照片和故事收在一起。</p>
+        <h1>{scopeCity ? t(`${scopeCity.name} · 旅行手账`, `${scopeCity.name} · Journal`) : t('我的旅行手账', 'My Travel Journal')}</h1>
+        <p>{t('一段旅程、几座城市，把每个地点的照片和故事收在一起。', 'One journey, many cities—keep photos and stories from every stop together.')}</p>
       </div>
       <div className="heading-actions">
         <button type="button" className="secondary" onClick={() => { setCityBrowserOpen(!cityBrowserOpen); setSelectedTripId(null); setSelectedPlaceId(null); }}>
-          {cityBrowserOpen ? '收起城市选择' : '按省份选择城市'}
+          {cityBrowserOpen ? t('收起城市选择', 'Hide City Browser') : t('按省份选择城市', 'Browse by Province')}
         </button>
-        <button type="button" className="primary" onClick={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }}>＋ 新建旅行</button>
+        <button type="button" className="primary" onClick={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }}>{t('＋ 新建旅行', '+ New Trip')}</button>
       </div>
     </div>
     {cityBrowserOpen && !selectedTrip && !editingTrip && <TravelCityBrowser trips={trips} places={places} marks={marks} selectedCityCode={scopeCityCode} onSelectCity={(pickedCity) => { setBrowseCity(pickedCity); setShowAll(false); setSelectedTripId(null); }} onShowAll={() => { setShowAll(true); setBrowseCity(null); setCityBrowserOpen(false); setSelectedTripId(null); }} onError={onError} />}
-    {city && !browseCity && !showAll && !selectedTrip && <div className="card status-card"><div><strong>{city.name}的城市状态</strong><p>{trips.some((trip) => trip.cities.some((item) => item.code === city.id && trip.status !== 'planned')) ? '这座城市已包含在去过的旅行中，地图会保持点亮。' : '确认去过的城市会点亮地图，也可以在这里取消手动标记。'}</p></div><label className="checkbox"><input type="checkbox" checked={city.visited} disabled={trips.some((trip) => trip.status !== 'planned' && trip.cities.some((item) => item.code === city.id))} onChange={(event) => void onUpdateMark(event.target.checked)} />已去过</label></div>}
+    {city && !browseCity && !showAll && !selectedTrip && <div className="card status-card"><div><strong>{t(`${city.name}的城市状态`, `${city.name} Status`)}</strong><p>{trips.some((trip) => trip.cities.some((item) => item.code === city.id && trip.status !== 'planned')) ? t('这座城市已包含在去过的旅行中，地图会保持点亮。', 'This city is part of a visited trip and stays lit on the map.') : t('确认去过的城市会点亮地图，也可以在这里取消手动标记。', 'Marked cities light up the map. You can toggle manual marks here.')}</p></div><label className="checkbox"><input type="checkbox" checked={city.visited} disabled={trips.some((trip) => trip.status !== 'planned' && trip.cities.some((item) => item.code === city.id))} onChange={(event) => void onUpdateMark(event.target.checked)} />{t('已去过', 'Visited')}</label></div>}
     {editingTrip && <JourneyEditor key={editingTrip === 'new' ? 'new' : editingTrip.id} initial={editingTrip === 'new' ? null : editingTrip} initialCity={scopeCityMark} lockedCityCodes={editingTrip === 'new' ? [] : places.filter((place) => place.tripId === editingTrip.id).map((place) => place.cityCode)} onSave={saveTrip} onCancel={() => setEditingTrip(null)} onError={onError} />}
     {!selectedTrip && !editingTrip && !scopeCity && <>
       <JournalWelcome trips={trips} places={places} media={media} marks={marks} plannerPhotosByTrip={plannerPhotosByTrip} onOpenCity={openSavedCity} onStart={() => setCityBrowserOpen(true)} onNewTrip={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }} onOpen={(tripId, place) => {
@@ -765,58 +775,58 @@ export default function DetailView(props: DetailViewProps) {
       <div className="warm-record-filter">
         <div className="record-filter-title">
           <span className="record-filter-badge cute-deco" aria-hidden="true">✦</span>
-          <h2>我的旅行小册</h2>
+          <h2>{t('我的旅行小册', 'My Travel Booklets')}</h2>
         </div>
         <div className="record-filter-controls">
           <label className="record-search-box">
-            <span className="record-search-label">找一段回忆</span>
-            <input aria-label="搜索旅行" value={recordQuery} onChange={(event) => setRecordQuery(event.target.value)} placeholder="搜索旅行名称或城市…" />
+            <span className="record-search-label">{t('找一段回忆', 'Search')}</span>
+            <input aria-label={t('搜索旅行', 'Search trips')} value={recordQuery} onChange={(event) => setRecordQuery(event.target.value)} placeholder={t('搜索旅行名称或城市…', 'Search trip title or city…')} />
           </label>
-          <select aria-label="旅行年份" value={recordYear} onChange={(event) => setRecordYear(event.target.value)}>
-            <option value="all">全部年份</option>
+          <select aria-label={t('旅行年份', 'Trip year')} value={recordYear} onChange={(event) => setRecordYear(event.target.value)}>
+            <option value="all">{t('全部年份', 'All Years')}</option>
             {[...new Set(trips.map((trip) => trip.startDate.slice(0, 4)))].sort().reverse().map((year) => <option key={year}>{year}</option>)}
           </select>
         </div>
       </div>
     </>}
     {(selectedTrip || scopeCity) && !editingTrip && <>
-      {selectedTrip ? <div className="journal-trip-hero"><span className="washi-tape tape-top-right" aria-hidden="true" /><CuteSticker kind="plane" className="trip-hero-plane" /><button className="text-button" onClick={() => { setSelectedTripId(null); setSelectedPlaceId(null); }}>← 返回城市记录与旅行列表</button><span className="eyebrow">{selectedTrip.startDate} — {selectedTrip.endDate}</span><h2>{selectedTrip.title}</h2><p>{selectedTrip.cities.map((item) => item.name).join(' · ')}</p>{selectedTrip.companions.length > 0 && <small>与 {selectedTrip.companions.join('、')} 同行</small>}<button className="secondary" onClick={() => setEditingTrip(selectedTrip)}>编辑旅行</button></div>
+      {selectedTrip ? <div className="journal-trip-hero"><span className="washi-tape tape-top-right" aria-hidden="true" /><CuteSticker kind="plane" className="trip-hero-plane" /><button className="text-button" onClick={() => { setSelectedTripId(null); setSelectedPlaceId(null); }}>{t('← 返回城市记录与旅行列表', '← Back to Trips & Cities')}</button><span className="eyebrow">{selectedTrip.startDate} — {selectedTrip.endDate}</span><h2>{selectedTrip.title}</h2><p>{selectedTrip.cities.map((item) => item.name).join(' · ')}</p>{selectedTrip.companions.length > 0 && <small>{t(`与 ${selectedTrip.companions.join('、')} 同行`, `With ${selectedTrip.companions.join(', ')}`)}</small>}<button className="secondary" onClick={() => setEditingTrip(selectedTrip)}>{t('编辑旅行', 'Edit Trip')}</button></div>
         : scopeCity && <div className="city-record-hero">
           <span className="washi-tape tape-top-right" aria-hidden="true" />
           <CuteSticker kind="stamp" className="trip-hero-plane" />
           <span className="eyebrow">CITY MEMORIES</span>
-          <h2>{scopeCity.name}的城市记录</h2>
-          <p>先记录地点、照片和评语。创建包含这座城市的旅行后，日期匹配的记录会自动归入。</p>
+          <h2>{t(`${scopeCity.name}的城市记录`, `${scopeCity.name} Memories`)}</h2>
+          <p>{t('先记录地点、照片和评语。创建包含这座城市的旅行后，日期匹配的记录会自动归入。', 'Log places, photos, and notes first. Matching entries will auto-link once you create a trip for this city.')}</p>
           <CityGuideLinks cities={[scopeCity.name]} />
         </div>}
       <section className={`card upload-station ${selectedTrip ? '' : 'city-upload-station'}`}>
-        <div className="card-heading"><h2>记录城市或地点</h2><span>不选地点会直接记到整个市</span></div>
+        <div className="card-heading"><h2>{t('记录城市或地点', 'Add City or Place Memory')}</h2><span>{t('不选地点会直接记到整个市', 'Leave place blank to save under the city')}</span></div>
         <div className="entry-form">
-          <label>城市{selectedTrip ? <select value={uploadCityCode} onChange={(event) => { setUploadCityCode(event.target.value); setUploadPlaceId(''); }}>{selectedTrip.cities.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</select>
+          <label>{t('城市', 'City')}{selectedTrip ? <select value={uploadCityCode} onChange={(event) => { setUploadCityCode(event.target.value); setUploadPlaceId(''); }}>{selectedTrip.cities.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</select>
             : <input value={scopeCity?.name ?? ''} readOnly />}</label>
-          <label>已有地点（可选）<select value={uploadPlaceId} onChange={(event) => setUploadPlaceId(event.target.value)}><option value="">整个{uploadCityName}（不选具体地点）</option>{uploadPlaces.map((place) => <option key={place.id} value={place.id}>{place.name}</option>)}</select></label>
-          <label>或新建地点<input value={newPlaceName} onChange={(event) => setNewPlaceName(event.target.value)} placeholder="例如：黄果树瀑布" /></label>
-          {!selectedTrip && <label>地点记录日期<input type="date" value={placeVisitDate} onChange={(event) => setPlaceVisitDate(event.target.value)} /></label>}
-          <button className="secondary" onClick={() => void createPlace()} disabled={!newPlaceName.trim()}>创建地点</button>
+          <label>{t('已有地点（可选）', 'Existing Place (optional)')}<select value={uploadPlaceId} onChange={(event) => setUploadPlaceId(event.target.value)}><option value="">{t(`整个${uploadCityName}（不选具体地点）`, `All of ${uploadCityName}`)}</option>{uploadPlaces.map((place) => <option key={place.id} value={place.id}>{place.name}</option>)}</select></label>
+          <label>{t('或新建地点', 'Or New Place')}<input value={newPlaceName} onChange={(event) => setNewPlaceName(event.target.value)} placeholder={t('例如：黄果树瀑布', 'e.g. Erhai Lake')} /></label>
+          {!selectedTrip && <label>{t('地点记录日期', 'Visit Date')}<input type="date" value={placeVisitDate} onChange={(event) => setPlaceVisitDate(event.target.value)} /></label>}
+          <button className="secondary" onClick={() => void createPlace()} disabled={!newPlaceName.trim()}>{t('创建地点', 'Create Place')}</button>
         </div>
         <div className="heading-actions">
-          <button className="primary" disabled={!uploadCityCode || Boolean(uploadProgress)} onClick={() => fileInputRef.current?.click()}>{uploadProgress || (selectedUploadPlace ? `上传照片 / 视频到「${selectedUploadPlace.name}」` : `上传照片 / 视频到整个${uploadCityName}`)}</button>
-          <button className="secondary" disabled={!uploadCityCode || Boolean(uploadProgress)} onClick={() => void openCurrentMemoryBook()}>{selectedUploadPlace ? `写下「${selectedUploadPlace.name}」的文字 / 语音` : `写下整个${uploadCityName}的文字 / 语音`}</button>
+          <button className="primary" disabled={!uploadCityCode || Boolean(uploadProgress)} onClick={() => fileInputRef.current?.click()}>{uploadProgress || (selectedUploadPlace ? t(`上传照片 / 视频到「${selectedUploadPlace.name}」`, `Upload Photos / Videos to "${selectedUploadPlace.name}"`) : t(`上传照片 / 视频到整个${uploadCityName}`, `Upload Photos / Videos to ${uploadCityName}`))}</button>
+          <button className="secondary" disabled={!uploadCityCode || Boolean(uploadProgress)} onClick={() => void openCurrentMemoryBook()}>{selectedUploadPlace ? t(`写下「${selectedUploadPlace.name}」的文字 / 语音`, `Write Note / Voice for "${selectedUploadPlace.name}"`) : t(`写下整个${uploadCityName}的文字 / 语音`, `Write Note / Voice for ${uploadCityName}`)}</button>
         </div>
         <input ref={fileInputRef} type="file" multiple accept="image/*,video/*,.heic,.heif,.mov" hidden onChange={(event) => void uploadFiles(event.target.files)} />
-        <p className="muted">不填具体地点也可直接上传照片或写下随记，会自动按城市整理。{selectedTrip ? '日期超出旅程范围会先提示。' : '无需先新建旅行。'}</p>
-        {uploadFailures.length > 0 && <div className="upload-failures" role="alert"><strong>{uploadFailures.length} 个文件未导入</strong><ul>{uploadFailures.map((reason, index) => <li key={`${reason}-${index}`}>{reason}</li>)}</ul></div>}
+        <p className="muted">{t('不填具体地点也可直接上传照片或写下随记，会自动按城市整理。', 'Upload photos or write notes directly—organized automatically by city. ')}{selectedTrip ? t('日期超出旅程范围会先提示。', 'Dates outside trip range will prompt first.') : t('无需先新建旅行。', 'No trip required first.')}</p>
+        {uploadFailures.length > 0 && <div className="upload-failures" role="alert"><strong>{t(`${uploadFailures.length} 个文件未导入`, `${uploadFailures.length} files skipped`)}</strong><ul>{uploadFailures.map((reason, index) => <li key={`${reason}-${index}`}>{reason}</li>)}</ul></div>}
       </section>
-      <div className="journal-places">{(selectedTrip?.cities ?? (scopeCity ? [scopeCity] : [])).map((tripCity) => <section key={tripCity.code}><h3>{tripCity.name} · 地点记忆</h3><div className="place-card-grid">{tripPlaces.filter((place) => place.cityCode === tripCity.code).map((place) => {
+      <div className="journal-places">{(selectedTrip?.cities ?? (scopeCity ? [scopeCity] : [])).map((tripCity) => <section key={tripCity.code}><h3>{t(`${tripCity.name} · 地点记忆`, `${tripCity.name} · Places`)}</h3><div className="place-card-grid">{tripPlaces.filter((place) => place.cityCode === tripCity.code).map((place) => {
         const placeItems = media.filter((item) => item.placeId === place.id && item.kind !== 'audio');
         const cover = placeItems.find((item) => item.kind === 'photo');
-        return <button className="place-card" key={place.id} onClick={() => setSelectedPlaceId(place.id)}><JourneyCover media={cover} seed={place.id} label={tripCity.name} /><div><span className="eyebrow">{placeItems.length} 张旅行片段</span><h4>{place.name}</h4><p>{place.reviewText || '翻开这一页，写下这里的回忆。'}</p></div></button>;
+        return <button className="place-card" key={place.id} onClick={() => setSelectedPlaceId(place.id)}><JourneyCover media={cover} seed={place.id} label={tripCity.name} /><div><span className="eyebrow">{t(`${placeItems.length} 张旅行片段`, `${placeItems.length} moments`)}</span><h4>{place.name}</h4><p>{place.reviewText || t('翻开这一页，写下这里的回忆。', 'Open this page to write down your memories.')}</p></div></button>;
       })}</div></section>)}</div>
     </>}
     {!selectedTrip && !editingTrip && !scopeCity && savedCities.length > 0 && (
-      <section className="card saved-city-overview" aria-label="已保存的城市">
+      <section className="card saved-city-overview" aria-label={t('已保存的城市', 'Saved Cities')}>
         <div className="saved-city-heading">
-          <h2>已保存的城市 · {savedCities.length}</h2>
+          <h2>{t(`已保存的城市 · ${savedCities.length}`, `Saved Cities · ${savedCities.length}`)}</h2>
           <button
             type="button"
             className="secondary saved-city-toggle"
@@ -824,15 +834,15 @@ export default function DetailView(props: DetailViewProps) {
             aria-controls={savedCitiesContentId}
             onClick={() => setSavedCitiesExpanded((expanded) => !expanded)}
           >
-            {savedCitiesExpanded ? '收起' : '展开'}
+            {savedCitiesExpanded ? t('收起', 'Collapse') : t('展开', 'Expand')}
           </button>
         </div>
         <div id={savedCitiesContentId} className="saved-city-content" hidden={!savedCitiesExpanded}>
-          <p className="muted">像收集城市邮票一样，点选任意城市即可翻看照片、地点与短记。</p>
+          <p className="muted">{t('像收集城市邮票一样，点选任意城市即可翻看照片、地点与短记。', 'Select any city like a travel stamp to browse its photos, places, and notes.')}</p>
           {savedCityGroups.length > 1 && (
-            <div className="saved-city-province-tabs" role="tablist" aria-label="按省份筛选已保存城市">
+            <div className="saved-city-province-tabs" role="tablist" aria-label={t('按省份筛选已保存城市', 'Filter saved cities by province')}>
               <button type="button" className={cityProvinceFilter === 'all' ? 'active' : ''} onClick={() => setCityProvinceFilter('all')}>
-                全部 {savedCities.length}
+                {t(`全部 ${savedCities.length}`, `All ${savedCities.length}`)}
               </button>
               {savedCityGroups.map(([provinceCode, cities]) => (
                 <button
@@ -841,7 +851,7 @@ export default function DetailView(props: DetailViewProps) {
                   className={cityProvinceFilter === provinceCode ? 'active' : ''}
                   onClick={() => setCityProvinceFilter(provinceCode)}
                 >
-                  {provinceNames.get(provinceCode) ?? provinceCode} · {cities.length}
+                  {provinceDisplayName(provinceCode, provinceNames.get(provinceCode) ?? provinceCode, lang, true)} · {cities.length}
                 </button>
               ))}
             </div>
@@ -853,7 +863,7 @@ export default function DetailView(props: DetailViewProps) {
                 <SavedCityCard
                   key={savedCity.code}
                   city={savedCity}
-                  provinceName={provinceNames.get(savedCity.provinceCode) ?? `${savedCity.provinceCode.slice(0, 2)}地区`}
+                  provinceName={provinceDisplayName(savedCity.provinceCode, provinceNames.get(savedCity.provinceCode) ?? `${savedCity.provinceCode.slice(0, 2)}地区`, lang, true)}
                   photoId={savedCityPhotos.get(savedCity.code)?.id}
                   onOpen={() => openSavedCity(savedCity)}
                 />
@@ -862,7 +872,7 @@ export default function DetailView(props: DetailViewProps) {
         </div>
       </section>
     )}
-    {!selectedTrip && !editingTrip && !scopeCity && visibleTrips.length > 0 && <div className="card-heading saved-journey-heading"><h2>已保存的旅行 · {visibleTrips.length}</h2><span>一段旅行可包含多座城市</span></div>}
+    {!selectedTrip && !editingTrip && !scopeCity && visibleTrips.length > 0 && <div className="card-heading saved-journey-heading"><h2>{t(`已保存的旅行 · ${visibleTrips.length}`, `Saved Trips · ${visibleTrips.length}`)}</h2><span>{t('一段旅行可包含多座城市', 'Each trip can span multiple cities')}</span></div>}
     {!selectedTrip && !editingTrip && (visibleTrips.length ? <div className="journey-list">{visibleTrips.map((trip) => {
       const cover = media.find((item) => item.tripId === trip.id && item.kind === 'photo');
       const tripMediaCount = media.filter((item) => item.tripId === trip.id && item.kind !== 'audio').length;
@@ -877,17 +887,17 @@ export default function DetailView(props: DetailViewProps) {
             <span className="eyebrow">{trip.startDate} — {trip.endDate}</span>
             <h2>{trip.title}</h2>
             <div className="journey-city-pills">{trip.cities.slice(0, 4).map((item) => <span key={item.code}>{item.name}</span>)}{trip.cities.length > 4 && <span>+{trip.cities.length - 4}</span>}</div>
-            <small>{trip.companions.length ? `与 ${trip.companions.join('、')} 同行 · ` : ''}{tripPlaceCount} 个地点 · {tripMediaCount} 张片段</small>
+            <small>{trip.companions.length ? t(`与 ${trip.companions.join('、')} 同行 · `, `With ${trip.companions.join(', ')} · `) : ''}{t(`${tripPlaceCount} 个地点 · ${tripMediaCount} 张片段`, `${tripPlaceCount} places · ${tripMediaCount} items`)}</small>
           </div>
-          <strong>翻开手账 →</strong>
+          <strong>{t('翻开手账 →', 'Open Journal →')}</strong>
         </button>
       );
-    })}</div> : !scopeCity && <div className="empty-state card journal-empty-card"><CuteSticker kind="sparkle" className="empty-float-sparkle" /><JournalEmptyArt /><h2>{savedCities.length ? '城市足迹已收好，随时开启第一段旅行' : '把喜欢的风景，装进第一本旅行手账'}</h2><p>{savedCities.length ? '上方城市可直接打开贴照片、写心情；需要按旅程打包多城或记账时，再新建一次旅行。' : '挑一座去过的城市贴上照片与语音，或者新建一段多城旅程，慢慢攒成只属于自己的回忆小册。'}</p><div className="journal-empty-steps"><div className="empty-step-chip"><span>1</span><div><strong>挑一座城市</strong><small>按省份选城或点亮地图</small></div></div><div className="empty-step-chip"><span>2</span><div><strong>贴入照片与心情</strong><small>支持文字、语音与视频</small></div></div><div className="empty-step-chip"><span>3</span><div><strong>点亮成就与高光</strong><small>自动整理成年度纪念册</small></div></div></div>{!savedCities.length && <div className="empty-state-actions"><button className="secondary" onClick={() => setCityBrowserOpen(true)}>按省份选择城市</button><button className="primary" onClick={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }}>＋ 新建旅行</button></div>}</div>)}
-    {selectedPlace && (selectedTrip || scopeCityCode) && <div className="memory-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedPlaceId(null); }}><section className="memory-book" role="dialog" aria-modal="true" aria-label={`${selectedPlace.name}的回忆`}>
-      <div className="memory-header"><button className="text-button" onClick={() => setSelectedPlaceId(null)}>← 返回{selectedTrip ? '旅行' : '城市记录'}</button><span>{selectedTrip ? `${selectedTrip.startDate} — ${selectedTrip.endDate}` : '城市记忆'}</span><button aria-label="关闭地点回忆" onClick={() => setSelectedPlaceId(null)}>×</button></div><div className="memory-title"><span className="eyebrow">A PLACE TO REMEMBER</span><h2>{selectedPlace.name}</h2><p>{selectedTrip?.cities.find((item) => item.code === selectedPlace.cityCode)?.name ?? scopeCity?.name} · {placeMedia.length} 个片段</p></div>
+    })}</div> : !scopeCity && <div className="empty-state card journal-empty-card"><CuteSticker kind="sparkle" className="empty-float-sparkle" /><JournalEmptyArt /><h2>{savedCities.length ? t('城市足迹已收好，随时开启第一段旅行', 'Cities saved—start your first trip anytime') : t('把喜欢的风景，装进第一本旅行手账', 'Start your very first travel journal')}</h2><p>{savedCities.length ? t('上方城市可直接打开贴照片、写心情；需要按旅程打包多城或记账时，再新建一次旅行。', 'Tap a saved city above to add photos and notes, or create a multi-city trip for budgeting.') : t('挑一座去过的城市贴上照片与语音，或者新建一段多城旅程，慢慢攒成只属于自己的回忆小册。', 'Pick a city to save photos and voice notes, or create a multi-city trip to build your personal travel booklet.')}</p><div className="journal-empty-steps"><div className="empty-step-chip"><span>1</span><div><strong>{t('挑一座城市', 'Pick a City')}</strong><small>{t('按省份选城或点亮地图', 'Browse by province or tap the map')}</small></div></div><div className="empty-step-chip"><span>2</span><div><strong>{t('贴入照片与心情', 'Add Photos & Notes')}</strong><small>{t('支持文字、语音与视频', 'Supports text, audio & video')}</small></div></div><div className="empty-step-chip"><span>3</span><div><strong>{t('点亮成就与高光', 'Unlock Badges')}</strong><small>{t('自动整理成年度纪念册', 'Auto-organized yearly album')}</small></div></div></div>{!savedCities.length && <div className="empty-state-actions"><button className="secondary" onClick={() => setCityBrowserOpen(true)}>{t('按省份选择城市', 'Browse by Province')}</button><button className="primary" onClick={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }}>{t('＋ 新建旅行', '+ New Trip')}</button></div>}</div>)}
+    {selectedPlace && (selectedTrip || scopeCityCode) && <div className="memory-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedPlaceId(null); }}><section className="memory-book" role="dialog" aria-modal="true" aria-label={t(`${selectedPlace.name}的回忆`, `Memories of ${selectedPlace.name}`)}>
+      <div className="memory-header"><button className="text-button" onClick={() => setSelectedPlaceId(null)}>{t(`← 返回${selectedTrip ? '旅行' : '城市记录'}`, `← Back to ${selectedTrip ? 'Trip' : 'City'}`)}</button><span>{selectedTrip ? `${selectedTrip.startDate} — ${selectedTrip.endDate}` : t('城市记忆', 'City Memory')}</span><button aria-label={t('关闭地点回忆', 'Close place memories')} onClick={() => setSelectedPlaceId(null)}>×</button></div><div className="memory-title"><span className="eyebrow">A PLACE TO REMEMBER</span><h2>{selectedPlace.name}</h2><p>{selectedTrip?.cities.find((item) => item.code === selectedPlace.cityCode)?.name ?? scopeCity?.name} · {t(`${placeMedia.length} 个片段`, `${placeMedia.length} items`)}</p></div>
       <div className="memory-upload">
         <button type="button" className="primary" disabled={Boolean(uploadProgress)} onClick={() => memoryFileInputRef.current?.click()}>
-          {uploadProgress && uploadFeedbackPlaceId === selectedPlace.id ? uploadProgress : '上传照片 / 视频到这里'}
+          {uploadProgress && uploadFeedbackPlaceId === selectedPlace.id ? uploadProgress : t('上传照片 / 视频到这里', 'Upload Photos / Videos Here')}
         </button>
         <input ref={memoryFileInputRef} type="file" multiple accept="image/*,video/*,.heic,.heif,.mov" hidden
           onChange={(event) => void uploadFiles(event.target.files, selectedPlace)} />
@@ -896,28 +906,28 @@ export default function DetailView(props: DetailViewProps) {
         )}
       </div>
       <div className="memory-review">
-        <label>{editingReviewId ? '编辑这条回忆' : '写下关于这里的回忆'}<textarea value={reviewDraft} onChange={(event) => setReviewDraft(event.target.value)} placeholder="当时的天气、同行的人、最想记住的瞬间…" /></label>
+        <label>{editingReviewId ? t('编辑这条回忆', 'Edit this memory') : t('写下关于这里的回忆', 'Write a memory about this place')}<textarea value={reviewDraft} onChange={(event) => setReviewDraft(event.target.value)} placeholder={t('当时的天气、同行的人、最想记住的瞬间…', 'The weather, companions, or your favorite moment…')} /></label>
         <div className="heading-actions">
-          <button className="secondary" disabled={savingReview || !reviewDraft.trim()} onClick={() => void saveReview(selectedPlace)}>{savingReview ? '保存中…' : editingReviewId ? '保存修改' : '保存文字'}</button>
-          {editingReviewId && <button className="text-button" onClick={() => { setEditingReviewId(null); setReviewDraft(''); }}>取消编辑</button>}
-          <button className="secondary" disabled={audioBusy || Boolean(recordingPlaceId && recordingPlaceId !== selectedPlace.id)} onClick={() => void toggleRecording(selectedPlace)}>{audioBusy ? '正在处理录音…' : recordingPlaceId === selectedPlace.id ? '停止录音' : '录制语音评语'}</button>
+          <button className="secondary" disabled={savingReview || !reviewDraft.trim()} onClick={() => void saveReview(selectedPlace)}>{savingReview ? t('保存中…', 'Saving…') : editingReviewId ? t('保存修改', 'Save Changes') : t('保存文字', 'Save Note')}</button>
+          {editingReviewId && <button className="text-button" onClick={() => { setEditingReviewId(null); setReviewDraft(''); }}>{t('取消编辑', 'Cancel')}</button>}
+          <button className="secondary" disabled={audioBusy || Boolean(recordingPlaceId && recordingPlaceId !== selectedPlace.id)} onClick={() => void toggleRecording(selectedPlace)}>{audioBusy ? t('正在处理录音…', 'Processing audio…') : recordingPlaceId === selectedPlace.id ? t('停止录音', 'Stop Recording') : t('录制语音评语', 'Record Voice Note')}</button>
         </div>
         {recordingPlaceId === selectedPlace.id && <div className="recording-meter" role="status">
           <span className="recording-dot" aria-hidden="true" />
-          <span className="recording-mic">正在收音 · {recordingMicLabel}</span>
+          <span className="recording-mic">{t(`正在收音 · ${recordingMicLabel}`, `Recording · ${recordingMicLabel}`)}</span>
           <span className="recording-level-track" aria-hidden="true"><span style={{ width: `${Math.max(4, recordingLevel)}%` }} /></span>
         </div>}
-        <div className="saved-reviews" aria-label="已保存的文字回忆">{placeReviewNotes(selectedPlace).map((note) => <article className="saved-review" key={note.id}>
+        <div className="saved-reviews" aria-label={t('已保存的文字回忆', 'Saved text notes')}>{placeReviewNotes(selectedPlace).map((note) => <article className="saved-review" key={note.id}>
           <div className="saved-review-head">
-            <small>{new Date(note.createdAt).toLocaleString('zh-CN')}</small>
+            <small>{new Date(note.createdAt).toLocaleString(locale)}</small>
             <div className="audio-review-actions">
               <button type="button" className="audio-action-btn" disabled={savingReview} onClick={() => { setEditingReviewId(note.id); setReviewDraft(note.text); }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4Z" /></svg>
-                编辑
+                {t('编辑', 'Edit')}
               </button>
               <button type="button" className="audio-action-btn danger" disabled={savingReview} onClick={() => void deleteReview(selectedPlace, note.id)}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18m-2 0v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m-6 5v6m4-6v6" /></svg>
-                删除
+                {t('删除', 'Delete')}
               </button>
             </div>
           </div>
@@ -925,13 +935,13 @@ export default function DetailView(props: DetailViewProps) {
         </article>)}</div>
         <div className="audio-review-list">{media.filter((item) => item.placeId === selectedPlace.id && item.kind === 'audio').sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)).map((item) => <AudioReview key={item.id} item={item} onDelete={(id) => void onDeleteMedia(id)} />)}</div>
       </div>
-      {visibleMediaGroups.map(([period, items]) => <section className="memory-day" key={period}><h3>{period}</h3><div className="memory-photo-grid">{items.map(({ item, index }) => <MemoryThumbnail key={item.id} item={item} onOpen={() => setSelectedMediaIndex(index)} />)}</div></section>)}{visibleCount < placeMedia.length && <button className="secondary full" onClick={() => setVisibleCount(visibleCount + PAGE_SIZE)}>再看一些照片</button>}
-      {entries.filter((entry) => entry.placeId === selectedPlace.id && entry.highlight).map((entry) => <p className="memory-highlight" key={entry.id}>✦ {entry.date} · 高光时刻</p>)}
+      {visibleMediaGroups.map(([period, items]) => <section className="memory-day" key={period}><h3>{period}</h3><div className="memory-photo-grid">{items.map(({ item, index }) => <MemoryThumbnail key={item.id} item={item} onOpen={() => setSelectedMediaIndex(index)} />)}</div></section>)}{visibleCount < placeMedia.length && <button className="secondary full" onClick={() => setVisibleCount(visibleCount + PAGE_SIZE)}>{t('再看一些照片', 'Load More Photos')}</button>}
+      {entries.filter((entry) => entry.placeId === selectedPlace.id && entry.highlight).map((entry) => <p className="memory-highlight" key={entry.id}>✦ {entry.date} · {t('高光时刻', 'Highlight')}</p>)}
       {placeMedia.length > 0 && <label className="memory-highlight-toggle"><input type="checkbox" checked={entries.some((entry) => entry.placeId === selectedPlace.id && entry.highlight)} onChange={(event) => {
         const entry = entries.find((row) => row.placeId === selectedPlace.id);
         if (entry) void onSaveEntry({ ...entry, highlight: event.target.checked });
-      }} />设为高光时刻</label>}
+      }} />{t('设为高光时刻', 'Mark as Highlight')}</label>}
     </section></div>}
-    {selectedMedia && selectedPlace && <div className="lightbox-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedMediaIndex(null); }}><div className="lightbox" role="dialog" aria-modal="true" aria-label="照片详情" onTouchStart={(event) => { touchStartRef.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={(event) => { if (touchStartRef.current === null) return; const delta = event.changedTouches[0].clientX - touchStartRef.current; if (Math.abs(delta) > 50) setSelectedMediaIndex(Math.max(0, Math.min(placeMedia.length - 1, (selectedMediaIndex ?? 0) + (delta < 0 ? 1 : -1)))); touchStartRef.current = null; }}><div className="lightbox-top"><span>{(selectedMediaIndex ?? 0) + 1} / {placeMedia.length}</span><button aria-label="关闭照片详情" onClick={() => setSelectedMediaIndex(null)}>×</button></div><div className="lightbox-stage"><button aria-label="上一张" onClick={() => setSelectedMediaIndex(Math.max(0, (selectedMediaIndex ?? 0) - 1))}>‹</button>{fullMediaUrl && (selectedMedia.kind === 'video' ? <video key={selectedMedia.id} src={fullMediaUrl} controls preload="metadata" /> : <img key={selectedMedia.id} src={fullMediaUrl} alt={selectedMedia.fileName} />)}<button aria-label="下一张" onClick={() => setSelectedMediaIndex(Math.min(placeMedia.length - 1, (selectedMediaIndex ?? 0) + 1))}>›</button></div><div className="lightbox-caption"><h3>{selectedPlace.name}</h3><small>{selectedMedia.fileName}</small><div className="entry-form"><label>拍摄日期<input type="date" value={selectedMedia.capturedAt.slice(0, 10)} onChange={(event) => void changeMediaDate(selectedMedia, event.target.value)} /></label><label>移动到地点<select value={selectedMedia.placeId} onChange={(event) => { const place = tripPlaces.find((item) => item.id === event.target.value); if (place) { void onUpdateMedia({ ...selectedMedia, placeId: place.id, cityCode: place.cityCode, placeName: place.name, entryId: null }); setSelectedMediaIndex(null); } }}>{tripPlaces.map((place) => <option key={place.id} value={place.id}>{place.name}</option>)}</select></label></div><button className="text-button" onClick={() => { if (window.confirm('删除这份媒体文件？')) { void onDeleteMedia(selectedMedia.id); setSelectedMediaIndex(null); } }}>删除这张照片</button></div></div></div>}
+    {selectedMedia && selectedPlace && <div className="lightbox-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedMediaIndex(null); }}><div className="lightbox" role="dialog" aria-modal="true" aria-label={t('照片详情', 'Photo details')} onTouchStart={(event) => { touchStartRef.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={(event) => { if (touchStartRef.current === null) return; const delta = event.changedTouches[0].clientX - touchStartRef.current; if (Math.abs(delta) > 50) setSelectedMediaIndex(Math.max(0, Math.min(placeMedia.length - 1, (selectedMediaIndex ?? 0) + (delta < 0 ? 1 : -1)))); touchStartRef.current = null; }}><div className="lightbox-top"><span>{(selectedMediaIndex ?? 0) + 1} / {placeMedia.length}</span><button aria-label={t('关闭照片详情', 'Close photo details')} onClick={() => setSelectedMediaIndex(null)}>×</button></div><div className="lightbox-stage"><button aria-label={t('上一张', 'Previous')} onClick={() => setSelectedMediaIndex(Math.max(0, (selectedMediaIndex ?? 0) - 1))}>‹</button>{fullMediaUrl && (selectedMedia.kind === 'video' ? <video key={selectedMedia.id} src={fullMediaUrl} controls preload="metadata" /> : <img key={selectedMedia.id} src={fullMediaUrl} alt={selectedMedia.fileName} />)}<button aria-label={t('下一张', 'Next')} onClick={() => setSelectedMediaIndex(Math.min(placeMedia.length - 1, (selectedMediaIndex ?? 0) + 1))}>›</button></div><div className="lightbox-caption"><h3>{selectedPlace.name}</h3><small>{selectedMedia.fileName}</small><div className="entry-form"><label>{t('拍摄日期', 'Capture Date')}<input type="date" value={selectedMedia.capturedAt.slice(0, 10)} onChange={(event) => void changeMediaDate(selectedMedia, event.target.value)} /></label><label>{t('移动到地点', 'Move to Place')}<select value={selectedMedia.placeId} onChange={(event) => { const place = tripPlaces.find((item) => item.id === event.target.value); if (place) { void onUpdateMedia({ ...selectedMedia, placeId: place.id, cityCode: place.cityCode, placeName: place.name, entryId: null }); setSelectedMediaIndex(null); } }}>{tripPlaces.map((place) => <option key={place.id} value={place.id}>{place.name}</option>)}</select></label></div><button className="text-button" onClick={() => { if (window.confirm(t('删除这份媒体文件？', 'Delete this media file?'))) { void onDeleteMedia(selectedMedia.id); setSelectedMediaIndex(null); } }}>{t('删除这张照片', 'Delete Photo')}</button></div></div></div>}
   </div>;
 }

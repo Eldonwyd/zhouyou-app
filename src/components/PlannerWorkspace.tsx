@@ -96,6 +96,7 @@ import { ticketPlanSignature } from '../planner-ticket-signature';
 import { needsTicketPreparation } from '../planner-ticket-display';
 import { BUDGET_LABELS, type TripPlan } from '../types';
 import { createLocalId, currency, downloadBlob } from '../utils';
+import { useI18n } from '../i18n';
 
 const isNativeMobileApp = () => Boolean(
   (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.(),
@@ -962,6 +963,7 @@ function ActivityEditor({
  * version so late results can never replace a newer card edit or restored plan.
  */
 export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
+  const { t } = useI18n();
   const [tab, setTab] = useState<PlannerTab>(
     props.provinceIntent ? 'discover' : 'itineraries',
   );
@@ -1941,12 +1943,12 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
     <div className="planner-workspace" data-task-running={busy || undefined}>
       <div className="planner-chrome" data-tools-expanded={serviceToolsExpanded}>
         <div className="planner-chrome-bar">
-          <div className="planner-tabs" role="tablist" aria-label="计划模块">
+          <div className="planner-tabs" role="tablist" aria-label={t('计划模块', 'Planner sections')}>
             {(
               [
-                ['itineraries', '我的行程'],
-                ['finance', '预算与账本'],
-                ['discover', '发现目的地'],
+                ['itineraries', t('我的行程', 'My Trips')],
+                ['finance', t('预算与账本', 'Budget & Ledger')],
+                ['discover', t('发现目的地', 'Discover')],
               ] as const
             ).map(([key, label]) => (
               <button
@@ -1970,12 +1972,12 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
             aria-controls="planner-ai-tools"
             onClick={() => setServiceToolsExpanded((expanded) => !expanded)}
           >
-            <span>AI 服务设置</span>
+            <span>{t('AI 服务设置', 'AI Settings')}</span>
             <small className={aiStatus?.configured ? 'planner-service-summary ok' : 'planner-service-summary'}>
               <i className="planner-service-dot" aria-hidden="true" />
               {aiStatus
-                ? (aiStatus.configured ? (aiStatus.label ?? aiStatus.model ?? 'AI 已配置') : 'AI 待配置')
-                : (aiBackendOffline ? 'AI 未连接' : 'AI 检查中')}
+                ? (aiStatus.configured ? (aiStatus.label ?? aiStatus.model ?? t('AI 已配置', 'AI Ready')) : t('AI 待配置', 'Setup AI'))
+                : (aiBackendOffline ? t('AI 未连接', 'AI Offline') : t('AI 检查中', 'Checking AI'))}
             </small>
           </button>
           {!isNativeMobileApp() && (
@@ -2045,8 +2047,8 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
           <div className="section-heading">
             <div>
               <span className="eyebrow">SEASONAL DISCOVERY</span>
-              <h1>这个时候，去哪玩</h1>
-              <p>从当季看点出发，也考虑你从哪里出发。</p>
+              <h1>{t('这个时候，去哪玩', 'Where to Go This Season')}</h1>
+              <p>{t('从当季看点出发，也考虑你从哪里出发。', 'Seasonal highlights tailored to your departure city and dates.')}</p>
             </div>
           </div>
           <form
@@ -2058,17 +2060,17 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
           >
             <div className="planner-input-grid">
               <label>
-                范围
+                {t('范围', 'Region')}
                 <input
                   value={discover.destination}
                   onChange={(event) =>
                     setDiscover({ ...discover, destination: event.target.value })
                   }
-                  placeholder="留空推荐全国，也可填写省份"
+                  placeholder={t('留空推荐全国，也可填写省份', 'Leave blank for nationwide, or enter a province')}
                 />
               </label>
               <label>
-                开始日期
+                {t('开始日期', 'Start Date')}
                 <input
                   type="date"
                   required
@@ -2077,7 +2079,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                 />
               </label>
               <label>
-                结束日期（可选）
+                {t('结束日期（可选）', 'End Date (optional)')}
                 <input
                   type="date"
                   min={discover.startDate}
@@ -2086,7 +2088,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                 />
               </label>
               <label>
-                Base／出发地
+                {t('Base／出发地', 'Departure City')}
                 <input
                   value={discover.base}
                   onChange={(event) => setDiscover({ ...discover, base: event.target.value })}
@@ -2094,7 +2096,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
               </label>
             </div>
             <label>
-              补充要求（可任意填写）
+              {t('补充要求（可任意填写）', 'Notes (optional)')}
               <textarea
                 value={discover.notes}
                 rows={3}
@@ -2114,10 +2116,12 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                   })
                 }
               >
-                今天
+                {t('今天', 'Today')}
               </button>
               <button className="primary" disabled={busy}>
-                AI 推荐{discover.destination ? '省内玩法' : '全国当季目的地'}
+                {discover.destination
+                  ? t('AI 推荐省内玩法', 'AI Recommend Regional Ideas')
+                  : t('AI 推荐全国当季目的地', 'AI Recommend Seasonal Picks')}
               </button>
             </div>
           </form>
@@ -2192,8 +2196,8 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
           )}
           {!recommendations.length && (
             <div className="empty-state">
-              <h2>让季节替你选一个目的地</h2>
-              <p>选择日期、填写出发地，或从地图点进某省探索。</p>
+              <h2>{t('让季节替你选一个目的地', 'Let the season inspire your next destination')}</h2>
+              <p>{t('选择日期、填写出发地，或从地图点进某省探索。', 'Pick your dates and departure city, or select a province from the map.')}</p>
             </div>
           )}
         </div>
@@ -2202,8 +2206,8 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
           <div className="section-heading planner-itinerary-heading">
             <div className="planner-itinerary-heading-copy">
               <span className="eyebrow">YOUR NEXT JOURNEY</span>
-              <h1>我的旅行计划</h1>
-              <p>先规划，再出发。随时问，明确要求才修改。</p>
+              <h1>{t('我的旅行计划', 'My Travel Plans')}</h1>
+              <p>{t('先规划，再出发。随时问，明确要求才修改。', 'Plan first, travel smoothly. Ask anytime and revise on your terms.')}</p>
             </div>
             <button
               className="primary"
@@ -2216,7 +2220,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                 setRequest(freshPlannerRequest('', props.preferences?.base ?? ''));
               }}
             >
-              ＋ 新建 AI 计划
+              {t('＋ 新建 AI 计划', '+ New AI Plan')}
             </button>
           </div>
           {props.aiPlans.length > 0 && (

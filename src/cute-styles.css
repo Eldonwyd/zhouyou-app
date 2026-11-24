@@ -2312,3 +2312,301 @@
   .warm-achievements .badge-creator { padding: 14px; margin-top: 18px; }
   .warm-achievements .badge-creator > .primary { min-height: 44px; }
 }
+
+/* ==========================================================================
+ * 个人中心：设置入口 & 设置子页面（语言 / 外观 / 备份 / 离线地图 / 更多）
+ * ========================================================================== */
+.profile-settings-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.profile-settings-trigger .travel-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.warm-profile .profile-home-grid {
+  grid-template-columns: 1.25fr 1fr;
+  align-items: stretch;
+}
+.warm-profile .profile-home-grid .warm-profile-info,
+.warm-profile .profile-home-grid .warm-storage {
+  grid-column: auto;
+  grid-row: auto;
+}
+
+.profile-settings-entry-card {
+  margin: 0 0 24px;
+  padding: 24px 26px;
+}
+.profile-settings-entry-card .card-heading {
+  align-items: center;
+  margin-bottom: 14px;
+}
+.profile-settings-entry-card .card-heading p {
+  margin: 4px 0 0;
+}
+.settings-entry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-entry-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 13px 16px;
+  border-radius: 16px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.settings-entry-row:hover {
+  border-color: var(--warm-green);
+  background: color-mix(in srgb, var(--surface) 88%, var(--app-sage));
+  transform: translateY(-1px);
+  box-shadow: var(--elev-card);
+}
+.settings-entry-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.settings-entry-icon .travel-icon {
+  width: 19px;
+  height: 19px;
+}
+.settings-entry-icon.is-lang { background: var(--app-blue); color: var(--app-blue-ink, var(--ink)); }
+.settings-entry-icon.is-theme { background: var(--app-peach); color: var(--app-peach-ink, var(--ink)); }
+.settings-entry-icon.is-backup { background: var(--app-sage); color: var(--app-sage-ink, var(--ink)); }
+.settings-entry-icon.is-map { background: var(--app-honey); color: var(--app-honey-ink, var(--ink)); }
+.settings-entry-icon.is-server { background: var(--app-lilac); color: var(--app-lilac-ink, var(--ink)); }
+
+.settings-entry-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.settings-entry-copy strong {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.settings-entry-copy small {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.settings-entry-value {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.settings-entry-value.is-safe {
+  background: var(--app-sage);
+  color: var(--app-sage-ink);
+}
+.settings-entry-chevron {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+/* 设置子页面 */
+.settings-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.settings-quick-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 20px;
+}
+.settings-quick-pill {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color .16s ease, background .16s ease, color .16s ease;
+}
+.settings-quick-pill:hover {
+  border-color: var(--warm-green);
+  background: var(--app-sage);
+  color: var(--app-sage-ink);
+}
+
+.profile-settings-view > section {
+  scroll-margin-top: 84px;
+}
+.settings-language-card {
+  margin: 0 0 24px;
+  padding: 26px;
+}
+.settings-language-card .card-heading {
+  align-items: center;
+  margin-bottom: 18px;
+}
+.settings-language-card .card-heading p {
+  margin: 5px 0 0;
+}
+.language-option-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.language-option-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.language-option-card:hover {
+  border-color: var(--warm-green);
+  transform: translateY(-2px);
+  box-shadow: var(--elev-card);
+}
+.language-option-card.selected {
+  border-color: var(--warm-green);
+  background: color-mix(in srgb, var(--surface) 84%, var(--app-sage));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warm-green) 16%, transparent), var(--elev-card);
+}
+.language-option-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--app-blue);
+  color: var(--app-blue-ink, var(--ink));
+  font-weight: 800;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.language-option-card.selected .language-option-badge {
+  background: var(--warm-green);
+  color: #ffffff;
+}
+.language-option-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.language-option-copy strong {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.language-option-copy small {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.profile-settings-view .settings-backup-card {
+  grid-column: auto;
+  grid-row: auto;
+  height: auto;
+  margin: 0 0 24px;
+  padding: 26px;
+}
+.profile-settings-view > .profile-offline-maps {
+  margin: 0 0 24px;
+  padding: 24px 26px;
+}
+.settings-more-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  scroll-margin-top: 84px;
+}
+.settings-more-grid > .card {
+  padding: 24px;
+}
+
+@media (max-width: 850px) {
+  .warm-profile .profile-home-grid,
+  .settings-more-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .profile-settings-entry-card {
+    padding: 16px 14px;
+    margin-bottom: 14px;
+  }
+  .settings-entry-row {
+    padding: 11px 12px;
+    gap: 10px;
+  }
+  .settings-entry-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+  .settings-entry-copy strong { font-size: 13.5px; }
+  .settings-entry-copy small { font-size: 11px; }
+  .settings-entry-value {
+    font-size: 11px;
+    padding: 3px 8px;
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .settings-quick-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    margin-bottom: 14px;
+    scrollbar-width: none;
+  }
+  .settings-quick-nav::-webkit-scrollbar { display: none; }
+  .settings-language-card,
+  .profile-settings-view .settings-backup-card,
+  .settings-more-grid > .card {
+    padding: 16px 14px;
+    margin-bottom: 14px;
+  }
+  .language-option-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .language-option-card {
+    padding: 13px 14px;
+  }
+}

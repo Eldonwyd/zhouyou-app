@@ -1,16 +1,18 @@
 import type { PlannerLuggageMode, PlannerRequest } from '../planner-types';
 import { PLANNER_LOCAL_TRANSPORT_OPTIONS, plannerLocalTransport, plannerPartyText, updatePlannerDates } from '../planner-domain';
+import { useI18n } from '../i18n';
 
 /** 新建和修改条件共用选择器，旧计划打开时也会显示实际使用的默认值。 */
 export function PlannerLuggageField({ value, onChange }: {
   value: PlannerLuggageMode | undefined;
   onChange: (mode: PlannerLuggageMode) => void;
 }) {
+  const { t } = useI18n();
   return <label className="planner-luggage-field">
-    行李方式
-    <select aria-label="行李方式" value={value ?? 'suitcase'} onChange={(event) => onChange(event.target.value === 'backpack' ? 'backpack' : 'suitcase')}>
-      <option value="suitcase">行李箱出行（默认）</option>
-      <option value="backpack">背包出行</option>
+    {t('行李方式', 'Luggage')}
+    <select aria-label={t('行李方式', 'Luggage')} value={value ?? 'suitcase'} onChange={(event) => onChange(event.target.value === 'backpack' ? 'backpack' : 'suitcase')}>
+      <option value="suitcase">{t('行李箱出行（默认）', 'Suitcase (default)')}</option>
+      <option value="backpack">{t('背包出行', 'Backpack')}</option>
     </select>
   </label>;
 }
@@ -26,6 +28,7 @@ export default function PlannerRequestFields({
   value: PlannerRequest;
   onChange: (request: PlannerRequest) => void;
 }) {
+  const { t } = useI18n();
   const update = <K extends keyof PlannerRequest>(key: K, next: PlannerRequest[K]) =>
     onChange({ ...value, [key]: next });
   // Counts and any older free-form party description must stay in agreement.
@@ -34,38 +37,42 @@ export default function PlannerRequestFields({
     const next = { ...value, ...patch };
     onChange({ ...next, travelersText: plannerPartyText(next) });
   };
-  const groups = [['students', '学生'], ['seniors', '老人'], ['children', '儿童']] as const;
-  const groupSummary = groups.filter(([key]) => (value[key] ?? 0) > 0).map(([key, label]) => `${label} ${value[key]}`).join('、');
+  const groups = [
+    ['students', t('学生', 'Students')],
+    ['seniors', t('老人', 'Seniors')],
+    ['children', t('儿童', 'Children')],
+  ] as const;
+  const groupSummary = groups.filter(([key]) => (value[key] ?? 0) > 0).map(([key, label]) => `${label} ${value[key]}`).join(t('、', ', '));
   return (
     <>
       <div className="planner-input-grid">
         <label>
-          目的地（可选）
+          {t('目的地（可选）', 'Destination (optional)')}
           <input
             value={value.destination}
-            placeholder="例如：丽江、香格里拉"
+            placeholder={t('例如：丽江、香格里拉', 'e.g. Lijiang, Shangri-La')}
             onChange={(event) => onChange({ ...value, destination: event.target.value })}
           />
         </label>
         <div className="planner-party">
           <label>
-            旅行人群（总人数）
+            {t('旅行人群（总人数）', 'Travelers (total)')}
             <input
               type="number"
               min="1"
               step="1"
               value={value.people}
-              placeholder="例如：4"
+              placeholder={t('例如：4', 'e.g. 4')}
               onChange={(event) => updateParty({ people: Number(event.target.value) })}
             />
           </label>
           {/* 学生、老人、儿童默认收起，不填为 0；其余按成人计价。 */}
           <details className="planner-party-details">
-            <summary>学生 / 老人 / 儿童{groupSummary ? `：${groupSummary}` : '（选填）'}</summary>
+            <summary>{t('学生 / 老人 / 儿童', 'Students / Seniors / Children')}{groupSummary ? t(`：${groupSummary}`, `: ${groupSummary}`) : t('（选填）', ' (optional)')}</summary>
             <div className="planner-party-grid">
               {groups.map(([key, label]) => (
                 <label key={key}>
-                  {label}人数
+                  {t(`${label}人数`, label)}
                   <input
                     type="number"
                     min="0"
@@ -80,7 +87,7 @@ export default function PlannerRequestFields({
           </details>
         </div>
         <label>
-          开始日期
+          {t('开始日期', 'Start Date')}
           <input
             type="date"
             required
@@ -91,7 +98,7 @@ export default function PlannerRequestFields({
           />
         </label>
         <label>
-          结束日期
+          {t('结束日期', 'End Date')}
           <input
             type="date"
             value={value.endDate}
@@ -101,13 +108,13 @@ export default function PlannerRequestFields({
           />
         </label>
         <label>
-          旅行天数
+          {t('旅行天数', 'Days')}
           <input
             type="number"
             step="1"
             min="1"
             value={value.days ?? ''}
-            placeholder="留空由 AI 推荐"
+            placeholder={t('留空由 AI 推荐', 'Leave blank for AI')}
             onChange={(event) =>
               onChange(
                 updatePlannerDates(value, {
@@ -118,27 +125,27 @@ export default function PlannerRequestFields({
           />
         </label>
         <label>
-          所在地（选填）
+          {t('所在地（选填）', 'Departure City (optional)')}
           <input
             value={value.base}
-            placeholder="例如：广州"
+            placeholder={t('例如：广州', 'e.g. Guangzhou')}
             onChange={(event) => update('base', event.target.value)}
           />
         </label>
       </div>
-      <p className="muted planner-date-hint">日期与天数自动换算，留空可由 AI 推荐</p>
+      <p className="muted planner-date-hint">{t('日期与天数自动换算，留空可由 AI 推荐', 'Dates and days sync automatically; leave blank for AI suggestions')}</p>
       <details className="planner-preferences">
-        <summary>预算、节奏与吃住偏好（选填）</summary>
+        <summary>{t('预算、节奏与吃住偏好（选填）', 'Budget, Pace & Preferences (optional)')}</summary>
         <div className="planner-input-grid">
           <label>
-            总预算（元）
+            {t('总预算（元）', 'Total Budget (CNY)')}
             <input
-              aria-label="整次旅行预算（元）"
+              aria-label={t('整次旅行预算（元）', 'Total trip budget (CNY)')}
               type="number"
               min="0"
               step="0.01"
               value={value.budgetCents === null ? '' : value.budgetCents / 100}
-              placeholder="如 5000（合计）"
+              placeholder={t('如 5000（合计）', 'e.g. 5000')}
               onChange={(event) =>
                 update(
                   'budgetCents',
@@ -148,70 +155,70 @@ export default function PlannerRequestFields({
             />
           </label>
           <label>
-            游玩节奏
+            {t('游玩节奏', 'Travel Pace')}
             <select
-              aria-label="游玩节奏"
+              aria-label={t('游玩节奏', 'Travel Pace')}
               value={value.pace || '均衡'}
               onChange={(event) => update('pace', event.target.value)}
             >
-              <option>均衡</option>
-              <option>特种兵</option>
-              <option>慢慢玩</option>
+              <option value="均衡">{t('均衡', 'Balanced')}</option>
+              <option value="特种兵">{t('特种兵', 'Fast-paced')}</option>
+              <option value="慢慢玩">{t('慢慢玩', 'Relaxed')}</option>
             </select>
           </label>
           <label>
-            当地交通
+            {t('当地交通', 'Local Transport')}
             <select
-              aria-label="当地交通"
+              aria-label={t('当地交通', 'Local Transport')}
               value={plannerLocalTransport(value.transport)}
               onChange={(event) => update('transport', event.target.value)}
             >
-              {PLANNER_LOCAL_TRANSPORT_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+              {PLANNER_LOCAL_TRANSPORT_OPTIONS.map(({ value: optValue, label }) => <option key={optValue} value={optValue}>{label}</option>)}
             </select>
           </label>
           <label>
-            住宿档次
+            {t('住宿档次', 'Lodging Tier')}
             <select
-              aria-label="住宿档次"
+              aria-label={t('住宿档次', 'Lodging Tier')}
               value={value.lodgingLevel || '舒适经济'}
               onChange={(event) => update('lodgingLevel', event.target.value)}
             >
-              <option>舒适经济</option>
-              <option>节省预算</option>
-              <option>舒适优先</option>
+              <option value="舒适经济">{t('舒适经济', 'Comfort Economy')}</option>
+              <option value="节省预算">{t('节省预算', 'Budget')}</option>
+              <option value="舒适优先">{t('舒适优先', 'Comfort First')}</option>
             </select>
           </label>
           <label>
-            房间数
+            {t('房间数', 'Rooms')}
             <input
               type="number"
               min="1"
               step="1"
               value={value.rooms ?? ''}
-              placeholder={`默认 ${Math.ceil(Math.max(1, value.people) / 2)} 间`}
+              placeholder={t(`默认 ${Math.ceil(Math.max(1, value.people) / 2)} 间`, `Default ${Math.ceil(Math.max(1, value.people) / 2)}`)}
               onChange={(event) =>
                 update('rooms', event.target.value === '' ? null : Number(event.target.value))
               }
             />
           </label>
           <label>
-            忌口 / 饮食
+            {t('忌口 / 饮食', 'Dietary Notes')}
             <input
-              aria-label="忌口／饮食偏好"
+              aria-label={t('忌口／饮食偏好', 'Dietary preferences')}
               value={value.dietary}
-              placeholder="如：不吃辣、素食"
+              placeholder={t('如：不吃辣、素食', 'e.g. No spicy food, vegetarian')}
               onChange={(event) => update('dietary', event.target.value)}
             />
           </label>
         </div>
       </details>
       <label className="planner-notes-field">
-        补充要求（选填）
+        {t('补充要求（选填）', 'Additional Notes (optional)')}
         <textarea
-          aria-label="补充要求（可任意填写）"
+          aria-label={t('补充要求（可任意填写）', 'Additional notes')}
           rows={3}
           value={value.notes}
-          placeholder="如：前两天丽江、后去香格里拉；不想早起；必去玉龙雪山，尽量少换住宿。"
+          placeholder={t('如：前两天丽江、后去香格里拉；不想早起；必去玉龙雪山，尽量少换住宿。', 'e.g. 2 days in Lijiang then Shangri-La; no early mornings; must-see Jade Dragon Snow Mountain.')}
           onChange={(event) => onChange({ ...value, notes: event.target.value })}
         />
       </label>
@@ -222,7 +229,7 @@ export default function PlannerRequestFields({
             checked={value.foodMode}
             onChange={(event) => onChange({ ...value, foodMode: event.target.checked })}
           />
-          当地美食推荐
+          {t('当地美食推荐', 'Local Food Picks')}
         </label>
         <label>
           <input
@@ -230,7 +237,7 @@ export default function PlannerRequestFields({
             checked={value.skipBreakfast}
             onChange={(event) => onChange({ ...value, skipBreakfast: event.target.checked })}
           />
-          不吃早餐
+          {t('不吃早餐', 'Skip Breakfast')}
         </label>
       </div>
     </>

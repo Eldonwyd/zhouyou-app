@@ -9,9 +9,11 @@ import {
   installAppUpdate,
   platformDisplayName,
   reopenDownloadedAndroidApk,
+  type AppPlatform,
   type AppUpdateInfo,
   type AppUpdateProgress,
 } from '../app-updater';
+import { useI18n } from '../i18n';
 
 interface AppUpdateCardProps {
   initialUpdate?: AppUpdateInfo | null;
@@ -21,6 +23,18 @@ interface AppUpdateCardProps {
   onError?: (message: string) => void;
 }
 
+function platformLabel(platform: AppPlatform, isEn: boolean): string {
+  if (!isEn) return platformDisplayName(platform);
+  switch (platform) {
+    case 'android': return 'Android App';
+    case 'ios': return 'iOS App';
+    case 'desktop-win': return 'Windows Desktop';
+    case 'desktop-mac': return 'macOS Desktop';
+    case 'desktop-linux': return 'Linux Desktop';
+    default: return 'Web / PWA';
+  }
+}
+
 export default function AppUpdateCard({
   initialUpdate = null,
   autoCheckToken = 0,
@@ -28,6 +42,7 @@ export default function AppUpdateCard({
   onNotice,
   onError,
 }: AppUpdateCardProps) {
+  const { isEn, t } = useI18n();
   const platform = detectAppPlatform();
   const [currentVersion, setCurrentVersion] = useState(
     initialUpdate?.currentVersion || (typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.0.0'),
@@ -61,17 +76,17 @@ export default function AppUpdateCard({
       if (result.hasUpdate) {
         setStatusNote('');
       } else {
-        setStatusNote(`当前已是最新版本（v${result.currentVersion}）。`);
-        if (!silentUpToDate) onNotice?.(`当前已是最新版本 v${result.currentVersion}`);
+        setStatusNote(t(`当前已是最新版本（v${result.currentVersion}）。`, `You are up to date (v${result.currentVersion}).`));
+        if (!silentUpToDate) onNotice?.(t(`当前已是最新版本 v${result.currentVersion}`, `Up to date: v${result.currentVersion}`));
       }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : '检查更新失败，请稍后重试';
+      const msg = error instanceof Error ? error.message : t('检查更新失败，请稍后重试', 'Failed to check for updates. Please try again later.');
       setErrorText(msg);
       if (!silentUpToDate) onError?.(msg);
     } finally {
       setChecking(false);
     }
-  }, [onError, onNotice, onUpdateFound]);
+  }, [onError, onNotice, onUpdateFound, t]);
 
   useEffect(() => {
     if (autoCheckToken > 0) {
@@ -91,11 +106,11 @@ export default function AppUpdateCard({
     });
     if (result.cancelled) {
       setProgress(null);
-      setStatusNote('已取消下载更新。');
+      setStatusNote(t('已取消下载更新。', 'Update download cancelled.'));
       return;
     }
     if (!result.ok) {
-      const msg = result.error || '下载更新失败，可改用浏览器直接下载安装包';
+      const msg = result.error || t('下载更新失败，可改用浏览器直接下载安装包', 'Download failed. Try downloading directly in your browser.');
       setProgress(null);
       setErrorText(msg);
       onError?.(msg);
@@ -104,16 +119,16 @@ export default function AppUpdateCard({
     if (result.fallbackOpened) {
       setProgress(null);
       const hint = info.platform === 'ios'
-        ? '已打开最新版 IPA 下载页，请通过 AltStore / Sideloadly 安装。'
-        : '已开始通过系统浏览器下载最新版安装包。';
+        ? t('已打开最新版 IPA 下载页，请通过 AltStore / Sideloadly 安装。', 'Opened latest IPA download page. Install via AltStore / Sideloadly.')
+        : t('已开始通过系统浏览器下载最新版安装包。', 'Started downloading the latest installer in your browser.');
       setStatusNote(hint);
       onNotice?.(hint);
       return;
     }
     setProgress({ state: 'installing', percent: 100, receivedBytes: info.assetSize, totalBytes: info.assetSize });
     const doneHint = info.platform.startsWith('desktop-')
-      ? '新版安装程序已启动，请按提示完成覆盖安装（数据与手账会自动保留）。'
-      : '新版 APK 已下载完成，请在系统安装界面确认升级（数据与手账会自动保留）。';
+      ? t('新版安装程序已启动，请按提示完成覆盖安装（数据与手账会自动保留）。', 'Installer launched. Follow prompts to update (your local data is preserved).')
+      : t('新版 APK 已下载完成，请在系统安装界面确认升级（数据与手账会自动保留）。', 'APK downloaded. Confirm the update in the system installer (your local data is preserved).');
     setStatusNote(doneHint);
     onNotice?.(doneHint);
   }
@@ -121,13 +136,13 @@ export default function AppUpdateCard({
   async function handleCancel() {
     await cancelAppUpdateDownload();
     setProgress(null);
-    setStatusNote('已取消下载。');
+    setStatusNote(t('已取消下载。', 'Download cancelled.'));
   }
 
   async function handleReopenApk() {
     const ok = await reopenDownloadedAndroidApk();
     if (!ok) {
-      onError?.('安装包已清理，请重新点击「立即更新」下载。');
+      onError?.(t('安装包已清理，请重新点击「立即更新」下载。', 'Installer file was cleared. Tap "Update Now" to download again.'));
     }
   }
 
@@ -140,18 +155,18 @@ export default function AppUpdateCard({
     <section id="app-update-card" className="card app-update-card" tabIndex={-1} aria-labelledby="app-update-card-title">
       <div className="card-heading app-update-head">
         <div>
-          <h2 id="app-update-card-title">检查应用更新</h2>
-          <p className="muted">手机端与电脑端均可一键检查并更新到最新版本，升级保留全部本地旅行数据。</p>
+          <h2 id="app-update-card-title">{t('检查应用更新', 'Check for Updates')}</h2>
+          <p className="muted">{t('手机端与电脑端均可一键检查并更新到最新版本，升级保留全部本地旅行数据。', 'Check and install the latest release on mobile or desktop while keeping all local travel data intact.')}</p>
         </div>
         <span className="app-update-ver-pill">
-          {platformDisplayName(platform)} · v{currentVersion}
+          {platformLabel(platform, isEn)} · v{currentVersion}
         </span>
       </div>
 
       {hasUpdate && info && (
         <div className="app-update-banner-box" role="status">
           <div className="app-update-banner-top">
-            <strong>发现新版本 v{info.latestVersion}</strong>
+            <strong>{t(`发现新版本 v${info.latestVersion}`, `New version available: v${info.latestVersion}`)}</strong>
             <span className="app-update-meta">
               {[publishedDate, formatBytes(info.assetSize)].filter(Boolean).join(' · ')}
             </span>
@@ -165,9 +180,9 @@ export default function AppUpdateCard({
       {downloading && progress && (
         <div className="app-update-progress" role="status" aria-live="polite">
           <div className="app-update-progress-head">
-            <span>正在下载最新版安装包…</span>
+            <span>{t('正在下载最新版安装包…', 'Downloading latest installer…')}</span>
             <strong>
-              {progress.percent > 0 ? `${progress.percent}%` : '连接中…'}
+              {progress.percent > 0 ? `${progress.percent}%` : t('连接中…', 'Connecting…')}
               {progress.totalBytes > 0
                 ? ` · ${formatBytes(progress.receivedBytes)} / ${formatBytes(progress.totalBytes)}`
                 : progress.receivedBytes > 0
@@ -192,16 +207,16 @@ export default function AppUpdateCard({
         {hasUpdate && !downloading ? (
           <button type="button" className="primary" disabled={checking} onClick={() => void handleInstall()}>
             {installing
-              ? '重新下载更新'
+              ? t('重新下载更新', 'Download Again')
               : info?.canInAppInstall
-                ? `立即更新到 v${info.latestVersion}`
-                : `下载新版本 v${info?.latestVersion}`}
+                ? t(`立即更新到 v${info.latestVersion}`, `Update to v${info.latestVersion}`)
+                : t(`下载新版本 v${info?.latestVersion ?? ''}`, `Download v${info?.latestVersion ?? ''}`)}
           </button>
         ) : null}
 
         {downloading ? (
           <button type="button" className="secondary" onClick={() => void handleCancel()}>
-            取消下载
+            {t('取消下载', 'Cancel Download')}
           </button>
         ) : (
           <button
@@ -210,13 +225,13 @@ export default function AppUpdateCard({
             disabled={checking}
             onClick={() => void handleCheck(false)}
           >
-            {checking ? '检查中…' : hasUpdate ? '重新检查' : '检查更新'}
+            {checking ? t('检查中…', 'Checking…') : hasUpdate ? t('重新检查', 'Check Again') : t('检查更新', 'Check for Updates')}
           </button>
         )}
 
         {installing && info?.platform === 'android' && info.canInAppInstall && (
           <button type="button" className="secondary" onClick={() => void handleReopenApk()}>
-            重新打开安装器
+            {t('重新打开安装器', 'Reopen Installer')}
           </button>
         )}
 
@@ -227,7 +242,7 @@ export default function AppUpdateCard({
             target="_blank"
             rel="noopener noreferrer"
           >
-            浏览器下载
+            {t('浏览器下载', 'Download in Browser')}
           </a>
         )}
       </div>

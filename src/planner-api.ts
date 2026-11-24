@@ -1,5 +1,6 @@
 import { plannerApiUrl } from './api-base';
 import { cachePlannerResponsePhotos } from './planner-photo-cache';
+import { readLanguage } from './i18n';
 
 /** Consume server progress without exposing the provider key to the browser. */
 export async function plannerApi<T>(
@@ -19,7 +20,9 @@ export async function plannerApi<T>(
     });
   } catch (error) {
     if (signal.aborted) throw error;
-    throw new Error('无法连接 AI 服务：桌面版请直接重启应用，手机版请在「个人中心 → 远程 AI 服务」填写电脑/服务器地址');
+    throw new Error(readLanguage() === 'en'
+      ? 'Cannot connect to AI server: on desktop restart the app; on mobile/web configure the server URL in Profile → Settings → Remote / LAN AI Server.'
+      : '无法连接 AI 服务：桌面版请直接重启应用，手机版请在「个人中心 → 设置 → 远程 / 局域网 AI 服务」填写电脑/服务器地址');
   }
   if (!response.ok) {
     const error = (await response.json().catch(() => ({}))) as { error?: string };
