@@ -491,15 +491,12 @@ function base64Url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-async function generatePkce(): Promise<{ verifier: string; challenge: string; state: string }> {
+function generatePkceSync(): { verifier: string; challenge: string; state: string } {
   const verifierBytes = new Uint8Array(32);
   crypto.getRandomValues(verifierBytes);
   const verifier = base64Url(verifierBytes);
   const encoded = new TextEncoder().encode(verifier);
-  const digestBytes = typeof crypto !== 'undefined' && crypto.subtle
-    ? new Uint8Array(await crypto.subtle.digest('SHA-256', encoded))
-    : sha256(encoded);
-  const challenge = base64Url(digestBytes);
+  const challenge = base64Url(sha256(encoded));
   const stateBytes = new Uint8Array(16);
   crypto.getRandomValues(stateBytes);
   const state = base64Url(stateBytes);
@@ -761,8 +758,8 @@ async function startSubLogin(providerKey: string, method?: string): Promise<Reco
 
   await cleanupLoginSession(key);
 
-  // PWA 网页端无法监听 localhost 回调端口，ChatGPT 自动优先使用官方设备码免回调登录流
-  if (key === 'chatgpt' && (method === 'device_code' || !bridge)) {
+  // 仅当用户显式点击「设备码登录（免回调）」时走设备码流；默认统一走标准 OAuth（无需去安全设置开开关）
+  if (key === 'chatgpt' && method === 'device_code') {
     const resp = await transportHttpRequest({
       url: 'https://auth.openai.com/api/accounts/deviceauth/usercode',
       method: 'POST',
@@ -937,8 +934,8 @@ async function startSubLogin(providerKey: string, method?: string): Promise<Reco
     };
   }
 
-  // ChatGPT / Claude OAuth PKCE（原生 APK 自动回调；PWA 版 Claude 走官方复制授权码页）
-  const { verifier, challenge, state } = await generatePkce();
+  // ChatGPT / Claude 标准 OAuth PKCE（同步构造链接，避免浏览器拦截弹窗）
+  const { verifier, challenge, state } = generatePkceSync();
   const isChatGpt = key === 'chatgpt';
   const port = isChatGpt ? 1455 : 53692;
   const callbackPath = isChatGpt ? '/auth/callback' : '/callback';
@@ -973,6 +970,15 @@ async function startSubLogin(providerKey: string, method?: string): Promise<Reco
   );
   const authUrl = `${isChatGpt ? CHATGPT_AUTHORIZE_URL : CLAUDE_AUTHORIZE_URL}?${params.toString()}`;
 
+  // 无原生桥接（PWA 网页版）时在进入任何 await 前同步打开授权页，防止 Chrome / Safari 拦截弹窗
+  if (!bridge) {
+    try {
+      window.open(authUrl, '_blank', 'noopener,noreferrer');
+    } catch {
+      // 用户也可点击下方链接手动打开
+    }
+  }
+
   const session: ActiveLoginSession = {
     key,
     state: 'pending',
@@ -982,7 +988,9 @@ async function startSubLogin(providerKey: string, method?: string): Promise<Reco
     redirectUri,
     instructions: bridge
       ? '已在手机浏览器打开登录页，完成授权后会自动跳回本机并保存；如浏览器未自动跳转，也可复制回调网址粘贴到下方完成登录。'
-      : '请点击上方链接完成 Claude 授权，授权后网页会显示一段授权码，复制粘贴到下方输入框即可完成登录并保存在本机。',
+      : (isChatGpt
+          ? '请在打开的 ChatGPT 页面点「继续」；跳转后显示无法访问页面属正常现象，复制浏览器地址栏完整网址粘贴到下方提交即可（仅需一次，之后自动续期）。'
+          : '请点击上方链接完成 Claude 授权，授权后网页会显示授权码，复制粘贴到下方输入框即可完成登录并保存在本机。'),
   };
   loginSessions.set(key, session);
 
@@ -1004,9 +1012,8 @@ async function startSubLogin(providerKey: string, method?: string): Promise<Reco
     } catch {
       // 即使本地回调端口被占用，用户仍可粘贴回调网址手动完成
     }
+    await openAuthPage(authUrl);
   }
-
-  await openAuthPage(authUrl);
 
   return {
     status: 'pending',

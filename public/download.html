@@ -151,7 +151,7 @@
                 <rect x="6" y="2" width="12" height="20" rx="2.5" />
                 <line x1="12" y1="18" x2="12.01" y2="18" />
               </svg>
-              <span id="hero-mobile-dl-label">下载手机版（PWA 推荐 / APK / iOS）</span>
+              <span id="hero-mobile-dl-label">下载手机版（Android APK / iOS / PWA）</span>
             </a>
             <a id="hero-primary-dl" class="btn btn-primary" href="#desktop">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -574,63 +574,26 @@
             <div class="panel-header">
               <h3 class="panel-title">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2.5" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
-                <span>手机移动版（PWA 免弹窗推荐 + 独立安装包）</span>
+                <span>手机移动版（Android APK 优先 + iOS + PWA）</span>
               </h3>
               <a id="mobile-release-link" class="release-tag" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile" target="_blank" rel="noreferrer">
                 📦 正在查询手机版最新 Release…
               </a>
             </div>
 
-            <!-- PWA 首推卡 -->
-            <article class="dl-card pwa-hero-card" id="pwa-install-card">
-              <span class="badge teal">⭐ 推荐 · 免安装包</span>
-              <div class="card-head">
-                <div class="os-icon" style="background:var(--teal-soft);color:var(--teal);border-color:rgba(29,100,120,0.22);" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.2H22l-6.2 4.5 2.4 7.3L12 16.5 5.8 21l2.4-7.3L2 9.2h7.6z" /></svg>
-                </div>
-                <div>
-                  <h3>PWA 网页版「添加到主屏幕」（推荐 · Android / iOS 通用）</h3>
-                  <small>桌面独立 App 图标 · 全屏离线运行 · 自动更新 · 免安装包</small>
-                </div>
-              </div>
-              <p>
-                用手机浏览器（Safari / Chrome / Edge / 系统浏览器）打开 <strong>zhouyou.online</strong> → 点击菜单里的 <strong>「添加到主屏幕 / 添加到桌面」</strong>，即可像原生 App 一样保存原图照片、语音手账并离线看地图，打开即用且自动更新。
-              </p>
-              <ol class="pwa-steps" id="pwa-steps-list">
-                <li><strong>Android 手机</strong>：用 Chrome / Edge / 系统浏览器打开 → 点下方「立即添加到主屏幕」或浏览器菜单「添加到桌面」。</li>
-                <li><strong>iPhone / iPad</strong>：用自带 <strong>Safari</strong> 打开 → 点底部分享按钮 → 选择「添加到主屏幕」（免自签、永不掉签）。</li>
-              </ol>
-              <div class="pwa-actions">
-                <button type="button" id="pwa-install-btn" class="btn btn-primary btn-pwa-lg" hidden>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="6" y="2" width="12" height="20" rx="2.5" />
-                    <path d="M12 8v6m0 0-2.5-2.5M12 14l2.5-2.5" />
-                  </svg>
-                  <span>立即添加到主屏幕（推荐 · 一键安装）</span>
-                </button>
-                <a class="btn btn-primary btn-pwa-lg" id="pwa-open-btn" href="./">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-                  </svg>
-                  <span>打开 PWA 添加到桌面（推荐）</span>
-                </a>
-                <a class="btn btn-secondary" href="./?demo=1&amp;tour=1">🗺️ 先在线试玩</a>
-              </div>
-              <p id="pwa-install-status" class="pwa-status" aria-live="polite"></p>
-            </article>
-
-            <div class="dl-grid">
+            <div class="dl-grid" style="margin-bottom:18px;">
               <article class="dl-card" data-os="android">
+                <span class="badge teal">⭐ 安卓首选 · 完整订阅登录</span>
                 <div class="card-head">
                   <div class="os-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10h14v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-8z" /><path d="M7 10a5 5 0 0 1 10 0" /><line x1="9" y1="4" x2="7.5" y2="2" /><line x1="15" y1="4" x2="16.5" y2="2" /></svg>
                   </div>
                   <div>
-                    <h3>Android 安卓手机版</h3>
-                    <small>Android 8.0 及以上</small>
+                    <h3>Android 安卓手机版 (.apk)</h3>
+                    <small>Android 8.0 及以上 · 支持手机直登 ChatGPT / Claude / Kimi 订阅</small>
                   </div>
                 </div>
-                <p>独立安装的原生安卓 APK，支持离线中国足迹地图、原图照片/视频/语音手账、每日账本、成就海报与 ZIP 备份。</p>
+                <p>独立原生安装包，支持离线中国足迹地图、照片手账、每日账本与免电脑 AI 订阅登录。安装时若系统弹出「第三方应用提醒」，勾选「已知悉风险 → 继续安装」即可。</p>
                 <div class="dl-list">
                   <a class="dl-link primary-dl" data-asset="android-apk" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile">
                     <span>下载安卓安装包 (.apk)</span>
@@ -645,23 +608,54 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="3" /><line x1="10" y1="5" x2="14" y2="5" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
                   </div>
                   <div>
-                    <h3>iOS 苹果手机版</h3>
+                    <h3>iOS 苹果手机版 (.ipa)</h3>
                     <small>iPhone / iPad</small>
                   </div>
                 </div>
-                <p>提供独立开源 <code>.ipa</code> 安装包（支持 AltStore / SideStore / TrollStore / Sideloadly），亦可直接通过 Safari 添加到主屏幕免自签运行。</p>
+                <p>提供独立开源 <code>.ipa</code> 安装包（支持 AltStore / SideStore / TrollStore / Sideloadly），也可直接使用下方 Safari PWA 添加到主屏幕。</p>
                 <div class="dl-list">
                   <a class="dl-link" data-asset="ios-ipa" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile">
                     <span>下载 iOS 安装包 (.ipa)</span>
                     <span class="dl-meta">AltStore / 巨魔</span>
                   </a>
                   <a class="dl-link primary-dl" href="./">
-                    <span>Safari PWA 一键安装</span>
-                    <span class="dl-meta">免自签推荐</span>
+                    <span>Safari PWA 添加到主屏幕</span>
+                    <span class="dl-meta">免自签</span>
                   </a>
                 </div>
               </article>
             </div>
+
+            <!-- PWA 轻体验卡（置于 APK 之后） -->
+            <article class="dl-card pwa-hero-card" id="pwa-install-card">
+              <span class="badge">轻量化 · 免安装</span>
+              <div class="card-head">
+                <div class="os-icon" style="background:var(--teal-soft);color:var(--teal);border-color:rgba(29,100,120,0.22);" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.2H22l-6.2 4.5 2.4 7.3L12 16.5 5.8 21l2.4-7.3L2 9.2h7.6z" /></svg>
+                </div>
+                <div>
+                  <h3>PWA 网页版「添加到主屏幕」（Android / iOS 通用）</h3>
+                  <small>优点：打开快、免安装、自动更新 · 缺点：AI 订阅使用受限</small>
+                </div>
+              </div>
+              <p>
+                用手机浏览器打开 <strong>zhouyou.online</strong> → 菜单选 <strong>「添加到主屏幕」</strong>即可像 App 一样离线看地图和写手账。<strong>优缺点</strong>：上手快、无系统安装弹窗，但受浏览器限制，AI 订阅登录体验不如独立客户端（推荐搭配 API Key 或使用上方 APK）。
+              </p>
+              <div class="pwa-actions">
+                <button type="button" id="pwa-install-btn" class="btn btn-primary btn-pwa-lg" hidden>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="6" y="2" width="12" height="20" rx="2.5" />
+                    <path d="M12 8v6m0 0-2.5-2.5M12 14l2.5-2.5" />
+                  </svg>
+                  <span>立即添加到主屏幕</span>
+                </button>
+                <a class="btn btn-secondary" id="pwa-open-btn" href="./">
+                  <span>打开 PWA 网页版</span>
+                </a>
+                <a class="btn btn-secondary" href="./?demo=1&amp;tour=1">🗺️ 先在线试玩</a>
+              </div>
+              <p id="pwa-install-status" class="pwa-status" aria-live="polite"></p>
+            </article>
           </section>
 
           <!-- 永久固定直链分享条 -->
@@ -763,10 +757,10 @@
             </details>
 
             <details class="faq-item">
-              <summary>手机端怎么选 PWA 还是 APK / IPA？如何连接电脑 AI？</summary>
+              <summary>手机端怎么选 APK 还是 PWA？</summary>
               <div class="faq-body">
                 <p>
-                  手机端优先推荐 <strong>PWA「添加到主屏幕」</strong>（iPhone 用 Safari，安卓用 Chrome / Edge / 系统浏览器打开 zhouyou.online），打开即用、离线可用且自动更新；也提供 <code>.apk</code> 与 <code>.ipa</code> 独立安装包作为备用。
+                  安卓手机推荐优先安装 <strong><code>.apk</code> 独立客户端</strong>（支持免电脑直登 ChatGPT / Claude / Kimi 订阅）；追求轻快免安装或使用 iPhone 时，可将 <strong>PWA 网页版</strong>添加到主屏幕（打开快、自动更新，但 AI 订阅登录受浏览器限制，建议搭配 API Key 使用）。
                 </p>
                 <p>
                   如需在手机上使用 AI 规划，可在电脑桌面版顶部菜单开启「允许局域网手机连接 AI 服务」，然后在手机端「个人中心 → 设置 → 远程 / 局域网 AI 服务」填入局域网地址即可无线互联。

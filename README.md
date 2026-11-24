@@ -155,11 +155,11 @@
 
 独立安装与离线使用中国足迹地图、照片/视频/语音旅行手账、每日账本、旅途成就与 ZIP 备份：
 
-| 平台 | 适用设备 | 安装方式 | 独立下载入口 |
+| 平台 | 适用设备 | 安装方式与说明 | 独立下载入口 |
 | :--- | :--- | :--- | :---: |
-| **Web PWA（推荐）** | Safari / Chrome / Edge / 系统浏览器 | **「添加到主屏幕 / 添加到桌面」**（全屏离线、自动更新） | [![Open Web PWA](https://img.shields.io/badge/Web%20PWA-推荐体验-ef6351?style=flat-square&logo=safari&logoColor=white)](https://zhouyou.online/) |
-| **Android (安卓 · 备用)** | Android 8.0+ 手机 / 平板 | 官网直下 `.apk` | [![Download Android](https://img.shields.io/badge/Android-.apk%20官网直下-3DDC84?style=flat-square&logo=android&logoColor=white)](https://zhouyou.online/download-mobile.html) |
-| **iOS (苹果手机 · 备用)** | iPhone / iPad | `.ipa` 自签（AltStore / SideStore / TrollStore） | [![Download iOS](https://img.shields.io/badge/iOS-.ipa%20自签客户端-000000?style=flat-square&logo=ios&logoColor=white)](https://zhouyou.online/download-mobile.html) |
+| **Android (安卓 · 推荐)** | Android 8.0+ 手机 / 平板 | 官网直下 `.apk`（支持免电脑直登 AI 订阅） | [![Download Android](https://img.shields.io/badge/Android-.apk%20官网直下-3DDC84?style=flat-square&logo=android&logoColor=white)](https://zhouyou.online/download-mobile.html) |
+| **iOS (苹果手机)** | iPhone / iPad | `.ipa` 自签（AltStore / SideStore / TrollStore） | [![Download iOS](https://img.shields.io/badge/iOS-.ipa%20自签客户端-000000?style=flat-square&logo=ios&logoColor=white)](https://zhouyou.online/download-mobile.html) |
+| **Web PWA** | Safari / Chrome / Edge / 系统浏览器 | **「添加到主屏幕」**（打开快、免安装，但 AI 订阅使用受限） | [![Open Web PWA](https://img.shields.io/badge/Web%20PWA-在线打开-ef6351?style=flat-square&logo=safari&logoColor=white)](https://zhouyou.online/) |
 
 <details>
 <summary><b>📖 展开查看各系统安装贴士（Windows / macOS / Linux / Android / iOS）</b></summary>
