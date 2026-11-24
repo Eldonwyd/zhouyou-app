@@ -4,7 +4,7 @@
 
 # Zhouyou Map · 周游地图
 
-**Light Up Your Footprint Map · One-Click AI Trip Planner · Photo & Memory Travel Journal**
+**An All-in-One Cross-Platform Travel Toolkit — From AI Trip Planning & Map Lookup with One-Click Amap/Xiaohongshu Links to Footprint Maps & Photo Journals**
 
 <p>
   <a href="../README.md">简体中文</a>
@@ -53,8 +53,9 @@
 
 > Note: The in-app UI is crafted in Chinese (`zh-CN`).
 
-- **🗺️ Footprint Map Recording**: Track visited and planned cities across all 34 provincial regions and 370+ cities in China, with province drill-down, exploration progress, and offline province map caching.
+- **🔗 Seamless Amap & Xiaohongshu Integration**: Import Xiaohongshu travel guides or screenshots directly into your plan, open curated city activity/food searches on Xiaohongshu in one click, and jump straight to **Amap (高德地图)** for exact spot locations and navigation without copy-pasting.
 - **🤖 One-Click AI Trip Planning**: Enter destination, dates, travelers, and budget to generate complete day-by-day itineraries with scenic cards, transit connectors, budgets, calendar reminders, offline HTML roadbook export, and local PP-OCRv5 booking screenshot parsing across DeepSeek, OpenAI, Claude, Gemini, Qwen, Zhipu, and Kimi.
+- **🗺️ Footprint Map Recording**: Track visited and planned cities across all 34 provincial regions and 370+ cities in China, with province drill-down, exploration progress, and offline province map caching.
 - **📸 Photo & Memory Travel Journal**: Archive original photos, videos, text notes, and voice memos by trip or city with automatic timeline grouping, GPS city checks, and illustrated city postcards so every journey is easy to revisit.
 - **🔒 Local-First & Private**: Zero ads, zero forced accounts. All data lives locally in `IndexedDB` with full **ZIP v3** cross-device backup & restore.
 
