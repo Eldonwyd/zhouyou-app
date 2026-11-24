@@ -220,12 +220,11 @@ async function fetchReleasesList(signal?: AbortSignal): Promise<ReleaseEntry[]> 
     `${PAGES_RELEASES_URL}?${bust}`,
     GITHUB_API_RELEASES_URL,
   ];
-  let lastError: unknown;
-  for (const url of urls) {
-    try {
+  const results = await Promise.allSettled(
+    urls.map(async (url) => {
       const combined = signal
-        ? AbortSignal.any([signal, AbortSignal.timeout(12000)])
-        : AbortSignal.timeout(12000);
+        ? AbortSignal.any([signal, AbortSignal.timeout(10000)])
+        : AbortSignal.timeout(10000);
       const res = await fetch(url, {
         cache: 'no-store',
         headers: { Accept: 'application/json' },
@@ -233,13 +232,24 @@ async function fetchReleasesList(signal?: AbortSignal): Promise<ReleaseEntry[]> 
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) return data as ReleaseEntry[];
-    } catch (error) {
-      if (signal?.aborted) throw error;
-      lastError = error;
+      if (!Array.isArray(data) || data.length === 0) throw new Error('empty');
+      return data as ReleaseEntry[];
+    }),
+  );
+  if (signal?.aborted) throw new DOMException('已取消', 'AbortError');
+
+  const merged = new Map<string, ReleaseEntry>();
+  for (const item of results) {
+    if (item.status !== 'fulfilled') continue;
+    for (const rel of item.value) {
+      if (rel?.tag_name && !merged.has(rel.tag_name)) {
+        merged.set(rel.tag_name, rel);
+      }
     }
   }
-  throw lastError instanceof Error ? lastError : new Error('暂时无法连接更新服务器，请检查网络后重试');
+  if (merged.size > 0) return [...merged.values()];
+  const firstErr = results.find((r): r is PromiseRejectedResult => r.status === 'rejected')?.reason;
+  throw firstErr instanceof Error ? firstErr : new Error('暂时无法连接更新服务器，请检查网络后重试');
 }
 
 function summarizeNotes(rawBody: string): string {

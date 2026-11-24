@@ -142,6 +142,19 @@ async function patchAndroid() {
     'utf8',
   );
 
+  // 4.5. Ensure FileProvider file_paths.xml exposes cache-path so AppUpdater can install downloaded APKs
+  const xmlDir = path.join(resDir, 'xml');
+  await mkdir(xmlDir, { recursive: true });
+  const filePathsXml = `<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <external-path name="my_images" path="." />
+    <cache-path name="my_cache_images" path="." />
+    <external-cache-path name="my_external_cache" path="." />
+    <files-path name="my_files" path="." />
+</paths>
+`;
+  await writeFile(path.join(xmlDir, 'file_paths.xml'), filePathsXml, 'utf8');
+
   // 5. Inject native AppUpdater Capacitor plugin (in-app APK download with progress + FileProvider install)
   const javaPkgDir = path.join(androidDir, 'app', 'src', 'main', 'java', 'app', 'zhouyou', 'map');
   await mkdir(javaPkgDir, { recursive: true });
@@ -170,6 +183,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
+import android.provider.Settings;
 import androidx.core.content.FileProvider;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -219,8 +233,14 @@ public class AppUpdaterPlugin extends Plugin {
         notifyListeners("updateProgress", data);
     }
 
-    private void launchApkInstaller(File apkFile) {
+    private void launchApkInstaller(File apkFile) throws Exception {
         Context context = getContext();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.getPackageManager().canRequestPackageInstalls()) {
+            Intent permIntent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + context.getPackageName()));
+            permIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(permIntent);
+            throw new Exception("请先开启「允许安装未知应用」权限，开启后返回点击「重新打开安装器」即可升级");
+        }
         Uri apkUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", apkFile);
         Intent intent = new Intent(Intent.ACTION_VIEW);
         intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
