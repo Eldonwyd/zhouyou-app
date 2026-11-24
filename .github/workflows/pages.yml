@@ -3,6 +3,8 @@ name: Deploy Web & Download Center to GitHub Pages
 on:
   push:
     branches: [main]
+  release:
+    types: [published, edited, released]
   workflow_dispatch:
 
 permissions:
@@ -37,6 +39,43 @@ jobs:
         run: |
           mkdir -p dist/screenshots
           cp docs/screenshots/*.png docs/screenshots/*.gif dist/screenshots/
+
+      - name: Generate static releases.json for download center
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const url = `https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/releases?per_page=20`;
+            const headers = { Accept: "application/vnd.github+json", "User-Agent": "zhouyou-pages-build" };
+            if (process.env.GH_TOKEN) headers.Authorization = `Bearer ${process.env.GH_TOKEN}`;
+            fetch(url, { headers })
+              .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+              .then((list) => {
+                const slim = (Array.isArray(list) ? list : [])
+                  .filter((r) => !r.draft)
+                  .map((r) => ({
+                    tag_name: r.tag_name,
+                    name: r.name,
+                    draft: Boolean(r.draft),
+                    prerelease: Boolean(r.prerelease),
+                    html_url: r.html_url,
+                    published_at: r.published_at,
+                    assets: (r.assets || []).map((a) => ({
+                      name: a.name,
+                      size: a.size,
+                      browser_download_url: a.browser_download_url,
+                    })),
+                  }));
+                fs.writeFileSync("dist/releases.json", JSON.stringify(slim, null, 2));
+                console.log(`Wrote dist/releases.json (${slim.length} releases)`);
+              })
+              .catch((err) => {
+                console.warn("Could not fetch releases.json:", err.message);
+                fs.writeFileSync("dist/releases.json", "[]");
+              });
+          '
 
       - name: Add .nojekyll for GitHub Pages
         run: touch dist/.nojekyll

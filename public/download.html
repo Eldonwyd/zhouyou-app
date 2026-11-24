@@ -795,51 +795,71 @@
 
         const desktopTagEl = document.getElementById('desktop-release-link');
         const mobileTagEl = document.getElementById('mobile-release-link');
+        let boundDesktop = false;
+        let boundMobile = false;
 
-        fetch(`https://api.github.com/repos/${REPO}/releases?per_page=20`)
-          .then((res) => (res.ok ? res.json() : Promise.reject(new Error('api-error'))))
-          .then((releases) => {
-            const list = Array.isArray(releases) ? releases.filter((r) => !r.draft) : [];
-            const desktopRelease =
-              list.find((r) => /^desktop-v/i.test(r.tag_name || '')) ||
-              list.find((r) => (r.assets || []).some((a) => /\.(exe|dmg|AppImage|deb)$/i.test(a.name)));
-            const mobileRelease =
-              list.find((r) => /^mobile-v/i.test(r.tag_name || '')) ||
-              list.find((r) => (r.assets || []).some((a) => /\.(apk|ipa)$/i.test(a.name)));
+        function applyReleases(releases) {
+          const list = Array.isArray(releases) ? releases.filter((r) => !r.draft) : [];
+          if (!list.length) return false;
+          const desktopRelease =
+            list.find((r) => /^desktop-v/i.test(r.tag_name || '')) ||
+            list.find((r) => (r.assets || []).some((a) => /\.(exe|dmg|AppImage|deb)$/i.test(a.name)));
+          const mobileRelease =
+            list.find((r) => /^mobile-v/i.test(r.tag_name || '')) ||
+            list.find((r) => (r.assets || []).some((a) => /\.(apk|ipa)$/i.test(a.name)));
 
-            if (desktopRelease) {
-              if (desktopTagEl) {
-                desktopTagEl.textContent = `✨ 电脑版最新 ${desktopRelease.tag_name} · 查看 Release`;
-                desktopTagEl.href = desktopRelease.html_url;
-              }
-              bindAssets(desktopRelease, {
-                'win-setup': (n) => /win.*setup\.exe$/i.test(n),
-                'win-portable': (n) => /win.*portable\.exe$/i.test(n),
-                'mac-arm64': (n) => /mac.*arm64\.dmg$/i.test(n),
-                'mac-x64': (n) => /mac.*x64\.dmg$/i.test(n),
-                'linux-appimage': (n) => /\.AppImage$/i.test(n),
-                'linux-deb': (n) => /\.deb$/i.test(n),
-              });
-            } else if (desktopTagEl) {
-              desktopTagEl.textContent = '📦 前往 GitHub Releases 查看电脑版';
+          if (desktopRelease) {
+            boundDesktop = true;
+            if (desktopTagEl) {
+              desktopTagEl.textContent = `✨ 电脑版最新 ${desktopRelease.tag_name} · 查看 Release`;
+              desktopTagEl.href = desktopRelease.html_url;
             }
+            bindAssets(desktopRelease, {
+              'win-setup': (n) => /win.*setup\.exe$/i.test(n),
+              'win-portable': (n) => /win.*portable\.exe$/i.test(n),
+              'mac-arm64': (n) => /mac.*arm64\.dmg$/i.test(n),
+              'mac-x64': (n) => /mac.*x64\.dmg$/i.test(n),
+              'linux-appimage': (n) => /\.AppImage$/i.test(n),
+              'linux-deb': (n) => /\.deb$/i.test(n),
+            });
+          }
 
-            if (mobileRelease) {
-              if (mobileTagEl) {
-                mobileTagEl.textContent = `✨ 手机版最新 ${mobileRelease.tag_name} · 查看 Release`;
-                mobileTagEl.href = mobileRelease.html_url;
-              }
-              bindAssets(mobileRelease, {
-                'android-apk': (n) => /\.apk$/i.test(n),
-                'ios-ipa': (n) => /\.ipa$/i.test(n),
-              });
-            } else if (mobileTagEl) {
-              mobileTagEl.textContent = '📦 前往 GitHub Releases 查看手机版';
+          if (mobileRelease) {
+            boundMobile = true;
+            if (mobileTagEl) {
+              mobileTagEl.textContent = `✨ 手机版最新 ${mobileRelease.tag_name} · 查看 Release`;
+              mobileTagEl.href = mobileRelease.html_url;
             }
+            bindAssets(mobileRelease, {
+              'android-apk': (n) => /\.apk$/i.test(n),
+              'ios-ipa': (n) => /\.ipa$/i.test(n),
+            });
+          }
+          return boundDesktop || boundMobile;
+        }
+
+        function applyFallbackLabels() {
+          if (!boundDesktop && desktopTagEl) desktopTagEl.textContent = '📦 前往 GitHub Releases 查看电脑版';
+          if (!boundMobile && mobileTagEl) mobileTagEl.textContent = '📦 前往 GitHub Releases 查看手机版';
+        }
+
+        // 优先读取同源静态 releases.json（免受 GitHub API 匿名限流影响），再尝试后台刷新实时数据
+        fetch('./releases.json', { cache: 'no-cache' })
+          .then((res) => (res.ok ? res.json() : []))
+          .then((data) => {
+            applyReleases(data);
           })
-          .catch(() => {
-            if (desktopTagEl) desktopTagEl.textContent = '📦 前往 GitHub Releases 查看电脑版';
-            if (mobileTagEl) mobileTagEl.textContent = '📦 前往 GitHub Releases 查看手机版';
+          .catch(() => {})
+          .finally(() => {
+            fetch(`https://api.github.com/repos/${REPO}/releases?per_page=20`)
+              .then((res) => (res.ok ? res.json() : Promise.reject(new Error('api-error'))))
+              .then((releases) => {
+                applyReleases(releases);
+              })
+              .catch(() => {})
+              .finally(() => {
+                applyFallbackLabels();
+              });
           });
       })();
     </script>

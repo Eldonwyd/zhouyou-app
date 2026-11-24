@@ -36,8 +36,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
-  // AI replies and status must always reach the local API, never a stale shell.
-  if (url.pathname.includes('/api/planner/')) return;
+  // AI replies and release metadata must always reach the network, never a stale shell.
+  if (url.pathname.includes('/api/planner/') || url.pathname.endsWith('/releases.json')) return;
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
   if (/\/maps\/\d{6}\.json$/.test(url.pathname)) {
     event.respondWith(caches.open(REGION_CACHE).then(async (cache) => (await cache.match(request, { ignoreVary: true })) || fetch(request)));
