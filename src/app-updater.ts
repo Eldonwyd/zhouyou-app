@@ -56,7 +56,7 @@ interface NativeAppUpdaterPlugin {
 
 const EDGE_RELEASES_URL = 'https://zhouyou.online/api/releases';
 const PAGES_RELEASES_URL = 'https://eldonwyd.github.io/zhouyou-app/releases.json';
-const GITHUB_API_RELEASES_URL = 'https://api.github.com/repos/Eldonwyd/zhouyou-app/releases?per_page=20';
+const GITHUB_API_RELEASES_URL = 'https://api.github.com/repos/Eldonwyd/zhouyou-app/releases?per_page=100';
 export const DOWNLOAD_PORTAL_URL = 'https://zhouyou.online/download.html';
 export const GITHUB_RELEASES_URL = 'https://github.com/Eldonwyd/zhouyou-app/releases';
 
@@ -255,12 +255,68 @@ async function fetchReleasesList(signal?: AbortSignal): Promise<ReleaseEntry[]> 
   throw firstErr instanceof Error ? firstErr : new Error('暂时无法连接更新服务器，请检查网络后重试');
 }
 
-function summarizeNotes(rawBody: string): string {
-  const lines = String(rawBody || '')
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith('```') && !line.startsWith('|') && !line.startsWith('<!--') && !/^#{1,3}\s*校验|SHA256/i.test(line));
-  return lines.slice(0, 6).join('\n').slice(0, 320);
+function sliceCodePoints(text: string, max: number): string {
+  const chars = Array.from(text);
+  return chars.length <= max ? text : `${chars.slice(0, Math.max(0, max - 1)).join('').trimEnd()}…`;
+}
+
+function cleanMarkdownLine(line: string): string {
+  return line
+    .replace(/^#{1,6}\s+/, '')
+    .replace(/^>\s*/, '')
+    .replace(/^[-*]\s+/, '• ')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\uFFFD/g, '')
+    .trim();
+}
+
+export function summarizeNotes(rawBody: string): string {
+  const withoutCodeBlocks = String(rawBody || '').replace(/```[\s\S]*?```/g, '');
+  const parsed: Array<{ text: string; isHeading: boolean }> = [];
+
+  for (const rawLine of withoutCodeBlocks.split(/\r?\n/)) {
+    const trimmed = rawLine.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith('|') || trimmed.startsWith('<!--')) continue;
+    if (/^#{1,2}\s*.*周游地图.*v\d+/i.test(trimmed)) continue;
+    if (/^#{1,3}\s*(?:📦\s*)?下载列表/i.test(trimmed)) continue;
+    if (/^>\s*(?:🌐|📱|💻)?\s*(?:\*\*)?(?:电脑版官网下载页|手机版官网下载页|官网下载中心|需要手机版|需要电脑版)/i.test(trimmed)) continue;
+    if (/^#{1,3}\s*校验|SHA256|完整校验值见附件/i.test(trimmed)) continue;
+
+    const isHeading = /^#{1,6}\s+/.test(trimmed);
+    const cleaned = cleanMarkdownLine(trimmed);
+    if (!cleaned) continue;
+    parsed.push({ text: cleaned, isHeading });
+  }
+
+  const kept: Array<{ text: string; isHeading: boolean }> = [];
+  const maxLines = 6;
+  const maxChars = 420;
+  let usedChars = 0;
+
+  for (const item of parsed) {
+    if (kept.length >= maxLines) break;
+    const itemLen = Array.from(item.text).length;
+    const sepLen = kept.length > 0 ? 1 : 0;
+    if (usedChars + sepLen + itemLen <= maxChars) {
+      kept.push(item);
+      usedChars += sepLen + itemLen;
+    } else if (!item.isHeading && maxChars - usedChars - sepLen >= 24) {
+      kept.push({ text: sliceCodePoints(item.text, maxChars - usedChars - sepLen), isHeading: false });
+      break;
+    } else {
+      break;
+    }
+  }
+
+  while (kept.length > 0 && kept[kept.length - 1].isHeading) {
+    kept.pop();
+  }
+
+  return kept.map((item) => item.text).join('\n');
 }
 
 /** 检查当前平台是否有可更新的新版本。 */
@@ -342,12 +398,14 @@ export async function installAppUpdate(
   const targetUrl = info.downloadUrl || info.releaseUrl || DOWNLOAD_PORTAL_URL;
   if (window.zhouyouDesktop?.downloadAndInstallUpdate) {
     try {
-      await window.zhouyouDesktop.downloadAndInstallUpdate({
+      const res = await window.zhouyouDesktop.downloadAndInstallUpdate({
         url: targetUrl,
         fileName: info.assetName || 'zhouyou-update',
         version: info.latestVersion,
       });
-      return { ok: true, fallbackOpened: true };
+      if (!res || res.ok !== false) {
+        return { ok: true, fallbackOpened: true };
+      }
     } catch {
       /* 回退到 window.open */
     }

@@ -80,7 +80,11 @@ export default function AppUpdateCard({
         if (!silentUpToDate) onNotice?.(t(`当前已是最新版本 v${result.currentVersion}`, `Up to date: v${result.currentVersion}`));
       }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : t('检查更新失败，请稍后重试', 'Failed to check for updates. Please try again later.');
+      const raw = error instanceof Error ? error.message : '';
+      const isNetErr = /fetch failed|failed to fetch|load failed|network|timeout|abort/i.test(raw);
+      const msg = isNetErr || !raw
+        ? t('暂时无法连接更新服务器，请检查网络或点击下方「浏览器下载」获取最新版。', 'Unable to reach the update server. Check your network or use "Download in Browser" below.')
+        : raw;
       setErrorText(msg);
       if (!silentUpToDate) onError?.(msg);
     } finally {
@@ -110,7 +114,11 @@ export default function AppUpdateCard({
       return;
     }
     if (!result.ok) {
-      const msg = result.error || t('下载更新失败，可改用浏览器直接下载安装包', 'Download failed. Try downloading directly in your browser.');
+      const raw = result.error || '';
+      const isNetErr = /fetch failed|failed to fetch|load failed|network|timeout|abort/i.test(raw);
+      const msg = isNetErr || !raw
+        ? t('下载更新失败，请点击下方「浏览器下载」直接获取最新版安装包。', 'Update download failed. Click "Download in Browser" below to get the latest installer.')
+        : raw;
       setProgress(null);
       setErrorText(msg);
       onError?.(msg);
@@ -172,7 +180,16 @@ export default function AppUpdateCard({
             </span>
           </div>
           {info.releaseNotes && (
-            <p className="app-update-notes">{info.releaseNotes}</p>
+            <div className="app-update-notes">
+              {info.releaseNotes.split('\n').map((line, idx) => (
+                <p
+                  key={idx}
+                  className={line.startsWith('• ') ? 'app-update-note-bullet' : 'app-update-note-line'}
+                >
+                  {line}
+                </p>
+              ))}
+            </div>
           )}
         </div>
       )}

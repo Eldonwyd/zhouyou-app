@@ -1,10 +1,39 @@
 const REPO = 'Eldonwyd/zhouyou-app';
 
+function extractVersion(tag) {
+  const cleaned = String(tag || '').trim().replace(/^(?:desktop|mobile)-v?/i, '').replace(/^v/i, '');
+  const match = cleaned.match(/(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)/);
+  return match ? match[1] : cleaned;
+}
+
+function compareSemver(a, b) {
+  const parse = (raw) => {
+    const clean = extractVersion(raw);
+    const [core, pre = ''] = clean.split('-', 2);
+    const parts = core.split('.').map((n) => Number.parseInt(n, 10) || 0);
+    return { major: parts[0] || 0, minor: parts[1] || 0, patch: parts[2] || 0, pre };
+  };
+  const va = parse(a);
+  const vb = parse(b);
+  if (va.major !== vb.major) return va.major > vb.major ? 1 : -1;
+  if (va.minor !== vb.minor) return va.minor > vb.minor ? 1 : -1;
+  if (va.patch !== vb.patch) return va.patch > vb.patch ? 1 : -1;
+  if (va.pre === vb.pre) return 0;
+  if (!va.pre && vb.pre) return 1;
+  if (va.pre && !vb.pre) return -1;
+  return va.pre.localeCompare(vb.pre);
+}
+
+function sliceCodePoints(text, max) {
+  const chars = Array.from(String(text || ''));
+  return chars.length <= max ? chars.join('') : chars.slice(0, max).join('');
+}
+
 /**
  * 代理 GitHub Releases 列表并做边缘缓存，避免国内手机直连 api.github.com 超时或被限流。
  */
 export async function onRequestGet(context) {
-  const upstreamUrl = `https://api.github.com/repos/${REPO}/releases?per_page=20`;
+  const upstreamUrl = `https://api.github.com/repos/${REPO}/releases?per_page=100`;
   const headers = {
     Accept: 'application/vnd.github+json',
     'User-Agent': 'zhouyou-online-pages',
@@ -28,10 +57,15 @@ export async function onRequestGet(context) {
     const list = await upstream.json();
     const slim = (Array.isArray(list) ? list : [])
       .filter((r) => !r.draft)
+      .sort((a, b) => {
+        const diff = compareSemver(b.tag_name, a.tag_name);
+        if (diff !== 0) return diff;
+        return Date.parse(b.published_at || '0') - Date.parse(a.published_at || '0');
+      })
       .map((r) => ({
         tag_name: r.tag_name,
         name: r.name,
-        body: String(r.body || '').slice(0, 1200),
+        body: sliceCodePoints(r.body || '', 1200),
         draft: Boolean(r.draft),
         prerelease: Boolean(r.prerelease),
         html_url: r.html_url,

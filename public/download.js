@@ -579,13 +579,43 @@
   let boundDesktop = false;
   let boundMobile = false;
 
+  function extractReleaseVersion(tag) {
+    const cleaned = String(tag || '').trim().replace(/^(?:desktop|mobile)-v?/i, '').replace(/^v/i, '');
+    const match = cleaned.match(/(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)/);
+    return match ? match[1] : cleaned;
+  }
+
+  function compareReleaseSemver(a, b) {
+    const parse = (raw) => {
+      const clean = extractReleaseVersion(raw);
+      const [core, pre = ''] = clean.split('-', 2);
+      const parts = core.split('.').map((n) => Number.parseInt(n, 10) || 0);
+      return { major: parts[0] || 0, minor: parts[1] || 0, patch: parts[2] || 0, pre };
+    };
+    const va = parse(a);
+    const vb = parse(b);
+    if (va.major !== vb.major) return va.major > vb.major ? 1 : -1;
+    if (va.minor !== vb.minor) return va.minor > vb.minor ? 1 : -1;
+    if (va.patch !== vb.patch) return va.patch > vb.patch ? 1 : -1;
+    if (va.pre === vb.pre) return 0;
+    if (!va.pre && vb.pre) return 1;
+    if (va.pre && !vb.pre) return -1;
+    return va.pre.localeCompare(vb.pre);
+  }
+
   function applyReleases(releases) {
-    const list = Array.isArray(releases) ? releases.filter((r) => !r.draft) : [];
+    const list = (Array.isArray(releases) ? releases.filter((r) => !r.draft) : []).sort((a, b) => {
+      const diff = compareReleaseSemver(b.tag_name, a.tag_name);
+      if (diff !== 0) return diff;
+      return Date.parse(b.published_at || '0') - Date.parse(a.published_at || '0');
+    });
     if (!list.length) return false;
     const desktopRelease =
+      list.find((r) => /^desktop-v/i.test(r.tag_name || '') && (r.assets || []).length > 0) ||
       list.find((r) => /^desktop-v/i.test(r.tag_name || '')) ||
       list.find((r) => (r.assets || []).some((a) => /\.(exe|dmg|AppImage|deb)$/i.test(a.name)));
     const mobileRelease =
+      list.find((r) => /^mobile-v/i.test(r.tag_name || '') && (r.assets || []).length > 0) ||
       list.find((r) => /^mobile-v/i.test(r.tag_name || '')) ||
       list.find((r) => (r.assets || []).some((a) => /\.(apk|ipa)$/i.test(a.name)));
 
@@ -632,7 +662,7 @@
 
   const liveReleasesUrl = useEdgeProxy
     ? './api/releases'
-    : `https://api.github.com/repos/${REPO}/releases?per_page=20`;
+    : `https://api.github.com/repos/${REPO}/releases?per_page=100`;
 
   fetch('./releases.json', { cache: 'no-cache' })
     .then((res) => (res.ok ? res.json() : []))

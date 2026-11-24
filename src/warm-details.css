@@ -3446,10 +3446,19 @@ input, select, textarea { border-radius: 10px; }
 }
 .app-update-notes {
   margin: 8px 0 0;
+  display: grid;
+  gap: 4px;
   font-size: 12.5px;
   line-height: 1.55;
   color: var(--ink-2, var(--ink));
-  white-space: pre-line;
+}
+.app-update-note-line,
+.app-update-note-bullet {
+  margin: 0;
+  word-break: break-word;
+}
+.app-update-note-bullet {
+  padding-left: 2px;
 }
 .app-update-progress {
   margin: 0 0 12px;
