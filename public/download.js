@@ -504,8 +504,8 @@
 
   if (heroMobileLabel) {
     heroMobileLabel.textContent = isMobileDevice
-      ? '手机版（PWA 推荐）'
-      : '下载手机版（PWA 推荐）';
+      ? '下载手机版（APK / iOS / PWA）'
+      : '手机版（APK / iOS / PWA）';
   }
   if (heroMobileBtn) {
     heroMobileBtn.addEventListener('click', (e) => {

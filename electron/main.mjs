@@ -24,6 +24,7 @@ function isTrustedUpdateUrl(rawUrl) {
     if (u.protocol !== 'https:') return false;
     const host = u.hostname.toLowerCase();
     if (host === 'github.com') return u.pathname.toLowerCase().startsWith('/eldonwyd/zhouyou-app/');
+    if (host === 'zhouyou.online' || host === 'www.zhouyou.online') return true;
     return (
       host === 'objects.githubusercontent.com' ||
       host === 'release-assets.githubusercontent.com' ||

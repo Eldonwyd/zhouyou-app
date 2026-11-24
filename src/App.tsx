@@ -18,10 +18,6 @@ import {
 import MapView from './components/MapView';
 
 const DEMO_ACTIVE_KEY = 'zhouyou-demo-active';
-const DEMO_DISMISSED_KEY = 'zhouyou-demo-banner-dismissed';
-const readDemoActive = (): boolean => { try { return localStorage.getItem(DEMO_ACTIVE_KEY) === '1'; } catch { return false; } };
-const readDemoDismissed = (): boolean => { try { return localStorage.getItem(DEMO_DISMISSED_KEY) === '1'; } catch { return false; } };
-const writeDemoDismissed = (): void => { try { localStorage.setItem(DEMO_DISMISSED_KEY, '1'); } catch { /* ignore */ } };
 import { TravelCover, TravelIcon } from './components/TravelArt';
 import { CuteSticker, TravelAvatar } from './components/CuteArt';
 
@@ -82,9 +78,6 @@ export default function App() {
   const [targetPlaceId, setTargetPlaceId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [plannerProvince, setPlannerProvince] = useState<{ name: string; token: number } | null>(null);
-  const [demoMode, setDemoMode] = useState(readDemoActive);
-  const [demoDismissed, setDemoDismissed] = useState(readDemoDismissed);
-  const [demoBusy, setDemoBusy] = useState(false);
   const [tourRestriction, setTourRestriction] = useState<TourRestrictedFeature | null>(null);
   const tourMode = useMemo(() => isWebTourMode(), []);
   const embeddedTour = useMemo(() => isEmbeddedTour(), []);
@@ -122,75 +115,21 @@ export default function App() {
     setPage(nextPage);
   }, []);
 
-  const enterDemoMode = useCallback(async (confirmIfNonEmpty = false) => {
-    const isEn = readLanguage() === 'en';
-    if (confirmIfNonEmpty && (snapshot.marks.length > 0 || snapshot.trips.length > 0 || snapshot.aiPlans.length > 0)) {
-      const msg = isEn
-        ? 'Loading sample data will overwrite current travel records in this browser. Continue with Demo Mode?'
-        : '载入示例数据会覆盖当前浏览器的旅行记录，确认继续体验演示模式吗？';
-      if (!window.confirm(msg)) return;
-    }
-    setDemoBusy(true);
-    try {
-      const { loadDemoWorkspace } = await import('./demo-seed');
-      const seeded = await loadDemoWorkspace();
-      setPlannerOpened(false);
-      setSelectedCityCode(null);
-      setSnapshot(seeded);
-      setDemoMode(true);
-      setDemoDismissed(false);
-      showNotice(isEn
-        ? '✨ Sample data loaded: 14 lit cities, Dali AI roadbook, photo journal, and daily ledger. Clear anytime.'
-        : '✨ 已载入演示数据：14 座点亮城市、大理 AI 路书、照片手账与每日账本，可随时一键清空。');
-    } catch (error: unknown) {
-      showError(describeStorageError(error));
-    } finally {
-      setDemoBusy(false);
-    }
-  }, [showError, showNotice, snapshot.aiPlans.length, snapshot.marks.length, snapshot.trips.length]);
-
-  const exitDemoMode = useCallback(async () => {
-    const isEn = readLanguage() === 'en';
-    setDemoBusy(true);
-    try {
-      const { clearDemoWorkspace } = await import('./demo-seed');
-      const cleared = await clearDemoWorkspace();
-      setPlannerOpened(false);
-      setSelectedCityCode(null);
-      setSnapshot(cleared);
-      setDemoMode(false);
-      setDemoDismissed(true);
-      showNotice(isEn
-        ? 'Sample data cleared. Start recording your own travel footprints!'
-        : '已清空演示数据，开始记录你自己的旅行足迹吧！');
-    } catch (error: unknown) {
-      showError(describeStorageError(error));
-    } finally {
-      setDemoBusy(false);
-    }
-  }, [showError, showNotice]);
-
   useEffect(() => {
     let active = true;
     // 与 IndexedDB 读取并行预拉全国地图，缩短首屏地图呈现耗时。
     prefetchNationalMap();
+    try { localStorage.removeItem(DEMO_ACTIVE_KEY); } catch { /* ignore */ }
     loadSnapshot().then(async (data) => {
       if (!active) return;
-      const wantsDemo = new URLSearchParams(window.location.search).get('demo') === '1' || tourMode;
       const isEmpty = data.marks.length === 0 && data.trips.length === 0 && data.aiPlans.length === 0;
-      if (wantsDemo && isEmpty) {
+      if (tourMode && isEmpty) {
         try {
           const { loadDemoWorkspace } = await import('./demo-seed');
           const seeded = await loadDemoWorkspace();
           if (!active) return;
           setSnapshot(seeded);
-          setDemoMode(true);
           setReady(true);
-          if (!tourMode) {
-            showNotice(readLanguage() === 'en'
-              ? '✨ Entered Demo Mode: explore the footprint map, AI roadbook, photo journal, and ledger!'
-              : '✨ 已自动进入演示模式：可自由浏览足迹地图、AI 路书、照片手账与账本！');
-          }
           return;
         } catch { /* 回退到空白态 */ }
       }
@@ -202,7 +141,7 @@ export default function App() {
       setReady(true);
     });
     return () => { active = false; };
-  }, [showError, showNotice]);
+  }, [showError]);
 
   useEffect(() => {
     if (!notice) return;
@@ -532,22 +471,6 @@ export default function App() {
           </div>
         </div>
       )}
-      {ready && !tourMode && page === 'map' && !demoMode && !demoDismissed && snapshot.marks.length === 0 && snapshot.trips.length === 0 && snapshot.aiPlans.length === 0 && (
-        <section className="demo-welcome-bar" aria-label={t('演示模式引导', 'Demo mode prompt')}>
-          <div className="demo-welcome-copy">
-            <strong>{t('✨ 第一次来？一键载入演示数据快速体验', '✨ First time here? Try Demo Mode with sample data')}</strong>
-            <span>{t('内含 14 座点亮城市、完整大理 AI 行程路书与路线地图、照片手账及每日账本，随时一键清空。', 'Includes 14 lit cities, a full Dali AI roadbook & route map, photo journal, and daily ledger—clear anytime.')}</span>
-          </div>
-          <div className="demo-welcome-actions">
-            <button type="button" className="primary" disabled={demoBusy} onClick={() => void enterDemoMode(false)}>
-              {demoBusy ? t('正在载入示例…', 'Loading sample…') : t('✨ 体验示例数据', '✨ Try Sample Data')}
-            </button>
-            <button type="button" className="secondary" disabled={demoBusy} onClick={() => { writeDemoDismissed(); setDemoDismissed(true); }}>
-              {t('暂不需要', 'Not now')}
-            </button>
-          </div>
-        </section>
-      )}
       {ready && availableUpdate && !updateBannerDismissed && page !== 'profile' && (
         <div className="app-update-top-bar" role="status">
           <span>
@@ -566,14 +489,6 @@ export default function App() {
           </div>
         </div>
       )}
-      {ready && demoMode && !tourMode && (
-        <div className="demo-active-bar" role="status">
-          <span>{t('✨ 演示模式体验中 · 包含示例足迹、大理 AI 路书、照片手账与账本', '✨ Demo Mode active · Exploring sample footprints, Dali AI roadbook, journal & ledger')}</span>
-          <button type="button" className="secondary" disabled={demoBusy} onClick={() => void exitDemoMode()}>
-            {demoBusy ? t('清空中…', 'Clearing…') : t('退出并清空示例', 'Exit & Clear Demo')}
-          </button>
-        </div>
-      )}
       <main>{!ready ? <div className="empty-state">{t('正在读取本机旅行数据…', 'Loading local travel data…')}</div> : <>
         {/* 保持规划组件挂载，让 AI 请求和小红书解析在浏览其他页面时继续。 */}
         {plannerOpened && <div hidden={page !== 'plan'}>
@@ -588,10 +503,9 @@ export default function App() {
         <Suspense fallback={<div className="empty-state">{t('正在打开页面…', 'Opening page…')}</div>}>
           {page === 'detail' && <DetailView city={selectedCity} marks={effectiveMarks} entries={snapshot.entries} media={snapshot.media} trips={snapshot.trips} aiPlans={snapshot.aiPlans} places={snapshot.places} targetEntryId={targetEntryId} targetPlaceId={targetPlaceId} onOpenMap={() => openPage('map')} onSaveEntry={saveEntry} onSaveMedia={saveMedia} onSaveMediaGroup={saveMediaGroup} onUpdateMedia={updateMedia} onDeleteMedia={deleteMedia} onSaveTrip={saveTrip} onSavePlace={savePlace} onSaveCityMark={saveMark} onUpdateMark={updateSelectedMark} onError={showError} onNotice={showNotice} webTourMode={tourMode} onRequireClient={requestClientForTour} />}
           {page === 'achievements' && <AchievementsView marks={effectiveMarks} entries={snapshot.entries} trips={snapshot.trips} media={snapshot.media} badges={snapshot.badges} onSaveBadge={saveBadge} onOpenEntry={openEntry} onError={showError} onNotice={showNotice} webTourMode={tourMode} onRequireClient={requestClientForTour} />}
-          {page === 'profile' && <ProfileView snapshot={snapshot} activeProvinceCode={activeProvinceCode} resetSettingsToken={profileResetToken} demoMode={demoMode} demoBusy={demoBusy} availableUpdate={availableUpdate} updateFocusToken={updateFocusToken} updateCheckToken={updateCheckToken} onUpdateFound={setAvailableUpdate} onLoadDemo={() => void enterDemoMode(true)} onClearDemo={() => void exitDemoMode()} onSaveProfile={saveProfile} onImported={(data) => {
+          {page === 'profile' && <ProfileView snapshot={snapshot} activeProvinceCode={activeProvinceCode} resetSettingsToken={profileResetToken} availableUpdate={availableUpdate} updateFocusToken={updateFocusToken} updateCheckToken={updateCheckToken} onUpdateFound={setAvailableUpdate} onSaveProfile={saveProfile} onImported={(data) => {
             // 恢复备份会替换行程数据，清除上一份数据上打开的规划会话。
             setPlannerOpened(false);
-            setDemoMode(false);
             setSnapshot(data);
             setSelectedCityCode(null);
             setPage('map');

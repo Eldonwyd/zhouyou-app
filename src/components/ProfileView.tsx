@@ -15,14 +15,10 @@ interface ProfileViewProps {
   snapshot: AppSnapshot;
   activeProvinceCode: string | null;
   resetSettingsToken?: number;
-  demoMode?: boolean;
-  demoBusy?: boolean;
   availableUpdate?: AppUpdateInfo | null;
   updateFocusToken?: number;
   updateCheckToken?: number;
   onUpdateFound?: (info: AppUpdateInfo | null) => void;
-  onLoadDemo?: () => void;
-  onClearDemo?: () => void;
   onSaveProfile: (profile: LocalProfile) => Promise<void>;
   onImported: (snapshot: AppSnapshot) => void;
   onError: (message: string) => void;
@@ -42,14 +38,10 @@ export default function ProfileView({
   snapshot,
   activeProvinceCode,
   resetSettingsToken,
-  demoMode,
-  demoBusy,
   availableUpdate,
   updateFocusToken,
   updateCheckToken,
   onUpdateFound,
-  onLoadDemo,
-  onClearDemo,
   onSaveProfile,
   onImported,
   onError,
@@ -387,23 +379,8 @@ export default function ProfileView({
           onError={onError}
         />
 
-        {/* 6. 演示模式与远程 AI 服务 */}
+        {/* 6. 远程 AI 服务 */}
         <div id="settings-more" className="settings-more-grid">
-          <section className="card" aria-labelledby="demo-mode-card-title">
-            <h2 id="demo-mode-card-title">{t('演示模式与示例数据', 'Demo Mode & Sample Data')}</h2>
-            <p className="muted">{t('想先看看完整效果？一键载入内置示例（14 座点亮城市、完整大理 AI 路书、照片手账与每日账本），体验完随时可清空恢复空白。', 'Want to preview the full experience? Load built-in sample data (14 cities, Dali AI roadbook, photo journal, and daily ledger) and clear it anytime.')}</p>
-            <div className="heading-actions" style={{ marginTop: 10 }}>
-              <button type="button" className="primary" disabled={demoBusy} onClick={onLoadDemo}>
-                {demoBusy ? t('处理中…', 'Working…') : t('✨ 载入示例数据', '✨ Load Sample Data')}
-              </button>
-              {demoMode ? (
-                <button type="button" className="secondary" disabled={demoBusy} onClick={onClearDemo}>
-                  {t('清空示例数据', 'Clear Sample Data')}
-                </button>
-              ) : null}
-            </div>
-          </section>
-
           <section className="card" aria-labelledby="remote-ai-server-title">
             <h2 id="remote-ai-server-title">{t('远程 / 局域网 AI 服务', 'Remote / LAN AI Server')}</h2>
             <p className="muted">{t('桌面版已内置本地 AI 服务，通常保持留空即可。在手机 App 或网页版使用时，可填写电脑桌面版或自建服务器的地址以启用完整 AI 行程规划。', 'Desktop includes a built-in AI server (leave blank). On mobile or web, enter your desktop or self-hosted server URL to enable full AI trip planning.')}</p>

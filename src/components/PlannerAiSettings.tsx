@@ -2274,8 +2274,11 @@ export default function PlannerAiSettings({
                   <label>
                     API Key
                     <input
-                      type="password"
+                      type="text"
                       autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
                       value={apiKey}
                       placeholder={apiKeyHint}
                       onChange={(event) => setApiKey(event.target.value)}

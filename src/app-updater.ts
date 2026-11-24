@@ -54,10 +54,13 @@ interface NativeAppUpdaterPlugin {
   ) => Promise<{ remove: () => Promise<void> }>;
 }
 
+const EDGE_RELEASES_URL = 'https://zhouyou.online/api/releases';
 const PAGES_RELEASES_URL = 'https://eldonwyd.github.io/zhouyou-app/releases.json';
 const GITHUB_API_RELEASES_URL = 'https://api.github.com/repos/Eldonwyd/zhouyou-app/releases?per_page=20';
-export const DOWNLOAD_PORTAL_URL = 'https://eldonwyd.github.io/zhouyou-app/download.html';
+export const DOWNLOAD_PORTAL_URL = 'https://zhouyou.online/download.html';
 export const GITHUB_RELEASES_URL = 'https://github.com/Eldonwyd/zhouyou-app/releases';
+
+const NativeAiBridgeForBrowser = registerPlugin<{ openExternalUrl(opts: { url: string }): Promise<{ ok: boolean }> }>('NativeAiBridge');
 
 const NativeAppUpdater = registerPlugin<NativeAppUpdaterPlugin>('AppUpdater');
 
@@ -216,6 +219,7 @@ function selectLatestRelease(releases: ReleaseEntry[], platform: AppPlatform): R
 async function fetchReleasesList(signal?: AbortSignal): Promise<ReleaseEntry[]> {
   const bust = `t=${Date.now()}`;
   const urls = [
+    `${EDGE_RELEASES_URL}?${bust}`,
     `${PAGES_RELEASES_URL}?${bust}`,
     GITHUB_API_RELEASES_URL,
   ];
@@ -290,6 +294,10 @@ export async function checkForAppUpdate(signal?: AbortSignal): Promise<AppUpdate
   const asset = pickAssetForPlatform(latest.assets ?? [], platform);
   const hasUpdate = compareSemver(latestVersion, currentVersion) > 0;
 
+  const edgeDownloadUrl = latest.tag_name && asset?.name
+    ? `https://zhouyou.online/api/download?tag=${encodeURIComponent(latest.tag_name)}&file=${encodeURIComponent(asset.name)}`
+    : '';
+
   return {
     platform,
     platformLabel: platformDisplayName(platform),
@@ -301,7 +309,7 @@ export async function checkForAppUpdate(signal?: AbortSignal): Promise<AppUpdate
     releaseNotes: summarizeNotes(latest.body || ''),
     releaseUrl: latest.html_url || DOWNLOAD_PORTAL_URL,
     publishedAt: latest.published_at || '',
-    downloadUrl: asset?.browser_download_url || latest.html_url || DOWNLOAD_PORTAL_URL,
+    downloadUrl: edgeDownloadUrl || asset?.browser_download_url || latest.html_url || DOWNLOAD_PORTAL_URL,
     assetName: asset?.name || '',
     assetSize: asset?.size || 0,
   };
@@ -332,6 +340,26 @@ export async function installAppUpdate(
 
   // 2. 电脑桌面版与手机端：统一交由系统默认浏览器安全下载新版安装包，避免安全软件误报
   const targetUrl = info.downloadUrl || info.releaseUrl || DOWNLOAD_PORTAL_URL;
+  if (window.zhouyouDesktop?.downloadAndInstallUpdate) {
+    try {
+      await window.zhouyouDesktop.downloadAndInstallUpdate({
+        url: targetUrl,
+        fileName: info.assetName || 'zhouyou-update',
+        version: info.latestVersion,
+      });
+      return { ok: true, fallbackOpened: true };
+    } catch {
+      /* 回退到 window.open */
+    }
+  }
+  if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('NativeAiBridge')) {
+    try {
+      await NativeAiBridgeForBrowser.openExternalUrl({ url: targetUrl });
+      return { ok: true, fallbackOpened: true };
+    } catch {
+      /* 回退到 window.open */
+    }
+  }
   window.open(targetUrl, '_blank', 'noopener,noreferrer');
   return { ok: true, fallbackOpened: true };
 }
