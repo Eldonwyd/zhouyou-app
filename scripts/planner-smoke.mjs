@@ -153,6 +153,7 @@ try {
   await page.getByRole('button', { name: '行程规划', exact: false }).click();
   await page.getByRole('heading', { name: '我的旅行计划' }).waitFor();
   assert.equal(await page.locator('input[type="time"]').count(), 0);
+  await page.locator('.planner-optional-imports > summary').click();
   const luggageChoice = page.getByLabel('行李方式', { exact: true });
   await luggageChoice.waitFor();
   assert.equal(await luggageChoice.inputValue(), 'suitcase');
@@ -444,6 +445,10 @@ try {
   assert.deepEqual(await readPlans(), beforeFailure);
 
   // 两条分享一次粘贴，第二篇的失败只保留待重试的链接；两篇合并后再发给规划器。
+  const optionalImportsDetails = page.locator('.planner-optional-imports');
+  if ((await optionalImportsDetails.getAttribute('open')) === null) {
+    await optionalImportsDetails.locator('> summary').click();
+  }
   const xhsInput = page.getByLabel('小红书参考（可选）', { exact: true });
   await xhsInput.fill(`笔记分享 ${firstXhsUrl.replace('https:', 'https\\:')} 查看小红书\n${secondXhsUrl}\n${firstXhsUrl}`);
   await page.getByRole('button', { name: '读取小红书并规划', exact: true }).click();

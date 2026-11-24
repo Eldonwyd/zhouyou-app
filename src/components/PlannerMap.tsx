@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { PlannerContent, WishlistPlace } from '../planner-types';
-import { datedPlannerMapPlaces, plannerAmapUrl, plannerMapRouteStops, PLANNER_MAP_LOOKUP_VERSION } from '../planner-map';
+import { datedPlannerMapPlaces, plannerMapRouteStops, PLANNER_MAP_LOOKUP_VERSION } from '../planner-map';
 import type { PlannerMapPosition } from '../planner-map';
 import { plannerApi } from '../planner-api';
+import { mapPlaceLinks, openMapAppPlace } from '../external-app-links';
 import { plannerDisplayText } from '../planner-display';
 import { XHS_PLACE_KIND_LABELS } from '../planner-xhs';
 
@@ -222,10 +223,25 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
         row.textContent = plannerDisplayText(`${visit.date} · ${visit.title}`, content);
         popup.append(row);
       }
+      const placeMapLinks = mapPlaceLinks({
+        city: place.city,
+        name: place.name,
+        latitude: position.latitude,
+        longitude: position.longitude,
+      });
       const link = document.createElement('a');
-      link.href = plannerAmapUrl(place);
+      link.href = placeMapLinks.webUrl;
       link.target = '_blank'; link.rel = 'noopener noreferrer';
-      link.textContent = '在高德地图查看';
+      link.textContent = `在${placeMapLinks.label}查看`;
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        openMapAppPlace({
+          city: place.city,
+          name: place.name,
+          latitude: position.latitude,
+          longitude: position.longitude,
+        });
+      });
       popup.append(link);
       const adjust = document.createElement('button');
       adjust.className = 'text-button'; adjust.textContent = '调整位置';
@@ -265,11 +281,26 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
         src.textContent = `查看小红书原帖${entry.item.sourceTitle ? `：${entry.item.sourceTitle}` : ''}`;
         popup.append(src);
       }
+      const mapLinkInfo = mapPlaceLinks({
+        city: entry.city,
+        name: entry.name,
+        latitude: position.latitude,
+        longitude: position.longitude,
+      });
       const amap = document.createElement('a');
-      amap.href = plannerAmapUrl({ city: entry.city, name: entry.name });
+      amap.href = mapLinkInfo.webUrl;
       amap.target = '_blank';
       amap.rel = 'noopener noreferrer';
-      amap.textContent = '在高德地图查看';
+      amap.textContent = `在${mapLinkInfo.label}查看`;
+      amap.addEventListener('click', (event) => {
+        event.preventDefault();
+        openMapAppPlace({
+          city: entry.city,
+          name: entry.name,
+          latitude: position.latitude,
+          longitude: position.longitude,
+        });
+      });
       popup.append(amap);
       if (scheduleWishlistRef.current) {
         const btn = document.createElement('button');
@@ -342,7 +373,15 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
         <summary>待定位景点（{visible.filter((place) => positionMap.get(place.key)?.status !== 'located').length}）</summary>
         <ul>{visible.filter((place) => positionMap.get(place.key)?.status !== 'located').map((place) =>
           <li key={place.key}>{place.visits[0].date} · {place.name}：{positionMap.get(place.key)?.reason || (stage ? '等待定位' : '尚未取得位置')}
-            {' '}<a href={plannerAmapUrl(place)} target="_blank" rel="noopener noreferrer">在高德地图查找</a></li>)}</ul>
+            {' '}<a
+              href={mapPlaceLinks(place).webUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(event) => {
+                event.preventDefault();
+                openMapAppPlace(place);
+              }}
+            >在{mapPlaceLinks(place).label}查找</a></li>)}</ul>
         <select aria-label="选择待定位地点" value={adjustKey} onChange={(event) => setAdjustKey(event.target.value)}>
           <option value="">选择地点后在地图上点击位置</option>
           {visible.filter((place) => positionMap.get(place.key)?.status !== 'located').map((place) =>

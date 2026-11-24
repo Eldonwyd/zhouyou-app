@@ -138,13 +138,19 @@ function computeFeatureBounds(feature) {
     }
   }
   if (!Number.isFinite(minLon) || !Number.isFinite(minLat)) return null;
+  // 优先采用行政区划自带的市政府/主城区中心坐标（如杭州市 [120.15, 30.28]），避免广域地级市几何中心偏移到远郊县区（如临安/桐庐）导致 Photon 偏置误标。
+  const rawCenter = feature?.properties?.center;
+  const hasCenter = Array.isArray(rawCenter)
+    && rawCenter.length >= 2
+    && Number.isFinite(Number(rawCenter[0]))
+    && Number.isFinite(Number(rawCenter[1]));
   return {
     minLon,
     minLat,
     maxLon,
     maxLat,
-    centerLon: (minLon + maxLon) / 2,
-    centerLat: (minLat + maxLat) / 2,
+    centerLon: hasCenter ? Number(rawCenter[0]) : (minLon + maxLon) / 2,
+    centerLat: hasCenter ? Number(rawCenter[1]) : (minLat + maxLat) / 2,
   };
 }
 

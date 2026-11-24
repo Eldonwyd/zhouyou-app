@@ -247,7 +247,18 @@ public class NativeAiBridgePlugin extends Plugin {
     @PluginMethod
     public void openExternalUrl(PluginCall call) {
         String rawUrl = call.getString("url", "");
-        if (rawUrl == null || (!rawUrl.startsWith("https://") && !rawUrl.startsWith("http://"))) {
+        String fallbackUrl = call.getString("fallbackUrl", "");
+        boolean allowed = rawUrl != null && (
+            rawUrl.startsWith("https://")
+            || rawUrl.startsWith("http://")
+            || rawUrl.startsWith("xhsdiscover://")
+            || rawUrl.startsWith("androidamap://")
+            || rawUrl.startsWith("amapuri://")
+            || rawUrl.startsWith("baidumap://")
+            || rawUrl.startsWith("comgooglemaps://")
+            || rawUrl.startsWith("geo:")
+        );
+        if (!allowed) {
             call.reject("无效的网址");
             return;
         }
@@ -259,7 +270,21 @@ public class NativeAiBridgePlugin extends Plugin {
             res.put("ok", true);
             call.resolve(res);
         } catch (Exception e) {
-            call.reject("无法打开浏览器：" + e.getMessage(), e);
+            if (fallbackUrl != null && (fallbackUrl.startsWith("https://") || fallbackUrl.startsWith("http://"))) {
+                try {
+                    Intent fallbackIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl));
+                    fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    getContext().startActivity(fallbackIntent);
+                    JSObject res = new JSObject();
+                    res.put("ok", true);
+                    res.put("fallback", true);
+                    call.resolve(res);
+                    return;
+                } catch (Exception ignored) {
+                    // fall through to reject
+                }
+            }
+            call.reject("无法打开应用或浏览器：" + e.getMessage(), e);
         }
     }
 

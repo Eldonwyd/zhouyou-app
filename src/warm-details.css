@@ -3444,6 +3444,57 @@ input, select, textarea { border-radius: 10px; }
   font-size: 12px;
   color: var(--muted);
 }
+.planner-workspace .planner-preferences + .planner-preferences {
+  margin-top: -10px;
+}
+.planner-optional-imports > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  list-style: none;
+}
+.planner-optional-imports > summary::-webkit-details-marker {
+  display: none;
+}
+.planner-optional-imports > summary::before {
+  content: '▶';
+  font-size: 11px;
+  color: var(--ink-2, var(--ink));
+  transition: transform .16s ease;
+  flex-shrink: 0;
+}
+.planner-optional-imports[open] > summary::before {
+  transform: rotate(90deg);
+}
+.planner-optional-imports > summary > span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.planner-pref-summary-badge {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--warm-green, var(--teal));
+  background: color-mix(in srgb, var(--app-sage, #eef7f1) 70%, var(--surface));
+  padding: 2px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.planner-optional-imports-body {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+.planner-optional-imports-body .planner-luggage-field {
+  margin: 0;
+}
+.planner-optional-imports-body .booking-backfill-box,
+.planner-optional-imports-body .xhs-ref-banner {
+  margin: 0;
+}
 .app-update-notes {
   margin: 8px 0 0;
   display: grid;

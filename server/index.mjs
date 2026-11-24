@@ -541,7 +541,11 @@ export async function createPlannerRequestHandler(options = {}) {
           )
             return sendJson(400, { error: '图片查询无效' });
           const diagnostics = [];
-          const queryLabel = `${plannerPhotoCityName(body.city)} · ${plannerPhotoPlaceName(body.title)}`;
+          const photoCity = plannerPhotoCityName(body.city);
+          const photoPlace = plannerPhotoPlaceName(body.title);
+          const queryLabel = photoCity && photoPlace && !photoPlace.startsWith(photoCity)
+            ? `${photoCity} · ${photoPlace}`
+            : (photoPlace || photoCity);
           // 新网页主动选择流式进度；保留 JSON 响应兼容已有脚本和调用方。
           const streaming = body.stream === true;
           const emitPhoto = (event) => {

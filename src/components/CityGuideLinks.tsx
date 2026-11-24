@@ -1,4 +1,5 @@
 import { xiaohongshuSearchUrl } from '../planner-xhs';
+import { openXiaohongshuSearch } from '../external-app-links';
 import { useI18n } from '../i18n';
 import { TravelIcon } from './TravelArt';
 
@@ -21,6 +22,10 @@ export default function CityGuideLinks({ cities }: { cities: readonly string[] }
           {guideTopics.map(({ label, query, icon, kind }) => (
             <a className={`city-guide-action city-guide-${kind}`} key={kind}
               href={xiaohongshuSearchUrl(`${city} ${query}`)} target="_blank" rel="noopener noreferrer"
+              onClick={(event) => {
+                event.preventDefault();
+                openXiaohongshuSearch(`${city} ${query}`);
+              }}
               aria-label={`${city} ${label}`}>
               <TravelIcon name={icon} />
               {label}

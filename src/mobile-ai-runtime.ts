@@ -90,6 +90,12 @@ function getNativeBridge(): NativeAiBridgePlugin | null {
 function isStaticHostedWebPwa(): boolean {
   if (Capacitor.isNativePlatform()) return false;
   if ((window as unknown as { zhouyouDesktop?: { isDesktop?: boolean } }).zhouyouDesktop?.isDesktop) return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('pwa') === '1') return true;
+  } catch {
+    // ignore
+  }
   const host = (window.location.hostname || '').toLowerCase();
   return host.endsWith('.github.io') || host === 'zhouyou.online' || host.endsWith('.zhouyou.online') || host.endsWith('.pages.dev');
 }
@@ -114,6 +120,11 @@ const PROXY_ALLOWED_HOSTS = new Set([
   'open.bigmodel.cn',
   'api.moonshot.cn',
   'ark.cn-beijing.volces.com',
+  'zh.wikipedia.org',
+  'en.wikipedia.org',
+  'commons.wikimedia.org',
+  'photon.komoot.io',
+  'nominatim.openstreetmap.org',
 ]);
 
 function resolveAiProxyEndpoint(): string {
@@ -2074,6 +2085,15 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
         title,
       );
 
+      const rawDistanceKm =
+        kind === 'transport' && typeof a.distanceKm === 'number' && Number.isFinite(a.distanceKm) && a.distanceKm > 0
+          ? Math.round(a.distanceKm * 100) / 100
+          : undefined;
+      const rawTransferOpts =
+        kind === 'transport' && Array.isArray(a.transferOptions)
+          ? normalizeSingleTransferOptions(a.transferOptions, isSelfDriveTransport(req.transport))
+          : undefined;
+
       activities.push({
         id,
         kind,
@@ -2085,6 +2105,8 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
         location: String(a.location ?? title).trim() || title,
         description: String(a.description ?? a.detail ?? a.tips ?? '').trim(),
         transportMode: kind === 'transport' ? (String(a.transportMode ?? req.transport).trim() || '公共交通') : '',
+        ...(rawDistanceKm !== undefined ? { distanceKm: rawDistanceKm } : {}),
+        ...(rawTransferOpts?.length ? { transferOptions: rawTransferOpts } : {}),
         meal,
         locked: false,
         photo: null,
@@ -2308,70 +2330,301 @@ function normalizeMobileTickets(
   };
 }
 
+function normalizeSingleTransferOptions(
+  rawOpts: unknown[],
+  selfDrive: boolean,
+): PlannerTransferOption[] {
+  const validModes = new Set<PlannerTransferModeKind>(['walk', 'subway', 'bus', 'taxi', 'drive', 'train', 'flight', 'other']);
+  const opts: PlannerTransferOption[] = [];
+  for (const rawOpt of rawOpts.slice(0, selfDrive ? 1 : 4)) {
+    if (!rawOpt || typeof rawOpt !== 'object') continue;
+    const o = rawOpt as Record<string, unknown>;
+    const mode: PlannerTransferModeKind = selfDrive
+      ? 'drive'
+      : validModes.has(o.mode as PlannerTransferModeKind)
+        ? (o.mode as PlannerTransferModeKind)
+        : 'other';
+    const opt: PlannerTransferOption = {
+      mode,
+      ...(typeof o.recommended === 'boolean' ? { recommended: o.recommended } : {}),
+      ...(typeof o.line === 'string' && o.line.trim() ? { line: o.line.trim() } : {}),
+      ...(typeof o.fromStation === 'string' && o.fromStation.trim() ? { fromStation: o.fromStation.trim() } : {}),
+      ...(typeof o.toStation === 'string' && o.toStation.trim() ? { toStation: o.toStation.trim() } : {}),
+      ...(typeof o.transferNote === 'string' && o.transferNote.trim() ? { transferNote: o.transferNote.trim() } : {}),
+      ...(typeof o.durationMinutes === 'number' && Number.isFinite(o.durationMinutes) && o.durationMinutes > 0
+        ? { durationMinutes: Math.round(o.durationMinutes) }
+        : {}),
+      ...(typeof o.distanceKm === 'number' && Number.isFinite(o.distanceKm) && o.distanceKm > 0
+        ? { distanceKm: Math.round(o.distanceKm * 100) / 100 }
+        : {}),
+      ...(typeof o.costCents === 'number' && Number.isFinite(o.costCents) && o.costCents >= 0
+        ? { costCents: Math.round(o.costCents) }
+        : {}),
+      ...(o.costUnit === 'person' || o.costUnit === 'vehicle' ? { costUnit: o.costUnit } : {}),
+      ...(typeof o.carpoolCostCents === 'number' && Number.isFinite(o.carpoolCostCents) && o.carpoolCostCents >= 0
+        ? { carpoolCostCents: Math.round(o.carpoolCostCents) }
+        : {}),
+      ...(typeof o.carpoolNote === 'string' && o.carpoolNote.trim() ? { carpoolNote: o.carpoolNote.trim() } : {}),
+    };
+    opts.push(opt);
+  }
+  return opts;
+}
+
 function normalizeMobileTransfers(
   raw: Record<string, unknown>,
   allowedKeys: Set<string>,
   selfDrive: boolean,
 ): { legs: Record<string, PlannerTransferOption[]> } {
-  const validModes = new Set<PlannerTransferModeKind>(['walk', 'subway', 'bus', 'taxi', 'drive', 'train', 'flight', 'other']);
   const items = Array.isArray(raw.items) ? (raw.items as Array<Record<string, unknown>>) : [];
   const legs: Record<string, PlannerTransferOption[]> = {};
   for (const item of items) {
     if (!item || typeof item.key !== 'string' || !allowedKeys.has(item.key)) continue;
     const rawOpts = Array.isArray(item.transferOptions) ? item.transferOptions : [];
-    const opts: PlannerTransferOption[] = [];
-    for (const rawOpt of rawOpts.slice(0, selfDrive ? 1 : 4)) {
-      if (!rawOpt || typeof rawOpt !== 'object') continue;
-      const o = rawOpt as Record<string, unknown>;
-      const mode: PlannerTransferModeKind = selfDrive
-        ? 'drive'
-        : validModes.has(o.mode as PlannerTransferModeKind)
-          ? (o.mode as PlannerTransferModeKind)
-          : 'other';
-      const opt: PlannerTransferOption = {
-        mode,
-        ...(typeof o.recommended === 'boolean' ? { recommended: o.recommended } : {}),
-        ...(typeof o.line === 'string' && o.line.trim() ? { line: o.line.trim() } : {}),
-        ...(typeof o.fromStation === 'string' && o.fromStation.trim() ? { fromStation: o.fromStation.trim() } : {}),
-        ...(typeof o.toStation === 'string' && o.toStation.trim() ? { toStation: o.toStation.trim() } : {}),
-        ...(typeof o.transferNote === 'string' && o.transferNote.trim() ? { transferNote: o.transferNote.trim() } : {}),
-        ...(typeof o.durationMinutes === 'number' && Number.isFinite(o.durationMinutes) && o.durationMinutes > 0
-          ? { durationMinutes: Math.round(o.durationMinutes) }
-          : {}),
-        ...(typeof o.distanceKm === 'number' && Number.isFinite(o.distanceKm) && o.distanceKm > 0
-          ? { distanceKm: Math.round(o.distanceKm * 100) / 100 }
-          : {}),
-        ...(typeof o.costCents === 'number' && Number.isFinite(o.costCents) && o.costCents >= 0
-          ? { costCents: Math.round(o.costCents) }
-          : {}),
-        ...(o.costUnit === 'person' || o.costUnit === 'vehicle' ? { costUnit: o.costUnit } : {}),
-      };
-      opts.push(opt);
-    }
+    const opts = normalizeSingleTransferOptions(rawOpts, selfDrive);
     if (opts.length) legs[item.key] = opts;
   }
   return { legs };
 }
 
+/** 通用公开 GET JSON 请求：原生 APK 走 NativeAiBridge，浏览器/PWA 直接 fetch（支持 CORS 的公开 API）。 */
+async function fetchPublicJson<T>(url: string, timeoutMs = 8000): Promise<T | null> {
+  try {
+    const bridge = getNativeBridge();
+    if (bridge) {
+      const resp = await bridge.httpRequest({
+        url,
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'ZhouyouMap/1.0 (https://zhouyou.online)',
+        },
+        timeoutMs,
+      });
+      if (resp.status >= 200 && resp.status < 300) {
+        return JSON.parse(resp.body) as T;
+      }
+      return null;
+    }
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!resp.ok) return null;
+    return (await resp.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+/** 通过维基百科 / Wikimedia Commons 公开 API 搜索真实景点/城市实景图（免 Key、支持浏览器 CORS 与安卓原生）。 */
+async function searchMobilePlacePhoto(
+  city: string,
+  title: string,
+): Promise<{ url: string; sourceUrl: string; attribution: string } | null> {
+  const cleanTitle = title.replace(/[·•｜|].*$/, '').replace(/（.*?）|\(.*?\)/g, '').trim();
+  const cleanCity = city.replace(/市$/, '').trim();
+  const queries = [...new Set([
+    cleanTitle,
+    cleanCity && cleanTitle && !cleanTitle.includes(cleanCity) ? `${cleanCity} ${cleanTitle}` : '',
+    cleanCity,
+  ].filter(Boolean))];
+
+  const isBadImage = (url: string) =>
+    /\.(svg|pdf|tif|tiff|ogv|webm)(?:$|\?)/i.test(url) ||
+    /map|locator|flag|coat_of_arms|logo|icon|symbol|emblem|blank/i.test(url);
+
+  for (const q of queries) {
+    const wikiUrl =
+      `https://zh.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}` +
+      '&gsrlimit=5&prop=pageimages|info&piprop=thumbnail|original&pithumbsize=960&inprop=url&format=json&origin=*';
+    const data = await fetchPublicJson<{
+      query?: {
+        pages?: Record<string, {
+          index?: number;
+          title?: string;
+          fullurl?: string;
+          thumbnail?: { source?: string; width?: number; height?: number };
+          original?: { source?: string };
+        }>;
+      };
+    }>(wikiUrl, 7000);
+    const pages = Object.values(data?.query?.pages ?? {}).sort((a, b) => (a.index ?? 99) - (b.index ?? 99));
+    for (const p of pages) {
+      const img = p.thumbnail?.source || p.original?.source || '';
+      if (!img || !img.startsWith('https://') || isBadImage(img)) continue;
+      if (p.thumbnail?.width && p.thumbnail.width < 240) continue;
+      return {
+        url: img,
+        sourceUrl: p.fullurl || `https://zh.wikipedia.org/wiki/${encodeURIComponent(p.title || q)}`,
+        attribution: `维基百科 · ${p.title || q}`,
+      };
+    }
+  }
+
+  // 兜底：Wikimedia Commons 实景图搜索
+  for (const q of queries.slice(0, 2)) {
+    const commonsUrl =
+      `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(q)}` +
+      '&gsrlimit=6&prop=imageinfo&iiprop=url&iiurlwidth=960&format=json&origin=*';
+    const data = await fetchPublicJson<{
+      query?: {
+        pages?: Record<string, {
+          title?: string;
+          imageinfo?: Array<{ thumburl?: string; url?: string; descriptionurl?: string }>;
+        }>;
+      };
+    }>(commonsUrl, 7000);
+    for (const p of Object.values(data?.query?.pages ?? {})) {
+      const info = p.imageinfo?.[0];
+      const img = info?.thumburl || info?.url || '';
+      if (!img || !img.startsWith('https://') || isBadImage(img)) continue;
+      return {
+        url: img,
+        sourceUrl: info?.descriptionurl || img,
+        attribution: 'Wikimedia Commons 实景图',
+      };
+    }
+  }
+  return null;
+}
+
+/** 通过 Photon / OpenStreetMap Nominatim 公开地理编码接口获取景点 WGS84 坐标。 */
+async function locateSingleMobilePlace(place: { key: string; name: string; city?: string }): Promise<{
+  key: string;
+  status: 'located' | 'unresolved';
+  latitude?: number;
+  longitude?: number;
+  label?: string;
+  source?: string;
+  sourceUrl?: string;
+  precision?: 'place' | 'area';
+  coordinateSystem?: string;
+  reason?: string;
+  candidates?: Array<{ latitude: number; longitude: number; label: string; source?: string; precision?: 'area' | 'place' }>;
+}> {
+  const name = String(place.name || '').trim();
+  const city = String(place.city || '').trim();
+  const shortCity = city.replace(/(?:市|自治州|地区)$/, '');
+  const looksChinese = /[\u4e00-\u9fff]/.test(`${city}${name}`);
+  const inChina = (lat: number, lng: number) => lat >= 17 && lat <= 55 && lng >= 72 && lng <= 136;
+
+  const queries = [...new Set([
+    shortCity && name && !name.includes(shortCity) ? `${shortCity} ${name}` : name,
+    name,
+    shortCity && name ? `${name} ${shortCity}` : '',
+    shortCity || city,
+  ].filter(Boolean))];
+
+  for (let qi = 0; qi < queries.length; qi += 1) {
+    const q = queries[qi];
+    const isCityFallback = qi === queries.length - 1 && queries.length > 1 && (q === shortCity || q === city);
+
+    // 1) Komoot Photon（支持 CORS、响应快、返回 WGS84）
+    const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=5`;
+    const photon = await fetchPublicJson<{
+      features?: Array<{
+        geometry?: { coordinates?: [number, number] };
+        properties?: { name?: string; city?: string; state?: string; country?: string };
+      }>;
+    }>(photonUrl, 6000);
+    const photonHits = (photon?.features ?? [])
+      .map((f) => {
+        const coords = f.geometry?.coordinates;
+        if (!coords || coords.length < 2) return null;
+        const [lng, lat] = coords;
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        if (looksChinese && !inChina(lat, lng)) return null;
+        const p = f.properties ?? {};
+        const label = [p.name, p.city, p.state].filter(Boolean).join(' · ') || q;
+        return { latitude: lat, longitude: lng, label, source: 'OpenStreetMap', precision: (isCityFallback ? 'area' : 'place') as 'area' | 'place' };
+      })
+      .filter((x): x is NonNullable<typeof x> => Boolean(x));
+
+    if (photonHits.length) {
+      const best = photonHits[0];
+      return {
+        key: place.key,
+        status: 'located',
+        latitude: best.latitude,
+        longitude: best.longitude,
+        label: best.label,
+        source: best.source,
+        sourceUrl: `https://www.openstreetmap.org/?mlat=${best.latitude}&mlon=${best.longitude}#map=15/${best.latitude}/${best.longitude}`,
+        precision: best.precision,
+        coordinateSystem: 'WGS84',
+        ...(photonHits.length > 1 ? { candidates: photonHits.slice(0, 4) } : {}),
+      };
+    }
+
+    // 2) OpenStreetMap Nominatim 兜底
+    const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=4&accept-language=zh-CN`;
+    const nom = await fetchPublicJson<Array<{ lat?: string; lon?: string; display_name?: string }>>(nomUrl, 6500);
+    const nomHits = (Array.isArray(nom) ? nom : [])
+      .map((item) => {
+        const lat = Number(item.lat);
+        const lng = Number(item.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        if (looksChinese && !inChina(lat, lng)) return null;
+        return {
+          latitude: lat,
+          longitude: lng,
+          label: String(item.display_name || q).split(',').slice(0, 3).join(' · '),
+          source: 'OpenStreetMap',
+          precision: (isCityFallback ? 'area' : 'place') as 'area' | 'place',
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => Boolean(x));
+
+    if (nomHits.length) {
+      const best = nomHits[0];
+      return {
+        key: place.key,
+        status: 'located',
+        latitude: best.latitude,
+        longitude: best.longitude,
+        label: best.label,
+        source: best.source,
+        sourceUrl: `https://www.openstreetmap.org/?mlat=${best.latitude}&mlon=${best.longitude}#map=15/${best.latitude}/${best.longitude}`,
+        precision: best.precision,
+        coordinateSystem: 'WGS84',
+        ...(nomHits.length > 1 ? { candidates: nomHits.slice(0, 4) } : {}),
+      };
+    }
+  }
+
+  return {
+    key: place.key,
+    status: 'unresolved',
+    reason: '未检索到精确坐标，可点击地图手动标点',
+  };
+}
+
   if (endpoint === 'generate') {
-    onProgress('手机直连 AI 正在为你规划完整行程…');
+    onProgress('规划行程中…');
     const req = normalizeMobileRequest(payload.request);
     const expectedDays = req.endDate ? plannerDayCount(req.startDate, req.endDate) : (req.days ?? 3);
+    const selfDrive = isSelfDriveTransport(req.transport);
+    const transitRule = selfDrive
+      ? '市内交通卡仅填 1 条自驾项：transferOptions:[{"mode":"drive","recommended":true,"distanceKm":4.2,"durationMinutes":14}]，transportMode写"自驾"。'
+      : '相邻景点之间的市内交通卡（kind:"transport"）请填写结构化 transferOptions（2~3项，含步行/地铁具体线路与站名/公交线路/打车预估，远途≥12km附carpoolCostCents顺风车预估），主推荐标 recommended:true，并填 distanceKm。';
     const sys = [
       '你是周游地图专业中文旅行规划师。请严格返回合法 JSON 对象，不要输出任何额外说明。',
       `必须严格按以下结构返回，共 ${expectedDays} 天（从 ${req.startDate} 起连续每一天）：`,
-      '{"title":"行程标题","summary":"行程亮点概要","cities":[{"name":"城市名"}],"constraints":["约束说明"],"warnings":["实用提醒"],"days":[{"date":"YYYY-MM-DD","title":"当天主题","weather":"当季天气参考","activities":[{"id":"d1-a1","kind":"sight|food|transport|rest","period":"morning|noon|afternoon|evening","startTime":"09:00","endTime":"11:30","title":"活动名","city":"城市","location":"具体地点","description":"简明游玩建议","transportMode":"","meal":null,"costs":[{"id":"c1","label":"门票","category":"tickets","unit":"ticket","unitPriceCents":6000,"quantity":1,"occurrences":1}]}],"lodging":{"city":"城市","area":"推荐住宿片区","searchKeyword":"酒店搜索词","reason":"选址理由","costs":[{"id":"l1","label":"住宿","category":"lodging","unit":"room","unitPriceCents":35000,"quantity":1,"occurrences":1}]}}],"alternatives":[{"title":"备选景点","city":"城市","reason":"推荐理由","rainyDay":true}]}',
-      '注意：最后一天 lodging 必须为 null；所有金额为人民币整数分（如 60 元填 6000）；kind 仅取 sight/food/transport/rest；period 仅取 morning/noon/afternoon/evening。',
+      '{"title":"行程标题","summary":"行程亮点概要","cities":[{"name":"城市名"}],"constraints":["约束说明"],"warnings":["实用提醒"],"days":[{"date":"YYYY-MM-DD","title":"当天主题","weather":"当季天气参考","activities":[{"id":"d1-a1","kind":"sight|food|transport|rest","period":"morning|noon|afternoon|evening","startTime":"09:00","endTime":"11:30","title":"活动名","city":"城市","location":"具体地点","description":"简明游玩建议","transportMode":"","distanceKm":3.2,"transferOptions":[{"mode":"subway","recommended":true,"line":"地铁1号线","fromStation":"A站","toStation":"B站","transferNote":"出站步行300米","durationMinutes":18,"distanceKm":4.5,"costCents":300,"costUnit":"person"},{"mode":"taxi","durationMinutes":12,"distanceKm":4.2,"costCents":1500,"costUnit":"vehicle"}],"meal":null,"costs":[{"id":"c1","label":"门票","category":"tickets","unit":"ticket","unitPriceCents":6000,"quantity":1,"occurrences":1}]}],"lodging":{"city":"城市","area":"推荐住宿片区","searchKeyword":"酒店搜索词","reason":"选址理由","costs":[{"id":"l1","label":"住宿","category":"lodging","unit":"room","unitPriceCents":35000,"quantity":1,"occurrences":1}]}}],"alternatives":[{"title":"备选景点","city":"城市","reason":"推荐理由","rainyDay":true}]}',
+      transitRule,
+      '注意：非交通卡省略 distanceKm 与 transferOptions；最后一天 lodging 必须为 null；所有金额为人民币整数分（如 60 元填 6000）；kind 仅取 sight/food/transport/rest；period 仅取 morning/noon/afternoon/evening。',
     ].join('\n');
     const res = await callMobileModel(sys, `旅行需求：\n${JSON.stringify(req, null, 2)}`, { maxTokens: 6000 });
-    onProgress('正在整理每日路线与预算…');
+    onProgress('整理路线与预算…');
     const raw = extractJsonObject<Record<string, unknown>>(res.text);
     const content = normalizeMobilePlanContent(raw, req);
     return { content } as unknown as T;
   }
 
   if (endpoint === 'chat') {
-    onProgress('手机直连 AI 正在思考回复…');
+    onProgress('AI 思考中…');
     const baseVersion = Number(payload.baseVersion ?? (payload.plan as AiTravelPlan | undefined)?.version ?? 1);
     const scopeId = typeof payload.scopeId === 'string' ? payload.scopeId : null;
     if (payload.activityGuide === true) {
@@ -2421,18 +2674,30 @@ function normalizeMobileTransfers(
   }
 
   if (endpoint === 'recommendations') {
-    onProgress('手机直连 AI 正在为你精选目的地…');
+    onProgress('挑选目的地…');
     const sys = [
       '你是中文旅行推荐专家。请严格返回合法 JSON 对象，推荐 4 到 6 个目的地：',
       '{"recommendations":[{"title":"地点名称","destination":"城市或可规划目的地","reason":"推荐理由（50~100字）","season":"当季看点与气候","suggestedDays":"建议 3~4 天","access":"结合出发地的交通方式"}]}',
     ].join('\n');
     const res = await callMobileModel(sys, `出行条件：\n${JSON.stringify(payload.request ?? payload)}`, { maxTokens: 3000 });
     const raw = extractJsonObject<Record<string, unknown>>(res.text);
-    return normalizeMobileRecommendations(raw) as unknown as T;
+    const normalized = normalizeMobileRecommendations(raw);
+    onProgress('搜索图片…');
+    await Promise.all(
+      normalized.recommendations.map(async (item) => {
+        try {
+          const found = await searchMobilePlacePhoto(item.destination, item.title);
+          if (found) item.photo = found;
+        } catch {
+          // 单张搜图失败不影响推荐展示
+        }
+      }),
+    );
+    return normalized as unknown as T;
   }
 
   if (endpoint === 'duration') {
-    onProgress('正在评估建议游玩天数…');
+    onProgress('评估游玩天数…');
     const sys = '你是中文旅行规划师。请严格返回 JSON：{"options":[{"days":3,"title":"紧凑精华","reason":"时长理由和大致路线"},{"days":5,"title":"舒适深度","reason":"时长理由和大致路线"}]}，给出 2 到 3 种建议天数。';
     const res = await callMobileModel(sys, `出行条件：\n${JSON.stringify(payload.request ?? payload)}`, { maxTokens: 1500 });
     const raw = extractJsonObject<Record<string, unknown>>(res.text);
@@ -2440,7 +2705,7 @@ function normalizeMobileTransfers(
   }
 
   if (endpoint === 'tickets') {
-    onProgress('手机直连 AI 正在整理预约与购票清单…');
+    onProgress('查询预约规则…');
     const plan = payload.plan as AiTravelPlan | undefined;
     const days = Array.isArray(plan?.content?.days) ? plan.content.days : [];
     const sights = days.flatMap((day) =>
@@ -2458,7 +2723,7 @@ function normalizeMobileTransfers(
   }
 
   if (endpoint === 'packing') {
-    onProgress('手机直连 AI 正在生成行前准备清单…');
+    onProgress('生成行前清单…');
     const plan = payload.plan as AiTravelPlan | undefined;
     const sys = '你是旅行行前顾问。请严格返回 JSON：{"items":[{"category":"documents|clothing|medicine|electronics|bookings|other","name":"具体物品","note":"简短原因（20字内）"}]}，给出 14~24 项实用清单。';
     const res = await callMobileModel(
@@ -2471,30 +2736,55 @@ function normalizeMobileTransfers(
   }
 
   if (endpoint === 'transfers') {
-    onProgress('手机直连 AI 正在整理两站交通方案…');
+    onProgress('计算交通方案…');
     const rawLegs = Array.isArray(payload.legs) ? (payload.legs as Array<Record<string, unknown>>) : [];
     const cleanLegs = rawLegs.filter((leg) => leg && typeof leg.key === 'string' && leg.key.trim()).slice(0, 40);
     if (!cleanLegs.length) return { legs: {} } as unknown as T;
     const selfDrive = isSelfDriveTransport(String(payload.transport ?? ''));
-    const sys = '你是中国城市交通规划师。请严格返回 JSON：{"items":[{"key":"原key","transferOptions":[{"mode":"walk|subway|bus|taxi|drive","recommended":true,"line":"具体线路","fromStation":"上车站","toStation":"下车站","durationMinutes":18,"distanceKm":3.2,"costCents":300,"costUnit":"person"}]}]}。';
-    const res = await callMobileModel(sys, `交通方式：${String(payload.transport ?? '公共交通')}\n路段：${JSON.stringify(cleanLegs)}`, { maxTokens: 3500 });
+    const people = Number.isSafeInteger(payload.people) && Number(payload.people) > 0 ? Number(payload.people) : 2;
+    const rule = selfDrive
+      ? '自驾/租车模式：每条路段只返回 1 条 drive 方案，填 distanceKm 与 durationMinutes。示例：{"mode":"drive","recommended":true,"distanceKm":4.2,"durationMinutes":14}'
+      : `公共交通/非自驾模式（同行 ${people} 人，偏好：${String(payload.transport ?? '公共交通')}）：每条路段给出 2~4 种实用方案（主推荐标 recommended:true）：
+1. 步行（≤2km）：{"mode":"walk","distanceKm":0.85,"durationMinutes":12}
+2. 地铁：具体线路 line、fromStation、toStation、transferNote（换乘/步行）、durationMinutes、costCents（整数分）、costUnit:"person"
+3. 公交：具体几路公交 line、fromStation、toStation、transferNote、durationMinutes、costCents、costUnit:"person"
+4. 打车：durationMinutes、distanceKm、costCents、costUnit:"vehicle"；较远路段（≥12km）附 carpoolCostCents 与 carpoolNote`;
+    const sys = '你是熟悉中国城市交通的旅行规划师。请严格返回合法 JSON 对象：{"items":[{"key":"原key","transferOptions":[...]}]}。';
+    const res = await callMobileModel(sys, `${rule}\n路段：${JSON.stringify(cleanLegs)}`, { maxTokens: 3500 });
     const raw = extractJsonObject<Record<string, unknown>>(res.text);
     return normalizeMobileTransfers(raw, new Set(cleanLegs.map((l) => String(l.key))), selfDrive) as unknown as T;
   }
 
   if (endpoint === 'photo') {
-    return { photo: null, message: '手机直连模式暂不支持自动搜图，可连接电脑端服务获取实景配图' } as unknown as T;
+    onProgress('搜索图片…');
+    const title = String(payload.title ?? '').trim();
+    const city = String(payload.city ?? '').trim();
+    const photo = await searchMobilePlacePhoto(city, title);
+    return {
+      photo,
+      queryLabel: [city, title].filter(Boolean).join(' '),
+      ...(photo ? {} : { message: '暂未找到该地点公开实景图，可点击下方去小红书查看' }),
+    } as unknown as T;
   }
 
   if (endpoint === 'map') {
-    const places = Array.isArray(payload.places) ? (payload.places as Array<{ key?: string }>) : [];
+    onProgress('定位景点中…');
+    const places = Array.isArray(payload.places)
+      ? (payload.places as Array<{ key?: string; name?: string; city?: string }>)
+      : [];
+    const positions = [];
+    for (const p of places) {
+      positions.push(
+        await locateSingleMobilePlace({
+          key: String(p?.key ?? ''),
+          name: String(p?.name ?? ''),
+          city: String(p?.city ?? ''),
+        }),
+      );
+    }
     return {
-      positions: places.map((p) => ({
-        key: String(p?.key ?? ''),
-        status: 'unresolved',
-        reason: '手机直连模式请点击地图手动选点，或连接电脑端自动定位',
-      })),
-      notice: '手机直连模式支持在地图上手动标点定位',
+      positions,
+      notice: '',
       tileUrl: '',
     } as unknown as T;
   }

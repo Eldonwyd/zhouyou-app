@@ -3,6 +3,7 @@ import type { AppSnapshot, LocalProfile } from '../types';
 import { exportBackup, importBackup } from '../backup';
 import { getPlannerApiOrigin, setPlannerApiOrigin } from '../api-base';
 import { applyLanguage, useI18n, type AppLanguage } from '../i18n';
+import { MAP_APP_OPTIONS, readMapAppProvider, writeMapAppProvider, type MapAppProvider } from '../external-app-links';
 import { TravelIcon } from './TravelArt';
 import { AVATAR_PRESETS, CuteSticker, TravelAvatar, getTravelerLevel } from './CuteArt';
 import AppearanceSettings from './AppearanceSettings';
@@ -229,10 +230,13 @@ export default function ProfileView({
     }
   }
 
+  const [mapApp, setMapApp] = useState<MapAppProvider>(() => readMapAppProvider());
+
   if (settingsOpen) {
     const quickNavItems = [
       { id: 'settings-ai-usage', label: t('AI 额度与用量', 'AI Quota & Usage') },
       { id: 'settings-language', label: t('语言', 'Language') },
+      { id: 'settings-map-app', label: t('导航地图', 'Map App') },
       { id: 'travel-data-backup', label: t('数据导出与导入', 'Backup & Export') },
       { id: 'settings-offline-maps', label: t('离线地图', 'Offline Maps') },
       { id: 'app-update-card', label: t('应用更新', 'Updates') },
@@ -312,6 +316,40 @@ export default function ProfileView({
               </span>
               {lang === 'en' && <span className="appearance-check" aria-hidden="true">✓</span>}
             </button>
+          </div>
+        </section>
+
+        {/* 1.5 导航地图 App 偏好 */}
+        <section id="settings-map-app" className="card settings-language-card" aria-labelledby="settings-map-app-title">
+          <div className="card-heading">
+            <div>
+              <h2 id="settings-map-app-title">{t('导航地图 App', 'Navigation Map App')}</h2>
+              <p className="muted">{t('点击行程景点导航时直接打开所选地图 App（未安装时自动回落网页版）。', 'Directly launch your preferred map app for itinerary places (falls back to web if not installed).')}</p>
+            </div>
+            <span className="appearance-autosave-pill">{t('即时生效 · 自动保存', 'Instant · Auto-saved')}</span>
+          </div>
+          <div className="language-option-grid" role="radiogroup" aria-label={t('导航地图选择', 'Navigation map choice')}>
+            {MAP_APP_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                role="radio"
+                aria-checked={mapApp === opt.id}
+                className={`language-option-card ${mapApp === opt.id ? 'selected' : ''}`}
+                onClick={() => {
+                  setMapApp(opt.id);
+                  writeMapAppProvider(opt.id);
+                  onNotice(t(`导航地图已切换为 ${opt.label}`, `Navigation map switched to ${opt.enLabel}`));
+                }}
+              >
+                <span className="language-option-badge" aria-hidden="true">{opt.badge}</span>
+                <span className="language-option-copy">
+                  <strong>{lang === 'en' ? opt.enLabel : opt.label}</strong>
+                  <small>{lang === 'en' ? opt.enDesc : opt.desc}</small>
+                </span>
+                {mapApp === opt.id && <span className="appearance-check" aria-hidden="true">✓</span>}
+              </button>
+            ))}
           </div>
         </section>
 

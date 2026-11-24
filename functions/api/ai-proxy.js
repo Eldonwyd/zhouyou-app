@@ -21,6 +21,11 @@ const ALLOWED_HOSTS = new Set([
   'open.bigmodel.cn',
   'api.moonshot.cn',
   'ark.cn-beijing.volces.com',
+  'zh.wikipedia.org',
+  'en.wikipedia.org',
+  'commons.wikimedia.org',
+  'photon.komoot.io',
+  'nominatim.openstreetmap.org',
 ]);
 
 const ALLOWED_METHODS = new Set(['GET', 'POST']);

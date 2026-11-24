@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import type { PlannerLuggageMode, PlannerRequest } from '../planner-types';
 import { PLANNER_LOCAL_TRANSPORT_OPTIONS, plannerLocalTransport, plannerPartyText, updatePlannerDates } from '../planner-domain';
 import { useI18n } from '../i18n';
@@ -25,9 +25,11 @@ export function PlannerLuggageField({ value, onChange }: {
 export default function PlannerRequestFields({
   value,
   onChange,
+  extraPreferences,
 }: {
   value: PlannerRequest;
   onChange: (request: PlannerRequest) => void;
+  extraPreferences?: ReactNode;
 }) {
   const { t } = useI18n();
   const update = <K extends keyof PlannerRequest>(key: K, next: PlannerRequest[K]) =>
@@ -262,8 +264,15 @@ export default function PlannerRequestFields({
               onChange={(event) => update('dietary', event.target.value)}
             />
           </label>
+          {!extraPreferences && (
+            <PlannerLuggageField
+              value={value.luggageMode}
+              onChange={(luggageMode) => update('luggageMode', luggageMode)}
+            />
+          )}
         </div>
       </details>
+      {extraPreferences}
       <label className="planner-notes-field">
         {t('补充要求（选填）', 'Additional Notes (optional)')}
         <textarea

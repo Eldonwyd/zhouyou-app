@@ -1,5 +1,4 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import MobileDisclosure from './MobileDisclosure';
 import type { ComponentProps, FormEvent } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import FinanceView from './PlanView';
@@ -89,7 +88,7 @@ import { plannerShortStage } from '../planner-stage';
 import { plannerXiaohongshuSearchUrl } from '../planner-photo';
 import { getPlannerPhotoBlob, savePlannerMapPositions, type recordPlannerJournalVisit } from '../db';
 import { plannerJournalActivityKey, plannerJournalCity, plannerJournalVisitFor } from '../planner-journal';
-import { plannerAmapUrl } from '../planner-map';
+import { mapAppLabel, mapPlaceLinks, openMapAppPlace, openXiaohongshuSearch } from '../external-app-links';
 import { PLANNER_API_ORIGIN_EVENT, plannerApiUrl } from '../api-base';
 import { buildMobileAiStatus, isMobileNativeAiActive } from '../mobile-ai-runtime';
 import { plannerApi } from '../planner-api';
@@ -399,7 +398,16 @@ function PlacePhoto({
             {busy ? '查找中…' : '按小红书优先重新查找'}
           </button>}
           {busy && <button className="text-button" type="button" onClick={() => controller.current?.abort()}>取消查找</button>}
-          <a href={plannerXiaohongshuSearchUrl(city, title, date)} target="_blank" rel="noopener noreferrer" title="在小红书内搜索，可能需要登录">
+          <a
+            href={plannerXiaohongshuSearchUrl(city, title, date)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => {
+              event.preventDefault();
+              openXiaohongshuSearch(`${city} ${title}`.trim());
+            }}
+            title="在小红书 App 内搜索"
+          >
             去小红书搜这个地点
           </a>
         </div>
@@ -2310,98 +2318,115 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                 }}
               >
                 <fieldset disabled={busy}>
-                <PlannerLuggageField value={request.luggageMode} onChange={(luggageMode) => {
-                  setRequest((previous) => ({ ...previous, luggageMode }));
-                  setDurations([]);
-                }} />
-                <MobileDisclosure
-                  label="预订与小红书参考"
-                  value={draftBookings.length || request.references?.length ? `${draftBookings.length} 项预订 · ${request.references?.length ?? 0} 篇参考` : '选填'}
-                >
-                <div className="booking-backfill-box">
-                  <div className="heading-actions">
-                    <strong>已订车票 / 机票 / 酒店</strong>
-                    <button type="button" className="secondary" onClick={() => setBookingDialog({})}>＋ 提前录入预订</button>
-                  </div>
-                  {!draftBookings.length && <p className="muted">可先按预估生成行程，购票后再补填。</p>}
-                  {draftBookings.map((booking) => <div key={booking.id} className="heading-actions">
-                    <span>{booking.date} · {booking.title}</span>
-                    <button type="button" className="text-button" aria-label={`编辑 ${booking.title}`}
-                      onClick={() => setBookingDialog({ initial: booking, editing: true })}>编辑</button>
-                    <button type="button" className="text-button" aria-label={`移除 ${booking.title}`}
-                      onClick={() => setDraftBookings((items) => items.filter((item) => item.id !== booking.id))}>移除</button>
-                  </div>)}
-                </div>
-                  <div className="xhs-ref-banner">
-                    <div className="xhs-ref-banner-top">
-                      <div>
-                        <label className="xhs-ref-label" htmlFor="planner-xhs-draft">小红书参考（可选）</label>
-                        <p id="planner-xhs-draft-hint">最多 {MAX_XHS_REFERENCES} 篇。AI 会结合你的日期、路线和同行需求，挑选适合的内容。</p>
-                      </div>
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() => openXhsDialog({ mode: 'create' })}
-                      >
-                        {request.references?.length ? '管理参考 / 导入截图' : '导入截图 / 攻略'}
-                      </button>
-                    </div>
-                    <textarea
-                      id="planner-xhs-draft"
-                      aria-describedby="planner-xhs-draft-hint"
-                      rows={2}
-                      placeholder="粘贴小红书链接或整段分享文案，多篇可以分行粘贴"
-                      value={xhsDraft}
-                      onChange={(event) => {
-                        setXhsDraft(event.target.value);
-                        setDurations([]);
-                      }}
-                    />
-                    {request.references && request.references.length > 0 && <>
-                      <div className="xhs-ref-banner-top">
-                        <div>
-                          <strong>已添加 {request.references.length} 篇参考</strong>
-                          <p>{request.references.map((ref) => `「${ref.title}」`).join('、')}</p>
-                        </div>
-                        <button
-                          type="button"
-                          className="text-button"
-                          onClick={() => {
-                            setRequest((prev) => {
-                              const { references: _refs, referenceMode: _mode, ...rest } = prev;
-                              return rest;
-                            });
-                            setDurations([]);
-                          }}
-                        >
-                          清除已添加的参考
-                        </button>
-                      </div>
-                      <div className="xhs-ref-banner-modes" role="group" aria-label="参考方式">
-                        {XHS_REFERENCE_MODE_OPTIONS.map((opt) => (
-                          <label key={opt.value}>
-                            <input
-                              type="radio"
-                              name="create-xhs-mode"
-                              checked={(request.referenceMode ?? DEFAULT_XHS_REFERENCE_MODE) === opt.value}
-                              onChange={() => {
-                                setRequest((prev) => ({ ...prev, referenceMode: opt.value }));
-                                setDurations([]);
-                              }}
-                            />
-                            {opt.label}
-                          </label>
-                        ))}
-                      </div>
-                    </>}
-                  </div>
-                  </MobileDisclosure>
                   <RequestFields
                     value={request}
                     onChange={(value) => {
                       setRequest(value);
                       setDurations([]);
                     }}
+                    extraPreferences={
+                      <details className="planner-preferences planner-optional-imports">
+                        <summary>
+                          <span>行李方式、已订预订与小红书参考（选填）</span>
+                          {(draftBookings.length > 0 || (request.references?.length ?? 0) > 0 || xhsDraft.trim() || request.luggageMode === 'backpack') && (
+                            <span className="planner-pref-summary-badge">
+                              {[
+                                request.luggageMode === 'backpack' ? '背包出行' : '',
+                                draftBookings.length > 0 ? `${draftBookings.length} 项预订` : '',
+                                (request.references?.length ?? 0) > 0
+                                  ? `${request.references!.length} 篇参考`
+                                  : xhsDraft.trim()
+                                    ? '已填攻略文案'
+                                    : '',
+                              ].filter(Boolean).join(' · ')}
+                            </span>
+                          )}
+                        </summary>
+                        <div className="planner-optional-imports-body">
+                          <PlannerLuggageField value={request.luggageMode} onChange={(luggageMode) => {
+                            setRequest((previous) => ({ ...previous, luggageMode }));
+                            setDurations([]);
+                          }} />
+                          <div className="booking-backfill-box">
+                            <div className="heading-actions">
+                              <strong>已订车票 / 机票 / 酒店</strong>
+                              <button type="button" className="secondary" onClick={() => setBookingDialog({})}>＋ 提前录入预订</button>
+                            </div>
+                            {!draftBookings.length && <p className="muted">可先按预估生成行程，购票后再补填。</p>}
+                            {draftBookings.map((booking) => <div key={booking.id} className="heading-actions">
+                              <span>{booking.date} · {booking.title}</span>
+                              <button type="button" className="text-button" aria-label={`编辑 ${booking.title}`}
+                                onClick={() => setBookingDialog({ initial: booking, editing: true })}>编辑</button>
+                              <button type="button" className="text-button" aria-label={`移除 ${booking.title}`}
+                                onClick={() => setDraftBookings((items) => items.filter((item) => item.id !== booking.id))}>移除</button>
+                            </div>)}
+                          </div>
+                          <div className="xhs-ref-banner">
+                            <div className="xhs-ref-banner-top">
+                              <div>
+                                <label className="xhs-ref-label" htmlFor="planner-xhs-draft">小红书参考（可选）</label>
+                                <p id="planner-xhs-draft-hint">最多 {MAX_XHS_REFERENCES} 篇。AI 会结合你的日期、路线和同行需求，挑选适合的内容。</p>
+                              </div>
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() => openXhsDialog({ mode: 'create' })}
+                              >
+                                {request.references?.length ? '管理参考 / 导入截图' : '导入截图 / 攻略'}
+                              </button>
+                            </div>
+                            <textarea
+                              id="planner-xhs-draft"
+                              aria-describedby="planner-xhs-draft-hint"
+                              rows={2}
+                              placeholder="粘贴小红书链接或整段分享文案，多篇可以分行粘贴"
+                              value={xhsDraft}
+                              onChange={(event) => {
+                                setXhsDraft(event.target.value);
+                                setDurations([]);
+                              }}
+                            />
+                            {request.references && request.references.length > 0 && <>
+                              <div className="xhs-ref-banner-top">
+                                <div>
+                                  <strong>已添加 {request.references.length} 篇参考</strong>
+                                  <p>{request.references.map((ref) => `「${ref.title}」`).join('、')}</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="text-button"
+                                  onClick={() => {
+                                    setRequest((prev) => {
+                                      const { references: _refs, referenceMode: _mode, ...rest } = prev;
+                                      return rest;
+                                    });
+                                    setDurations([]);
+                                  }}
+                                >
+                                  清除已添加的参考
+                                </button>
+                              </div>
+                              <div className="xhs-ref-banner-modes" role="group" aria-label="参考方式">
+                                {XHS_REFERENCE_MODE_OPTIONS.map((opt) => (
+                                  <label key={opt.value}>
+                                    <input
+                                      type="radio"
+                                      name="create-xhs-mode"
+                                      checked={(request.referenceMode ?? DEFAULT_XHS_REFERENCE_MODE) === opt.value}
+                                      onChange={() => {
+                                        setRequest((prev) => ({ ...prev, referenceMode: opt.value }));
+                                        setDurations([]);
+                                      }}
+                                    />
+                                    {opt.label}
+                                  </label>
+                                ))}
+                              </div>
+                            </>}
+                          </div>
+                        </div>
+                      </details>
+                    }
                   />
                   <button className="primary" type="submit">
                     {xhsDraft.trim()
@@ -2409,7 +2434,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                       : !request.destination.trim()
                         ? '让 AI 推荐目的地'
                         : request.days || request.endDate
-                          ? '联网生成旅行计划'
+                          ? (aiStatus?.searchAvailable === false ? 'AI 生成旅行计划' : '联网生成旅行计划')
                           : '先让 AI 建议玩几天'}
                   </button>
                 </fieldset>
@@ -2771,7 +2796,15 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                                     <p className="planner-luggage-note">
                                       {plannerLuggageNoteText(activity)}{' '}
                                       {activity.luggageNote.searchQuery && (
-                                        <a href={xiaohongshuSearchUrl(activity.luggageNote.searchQuery)} target="_blank" rel="noopener noreferrer">去小红书查寄存</a>
+                                        <a
+                                          href={xiaohongshuSearchUrl(activity.luggageNote.searchQuery)}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(event) => {
+                                            event.preventDefault();
+                                            openXiaohongshuSearch(activity.luggageNote!.searchQuery!);
+                                          }}
+                                        >去小红书查寄存</a>
                                       )}
                                     </p>
                                   )}
@@ -2808,8 +2841,18 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                                       onClick={() => void generateActivityGuide(activity)}>
                                       {activePlan.activityGuides?.[activity.id] ? '重生成攻略' : '详细攻略'}
                                     </button>}
-                                    <a className="text-button" href={plannerAmapUrl({ city: activity.city, name: activity.location || activity.photoQuery || activity.title })}
-                                      target="_blank" rel="noopener noreferrer" aria-label="在高德地图查看" title="在高德地图查看">高德地图</a>
+                                    <a
+                                      className="text-button"
+                                      href={mapPlaceLinks({ city: activity.city, name: activity.location || activity.photoQuery || activity.title }).webUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(event) => {
+                                        event.preventDefault();
+                                        openMapAppPlace({ city: activity.city, name: activity.location || activity.photoQuery || activity.title });
+                                      }}
+                                      aria-label={`在${mapAppLabel()}查看`}
+                                      title={`在${mapAppLabel()}查看`}
+                                    >{mapAppLabel()}</a>
                                     <button
                                       className="text-button"
                                       disabled={busy || activity.locked}
@@ -3003,8 +3046,16 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                             <HotelBookingDetails booking={bookedHotel} />
                             <button className="text-button" type="button" disabled={busy}
                               onClick={() => setBookingDialog({ initial: bookedHotel, editing: true })}>编辑酒店预订</button>
-                            <a className="text-button" target="_blank" rel="noopener noreferrer"
-                              href={plannerAmapUrl({ city: bookedHotel.city || day.lodging.city, name: bookedHotel.hotelName })}>在高德地图查看酒店</a>
+                            <a
+                              className="text-button"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              href={mapPlaceLinks({ city: bookedHotel.city || day.lodging.city, name: bookedHotel.hotelName }).webUrl}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                openMapAppPlace({ city: bookedHotel.city || day.lodging?.city || '', name: bookedHotel.hotelName });
+                              }}
+                            >在{mapAppLabel()}查看酒店</a>
                           </> : <p>{plannerDisplayText(day.lodging.reason, activePlan.content)}</p>}
                           {!bookedHotel && <form className="planner-hotel-form" key={`${activePlan.id}:${day.date}:${activePlan.hotels?.[day.date] || ''}`}
                             onSubmit={(event) => {
@@ -3021,8 +3072,16 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                               placeholder="填写酒店全名，保存后显示到当天地图"
                               defaultValue={activePlan.hotels?.[day.date] || ''} /></label>
                             <button className="secondary" disabled={busy} type="submit">保存酒店</button>
-                            {activePlan.hotels?.[day.date] && <a className="text-button" target="_blank" rel="noopener noreferrer"
-                              href={plannerAmapUrl({ city: day.lodging.city, name: activePlan.hotels[day.date] })}>在高德地图查看酒店</a>}
+                            {activePlan.hotels?.[day.date] && <a
+                              className="text-button"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              href={mapPlaceLinks({ city: day.lodging.city, name: activePlan.hotels[day.date] }).webUrl}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                openMapAppPlace({ city: day.lodging?.city || '', name: activePlan.hotels![day.date] });
+                              }}
+                            >在{mapAppLabel()}查看酒店</a>}
                           </form>}
                           {!bookedHotel && <p>
                             <strong>订房搜索：{plannerDisplayText(day.lodging.searchKeyword, activePlan.content)}</strong>
@@ -3307,7 +3366,6 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
               </button>
             </div>
             <fieldset disabled={busy}>
-              <PlannerLuggageField value={settings.luggageMode} onChange={(luggageMode) => setSettings({ ...settings, luggageMode })} />
               <RequestFields value={settings} onChange={setSettings} />
               <div className="dialog-actions">
                 <button

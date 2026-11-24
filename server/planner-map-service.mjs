@@ -162,7 +162,7 @@ function poiQualityScore(meta = {}, search) {
 }
 
 /** 分级名称打分：兼容全称/简称/景区后缀差异，同时守住防串城、防退化为城市中心、防串分店三条底线。 */
-function scoreRecordMatch(record, search) {
+function scoreRecordMatch(record, search, cityBounds = null) {
   const rawNames = (record.names ?? []).filter((v) => typeof v === 'string' && v.trim());
   if (!rawNames.length) return 0;
   const normalizedRaw = rawNames.map(normalizeName).filter(Boolean);
@@ -237,14 +237,24 @@ function scoreRecordMatch(record, search) {
   }
 
   if (bestNameScore < 56) return 0;
-  return bestNameScore + poiQualityScore(record.meta, search);
+  let score = bestNameScore + poiQualityScore(record.meta, search);
+  // 非精确模糊匹配若距离主城区中心超过 35km，施加距离扣分，防止远郊同名公园/街道（如千岛湖“湖滨公园”）冒充市区景点。
+  if (bestNameScore < 88 && cityBounds && Number.isFinite(record.position?.latitude) && Number.isFinite(record.position?.longitude)) {
+    const distFromCenter = distanceMeters(
+      { latitude: cityBounds.centerLat, longitude: cityBounds.centerLon },
+      record.position,
+    );
+    if (distFromCenter > 60000) score -= 36;
+    else if (distFromCenter > 35000) score -= 24;
+  }
+  return score;
 }
 
 /** 筛选、打分并按空间距离聚类合并同一景点的多个 OSM 子节点（大型景区/风光带 1500m，常规地标 600m）。 */
-function matchingCandidates(records, search) {
+function matchingCandidates(records, search, cityBounds = null) {
   const scored = [];
   for (const record of records) {
-    const score = scoreRecordMatch(record, search);
+    const score = scoreRecordMatch(record, search, cityBounds);
     if (score >= 56) scored.push({ score, meta: record.meta, position: record.position });
   }
   if (!scored.length) return [];
@@ -375,7 +385,7 @@ export function createPlannerMapService({
             },
           }];
         });
-        const matched = matchingCandidates(records, search);
+        const matched = matchingCandidates(records, search, cityBounds);
         if (matched.length) return matched;
       } catch (error) {
         if (signal.aborted) throw error;
@@ -450,7 +460,7 @@ export function createPlannerMapService({
             },
           }];
         });
-        const matched = matchingCandidates(records, search);
+        const matched = matchingCandidates(records, search, cityBounds);
         if (matched.length) return matched;
       } catch (error) {
         if (signal.aborted) throw error;
@@ -516,7 +526,7 @@ export function createPlannerMapService({
             },
           }];
         });
-        const matched = matchingCandidates(records, search);
+        const matched = matchingCandidates(records, search, cityBounds);
         if (matched.length) return matched;
         return [];
       } catch (error) {
@@ -548,7 +558,7 @@ export function createPlannerMapService({
     if (typeof supplemental.wikipedia === 'function') {
       try {
         const wikiRecords = await supplemental.wikipedia(scopedPlace, namesToTry, signal, cityBounds);
-        candidates = matchingCandidates(wikiRecords, targetSearch);
+        candidates = matchingCandidates(wikiRecords, targetSearch, cityBounds);
         if (candidates.length) return candidates;
       } catch (error) { if (signal.aborted) throw error; }
     }
