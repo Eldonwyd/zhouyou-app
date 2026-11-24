@@ -92,36 +92,36 @@
     <source media="(prefers-color-scheme: light)" srcset="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-light.png" />
     <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-light.png" alt="交互式中国旅行足迹地图" width="100%" />
   </picture>
-  <p><i><b>中国旅行足迹地图</b> —— 34 省 × 370+ 城市点亮状态、省级下钻与探索进度一目了然</i></p>
+  <p><i><b>🗺️ 中国旅行足迹地图</b> —— 34 省 × 370+ 城市点亮状态、省级下钻与探索进度一目了然</i></p>
 </div>
 
 <table>
   <tr>
     <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner.png" alt="AI 一键行程规划" />
-      <br /><b>🤖 AI 一键规划</b> — 每日顺路行程、实景配图、预算拆解，一键直达高德与小红书
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-journal.png" alt="旅行手账与城市明信片" />
+      <br /><b>📔 旅行手账全景</b> — 每次旅程独立成册，自动匹配专属城市地标明信片
     </td>
     <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-journal.png" alt="旅行手账与城市明信片" />
-      <br /><b>📔 旅行手账</b> — 每次旅程独立成册，自动匹配专属城市地标明信片
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-trip-memories.png" alt="地点照片与旅途回忆墙" />
+      <br /><b>📸 照片记忆手账</b> — 按城市与地点珍藏原图照片、文字感悟与语音评语，随时翻阅重温
     </td>
   </tr>
 </table>
 
 <div align="center">
-  <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-journal-detail.png" alt="照片手账与语音回忆页" width="88%" />
-  <p><i><b>照片与语音回忆手账</b> —— 按时间轴珍藏原图照片、旅途感悟与现场语音评语，随时翻阅重温</i></p>
+  <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner.png" alt="AI 一键规划完整行程" width="100%" />
+  <p><i><b>🤖 AI 一键规划行程</b> —— 多模型自由切换，自动生成每日路线、实景配图、预算拆解、出发倒计时与小红书游玩 / 美食攻略直达</i></p>
 </div>
 
 <table>
   <tr>
     <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-achievements.png" alt="旅途成就与成长路线" />
-      <br /><b>🏆 旅途成就</b> — 八阶旅人成长路线、手作纪念章与一键导出分享海报
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner-day.png" alt="每日行程卡片与高德小红书联动" />
+      <br /><b>🔗 每日行程 · 联动高德 &amp; 小红书</b> — 一键跳转高德地图导航、去小红书搜同款、AI 局部微调与实时费用概览
     </td>
     <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-dark.png" alt="护眼深色模式与多套皮肤" />
-      <br /><b>🌙 深色模式 &amp; 5 套主题</b> — 糖果贴纸、纸感手账、海风海岸等风格自由切换
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-achievements.png" alt="旅途成就与成长路线" />
+      <br /><b>🏆 旅途成就与深浅色主题</b> — 八阶旅人成长路线、手作纪念章与一键导出分享海报
     </td>
   </tr>
 </table>

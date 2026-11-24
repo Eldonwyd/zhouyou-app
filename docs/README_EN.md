@@ -61,36 +61,36 @@
     <source media="(prefers-color-scheme: light)" srcset="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-light.png" />
     <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-light.png" alt="Interactive China Travel Footprint Map" width="100%" />
   </picture>
-  <p><i><b>Interactive China Footprint Map</b> — every visited province, city status, and exploration progress at a glance</i></p>
+  <p><i><b>🗺️ Interactive China Footprint Map</b> — every visited province, city status, and exploration progress at a glance</i></p>
 </div>
 
 <table>
   <tr>
     <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner.png" alt="AI Trip Planner" />
-      <br /><b>🤖 One-Click AI Planner</b> — routes, scenic cards, budgets &amp; one-click Amap/Xiaohongshu links
-    </td>
-    <td align="center" width="50%">
       <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-journal.png" alt="Travel Journal" />
       <br /><b>📔 Travel Journal</b> — trip booklets &amp; illustrated city postcards
+    </td>
+    <td align="center" width="50%">
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-trip-memories.png" alt="Photo Memories" />
+      <br /><b>📸 Photo Memories</b> — organize original photos, notes &amp; voice memos by city and spot
     </td>
   </tr>
 </table>
 
 <div align="center">
-  <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-journal-detail.png" alt="Photo & Voice Memory Sheet" width="88%" />
-  <p><i><b>Photo &amp; Voice Memories</b> — organize original photos, notes, and voice memos along your trip timeline</i></p>
+  <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner.png" alt="One-Click AI Trip Planner" width="100%" />
+  <p><i><b>🤖 One-Click AI Trip Planner</b> — multi-model planning with scenic cards, budget breakdown, countdown &amp; direct Xiaohongshu guides</i></p>
 </div>
 
 <table>
   <tr>
     <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-achievements.png" alt="Traveler Achievements" />
-      <br /><b>🏆 Achievements</b> — 8-stage traveler roadmap, custom stamps &amp; posters
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner-day.png" alt="Daily Itinerary with Amap and Xiaohongshu" />
+      <br /><b>🔗 Daily Plan · Amap &amp; Xiaohongshu</b> — one-click Amap lookup, Xiaohongshu search, AI tweaks &amp; live budget
     </td>
     <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-dark.png" alt="Dark Mode & Themes" />
-      <br /><b>🌙 Dark Mode &amp; 5 Themes</b> — switch effortlessly between warm paper, candy, and night modes
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-achievements.png" alt="Traveler Achievements" />
+      <br /><b>🏆 Traveler Achievements</b> — 8-stage roadmap, custom stamps &amp; shareable posters
     </td>
   </tr>
 </table>
