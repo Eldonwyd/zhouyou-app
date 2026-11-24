@@ -330,8 +330,12 @@
       title = `${skinInfo.name} · ${tabInfo.label}`;
       desc = skinInfo.desc;
     }
+    const nextLocal = `./screenshots/${fileName}`;
     showcaseImg.dataset.fallback = `${FALLBACK_SHOT_BASE}${fileName}`;
-    showcaseImg.src = `./screenshots/${fileName}`;
+    if (showcaseImg.getAttribute('src') !== nextLocal) {
+      showcaseImg.classList.add('is-switching');
+      showcaseImg.src = nextLocal;
+    }
     showcaseImg.alt = title;
     if (showcaseTitle) showcaseTitle.textContent = title;
     if (showcaseDesc) showcaseDesc.textContent = desc;
@@ -342,11 +346,38 @@
     skinBtns.forEach((btn) => btn.classList.toggle('is-active', showSkinActive && btn.getAttribute('data-skin-preview') === activeSkin));
   }
   if (showcaseImg) {
+    showcaseImg.addEventListener('load', () => {
+      showcaseImg.classList.remove('is-switching');
+    });
     showcaseImg.addEventListener('error', () => {
       const fb = showcaseImg.dataset.fallback;
-      if (fb && showcaseImg.src !== fb) showcaseImg.src = fb;
+      if (fb && showcaseImg.src !== fb) {
+        showcaseImg.src = fb;
+      } else {
+        showcaseImg.classList.remove('is-switching');
+      }
     });
     renderShowcase();
+    // 预加载当前皮肤下的另外两个模块截图，以及地图的其余皮肤截图，点击切换更顺滑
+    const showcaseSection = document.getElementById('showcase');
+    let preloaded = false;
+    const preloadNearbyShots = () => {
+      if (preloaded) return;
+      preloaded = true;
+      ['skin-planner-candy.png', 'skin-journal-candy.png', 'skin-white.png', 'skin-journal.png', 'skin-coast.png', 'skin-warm.png'].forEach((f) => {
+        const img = new Image();
+        img.src = `./screenshots/${f}`;
+      });
+    };
+    if (showcaseSection && 'IntersectionObserver' in window) {
+      const shotIo = new IntersectionObserver((entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          preloadNearbyShots();
+          shotIo.disconnect();
+        }
+      }, { rootMargin: '300px 0px' });
+      shotIo.observe(showcaseSection);
+    }
   }
   showcaseTabs.forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -547,7 +578,7 @@
     const verSource = desktopRelease || mobileRelease;
     if (verSource && heroVerEl) {
       const cleanVer = String(verSource.tag_name || '').replace(/^(desktop|mobile)-/i, '');
-      heroVerEl.textContent = cleanVer || 'v1.0.12';
+      heroVerEl.textContent = cleanVer || 'v1.0.15';
     }
 
     if (desktopRelease) {
@@ -604,11 +635,24 @@
   /* ---------- 9. PWA 一键添加到主屏幕 ---------- */
   let deferredInstallPrompt = null;
   const pwaInstallBtn = document.getElementById('pwa-install-btn');
+  const pwaOpenBtn = document.getElementById('pwa-open-btn');
   const pwaInstallStatus = document.getElementById('pwa-install-status');
+  function setNativePwaAvailable(available) {
+    if (pwaInstallBtn) pwaInstallBtn.hidden = !available;
+    if (pwaOpenBtn) {
+      pwaOpenBtn.classList.toggle('btn-primary', !available);
+      pwaOpenBtn.classList.toggle('btn-pwa-lg', !available);
+      pwaOpenBtn.classList.toggle('btn-secondary', available);
+      const labelSpan = pwaOpenBtn.querySelector('span');
+      if (labelSpan) {
+        labelSpan.textContent = available ? '打开完整网页版' : '打开 PWA 添加到桌面（推荐）';
+      }
+    }
+  }
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredInstallPrompt = e;
-    if (pwaInstallBtn) pwaInstallBtn.hidden = false;
+    setNativePwaAvailable(true);
   });
   if (pwaInstallBtn) {
     pwaInstallBtn.addEventListener('click', async () => {
@@ -624,11 +668,11 @@
         }
       } catch {}
       deferredInstallPrompt = null;
-      pwaInstallBtn.hidden = true;
+      setNativePwaAvailable(false);
     });
   }
   window.addEventListener('appinstalled', () => {
-    if (pwaInstallBtn) pwaInstallBtn.hidden = true;
+    setNativePwaAvailable(false);
     if (pwaInstallStatus) pwaInstallStatus.textContent = '✅ 周游地图已添加到主屏幕！';
   });
 

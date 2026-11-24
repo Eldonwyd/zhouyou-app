@@ -582,7 +582,7 @@ export default function App() {
           </Suspense>
         </div>}
         {/* 保持足迹地图挂载，从其他页面切回地图时秒开无重载。 */}
-        <div hidden={page !== 'map'}>
+        <div className="map-page-host" hidden={page !== 'map'}>
           <MapView visible={page === 'map'} marks={effectiveMarks} activeProvinceCode={activeProvinceCode} setActiveProvinceCode={setActiveProvinceCode} onSelectCity={selectCity} onError={showError} onRecommendProvince={recommendProvince} />
         </div>
         <Suspense fallback={<div className="empty-state">{t('正在打开页面…', 'Opening page…')}</div>}>

@@ -704,6 +704,13 @@ input, select, textarea { border-radius: 10px; }
     display: flex;
     overflow: hidden;
   }
+  .app-shell.is-map-page .map-page-host:not([hidden]) {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    display: flex;
+  }
   .app-shell.is-map-page .map-page {
     flex: 1;
     min-height: 0;

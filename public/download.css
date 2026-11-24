@@ -745,7 +745,7 @@ code, pre { font-family: var(--font-mono); }
   height: 700px;
   background: var(--bg);
   overflow: hidden;
-  transition: width 0.38s cubic-bezier(0.22, 1, 0.36, 1), height 0.38s ease, border-radius 0.38s ease, box-shadow 0.38s ease;
+  transition: border-radius 0.25s ease, box-shadow 0.25s ease;
 }
 .tour-stage.is-mobile-view .tour-frame-wrap {
   width: 396px;
@@ -1023,7 +1023,10 @@ code, pre { font-family: var(--font-mono); }
   height: 100%;
   object-fit: cover;
   object-position: top center;
-  transition: opacity 0.25s ease, transform 0.45s ease;
+  transition: opacity 0.22s ease, transform 0.45s ease;
+}
+.showcase-stage img.is-switching {
+  opacity: 0.42;
 }
 .showcase-caption {
   max-width: 760px;
