@@ -99,20 +99,20 @@
 
 ## 📥 Download (Independent Desktop & Mobile Releases)
 
-### 💻 Desktop Download — [Desktop Portal](https://eldonwyd.github.io/zhouyou-app/download-desktop.html) · [Desktop Releases](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v)
+### 💻 Desktop Download — [Desktop Portal](https://eldonwyd.github.io/zhouyou-app/download-desktop.html) · [Desktop Releases](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop)
 
 | Platform | Target / Format | Download |
 | :--- | :--- | :---: |
-| **Windows** | Windows 10/11 x64 (`.exe` Installer & Portable) | [![Windows](https://img.shields.io/badge/Windows-.exe-0078D4?style=flat-square&logo=windows11&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v) |
-| **macOS** | Apple Silicon (`arm64`) & Intel (`x64`) `.dmg` | [![macOS](https://img.shields.io/badge/macOS-.dmg-000000?style=flat-square&logo=apple&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v) |
-| **Linux** | x64 `.AppImage` & Debian/Ubuntu `.deb` | [![Linux](https://img.shields.io/badge/Linux-.AppImage%20%2F%20.deb-E95420?style=flat-square&logo=linux&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v) |
+| **Windows** | Windows 10/11 x64 (`.exe` Installer & Portable) | [![Windows](https://img.shields.io/badge/Windows-.exe-0078D4?style=flat-square&logo=windows11&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop) |
+| **macOS** | Apple Silicon (`arm64`) & Intel (`x64`) `.dmg` | [![macOS](https://img.shields.io/badge/macOS-.dmg-000000?style=flat-square&logo=apple&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop) |
+| **Linux** | x64 `.AppImage` & Debian/Ubuntu `.deb` | [![Linux](https://img.shields.io/badge/Linux-.AppImage%20%2F%20.deb-E95420?style=flat-square&logo=linux&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop) |
 
-### 📱 Mobile Download — [Mobile Portal](https://eldonwyd.github.io/zhouyou-app/download-mobile.html) · [Mobile Releases](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v)
+### 📱 Mobile Download — [Mobile Portal](https://eldonwyd.github.io/zhouyou-app/download-mobile.html) · [Mobile Releases](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile)
 
 | Platform | Target / Format | Download |
 | :--- | :--- | :---: |
-| **Android** | Android 8.0+ signed `.apk` | [![Android](https://img.shields.io/badge/Android-.apk-3DDC84?style=flat-square&logo=android&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v) |
-| **iOS** | Unsigned `.ipa` (AltStore / SideStore / TrollStore) | [![iOS](https://img.shields.io/badge/iOS-.ipa-000000?style=flat-square&logo=ios&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v) |
+| **Android** | Android 8.0+ signed `.apk` | [![Android](https://img.shields.io/badge/Android-.apk-3DDC84?style=flat-square&logo=android&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile) |
+| **iOS** | Unsigned `.ipa` (AltStore / SideStore / TrollStore) | [![iOS](https://img.shields.io/badge/iOS-.ipa-000000?style=flat-square&logo=ios&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile) |
 | **Web / PWA** | Instant browser & iOS Safari *Add to Home Screen* | [![Web PWA](https://img.shields.io/badge/Web%20PWA-Launch-ef6351?style=flat-square&logo=safari&logoColor=white)](https://eldonwyd.github.io/zhouyou-app/) |
 
 See [DOWNLOAD.md](DOWNLOAD.md) for installation tips and [CHANGELOG.md](CHANGELOG.md) for release history.

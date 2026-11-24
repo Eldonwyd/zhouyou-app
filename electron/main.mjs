@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 const DEFAULT_PORT = 14173;
 const REPO_URL = 'https://github.com/Eldonwyd/zhouyou-app';
-const RELEASES_URL = `${REPO_URL}/releases/latest`;
+const RELEASES_URL = `${REPO_URL}/releases?q=desktop`;
 
 let mainWindow = null;
 let server = null;

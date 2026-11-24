@@ -135,29 +135,29 @@
 ### 💻 电脑版下载
 
 > 🔗 **电脑版独立下载页**：[https://eldonwyd.github.io/zhouyou-app/download-desktop.html](https://eldonwyd.github.io/zhouyou-app/download-desktop.html)  
-> 📦 **电脑版 GitHub Releases**：[https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v)
+> 📦 **电脑版 GitHub Releases**：[https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop)
 
 内置完整本地 AI 行程规划与离线 OCR 引擎，**无需安装 Node.js**，双击即用：
 
 | 操作系统 | 适用设备 | 安装包格式 | 独立下载入口 |
 | :--- | :--- | :--- | :---: |
-| **Windows** | Windows 10 / 11 (x64) | 安装版 `.exe` / 绿色便携版 `.exe` | [![Download Windows](https://img.shields.io/badge/Windows-.exe%20安装版%20%2F%20便携版-0078D4?style=flat-square&logo=windows11&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v) |
-| **macOS** | Apple Silicon (M1–M4) & Intel | `.dmg` 镜像 | [![Download macOS](https://img.shields.io/badge/macOS-.dmg%20arm64%20%2F%20x64-000000?style=flat-square&logo=apple&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v) |
-| **Linux** | Ubuntu / Debian / 通用发行版 (x64) | `.AppImage` / `.deb` | [![Download Linux](https://img.shields.io/badge/Linux-.AppImage%20%2F%20.deb-E95420?style=flat-square&logo=linux&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v) |
+| **Windows** | Windows 10 / 11 (x64) | 安装版 `.exe` / 绿色便携版 `.exe` | [![Download Windows](https://img.shields.io/badge/Windows-.exe%20安装版%20%2F%20便携版-0078D4?style=flat-square&logo=windows11&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop) |
+| **macOS** | Apple Silicon (M1–M4) & Intel | `.dmg` 镜像 | [![Download macOS](https://img.shields.io/badge/macOS-.dmg%20arm64%20%2F%20x64-000000?style=flat-square&logo=apple&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop) |
+| **Linux** | Ubuntu / Debian / 通用发行版 (x64) | `.AppImage` / `.deb` | [![Download Linux](https://img.shields.io/badge/Linux-.AppImage%20%2F%20.deb-E95420?style=flat-square&logo=linux&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop) |
 
 ---
 
 ### 📱 手机版下载
 
 > 🔗 **手机版独立下载页**：[https://eldonwyd.github.io/zhouyou-app/download-mobile.html](https://eldonwyd.github.io/zhouyou-app/download-mobile.html)  
-> 📦 **手机版 GitHub Releases**：[https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v)
+> 📦 **手机版 GitHub Releases**：[https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile)
 
 独立安装与离线使用中国足迹地图、照片/视频/语音旅行手账、每日账本、旅途成就与 ZIP 备份：
 
 | 平台 | 适用设备 | 安装方式 | 独立下载入口 |
 | :--- | :--- | :--- | :---: |
-| **Android (安卓)** | Android 8.0+ 手机 / 平板 | 直接安装 `.apk` | [![Download Android](https://img.shields.io/badge/Android-.apk%20直装包-3DDC84?style=flat-square&logo=android&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v) |
-| **iOS (苹果手机)** | iPhone / iPad | `.ipa` 自签（AltStore / SideStore / TrollStore / Sideloadly） | [![Download iOS](https://img.shields.io/badge/iOS-.ipa%20自签客户端-000000?style=flat-square&logo=ios&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v) |
+| **Android (安卓)** | Android 8.0+ 手机 / 平板 | 直接安装 `.apk` | [![Download Android](https://img.shields.io/badge/Android-.apk%20直装包-3DDC84?style=flat-square&logo=android&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile) |
+| **iOS (苹果手机)** | iPhone / iPad | `.ipa` 自签（AltStore / SideStore / TrollStore / Sideloadly） | [![Download iOS](https://img.shields.io/badge/iOS-.ipa%20自签客户端-000000?style=flat-square&logo=ios&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile) |
 | **iOS / 手机免安装** | Safari / Chrome 浏览器 | PWA「添加到主屏幕」（免自签、永不掉签） | [![Open Web PWA](https://img.shields.io/badge/Web%20PWA-立即打开体验-ef6351?style=flat-square&logo=safari&logoColor=white)](https://eldonwyd.github.io/zhouyou-app/) |
 
 <details>

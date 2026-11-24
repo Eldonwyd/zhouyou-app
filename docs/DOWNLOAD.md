@@ -3,8 +3,8 @@
 本指南详细介绍如何在 **Windows / macOS / Linux / Android / iOS / Web** 上下载、安装与配置 **周游地图（Zhouyou Map）**。
 
 > 🚀 **独立下载入口**：
-> - **💻 电脑桌面版独立下载页**：[https://eldonwyd.github.io/zhouyou-app/download-desktop.html](https://eldonwyd.github.io/zhouyou-app/download-desktop.html) · [GitHub 电脑版 Releases](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop-v)
-> - **📱 手机移动版独立下载页**：[https://eldonwyd.github.io/zhouyou-app/download-mobile.html](https://eldonwyd.github.io/zhouyou-app/download-mobile.html) · [GitHub 手机版 Releases](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v)
+> - **💻 电脑桌面版独立下载页**：[https://eldonwyd.github.io/zhouyou-app/download-desktop.html](https://eldonwyd.github.io/zhouyou-app/download-desktop.html) · [GitHub 电脑版 Releases](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop)
+> - **📱 手机移动版独立下载页**：[https://eldonwyd.github.io/zhouyou-app/download-mobile.html](https://eldonwyd.github.io/zhouyou-app/download-mobile.html) · [GitHub 手机版 Releases](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile)
 > - **🌐 在线网页版 / iOS PWA**：[https://eldonwyd.github.io/zhouyou-app/](https://eldonwyd.github.io/zhouyou-app/)
 
 ---
@@ -61,7 +61,7 @@
 
 ### 🤖 Android 安卓版 (`.apk`)
 
-1. 在 [Releases 页面](https://github.com/Eldonwyd/zhouyou-app/releases/latest) 下载 `Zhouyou-Map-<version>-android.apk`。
+1. 在 [手机版 Releases 页面](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile) 下载 `Zhouyou-Map-<version>-android.apk`。
 2. 点击文件安装（如系统提示「未知来源应用」，允许浏览器/文件管理器安装即可）。
 
 ### 🍎 iOS 苹果版（两种方式任选）
@@ -73,7 +73,7 @@
 4. 桌面将出现周游地图 App 图标，支持独立全屏运行与离线访问！
 
 #### 方式二：原生 `.ipa` 客户端安装（AltStore / SideStore / TrollStore / Sideloadly）
-1. 在 [Releases 页面](https://github.com/Eldonwyd/zhouyou-app/releases/latest) 下载 `Zhouyou-Map-<version>-ios-unsigned.ipa`。
+1. 在 [手机版 Releases 页面](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile) 下载 `Zhouyou-Map-<version>-ios-unsigned.ipa`。
 2. 使用以下任意工具签发并安装到 iPhone / iPad：
    - **[TrollStore（巨魔商店）](https://github.com/opa334/TrollStore)**：直接分享导入 `.ipa` 永久安装。
    - **[AltStore](https://altstore.io/) / [SideStore](https://sidestore.io/)**：在设备内导入 `.ipa` 使用个人 Apple ID 签名安装。
