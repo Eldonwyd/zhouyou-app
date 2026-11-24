@@ -37,7 +37,7 @@
 </p>
 
 <p>
-  <a href="https://zhouyou.online/?demo=1"><b>🚀 一键在线试玩（免梯子直连）</b></a>
+  <a href="https://zhouyou.online/?demo=1"><b>🚀 一键在线试玩（含示例数据）</b></a>
   &nbsp;·&nbsp;
   <a href="https://zhouyou.online/download.html"><b>📥 官网下载中心</b></a>
   &nbsp;·&nbsp;
@@ -129,20 +129,18 @@
 
 ---
 
-## 📥 下载与安装（优先推荐官网免梯子直连）
+## 📥 下载与安装（电脑版与手机版独立下载）
 
-> 🌐 **官网在线版 & 下载中心（免梯子直连）**：[https://zhouyou.online/](https://zhouyou.online/) · [https://zhouyou.online/download.html](https://zhouyou.online/download.html)
-
-电脑桌面版与手机移动版均为**完全独立的客户端**，官网提供免梯子高速直链与 PWA 一键添加到主屏幕，同时保留 GitHub Releases 备用通道：
+电脑桌面版与手机移动版均为**完全独立的客户端**，优先推荐通过官方下载中心获取，同时保留 GitHub Releases 备用通道：
 
 ### 💻 电脑版下载
 
-> 🔗 **电脑版官网下载页（推荐 · 免梯子）**：[https://zhouyou.online/download-desktop.html](https://zhouyou.online/download-desktop.html)  
-> 📦 **GitHub Releases 备用**：[https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop)
+> 🔗 **电脑版官网下载页（推荐）**：[https://zhouyou.online/download-desktop.html](https://zhouyou.online/download-desktop.html)  
+> 📦 **电脑版 GitHub Releases**：[https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop)
 
 内置完整本地 AI 行程规划与离线 OCR 引擎，**无需安装 Node.js**，双击即用：
 
-| 操作系统 | 适用设备 | 安装包格式 | 官网直链下载（免梯子） |
+| 操作系统 | 适用设备 | 安装包格式 | 独立下载入口 |
 | :--- | :--- | :--- | :---: |
 | **Windows** | Windows 10 / 11 (x64) | 安装版 `.exe` / 绿色便携版 `.exe` | [![Download Windows](https://img.shields.io/badge/Windows-.exe%20官网直下-0078D4?style=flat-square&logo=windows11&logoColor=white)](https://zhouyou.online/download-desktop.html) |
 | **macOS** | Apple Silicon (M1–M4) & Intel | `.dmg` 镜像 | [![Download macOS](https://img.shields.io/badge/macOS-.dmg%20官网直下-000000?style=flat-square&logo=apple&logoColor=white)](https://zhouyou.online/download-desktop.html) |
@@ -150,17 +148,18 @@
 
 ---
 
-### 📱 手机版下载（普通用户首推 PWA「添加到主屏幕」，无风险弹窗）
+### 📱 手机版下载
 
-> ✨ **最推荐（Android / iOS 通用，不弹「未实名/风险应用」拦截）**：用手机浏览器（Safari / Chrome / Edge / 系统浏览器）打开 **[https://zhouyou.online/](https://zhouyou.online/)** → 点击菜单里的 **「添加到主屏幕 / 添加到桌面」**，桌面即有独立 App 图标，全屏离线运行，无需每次更新重下 APK！  
-> 🔗 **手机版官网下载页（含 APK / IPA 直链）**：[https://zhouyou.online/download-mobile.html](https://zhouyou.online/download-mobile.html)  
-> 📦 **GitHub Releases 备用**：[https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile)
+> 🔗 **手机版官网下载页（推荐）**：[https://zhouyou.online/download-mobile.html](https://zhouyou.online/download-mobile.html)  
+> 📦 **手机版 GitHub Releases**：[https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile)
 
-| 平台 | 适用设备 | 安装方式 | 入口 |
+独立安装与离线使用中国足迹地图、照片/视频/语音旅行手账、每日账本、旅途成就与 ZIP 备份：
+
+| 平台 | 适用设备 | 安装方式 | 独立下载入口 |
 | :--- | :--- | :--- | :---: |
-| **Android / iOS 免安装（推荐）** | Safari / Chrome / Edge / 系统浏览器 | **PWA「添加到主屏幕」**（无风险弹窗、自动更新） | [![Open Web PWA](https://img.shields.io/badge/Web%20PWA-立即打开体验-ef6351?style=flat-square&logo=safari&logoColor=white)](https://zhouyou.online/) |
-| **Android (安卓独立包)** | Android 8.0+ 手机 / 平板 | 官网直下 `.apk` | [![Download Android](https://img.shields.io/badge/Android-.apk%20官网直下-3DDC84?style=flat-square&logo=android&logoColor=white)](https://zhouyou.online/download-mobile.html) |
-| **iOS (苹果独立包)** | iPhone / iPad | `.ipa` 自签（AltStore / SideStore / TrollStore） | [![Download iOS](https://img.shields.io/badge/iOS-.ipa%20自签客户端-000000?style=flat-square&logo=ios&logoColor=white)](https://zhouyou.online/download-mobile.html) |
+| **Web PWA（推荐）** | Safari / Chrome / Edge / 系统浏览器 | **「添加到主屏幕 / 添加到桌面」**（全屏离线、无风险弹窗、自动更新） | [![Open Web PWA](https://img.shields.io/badge/Web%20PWA-推荐体验-ef6351?style=flat-square&logo=safari&logoColor=white)](https://zhouyou.online/) |
+| **Android (安卓)** | Android 8.0+ 手机 / 平板 | 官网直下 `.apk` | [![Download Android](https://img.shields.io/badge/Android-.apk%20官网直下-3DDC84?style=flat-square&logo=android&logoColor=white)](https://zhouyou.online/download-mobile.html) |
+| **iOS (苹果手机)** | iPhone / iPad | `.ipa` 自签（AltStore / SideStore / TrollStore） | [![Download iOS](https://img.shields.io/badge/iOS-.ipa%20自签客户端-000000?style=flat-square&logo=ios&logoColor=white)](https://zhouyou.online/download-mobile.html) |
 
 <details>
 <summary><b>📖 展开查看各系统安装贴士（Windows / macOS / Linux / Android / iOS）</b></summary>

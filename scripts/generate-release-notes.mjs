@@ -42,7 +42,7 @@ let tips = '';
 if (kind === 'desktop') {
   heading = `## 💻 周游地图 电脑桌面版 v${version}`;
   intro = '电脑桌面版独立安装包已自动构建完成，内置完整本地 AI 行程规划与离线 OCR 引擎，支持 **Windows / macOS / Linux**，无需安装 Node.js 开箱即用。';
-  tips = `> 🌐 **电脑版官网高速下载页（免梯子推荐）**：[https://zhouyou.online/download.html#desktop](https://zhouyou.online/download.html#desktop)
+  tips = `> 🌐 **电脑版官网下载页（推荐）**：[https://zhouyou.online/download.html#desktop](https://zhouyou.online/download.html#desktop)
 > 📱 需要手机版？请前往 [手机版官网下载区](https://zhouyou.online/download.html#mobile)
 
 ### 🛠️ 电脑端安装提示
@@ -53,7 +53,7 @@ if (kind === 'desktop') {
   heading = `## 📱 周游地图 手机移动版 v${version}`;
   intro = '手机移动版独立安装包已自动构建完成，支持 **PWA 添加到主屏幕（推荐 · 无风险弹窗）**、**Android (`.apk`)** 与 **iOS (`.ipa`)**，离线记录中国足迹地图、旅行手账、照片/语音与每日账本。';
   tips = `> ✨ **最推荐（Android / iOS 免风险弹窗）**：用手机浏览器（Safari / Chrome / Edge / 系统浏览器）打开 [https://zhouyou.online/](https://zhouyou.online/) → 点击菜单「添加到主屏幕 / 添加到桌面」，全屏离线使用、自动更新！
-> 🌐 **手机版官网高速下载页（免梯子直下 APK / IPA）**：[https://zhouyou.online/download.html#mobile](https://zhouyou.online/download.html#mobile)
+> 🌐 **手机版官网下载页（推荐 · 支持 APK / IPA 直下）**：[https://zhouyou.online/download.html#mobile](https://zhouyou.online/download.html#mobile)
 > 💻 需要电脑版？请前往 [电脑版官网下载区](https://zhouyou.online/download.html#desktop)
 
 ### 🛠️ 手机端安装提示
@@ -61,7 +61,7 @@ if (kind === 'desktop') {
 - **Android (安卓独立包)**：下载 \`.apk\` 后直接点击安装（若系统提示未知来源应用，允许安装即可）。
 - **iOS (苹果独立包)**：通过 AltStore / SideStore / TrollStore / Sideloadly 安装 \`.ipa\`，或使用上方 Safari PWA 一键添加到主屏幕。`;
 } else {
-  tips = `> 🌐 **官网下载中心（免梯子）**：[电脑版下载](https://zhouyou.online/download.html#desktop) · [手机版下载](https://zhouyou.online/download.html#mobile) · [在线 PWA](https://zhouyou.online/)`;
+  tips = `> 🌐 **官网下载中心（推荐）**：[电脑版下载](https://zhouyou.online/download.html#desktop) · [手机版下载](https://zhouyou.online/download.html#mobile) · [在线 PWA](https://zhouyou.online/)`;
 }
 
 const markdown = `${heading}
