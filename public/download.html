@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>周游地图 · 电脑版 &amp; 手机版独立下载中心</title>
     <meta name="description" content="周游地图独立下载中心：电脑桌面版（Windows / macOS / Linux）与手机移动版（Android / iOS / PWA）分别提供独立下载。" />
+    <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
     <style>
@@ -186,6 +187,37 @@
         position: relative;
       }
       .card.is-recommended { border: 2px solid var(--accent); }
+      .pwa-hero-card {
+        margin-bottom: 18px;
+        border: 2px solid var(--teal);
+        background: linear-gradient(135deg, var(--surface), var(--surface-soft));
+      }
+      .pwa-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 4px;
+      }
+      .pwa-actions .inapp-btn {
+        padding: 10px 16px;
+        font-size: 14px;
+        border-radius: 12px;
+      }
+      .pwa-steps {
+        margin: 4px 0 0;
+        padding-left: 18px;
+        color: var(--muted);
+        font-size: 13px;
+        display: grid;
+        gap: 4px;
+      }
+      .pwa-status {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--teal);
+      }
+      .pwa-status:empty { display: none; }
       .badge {
         position: absolute;
         top: 16px;
@@ -532,11 +564,36 @@
       <!-- 手机移动版独立下载区 -->
       <section class="section-panel" id="mobile" data-panel="mobile">
         <div class="panel-header">
-          <h2 class="section-title">📱 手机移动版下载（独立客户端）</h2>
+          <h2 class="section-title">📱 手机移动版（PWA 免弹窗推荐 + 独立安装包）</h2>
           <a id="mobile-release-link" class="release-tag" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile" target="_blank" rel="noreferrer">
             📦 正在查询手机版最新 Release…
           </a>
         </div>
+
+        <article class="card pwa-hero-card" id="pwa-install-card">
+          <span class="badge" style="background: var(--teal);">最推荐 · 无风险弹窗</span>
+          <div class="card-head">
+            <div class="os-icon">✨</div>
+            <div>
+              <h3>PWA 网页版「添加到主屏幕」（Android / iOS 通用）</h3>
+              <small>桌面独立 App 图标 · 全屏离线运行 · 不触发「未实名/风险应用」拦截 · 自动更新</small>
+            </div>
+          </div>
+          <p>
+            用手机浏览器（Safari / Chrome / Edge / 系统浏览器）打开 <strong>zhouyou.online</strong> → 点击菜单里的<strong>「添加到主屏幕 / 添加到桌面」</strong>即可像原生 App 一样离线使用地图与手账，完全不会弹「不安全/未实名」提示，也不用每次更新重下 APK。
+          </p>
+          <ol class="pwa-steps" id="pwa-steps-list">
+            <li><strong>Android 手机</strong>：用 Chrome / Edge / 系统浏览器打开 → 点下方「一键安装到桌面」或浏览器菜单「添加到主屏幕 / 添加到桌面」。</li>
+            <li><strong>iPhone / iPad</strong>：用自带 <strong>Safari</strong> 打开 → 点底部分享按钮 → 选择「添加到主屏幕」（免自签、永不掉签）。</li>
+          </ol>
+          <div class="pwa-actions">
+            <button type="button" id="pwa-install-btn" class="inapp-btn is-primary" hidden>📲 一键添加到手机桌面</button>
+            <a class="inapp-btn is-primary" id="pwa-open-btn" href="./">✨ 打开网页版立即使用 / 添加到桌面</a>
+            <a class="inapp-btn" href="./?demo=1">🗺️ 先看示例数据</a>
+          </div>
+          <p id="pwa-install-status" class="pwa-status" aria-live="polite"></p>
+        </article>
+
         <div class="grid">
           <article class="card" data-os="android">
             <div class="card-head">
@@ -743,7 +800,8 @@
         }
         if (copyBtn) {
           copyBtn.addEventListener('click', async () => {
-            const urlToCopy = /\.apk(?:$|[?#])/i.test(pendingUrl) ? pendingUrl : window.location.href;
+            const isDirectDl = /\.apk(?:$|[?#])|\/api\/download\b|\/install\//i.test(pendingUrl);
+            const urlToCopy = isDirectDl ? pendingUrl : window.location.href;
             const ok = await copyText(urlToCopy);
             if (copyStatus) {
               copyStatus.textContent = ok
@@ -779,6 +837,68 @@
           });
         });
 
+        // PWA 一键添加到主屏幕支持
+        let deferredInstallPrompt = null;
+        const pwaInstallBtn = document.getElementById('pwa-install-btn');
+        const pwaInstallStatus = document.getElementById('pwa-install-status');
+        window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault();
+          deferredInstallPrompt = e;
+          if (pwaInstallBtn) pwaInstallBtn.hidden = false;
+        });
+        if (pwaInstallBtn) {
+          pwaInstallBtn.addEventListener('click', async () => {
+            if (!deferredInstallPrompt) return;
+            deferredInstallPrompt.prompt();
+            try {
+              const choice = await deferredInstallPrompt.userChoice;
+              if (pwaInstallStatus) {
+                pwaInstallStatus.textContent =
+                  choice && choice.outcome === 'accepted'
+                    ? '✅ 已触发添加到桌面，请稍候在手机桌面查看「周游地图」图标。'
+                    : '你也可以随时点击浏览器菜单「添加到主屏幕 / 添加到桌面」。';
+              }
+            } catch {}
+            deferredInstallPrompt = null;
+            pwaInstallBtn.hidden = true;
+          });
+        }
+        window.addEventListener('appinstalled', () => {
+          if (pwaInstallBtn) pwaInstallBtn.hidden = true;
+          if (pwaInstallStatus) pwaInstallStatus.textContent = '✅ 周游地图已添加到主屏幕！';
+        });
+
+        // 在自定义域名 / Cloudflare Pages 上自动启用同源边缘下载加速（无需梯子直连 GitHub）
+        const useEdgeProxy =
+          /^https?:$/i.test(window.location.protocol) &&
+          !/(^|\.)github\.io$/i.test(window.location.hostname) &&
+          !/^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
+
+        const INSTALL_ROUTE_BY_ASSET = {
+          'win-setup': './install/win',
+          'win-portable': './install/win-portable',
+          'mac-arm64': './install/mac',
+          'mac-x64': './install/mac-x64',
+          'linux-appimage': './install/linux',
+          'linux-deb': './install/linux-deb',
+          'android-apk': './install/android',
+          'ios-ipa': './install/ios',
+        };
+
+        if (useEdgeProxy) {
+          for (const [assetKey, route] of Object.entries(INSTALL_ROUTE_BY_ASSET)) {
+            const link = document.querySelector(`a[data-asset="${assetKey}"]`);
+            if (link) link.href = route;
+          }
+        }
+
+        function buildAssetDownloadUrl(release, asset) {
+          if (useEdgeProxy && release && release.tag_name && asset && asset.name) {
+            return `./api/download?tag=${encodeURIComponent(release.tag_name)}&file=${encodeURIComponent(asset.name)}`;
+          }
+          return asset.browser_download_url;
+        }
+
         function bindAssets(release, matchers) {
           if (!release || !Array.isArray(release.assets)) return;
           for (const [key, test] of Object.entries(matchers)) {
@@ -786,7 +906,7 @@
             if (!found) continue;
             const link = document.querySelector(`a[data-asset="${key}"]`);
             if (link) {
-              link.href = found.browser_download_url;
+              link.href = buildAssetDownloadUrl(release, found);
               const meta = link.querySelector('.dl-meta');
               if (meta && found.size) meta.textContent = `${(found.size / (1024 * 1024)).toFixed(1)} MB`;
             }
@@ -843,7 +963,11 @@
           if (!boundMobile && mobileTagEl) mobileTagEl.textContent = '📦 前往 GitHub Releases 查看手机版';
         }
 
-        // 优先读取同源静态 releases.json（免受 GitHub API 匿名限流影响），再尝试后台刷新实时数据
+        // 优先读取同源静态 releases.json（免梯子且不受 GitHub API 限流影响），再尝试边缘接口/实时刷新
+        const liveReleasesUrl = useEdgeProxy
+          ? './api/releases'
+          : `https://api.github.com/repos/${REPO}/releases?per_page=20`;
+
         fetch('./releases.json', { cache: 'no-cache' })
           .then((res) => (res.ok ? res.json() : []))
           .then((data) => {
@@ -851,7 +975,7 @@
           })
           .catch(() => {})
           .finally(() => {
-            fetch(`https://api.github.com/repos/${REPO}/releases?per_page=20`)
+            fetch(liveReleasesUrl)
               .then((res) => (res.ok ? res.json() : Promise.reject(new Error('api-error'))))
               .then((releases) => {
                 applyReleases(releases);

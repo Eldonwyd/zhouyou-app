@@ -37,7 +37,9 @@
 </p>
 
 <p>
-  <a href="https://eldonwyd.github.io/zhouyou-app/?demo=1"><b>🚀 一键在线试玩（含示例数据）</b></a>
+  <a href="https://zhouyou.online/?demo=1"><b>🚀 一键在线试玩（免梯子直连）</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://zhouyou.online/download.html"><b>📥 官网下载中心</b></a>
   &nbsp;·&nbsp;
   <a href="#-电脑版下载"><b>💻 电脑版下载</b></a>
   &nbsp;·&nbsp;
@@ -46,8 +48,6 @@
   <a href="#-界面精选"><b>🖼️ 界面精选</b></a>
   &nbsp;·&nbsp;
   <a href="#-核心亮点"><b>🧭 核心亮点</b></a>
-  &nbsp;·&nbsp;
-  <a href="#-开发者快速开始"><b>🛠️ 本地开发</b></a>
 </p>
 
 <br />
@@ -129,37 +129,38 @@
 
 ---
 
-## 📥 下载与安装（电脑版与手机版独立下载）
+## 📥 下载与安装（优先推荐官网免梯子直连）
 
-电脑桌面版与手机移动版均为**完全独立的客户端**，拥有各自独立的下载专区与 GitHub Release 发布通道，按需选择对应入口即可：
+> 🌐 **官网在线版 & 下载中心（免梯子直连）**：[https://zhouyou.online/](https://zhouyou.online/) · [https://zhouyou.online/download.html](https://zhouyou.online/download.html)
+
+电脑桌面版与手机移动版均为**完全独立的客户端**，官网提供免梯子高速直链与 PWA 一键添加到主屏幕，同时保留 GitHub Releases 备用通道：
 
 ### 💻 电脑版下载
 
-> 🔗 **电脑版独立下载页**：[https://eldonwyd.github.io/zhouyou-app/download-desktop.html](https://eldonwyd.github.io/zhouyou-app/download-desktop.html)  
-> 📦 **电脑版 GitHub Releases**：[https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop)
+> 🔗 **电脑版官网下载页（推荐 · 免梯子）**：[https://zhouyou.online/download-desktop.html](https://zhouyou.online/download-desktop.html)  
+> 📦 **GitHub Releases 备用**：[https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop)
 
 内置完整本地 AI 行程规划与离线 OCR 引擎，**无需安装 Node.js**，双击即用：
 
-| 操作系统 | 适用设备 | 安装包格式 | 独立下载入口 |
+| 操作系统 | 适用设备 | 安装包格式 | 官网直链下载（免梯子） |
 | :--- | :--- | :--- | :---: |
-| **Windows** | Windows 10 / 11 (x64) | 安装版 `.exe` / 绿色便携版 `.exe` | [![Download Windows](https://img.shields.io/badge/Windows-.exe%20安装版%20%2F%20便携版-0078D4?style=flat-square&logo=windows11&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop) |
-| **macOS** | Apple Silicon (M1–M4) & Intel | `.dmg` 镜像 | [![Download macOS](https://img.shields.io/badge/macOS-.dmg%20arm64%20%2F%20x64-000000?style=flat-square&logo=apple&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop) |
-| **Linux** | Ubuntu / Debian / 通用发行版 (x64) | `.AppImage` / `.deb` | [![Download Linux](https://img.shields.io/badge/Linux-.AppImage%20%2F%20.deb-E95420?style=flat-square&logo=linux&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop) |
+| **Windows** | Windows 10 / 11 (x64) | 安装版 `.exe` / 绿色便携版 `.exe` | [![Download Windows](https://img.shields.io/badge/Windows-.exe%20官网直下-0078D4?style=flat-square&logo=windows11&logoColor=white)](https://zhouyou.online/download-desktop.html) |
+| **macOS** | Apple Silicon (M1–M4) & Intel | `.dmg` 镜像 | [![Download macOS](https://img.shields.io/badge/macOS-.dmg%20官网直下-000000?style=flat-square&logo=apple&logoColor=white)](https://zhouyou.online/download-desktop.html) |
+| **Linux** | Ubuntu / Debian / 通用发行版 (x64) | `.AppImage` / `.deb` | [![Download Linux](https://img.shields.io/badge/Linux-.AppImage%20%2F%20.deb-E95420?style=flat-square&logo=linux&logoColor=white)](https://zhouyou.online/download-desktop.html) |
 
 ---
 
-### 📱 手机版下载
+### 📱 手机版下载（普通用户首推 PWA「添加到主屏幕」，无风险弹窗）
 
-> 🔗 **手机版独立下载页**：[https://eldonwyd.github.io/zhouyou-app/download-mobile.html](https://eldonwyd.github.io/zhouyou-app/download-mobile.html)  
-> 📦 **手机版 GitHub Releases**：[https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile)
+> ✨ **最推荐（Android / iOS 通用，不弹「未实名/风险应用」拦截）**：用手机浏览器（Safari / Chrome / Edge / 系统浏览器）打开 **[https://zhouyou.online/](https://zhouyou.online/)** → 点击菜单里的 **「添加到主屏幕 / 添加到桌面」**，桌面即有独立 App 图标，全屏离线运行，无需每次更新重下 APK！  
+> 🔗 **手机版官网下载页（含 APK / IPA 直链）**：[https://zhouyou.online/download-mobile.html](https://zhouyou.online/download-mobile.html)  
+> 📦 **GitHub Releases 备用**：[https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile)
 
-独立安装与离线使用中国足迹地图、照片/视频/语音旅行手账、每日账本、旅途成就与 ZIP 备份：
-
-| 平台 | 适用设备 | 安装方式 | 独立下载入口 |
+| 平台 | 适用设备 | 安装方式 | 入口 |
 | :--- | :--- | :--- | :---: |
-| **Android (安卓)** | Android 8.0+ 手机 / 平板 | 直接安装 `.apk` | [![Download Android](https://img.shields.io/badge/Android-.apk%20直装包-3DDC84?style=flat-square&logo=android&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile) |
-| **iOS (苹果手机)** | iPhone / iPad | `.ipa` 自签（AltStore / SideStore / TrollStore / Sideloadly） | [![Download iOS](https://img.shields.io/badge/iOS-.ipa%20自签客户端-000000?style=flat-square&logo=ios&logoColor=white)](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile) |
-| **iOS / 手机免安装** | Safari / Chrome 浏览器 | PWA「添加到主屏幕」（免自签、永不掉签） | [![Open Web PWA](https://img.shields.io/badge/Web%20PWA-立即打开体验-ef6351?style=flat-square&logo=safari&logoColor=white)](https://eldonwyd.github.io/zhouyou-app/) |
+| **Android / iOS 免安装（推荐）** | Safari / Chrome / Edge / 系统浏览器 | **PWA「添加到主屏幕」**（无风险弹窗、自动更新） | [![Open Web PWA](https://img.shields.io/badge/Web%20PWA-立即打开体验-ef6351?style=flat-square&logo=safari&logoColor=white)](https://zhouyou.online/) |
+| **Android (安卓独立包)** | Android 8.0+ 手机 / 平板 | 官网直下 `.apk` | [![Download Android](https://img.shields.io/badge/Android-.apk%20官网直下-3DDC84?style=flat-square&logo=android&logoColor=white)](https://zhouyou.online/download-mobile.html) |
+| **iOS (苹果独立包)** | iPhone / iPad | `.ipa` 自签（AltStore / SideStore / TrollStore） | [![Download iOS](https://img.shields.io/badge/iOS-.ipa%20自签客户端-000000?style=flat-square&logo=ios&logoColor=white)](https://zhouyou.online/download-mobile.html) |
 
 <details>
 <summary><b>📖 展开查看各系统安装贴士（Windows / macOS / Linux / Android / iOS）</b></summary>
@@ -175,7 +176,7 @@
   # 或 Ubuntu / Debian：
   sudo apt install ./Zhouyou-Map-*-linux-*.deb
   ```
-- **iPhone 免自签快捷安装（推荐）**：用自带 **Safari** 打开 [在线网页版](https://eldonwyd.github.io/zhouyou-app/) → 点击底部分享按钮 → **「添加到主屏幕」** 即可全屏离线使用。
+- **手机端免弹窗推荐（Android / iPhone）**：用手机自带浏览器或 Safari 打开 [https://zhouyou.online/](https://zhouyou.online/) → 点击菜单/分享按钮 → **「添加到主屏幕 / 添加到桌面」** 即可全屏离线使用，不触发安卓「未实名/风险应用」拦截。
 - **可选：手机端连接电脑 AI 服务**：在电脑桌面版顶部菜单「应用」勾选「允许局域网手机连接 AI 服务」，并将局域网地址填入手机端「个人中心 → 远程 / 局域网 AI 服务」即可互联。
 
 详细图文说明请参阅 [全平台安装与使用指南 (docs/DOWNLOAD.md)](docs/DOWNLOAD.md)。
