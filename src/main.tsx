@@ -31,7 +31,21 @@ const isNativeClient = Boolean(
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     if (import.meta.env.PROD && !isNativeClient) {
-      navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { updateViaCache: 'none' }).catch((error) => {
+      const hadController = Boolean(navigator.serviceWorker.controller);
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadController || refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+      navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { updateViaCache: 'none' }).then((reg) => {
+        void reg.update().catch(() => undefined);
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') {
+            void reg.update().catch(() => undefined);
+          }
+        });
+      }).catch((error) => {
         console.warn('离线应用注册失败', error);
       });
     } else {

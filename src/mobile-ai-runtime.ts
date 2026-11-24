@@ -58,9 +58,39 @@ function getNativeBridge(): NativeAiBridgePlugin | null {
   return NativeAiBridge;
 }
 
-/** 原生手机端且未指向外部远程服务器时，启用手机本机独立 AI 运行时。 */
+/** 静态托管的网页 / PWA（无本地 Node 后端）也启用本地直连运行时，支持直接填 API Key 规划。 */
+function isStaticHostedWebPwa(): boolean {
+  if (Capacitor.isNativePlatform()) return false;
+  if ((window as unknown as { zhouyouDesktop?: { isDesktop?: boolean } }).zhouyouDesktop?.isDesktop) return false;
+  const host = (window.location.hostname || '').toLowerCase();
+  return host.endsWith('.github.io') || host === 'zhouyou.online' || host.endsWith('.zhouyou.online') || host.endsWith('.pages.dev');
+}
+
+/** 原生手机端或静态托管 PWA（未指向外部远程服务器时）启用本机直连 AI 运行时。 */
 export function isMobileNativeAiActive(): boolean {
-  return Boolean(getNativeBridge() && !getPlannerApiOrigin());
+  if (getPlannerApiOrigin()) return false;
+  return Boolean(getNativeBridge() || isStaticHostedWebPwa());
+}
+
+async function transportHttpRequest(options: {
+  url: string;
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  timeoutMs?: number;
+}): Promise<NativeHttpResponse> {
+  const bridge = getNativeBridge();
+  if (bridge) {
+    return bridge.httpRequest(options);
+  }
+  const resp = await fetch(options.url, {
+    method: options.method || 'GET',
+    headers: options.headers,
+    body: options.body,
+    signal: AbortSignal.timeout(options.timeoutMs ?? 90000),
+  });
+  const text = await resp.text();
+  return { status: resp.status, body: text };
 }
 
 /* ============================================================================
@@ -653,7 +683,9 @@ async function startSubLogin(providerKey: string, method?: string): Promise<Reco
     throw new Error('手机端不支持电脑命令行 Gemini CLI；请在下方「API Key」中填写 Google AI Studio 免费 API Key，即可直接用 Gemini 4 Neon。');
   }
   const bridge = getNativeBridge();
-  if (!bridge) throw new Error('未检测到手机原生网络桥接，请更新到最新版手机 APK');
+  if (!bridge) {
+    throw new Error('当前打开的是网页 PWA 版，受浏览器安全限制无法直接登录订阅。请下载安装 Android APK 客户端（免电脑直接登录 ChatGPT / Claude / Kimi 订阅），或直接在下方「API Key」填写 DeepSeek / Gemini / OpenAI 等密钥使用。');
+  }
 
   await cleanupLoginSession(key);
 
@@ -1211,8 +1243,6 @@ async function callMobileModel(
   userPrompt: string,
   { maxTokens = 4096, timeoutMs = 120000 }: { maxTokens?: number; timeoutMs?: number } = {},
 ): Promise<{ text: string; latencyMs: number; model: string; provider: string }> {
-  const bridge = getNativeBridge();
-  if (!bridge) throw new Error('手机原生网络桥接未就绪');
   const status = buildMobileAiStatus();
   if (!status.configured) throw new Error('请先在 AI 设置中登录订阅账号或填入 API Key');
 
@@ -1235,7 +1265,7 @@ async function callMobileModel(
       'User-Agent': 'codex_cli_rs/0.38.0',
     };
     if (cred.accountId) headers['chatgpt-account-id'] = cred.accountId;
-    const resp = await bridge.httpRequest({
+    const resp = await transportHttpRequest({
       url: 'https://chatgpt.com/backend-api/codex/responses',
       method: 'POST',
       headers,
@@ -1293,7 +1323,7 @@ async function callMobileModel(
       headers['x-api-key'] = cfg.apiKey;
     }
 
-    const resp = await bridge.httpRequest({
+    const resp = await transportHttpRequest({
       url,
       method: 'POST',
       headers,
@@ -1326,7 +1356,7 @@ async function callMobileModel(
     const base = (cfg.baseUrl || meta?.baseUrl || '').replace(/\/+$/, '');
     if (!base) throw new Error('请填写有效的接口地址（Base URL）');
     const url = /\/chat\/completions$/i.test(base) ? base : `${base}/chat/completions`;
-    const resp = await bridge.httpRequest({
+    const resp = await transportHttpRequest({
       url,
       method: 'POST',
       headers: {

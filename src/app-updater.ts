@@ -363,14 +363,22 @@ export async function installAppUpdate(
     }
   }
 
-  // 3. 网页 PWA：尝试刷新 Service Worker 缓存
-  if (info.platform === 'web' && 'serviceWorker' in navigator) {
+  // 3. 网页 PWA：主动刷新 Service Worker、清理旧页面壳缓存并重载到最新版本
+  if (info.platform === 'web') {
     try {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map((reg) => reg.update()));
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((reg) => reg.update()));
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.filter((k) => k.startsWith('travel-shell-')).map((k) => caches.delete(k)));
+      }
     } catch {
-      /* 忽略 SW 检查异常 */
+      /* 忽略 SW 清理异常 */
     }
+    window.location.reload();
+    return { ok: true };
   }
 
   // 4. iOS / 浏览器 / 旧版 APK 兜底：直接打开安装包下载链接或下载页
