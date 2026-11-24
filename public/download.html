@@ -38,6 +38,7 @@
         </a>
 
         <nav class="nav-center" aria-label="主导航">
+          <a href="#tour" data-i18n="nav.tour">在线体验</a>
           <a href="#features" data-i18n="nav.features">核心亮点</a>
           <a href="#showcase" data-i18n="nav.showcase">界面与皮肤</a>
           <a href="#download" data-i18n="nav.download">下载客户端</a>
@@ -160,13 +161,13 @@
               </svg>
               <span id="hero-primary-dl-label">下载电脑桌面版</span>
             </a>
-            <a class="btn btn-secondary" href="./">
+            <a class="btn btn-secondary" href="#tour" data-open-tour>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
                 <line x1="9" y1="3" x2="9" y2="18" />
                 <line x1="15" y1="6" x2="15" y2="21" />
               </svg>
-              <span>打开网页版</span>
+              <span data-i18n="hero.tryBtn">在线试玩网页版</span>
             </a>
             <a class="btn btn-github" href="https://github.com/Eldonwyd/zhouyou-app" target="_blank" rel="noreferrer">
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -178,6 +179,8 @@
 
           <div class="hero-cta-meta reveal reveal-delay-3">
             <span>支持 Windows · macOS · Linux · Android · iOS · PWA</span>
+            <span>·</span>
+            <a href="./?demo=1&amp;tour=1" target="_blank" rel="noreferrer">↗ 新标签全屏试玩</a>
             <span>·</span>
             <a href="https://github.com/Eldonwyd/zhouyou-app/releases" target="_blank" rel="noreferrer">GitHub Releases</a>
           </div>
@@ -207,6 +210,30 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
               </span>
               <div><strong>照片手账与旅途记录</strong><span>原图语音明信片 · 每日账本</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 点击展开式在线试玩入口 (#tour) -->
+      <section id="tour" class="tour-section">
+        <div class="container">
+          <div class="section-head reveal">
+            <span class="section-eyebrow" data-i18n="tour.eyebrow">INTERACTIVE WEB SANDBOX</span>
+            <h2 data-i18n="tour.h2">直接在这里试玩网页版</h2>
+            <p data-i18n="tour.p">
+              点选省份即可下钻并点亮全国城市，也可以切换 5 套皮肤、翻看大理示例路书和照片手账；AI 规划与照片存储请在客户端中使用。
+            </p>
+          </div>
+
+          <div class="tour-launcher-card reveal">
+            <div class="tour-launcher-copy">
+              <strong>🧭 免安装，点击立即进入在线试玩</strong>
+              <p>手机端将以原生 App 全屏尺寸展开，电脑端支持桌面/手机双视图切换，可随时一键关闭返回下载页。</p>
+            </div>
+            <div class="tour-launcher-actions">
+              <button type="button" class="btn btn-primary" data-open-tour>▶ 开始在线试玩</button>
+              <a class="btn btn-secondary" href="./?demo=1&amp;tour=1" target="_blank" rel="noreferrer">↗ 新标签打开</a>
             </div>
           </div>
         </div>
@@ -625,6 +652,7 @@
                 <a class="btn btn-secondary" id="pwa-open-btn" href="./">
                   <span>打开 PWA 网页版</span>
                 </a>
+                <a class="btn btn-secondary" href="./?demo=1&amp;tour=1">🗺️ 先在线试玩</a>
               </div>
               <p id="pwa-install-status" class="pwa-status" aria-live="polite"></p>
             </article>
