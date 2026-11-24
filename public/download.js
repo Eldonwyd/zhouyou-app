@@ -278,64 +278,18 @@
     tourVpBtns.forEach((b) => b.classList.toggle('is-active', b.getAttribute('data-tour-viewport') === 'mobile'));
   }
 
-  /* ---------- 6. 界面精选画廊 & 5 套皮肤点击切换预览 ---------- */
-  const SHOTS = {
-    'map-light': {
-      local: './screenshots/desktop-map-light.png',
-      fallback: `${FALLBACK_SHOT_BASE}desktop-map-light.png`,
-      title: '全国 34 省 × 370+ 城市足迹地图（浅色）',
-      desc: '点击任意省份下钻，逐城点亮已去过足迹，实时统计探索进度并支持离线缓存。',
-    },
-    'map-dark': {
-      local: './screenshots/desktop-map-dark.png',
-      fallback: `${FALLBACK_SHOT_BASE}desktop-map-dark.png`,
-      title: '全国 34 省 × 370+ 城市足迹地图（夜间深色）',
-      desc: '深色护眼低眩光配色，夜晚翻看足迹与规划行程同样柔和清晰。',
-    },
-    planner: {
-      local: './screenshots/desktop-planner.png',
-      fallback: `${FALLBACK_SHOT_BASE}desktop-planner.png`,
-      title: '多模型 AI 行程路书 + 高德 / 小红书联动',
-      desc: '每日顺路排程、出发倒计时、预算拆解、离线 OCR 识票与单文件 HTML 路书导出。',
-    },
-    journal: {
-      local: './screenshots/desktop-journal.png',
-      fallback: `${FALLBACK_SHOT_BASE}desktop-journal.png`,
-      title: '照片手账与专属城市明信片',
-      desc: '按旅程或城市归档原图照片、视频与语音评语，自动整理高光时刻。',
-    },
+  /* ---------- 6. 界面精选画廊：3 页面 × 5 皮肤全交互切换（共 15 张实拍图） ---------- */
+  const SKIN_META = {
+    candy: { name: '糖果贴纸', desc: '明快珊瑚红与手绘贴纸元素，轻快活泼。' },
+    white: { name: '纯白极简', desc: '干净纯白画布与松绿点缀，聚焦地图与照片本身。' },
+    journal: { name: '纸感手账', desc: '复古米黄纸张与大地棕配色，温润耐看。' },
+    coast: { name: '海风海岸', desc: '清透浅海蓝与深青色搭配，视觉清爽通透。' },
+    warm: { name: '暖日手账', desc: '柔和草木绿与暖日米白，书卷气息十足。' },
   };
-  const SKIN_SHOTS = {
-    candy: {
-      local: './screenshots/skin-candy.png',
-      fallback: `${FALLBACK_SHOT_BASE}skin-candy.png`,
-      title: '糖果贴纸 · 明快珊瑚手绘风',
-      desc: '暖橘珊瑚主色搭配手绘贴纸与明信片元素，默认风格活泼轻快。',
-    },
-    white: {
-      local: './screenshots/skin-white.png',
-      fallback: `${FALLBACK_SHOT_BASE}skin-white.png`,
-      title: '纯白极简 · 干净留白松绿风',
-      desc: '克制清爽的纯白画布与松绿点缀，让中国地图与旅途照片成为绝对主角。',
-    },
-    journal: {
-      local: './screenshots/skin-journal.png',
-      fallback: `${FALLBACK_SHOT_BASE}skin-journal.png`,
-      title: '纸感手账 · 复古牛皮纸衬线风',
-      desc: '米黄纸张纹理与大地棕配色，翻看每一页都像翻开一本复古纸质手账。',
-    },
-    coast: {
-      local: './screenshots/skin-coast.png',
-      fallback: `${FALLBACK_SHOT_BASE}skin-coast.png`,
-      title: '海风海岸 · 蔚蓝清透海滨风',
-      desc: '清透的浅海蓝与深青色搭配，视觉凉爽通透，适合夏日看海与长途行程。',
-    },
-    warm: {
-      local: './screenshots/skin-warm.png',
-      fallback: `${FALLBACK_SHOT_BASE}skin-warm.png`,
-      title: '暖日手账 · 草木自然书卷风',
-      desc: '柔和的草木绿与暖日米白，安静耐看，适合长时间整理游记与账本。',
-    },
+  const TAB_META = {
+    map: { label: '全国 34 省足迹地图', filePrefix: 'skin-' },
+    planner: { label: 'AI 行程路书', filePrefix: 'skin-planner-' },
+    journal: { label: '照片手账与明信片', filePrefix: 'skin-journal-' },
   };
   const showcaseImg = document.getElementById('showcase-img');
   const showcaseTitle = document.getElementById('showcase-title');
@@ -346,26 +300,34 @@
   const skinBtns = document.querySelectorAll('[data-skin-preview]');
   let activeShotTab = 'map';
   let activeMapTone = isDarkActive() ? 'dark' : 'light';
-  let activeSkin = isDarkActive() ? null : 'candy';
+  let activeSkin = 'candy';
 
   function renderShowcase() {
     if (!showcaseImg) return;
-    let spec;
-    if (activeShotTab === 'map' && activeSkin && SKIN_SHOTS[activeSkin]) {
-      spec = SKIN_SHOTS[activeSkin];
+    let fileName;
+    let title;
+    let desc;
+    if (activeShotTab === 'map' && activeMapTone === 'dark') {
+      fileName = 'desktop-map-dark.png';
+      title = '全国 34 省 × 370+ 城市足迹地图（夜间深色）';
+      desc = '深色护眼低眩光配色，夜晚翻看足迹与规划行程同样柔和清晰。';
     } else {
-      const key = activeShotTab === 'map' ? `map-${activeMapTone}` : activeShotTab;
-      spec = SHOTS[key] || SHOTS['map-light'];
+      const tabInfo = TAB_META[activeShotTab] || TAB_META.map;
+      const skinInfo = SKIN_META[activeSkin] || SKIN_META.candy;
+      fileName = `${tabInfo.filePrefix}${activeSkin}.png`;
+      title = `${skinInfo.name} · ${tabInfo.label}`;
+      desc = skinInfo.desc;
     }
-    showcaseImg.dataset.fallback = spec.fallback;
-    showcaseImg.src = spec.local;
-    showcaseImg.alt = spec.title;
-    if (showcaseTitle) showcaseTitle.textContent = spec.title;
-    if (showcaseDesc) showcaseDesc.textContent = spec.desc;
+    showcaseImg.dataset.fallback = `${FALLBACK_SHOT_BASE}${fileName}`;
+    showcaseImg.src = `./screenshots/${fileName}`;
+    showcaseImg.alt = title;
+    if (showcaseTitle) showcaseTitle.textContent = title;
+    if (showcaseDesc) showcaseDesc.textContent = desc;
     if (mapToneSwitch) mapToneSwitch.hidden = activeShotTab !== 'map';
     showcaseTabs.forEach((btn) => btn.classList.toggle('is-active', btn.getAttribute('data-shot-tab') === activeShotTab));
     toneBtns.forEach((btn) => btn.classList.toggle('is-active', btn.getAttribute('data-map-tone') === activeMapTone));
-    skinBtns.forEach((btn) => btn.classList.toggle('is-active', activeShotTab === 'map' && btn.getAttribute('data-skin-preview') === activeSkin));
+    const showSkinActive = !(activeShotTab === 'map' && activeMapTone === 'dark');
+    skinBtns.forEach((btn) => btn.classList.toggle('is-active', showSkinActive && btn.getAttribute('data-skin-preview') === activeSkin));
   }
   if (showcaseImg) {
     showcaseImg.addEventListener('error', () => {
@@ -377,25 +339,21 @@
   showcaseTabs.forEach((btn) => {
     btn.addEventListener('click', () => {
       activeShotTab = btn.getAttribute('data-shot-tab') || 'map';
-      if (activeShotTab !== 'map') activeSkin = null;
-      else if (activeMapTone === 'light' && !activeSkin) activeSkin = 'candy';
       renderShowcase();
     });
   });
   toneBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
       activeMapTone = btn.getAttribute('data-map-tone') || 'light';
-      activeSkin = activeMapTone === 'dark' ? null : (activeSkin || 'candy');
       renderShowcase();
     });
   });
   skinBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
       const skin = btn.getAttribute('data-skin-preview');
-      if (!skin || !SKIN_SHOTS[skin]) return;
-      activeShotTab = 'map';
-      activeMapTone = 'light';
+      if (!skin || !SKIN_META[skin]) return;
       activeSkin = skin;
+      if (activeShotTab === 'map') activeMapTone = 'light';
       renderShowcase();
     });
   });
@@ -487,10 +445,10 @@
   if (heroMobileLabel) {
     heroMobileLabel.textContent =
       detected === 'ios'
-        ? 'iPhone / iPad · PWA 免自签安装'
+        ? '下载手机版 · PWA 免自签推荐'
         : detected === 'android'
-          ? '下载手机版（PWA / 安卓 APK）'
-          : '下载手机版（PWA / 安卓 / iOS）';
+          ? '下载手机版（PWA 推荐 / APK）'
+          : '下载手机版（PWA 推荐 / APK / iOS）';
   }
   if (heroMobileBtn) {
     heroMobileBtn.addEventListener('click', (e) => {
@@ -577,7 +535,7 @@
     const verSource = desktopRelease || mobileRelease;
     if (verSource && heroVerEl) {
       const cleanVer = String(verSource.tag_name || '').replace(/^(desktop|mobile)-/i, '');
-      heroVerEl.textContent = cleanVer || 'v1.0.9';
+      heroVerEl.textContent = cleanVer || 'v1.0.12';
     }
 
     if (desktopRelease) {

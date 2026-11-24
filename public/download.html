@@ -17,7 +17,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="./download.css" />
+    <link rel="stylesheet" href="./download.css?v=1.0.12" />
     <script>
       try {
         var t = localStorage.getItem('zhouyou-site-theme');
@@ -133,7 +133,7 @@
           <a class="hero-pill reveal" href="#download">
             <span class="hero-pill-dot" aria-hidden="true"></span>
             <span>全平台开源免费 · 官网高速直连</span>
-            <span class="hero-pill-ver" id="hero-latest-ver">v1.0.9</span>
+            <span class="hero-pill-ver" id="hero-latest-ver">v1.0.12</span>
           </a>
 
           <h1 class="hero-title reveal reveal-delay-1">
@@ -151,9 +151,9 @@
                 <rect x="6" y="2" width="12" height="20" rx="2.5" />
                 <line x1="12" y1="18" x2="12.01" y2="18" />
               </svg>
-              <span id="hero-mobile-dl-label">下载手机版（PWA / APK / iOS）</span>
+              <span id="hero-mobile-dl-label">下载手机版（PWA 推荐 / APK / iOS）</span>
             </a>
-            <a id="hero-primary-dl" class="btn btn-teal" href="#desktop">
+            <a id="hero-primary-dl" class="btn btn-primary" href="#desktop">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <rect x="2" y="3" width="20" height="14" rx="2" />
                 <line x1="8" y1="21" x2="16" y2="21" />
@@ -169,6 +169,12 @@
               </svg>
               <span data-i18n="hero.tryBtn">在线试玩网页版</span>
             </a>
+            <a class="btn btn-github" href="https://github.com/Eldonwyd/zhouyou-app" target="_blank" rel="noreferrer">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.2.7-3.87-1.54-3.87-1.54-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.16 1.18a10.98 10.98 0 0 1 5.76 0c2.2-1.49 3.16-1.18 3.16-1.18.63 1.59.23 2.76.11 3.05.74.8 1.18 1.83 1.18 3.08 0 4.41-2.69 5.39-5.26 5.67.41.36.78 1.06.78 2.14 0 1.55-.01 2.79-.01 3.17 0 .31.21.67.8.56A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z" />
+              </svg>
+              <span>GitHub 开源主页</span>
+            </a>
           </div>
 
           <div class="hero-cta-meta reveal reveal-delay-3">
@@ -179,31 +185,31 @@
             <a href="https://github.com/Eldonwyd/zhouyou-app/releases" target="_blank" rel="noreferrer">GitHub Releases</a>
           </div>
 
-          <!-- 开源与质感信任条 -->
+          <!-- README 核心优势 4 卡片 -->
           <div class="trust-strip reveal reveal-delay-3">
-            <div class="trust-item">
-              <span class="trust-icon coral">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-4.35-6-10a6 6 0 1 1 12 0c0 5.65-6 10-6 10z" /><circle cx="12" cy="11" r="2.2" /></svg>
-              </span>
-              <div><strong>34 省 × 370+ 城</strong><span>精准下钻离线足迹地图</span></div>
-            </div>
-            <div class="trust-item">
-              <span class="trust-icon teal">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-              </span>
-              <div><strong>100% 本地优先</strong><span>零登录零广告 · 数据不上传</span></div>
-            </div>
             <div class="trust-item">
               <span class="trust-icon gold">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6 7 18.2l1.9-5.8L4 8.8h6.1z" /></svg>
               </span>
-              <div><strong>多模型 AI 路书</strong><span>DeepSeek / GPT / Claude / Gemini</span></div>
+              <div><strong>AI 一键规划路书</strong><span>多模型切换 · 离线 OCR 识票</span></div>
+            </div>
+            <div class="trust-item">
+              <span class="trust-icon teal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+              </span>
+              <div><strong>高德 × 小红书直连</strong><span>景点一键导航 · 攻略解析</span></div>
+            </div>
+            <div class="trust-item">
+              <span class="trust-icon coral">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-4.35-6-10a6 6 0 1 1 12 0c0 5.65-6 10-6 10z" /><circle cx="12" cy="11" r="2.2" /></svg>
+              </span>
+              <div><strong>34 省 × 370+ 城地图</strong><span>下钻点亮 · 按省离线缓存</span></div>
             </div>
             <div class="trust-item">
               <span class="trust-icon sage">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
               </span>
-              <div><strong>MIT 完全开源</strong><span>ZIP v3 跨设备无损迁移</span></div>
+              <div><strong>照片手账与旅途记录</strong><span>原图语音明信片 · 每日账本</span></div>
             </div>
           </div>
         </div>
@@ -613,13 +619,13 @@
 
             <!-- PWA 首推卡 -->
             <article class="dl-card pwa-hero-card" id="pwa-install-card">
-              <span class="badge teal">推荐</span>
+              <span class="badge teal">⭐ 推荐 · 免安装包</span>
               <div class="card-head">
                 <div class="os-icon" style="background:var(--teal-soft);color:var(--teal);border-color:rgba(29,100,120,0.22);" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.2H22l-6.2 4.5 2.4 7.3L12 16.5 5.8 21l2.4-7.3L2 9.2h7.6z" /></svg>
                 </div>
                 <div>
-                  <h3>PWA 网页版「添加到主屏幕」（Android / iOS 通用）</h3>
+                  <h3>PWA 网页版「添加到主屏幕」（推荐 · Android / iOS 通用）</h3>
                   <small>桌面独立 App 图标 · 全屏离线运行 · 自动更新 · 免安装包</small>
                 </div>
               </div>
@@ -627,13 +633,24 @@
                 用手机浏览器（Safari / Chrome / Edge / 系统浏览器）打开 <strong>zhouyou.online</strong> → 点击菜单里的 <strong>「添加到主屏幕 / 添加到桌面」</strong>，即可像原生 App 一样保存原图照片、语音手账并离线看地图，打开即用且自动更新。
               </p>
               <ol class="pwa-steps" id="pwa-steps-list">
-                <li><strong>Android 手机</strong>：用 Chrome / Edge / 系统浏览器打开 → 点下方「一键添加到手机桌面」或浏览器菜单「添加到主屏幕 / 添加到桌面」。</li>
+                <li><strong>Android 手机</strong>：用 Chrome / Edge / 系统浏览器打开 → 点下方「立即添加到主屏幕」或浏览器菜单「添加到桌面」。</li>
                 <li><strong>iPhone / iPad</strong>：用自带 <strong>Safari</strong> 打开 → 点底部分享按钮 → 选择「添加到主屏幕」（免自签、永不掉签）。</li>
               </ol>
               <div class="pwa-actions">
-                <button type="button" id="pwa-install-btn" class="btn btn-primary btn-sm" hidden>📲 一键添加到手机桌面</button>
-                <a class="btn btn-primary btn-sm" id="pwa-open-btn" href="./">✨ 打开完整网页版 / 添加到桌面</a>
-                <a class="btn btn-secondary btn-sm" href="./?demo=1&amp;tour=1">🗺️ 在线漫游试玩</a>
+                <button type="button" id="pwa-install-btn" class="btn btn-primary btn-pwa-lg" hidden>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="6" y="2" width="12" height="20" rx="2.5" />
+                    <path d="M12 8v6m0 0-2.5-2.5M12 14l2.5-2.5" />
+                  </svg>
+                  <span>立即添加到主屏幕（推荐 · 一键安装）</span>
+                </button>
+                <a class="btn btn-primary btn-pwa-lg" id="pwa-open-btn" href="./">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                  </svg>
+                  <span>打开 PWA 添加到桌面（推荐）</span>
+                </a>
+                <a class="btn btn-secondary" href="./?demo=1&amp;tour=1">🗺️ 先在线试玩</a>
               </div>
               <p id="pwa-install-status" class="pwa-status" aria-live="polite"></p>
             </article>
@@ -843,6 +860,6 @@
       </div>
     </div>
 
-    <script src="./download.js"></script>
+    <script src="./download.js?v=1.0.12"></script>
   </body>
 </html>
