@@ -1076,10 +1076,10 @@ code, pre { font-family: var(--font-mono); }
   height: 100%;
   object-fit: cover;
   object-position: top center;
-  transition: opacity 0.22s ease, transform 0.45s ease;
+  transition: opacity 0.18s ease;
 }
 .showcase-stage img.is-switching {
-  opacity: 0.42;
+  opacity: 0.78;
 }
 .showcase-caption {
   max-width: 760px;

@@ -308,6 +308,20 @@
   let activeMapTone = isDarkActive() ? 'dark' : 'light';
   let activeSkin = 'candy';
 
+  let switchSeq = 0;
+  let dimTimer = null;
+  const preloadedTabs = new Set();
+
+  function preloadTabSkins(tabKey) {
+    const info = TAB_META[tabKey];
+    if (!info || preloadedTabs.has(tabKey)) return;
+    preloadedTabs.add(tabKey);
+    Object.keys(SKIN_META).forEach((skin) => {
+      const img = new Image();
+      img.src = `./screenshots/${info.filePrefix}${skin}.png?v=1.0.18`;
+    });
+  }
+
   function renderShowcase() {
     if (!showcaseImg) return;
     let fileName;
@@ -324,12 +338,9 @@
       title = `${skinInfo.name} · ${tabInfo.label}`;
       desc = skinInfo.desc;
     }
-    const nextLocal = `./screenshots/${fileName}`;
-    showcaseImg.dataset.fallback = `${FALLBACK_SHOT_BASE}${fileName}`;
-    if (showcaseImg.getAttribute('src') !== nextLocal) {
-      showcaseImg.classList.add('is-switching');
-      showcaseImg.src = nextLocal;
-    }
+
+    const nextLocal = `./screenshots/${fileName}?v=1.0.18`;
+    const nextFallback = `${FALLBACK_SHOT_BASE}${fileName}`;
     showcaseImg.alt = title;
     if (showcaseTitle) showcaseTitle.textContent = title;
     if (showcaseDesc) showcaseDesc.textContent = desc;
@@ -338,35 +349,46 @@
     toneBtns.forEach((btn) => btn.classList.toggle('is-active', btn.getAttribute('data-map-tone') === activeMapTone));
     const showSkinActive = !(activeShotTab === 'map' && activeMapTone === 'dark');
     skinBtns.forEach((btn) => btn.classList.toggle('is-active', showSkinActive && btn.getAttribute('data-skin-preview') === activeSkin));
-  }
-  if (showcaseImg) {
-    showcaseImg.addEventListener('load', () => {
+
+    preloadTabSkins(activeShotTab);
+    if (showcaseImg.getAttribute('src') === nextLocal) {
       showcaseImg.classList.remove('is-switching');
-    });
-    showcaseImg.addEventListener('error', () => {
-      const fb = showcaseImg.dataset.fallback;
-      if (fb && showcaseImg.src !== fb) {
-        showcaseImg.src = fb;
+      return;
+    }
+
+    const seq = ++switchSeq;
+    if (dimTimer) clearTimeout(dimTimer);
+    dimTimer = setTimeout(() => {
+      if (seq === switchSeq) showcaseImg.classList.add('is-switching');
+    }, 120);
+
+    const loader = new Image();
+    loader.onload = () => {
+      if (seq !== switchSeq) return;
+      if (dimTimer) clearTimeout(dimTimer);
+      showcaseImg.src = loader.src;
+      showcaseImg.classList.remove('is-switching');
+    };
+    loader.onerror = () => {
+      if (seq !== switchSeq) return;
+      if (loader.src !== nextFallback) {
+        loader.src = nextFallback;
       } else {
+        if (dimTimer) clearTimeout(dimTimer);
         showcaseImg.classList.remove('is-switching');
       }
-    });
-    renderShowcase();
-    // 预加载当前皮肤下的另外两个模块截图，以及地图的其余皮肤截图，点击切换更顺滑
-    const showcaseSection = document.getElementById('showcase');
-    let preloaded = false;
-    const preloadNearbyShots = () => {
-      if (preloaded) return;
-      preloaded = true;
-      ['skin-planner-candy.png', 'skin-journal-candy.png', 'skin-white.png', 'skin-journal.png', 'skin-coast.png', 'skin-warm.png'].forEach((f) => {
-        const img = new Image();
-        img.src = `./screenshots/${f}`;
-      });
     };
+    loader.src = nextLocal;
+  }
+  if (showcaseImg) {
+    renderShowcase();
+    const showcaseSection = document.getElementById('showcase');
     if (showcaseSection && 'IntersectionObserver' in window) {
       const shotIo = new IntersectionObserver((entries) => {
         if (entries.some((e) => e.isIntersecting)) {
-          preloadNearbyShots();
+          preloadTabSkins('map');
+          preloadTabSkins('planner');
+          preloadTabSkins('journal');
           shotIo.disconnect();
         }
       }, { rootMargin: '300px 0px' });
@@ -570,7 +592,7 @@
     const verSource = desktopRelease || mobileRelease;
     if (verSource && heroVerEl) {
       const cleanVer = String(verSource.tag_name || '').replace(/^(desktop|mobile)-/i, '');
-      heroVerEl.textContent = cleanVer || 'v1.0.16';
+      heroVerEl.textContent = cleanVer || 'v1.0.18';
     }
 
     if (desktopRelease) {
