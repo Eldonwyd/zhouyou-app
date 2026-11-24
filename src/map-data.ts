@@ -2,6 +2,8 @@ import type { AdministrativeFeature, AdministrativeGeoJSON, CityMark, VisitStatu
 
 const BASE_URL = `${import.meta.env.BASE_URL}maps/`;
 const provinceMapCache = new Map<string, AdministrativeGeoJSON>();
+const provinceMapPromises = new Map<string, Promise<AdministrativeGeoJSON>>();
+let nationalMapCache: AdministrativeGeoJSON | null = null;
 let nationalMapPromise: Promise<AdministrativeGeoJSON> | null = null;
 
 export const DIRECT_CITY_PROVINCES = new Set(['110000', '120000', '310000', '500000', '710000', '810000', '820000']);
@@ -65,20 +67,66 @@ async function requestGeoJson(filename: string): Promise<AdministrativeGeoJSON> 
   return data;
 }
 
+export function getCachedNationalMap(): AdministrativeGeoJSON | null {
+  return nationalMapCache;
+}
+
+export function getCachedProvinceMap(provinceCode: string): AdministrativeGeoJSON | null {
+  return provinceMapCache.get(provinceCode) ?? null;
+}
+
 export function loadNationalMap(): Promise<AdministrativeGeoJSON> {
-  nationalMapPromise ??= requestGeoJson('china.json').catch((error) => {
-    nationalMapPromise = null;
-    throw error;
-  });
+  if (nationalMapCache) return Promise.resolve(nationalMapCache);
+  nationalMapPromise ??= requestGeoJson('china.json')
+    .then((data) => {
+      nationalMapCache = data;
+      return data;
+    })
+    .catch((error) => {
+      nationalMapPromise = null;
+      throw error;
+    });
   return nationalMapPromise;
 }
 
-export async function loadProvinceMap(provinceCode: string): Promise<AdministrativeGeoJSON> {
+export function prefetchNationalMap(): void {
+  if (nationalMapCache || nationalMapPromise) return;
+  void loadNationalMap().catch(() => undefined);
+}
+
+export function loadProvinceMap(provinceCode: string): Promise<AdministrativeGeoJSON> {
   const cached = provinceMapCache.get(provinceCode);
-  if (cached) return cached;
-  const data = await requestGeoJson(`${provinceCode}.json`);
-  provinceMapCache.set(provinceCode, data);
-  return data;
+  if (cached) return Promise.resolve(cached);
+  let pending = provinceMapPromises.get(provinceCode);
+  if (!pending) {
+    pending = requestGeoJson(`${provinceCode}.json`)
+      .then((data) => {
+        provinceMapCache.set(provinceCode, data);
+        provinceMapPromises.delete(provinceCode);
+        return data;
+      })
+      .catch((error) => {
+        provinceMapPromises.delete(provinceCode);
+        throw error;
+      });
+    provinceMapPromises.set(provinceCode, pending);
+  }
+  return pending;
+}
+
+export function prefetchProvinceMap(provinceCode: string): Promise<AdministrativeGeoJSON | null> {
+  if (!provinceCode) return Promise.resolve(null);
+  const cached = provinceMapCache.get(provinceCode);
+  if (cached) return Promise.resolve(cached);
+  return loadProvinceMap(provinceCode).catch(() => null);
+}
+
+export function shouldAvoidBackgroundPrefetch(): boolean {
+  const conn = (navigator as Navigator & {
+    connection?: { saveData?: boolean; effectiveType?: string };
+  }).connection;
+  if (!conn) return false;
+  return Boolean(conn.saveData) || conn.effectiveType === '2g' || conn.effectiveType === 'slow-2g';
 }
 
 export function provinceMapUrl(provinceCode: string): string {

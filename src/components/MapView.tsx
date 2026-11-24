@@ -9,7 +9,17 @@ import { themeColor, useAppearanceStyle, useDarkTheme } from '../theme';
 import { provinceDisplayName, useI18n } from '../i18n';
 import type { AdministrativeFeature, AdministrativeGeoJSON, CityMark } from '../types';
 import {
-  fillForStatus, loadNationalMap, loadProvinceMap, pointInFeature, provinceColor, statusForCity, statusForProvince,
+  fillForStatus,
+  getCachedNationalMap,
+  getCachedProvinceMap,
+  loadNationalMap,
+  loadProvinceMap,
+  pointInFeature,
+  prefetchProvinceMap,
+  provinceColor,
+  shouldAvoidBackgroundPrefetch,
+  statusForCity,
+  statusForProvince,
 } from '../map-data';
 
 interface MapViewProps {
@@ -19,12 +29,40 @@ interface MapViewProps {
   onSelectCity: (feature: AdministrativeFeature, province: AdministrativeFeature) => void;
   onError: (message: string) => void;
   onRecommendProvince: (name: string) => void;
+  visible?: boolean;
 }
 
 // Register only the map chart features used by this page. The complete ECharts
 // bundle would make the first map load substantially larger.
 // 按需构建需注册标签布局功能，否则 hideOverlap 不生效。
 echarts.use([MapChart, TooltipComponent, CanvasRenderer, LabelLayout]);
+
+function ensureMapRegistered(mapName: string, geoJson: AdministrativeGeoJSON): void {
+  if (!echarts.getMap(mapName)) {
+    echarts.registerMap(mapName, geoJson as Parameters<typeof echarts.registerMap>[1]);
+  }
+}
+
+function prefetchAndRegisterProvince(provinceCode: string | null | undefined): void {
+  if (!provinceCode) return;
+  const mapName = `province-${provinceCode}`;
+  const cached = getCachedProvinceMap(provinceCode);
+  if (cached) {
+    ensureMapRegistered(mapName, cached);
+    return;
+  }
+  void prefetchProvinceMap(provinceCode).then((data) => {
+    if (data) ensureMapRegistered(mapName, data);
+  });
+}
+
+const NATIONAL_LABEL_OFFSETS: Record<string, [number, number]> = {
+  '110000': [-12, -18],
+  '120000': [22, 5],
+  '130000': [-16, 15],
+  '810000': [27, 10],
+  '820000': [-25, 24],
+};
 
 function shortRegionLabel(name: string): string {
   const shortened = name
@@ -97,7 +135,7 @@ function findNearestFeatureAtPixel(
 }
 
 /** A single chart is reused for country and city levels; click changes the registered geometry. */
-export default function MapView({ marks, activeProvinceCode, setActiveProvinceCode, onSelectCity, onError, onRecommendProvince }: MapViewProps) {
+export default function MapView({ marks, activeProvinceCode, setActiveProvinceCode, onSelectCity, onError, onRecommendProvince, visible = true }: MapViewProps) {
   const { lang, t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<EChartsType | null>(null);
@@ -109,20 +147,43 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
   const onSelectCityRef = useRef(onSelectCity);
   const setActiveProvinceCodeRef = useRef(setActiveProvinceCode);
   const activeProvinceRef = useRef<AdministrativeFeature | undefined>(undefined);
+  const renderedMapRef = useRef<{ map: AdministrativeGeoJSON; provinceCode: string | null } | null>(null);
+  const layoutLabelsRef = useRef<((params: { dataIndex?: number }) => { hideOverlap: boolean; dx: number; dy: number }) | null>(null);
+  const nationalLayoutSizeRef = useRef<(() => number) | null>(null);
+  const justSwitchedMapRef = useRef(false);
+  const langRef = useRef(lang);
+  const compactMapRef = useRef(false);
   onSelectCityRef.current = onSelectCity;
   setActiveProvinceCodeRef.current = setActiveProvinceCode;
-  const [nationalMap, setNationalMap] = useState<AdministrativeGeoJSON | null>(null);
+  langRef.current = lang;
+
+  const [nationalMap, setNationalMap] = useState<AdministrativeGeoJSON | null>(() => getCachedNationalMap());
   // Keep the code beside the geometry: a previously loaded province must never
   // be rendered under the next province's title, even before effects run.
-  const [loadedProvince, setLoadedProvince] = useState<{ code: string; data: AdministrativeGeoJSON } | null>(null);
-  const provinceMap = loadedProvince?.code === activeProvinceCode ? loadedProvince.data : null;
+  const [loadedProvince, setLoadedProvince] = useState<{ code: string; data: AdministrativeGeoJSON } | null>(() => {
+    if (!activeProvinceCode) return null;
+    const cached = getCachedProvinceMap(activeProvinceCode);
+    return cached ? { code: activeProvinceCode, data: cached } : null;
+  });
+  const resolvedNationalMap = nationalMap ?? getCachedNationalMap();
+  const provinceMap = activeProvinceCode
+    ? (loadedProvince?.code === activeProvinceCode ? loadedProvince.data : getCachedProvinceMap(activeProvinceCode))
+    : null;
   const [retryAttempt, setRetryAttempt] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [notice, setNotice] = useState<'loading-map' | 'loading-province' | 'ready-province' | 'ready-national' | 'offline-province' | string>('loading-map');
+  const [loading, setLoading] = useState(() => !(activeProvinceCode
+    ? (getCachedNationalMap() && getCachedProvinceMap(activeProvinceCode))
+    : getCachedNationalMap()));
+  const [notice, setNotice] = useState<'loading-map' | 'loading-province' | 'ready-province' | 'ready-national' | 'offline-province' | string>(() => {
+    if (activeProvinceCode) {
+      return getCachedNationalMap() && getCachedProvinceMap(activeProvinceCode) ? 'ready-province' : 'loading-province';
+    }
+    return getCachedNationalMap() ? 'ready-national' : 'loading-map';
+  });
   const [provinceFilter, setProvinceFilter] = useState<'all' | 'visited' | 'unvisited'>('visited');
   const hoveredRegionRef = useRef<string | null>(null);
   // 手机端无鼠标悬浮提示，全国和省内市级地图均直接显示名称，重叠交给 ECharts hideOverlap 自动避让。
   const [compactMap, setCompactMap] = useState(() => window.matchMedia('(max-width: 560px)').matches);
+  compactMapRef.current = compactMap;
   const showMapLabels = true;
 
   useEffect(() => {
@@ -132,8 +193,8 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
     return () => query.removeEventListener('change', updateLayout);
   }, []);
 
-  const activeProvince = useMemo(() => nationalMap?.features.find((feature) =>
-    String(feature.properties.adcode) === activeProvinceCode), [nationalMap, activeProvinceCode]);
+  const activeProvince = useMemo(() => resolvedNationalMap?.features.find((feature) =>
+    String(feature.properties.adcode) === activeProvinceCode), [resolvedNationalMap, activeProvinceCode]);
   activeProvinceRef.current = activeProvince;
 
   useEffect(() => {
@@ -141,20 +202,46 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
     // Only the active effect may update the map, loading indicator and errors.
     let isCurrentRequest = true;
     let loadingProvince = false;
-    setLoading(true);
-    setLoadedProvince(null);
-    setNotice(activeProvinceCode ? 'loading-province' : 'loading-map');
+    let loadingTimer = 0;
+
+    const cachedNational = getCachedNationalMap();
+    const cachedProvince = activeProvinceCode ? getCachedProvinceMap(activeProvinceCode) : null;
+
+    // 命中内存缓存时同步切换，不触发 loading 遮罩与闪烁。
+    if (cachedNational && (!activeProvinceCode || cachedProvince)) {
+      if (nationalMap !== cachedNational) setNationalMap(cachedNational);
+      if (activeProvinceCode && cachedProvince && loadedProvince?.code !== activeProvinceCode) {
+        setLoadedProvince({ code: activeProvinceCode, data: cachedProvince });
+      }
+      setLoading(false);
+      setNotice(activeProvinceCode ? 'ready-province' : 'ready-national');
+      return;
+    }
+
+    // 仅在首次无地图可显示时立刻展示遮罩；切省时保留当前画面并延迟 150ms 兜底提示，避免快网速下闪屏。
+    const hasDisplayedMap = Boolean(renderedMapRef.current);
+    if (!hasDisplayedMap) {
+      setLoading(true);
+      setNotice(activeProvinceCode ? 'loading-province' : 'loading-map');
+    } else {
+      setLoading(false);
+      loadingTimer = window.setTimeout(() => {
+        if (!isCurrentRequest) return;
+        setLoading(true);
+        setNotice(activeProvinceCode ? 'loading-province' : 'loading-map');
+      }, 150);
+    }
 
     async function loadCurrentMap(): Promise<void> {
       try {
         // National geometry is also required to resolve the province heading
         // and city-selection context when returning from another page.
-        const nationalData = await loadNationalMap();
+        const nationalData = cachedNational ?? await loadNationalMap();
         if (!isCurrentRequest) return;
         setNationalMap(nationalData);
         if (activeProvinceCode) {
           loadingProvince = true;
-          const provinceData = await loadProvinceMap(activeProvinceCode);
+          const provinceData = cachedProvince ?? await loadProvinceMap(activeProvinceCode);
           if (!isCurrentRequest) return;
           setLoadedProvince({ code: activeProvinceCode, data: provinceData });
         }
@@ -168,15 +255,19 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
           : `${loadingProvince ? 'province-error:' : 'national-error:'}${detail}`);
         onError(detail);
       } finally {
+        if (loadingTimer) window.clearTimeout(loadingTimer);
         if (isCurrentRequest) setLoading(false);
       }
     }
 
     void loadCurrentMap();
-    return () => { isCurrentRequest = false; };
+    return () => {
+      isCurrentRequest = false;
+      if (loadingTimer) window.clearTimeout(loadingTimer);
+    };
   }, [activeProvinceCode, retryAttempt, onError]);
 
-  const currentMap = activeProvinceCode ? provinceMap : nationalMap;
+  const currentMap = activeProvinceCode ? provinceMap : resolvedNationalMap;
   const hasActiveProvince = Boolean(activeProvince);
   const dark = useDarkTheme();
   const appearance = useAppearanceStyle();
@@ -216,84 +307,21 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
     return { mapColors, data };
   }
 
-  // Effect 1: create & dispose ECharts instance ONLY when geometry/level changes,
-  // so clicking cities never tears down the canvas or resets zoom/pan.
+  // Effect 0: initialize ECharts instance ONCE for the lifetime of MapView,
+  // reusing the same canvas and event listeners across national/province switches.
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !currentMap || (activeProvinceCode && !activeProvinceRef.current)) return;
+    if (!container) return;
     const chart = echarts.init(container, undefined, { renderer: 'canvas' });
     chartRef.current = chart;
     if (import.meta.env.DEV) (window as Window & { __travelMapChart?: EChartsType }).__travelMapChart = chart;
-    const mapName = activeProvinceCode ? `province-${activeProvinceCode}` : 'china';
-    echarts.registerMap(mapName, currentMap as Parameters<typeof echarts.registerMap>[1]);
 
-    const nationalLabelOffsets: Record<string, [number, number]> = {
-      '110000': [-12, -18],
-      '120000': [22, 5],
-      '130000': [-16, 15],
-      '810000': [27, 10],
-      '820000': [-25, 24],
-    };
-    const adcodes = currentMap.features.map((feature) => String(feature.properties.adcode));
-    const layoutLabels = ({ dataIndex }: { dataIndex?: number }) => {
-      const option = chart.getOption() as { series?: Array<{ zoom?: number }> };
-      const zoom = Number(option.series?.[0]?.zoom) || 1;
-      const offsetWeight = Math.max(0, Math.min(1, (3 - zoom) / 2));
-      const code = dataIndex === undefined ? '' : adcodes[dataIndex];
-      const offset = !activeProvinceCode && code ? nationalLabelOffsets[code] : undefined;
-      return {
-        hideOverlap: true,
-        dx: (offset?.[0] ?? 0) * offsetWeight,
-        dy: (offset?.[1] ?? 0) * offsetWeight,
-      };
-    };
-    const nationalLayoutSize = () => Math.min(
-      chart.getWidth() * (compactMap ? 1.02 : 0.96),
-      chart.getHeight() * 0.94 * ((135.1 - 73.4) / (53.6 - 18)) * 0.75,
-    );
-    const { mapColors, data } = buildSeriesVisuals(currentMap);
-    chart.setOption({
-      tooltip: {
-        trigger: 'item',
-        formatter: (params: { name?: string; data?: { adcode?: string } }) => {
-          const rawName = params.name ?? '';
-          if (!activeProvinceCode) return provinceDisplayName(params.data?.adcode ?? '', rawName, lang);
-          return rawName;
-        },
-        backgroundColor: mapColors.tooltip,
-        borderWidth: 0,
-        textStyle: { color: '#fff' },
-        enterable: false,
-        extraCssText: 'pointer-events: none;',
-      },
-      series: [{
-        type: 'map', map: mapName, roam: true, scaleLimit: { min: 0.8, max: 12 },
-        boundingCoords: activeProvinceCode ? undefined : [[73.4, 53.6], [135.1, 18]],
-        // 微微下移并留出顶部工具栏余量，避免最北端城市落到顶部按钮下方导致不好点。
-        layoutCenter: activeProvinceCode ? ['50%', '52%'] : ['50%', compactMap ? '53%' : '52%'],
-        layoutSize: activeProvinceCode ? '86%' : nationalLayoutSize(),
-        zoom: 1,
-        selectedMode: false,
-        label: {
-          show: showMapLabels, fontSize: activeProvinceCode ? (compactMap ? 9.5 : 11) : (compactMap ? 9 : 10), color: mapColors.label,
-          formatter: ({ name }: { name: string }) => (!activeProvinceCode && lang === 'en'
-            ? provinceDisplayName('', name, 'en', true)
-            : shortRegionLabel(name)),
-        },
-        labelLayout: layoutLabels,
-        itemStyle: { borderColor: mapColors.border, borderWidth: 1.1, areaColor: mapColors.area },
-        emphasis: {
-          label: { show: true, color: mapColors.strong, fontWeight: 'bold' },
-          itemStyle: { areaColor: mapColors.emphasis, borderColor: mapColors.emphasisBorder, borderWidth: 1.4 },
-        },
-        data,
-      }],
-    }, true);
-
-    const activateFeature = (clicked: AdministrativeFeature | undefined | null) => {
+    const activateFeature = (clicked: AdministrativeFeature | undefined | null, renderedProvinceCode: string | null) => {
       if (!clicked) return;
-      if (!activeProvinceCode) {
-        setActiveProvinceCodeRef.current(String(clicked.properties.adcode));
+      if (!renderedProvinceCode) {
+        const code = String(clicked.properties.adcode);
+        prefetchAndRegisterProvince(code);
+        setActiveProvinceCodeRef.current(code);
       } else if (activeProvinceRef.current) {
         onSelectCityRef.current(clicked, activeProvinceRef.current);
       }
@@ -329,14 +357,15 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
       if (fallbackTimer) window.clearTimeout(fallbackTimer);
       fallbackTimer = window.setTimeout(() => {
         fallbackTimer = 0;
-        if (handledByChartRef.current || chart.isDisposed() || Date.now() < suppressClickUntilRef.current) return;
+        const rendered = renderedMapRef.current;
+        if (!rendered || handledByChartRef.current || chart.isDisposed() || Date.now() < suppressClickUntilRef.current) return;
         const fromDown = capturedDownCode
-          ? currentMap.features.find((feature) => String(feature.properties.adcode) === capturedDownCode)
+          ? rendered.map.features.find((feature) => String(feature.properties.adcode) === capturedDownCode)
           : null;
-        const target = fromDown ?? findNearestFeatureAtPixel(chart, currentMap.features, relX, relY, activeProvinceCode, nationalLabelOffsets);
+        const target = fromDown ?? findNearestFeatureAtPixel(chart, rendered.map.features, relX, relY, rendered.provinceCode, NATIONAL_LABEL_OFFSETS);
         if (target) {
           handledByChartRef.current = true;
-          activateFeature(target);
+          activateFeature(target, rendered.provinceCode);
         }
       }, 0);
     };
@@ -346,10 +375,24 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
     container.addEventListener('pointerup', onPointerUp, { passive: true });
     container.addEventListener('pointercancel', onPointerCancel, { passive: true });
 
+    // 悬停或按下省份时立即预加载市级边界，缩短甚至消除首次点击等待。
+    chart.on('mouseover', (params) => {
+      const rendered = renderedMapRef.current;
+      if (!rendered || rendered.provinceCode || params.componentType !== 'series' || params.seriesType !== 'map') return;
+      const code = (params.data as { adcode?: string } | undefined)?.adcode;
+      if (code) prefetchAndRegisterProvince(String(code));
+    });
+
     chart.on('mousedown', (params) => {
       if (params.componentType !== 'series' || params.seriesType !== 'map') return;
       const code = (params.data as { adcode?: string } | undefined)?.adcode;
-      if (code) downAdcodeRef.current = String(code);
+      if (code) {
+        const codeStr = String(code);
+        downAdcodeRef.current = codeStr;
+        if (!renderedMapRef.current?.provinceCode) {
+          prefetchAndRegisterProvince(codeStr);
+        }
+      }
     });
 
     let labelFrame = 0;
@@ -360,20 +403,26 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
       if (!labelFrame) {
         labelFrame = window.requestAnimationFrame(() => {
           labelFrame = 0;
-          if (!chart.isDisposed()) chart.setOption({ series: [{ labelLayout: layoutLabels }] });
+          if (!chart.isDisposed() && layoutLabelsRef.current) {
+            chart.setOption({ series: [{ labelLayout: layoutLabelsRef.current }] });
+          }
         });
       }
     });
     chart.on('click', (params) => {
-      if (maxDragDistRef.current > 12 || Date.now() < suppressClickUntilRef.current || params.componentType !== 'series' || params.seriesType !== 'map') return;
-      const clicked = currentMap.features.find((feature) => String(feature.properties.adcode) === String((params.data as { adcode?: string } | undefined)?.adcode));
+      const rendered = renderedMapRef.current;
+      if (!rendered || maxDragDistRef.current > 12 || Date.now() < suppressClickUntilRef.current || params.componentType !== 'series' || params.seriesType !== 'map') return;
+      const clicked = rendered.map.features.find((feature) => String(feature.properties.adcode) === String((params.data as { adcode?: string } | undefined)?.adcode));
       if (!clicked) return;
       handledByChartRef.current = true;
-      activateFeature(clicked);
+      activateFeature(clicked, rendered.provinceCode);
     });
     const observer = new ResizeObserver(() => {
+      if (chart.isDisposed() || container.clientWidth === 0 || container.clientHeight === 0) return;
       chart.resize();
-      if (!activeProvinceCode) chart.setOption({ series: [{ layoutSize: nationalLayoutSize() }] });
+      if (!renderedMapRef.current?.provinceCode && nationalLayoutSizeRef.current) {
+        chart.setOption({ series: [{ layoutSize: nationalLayoutSizeRef.current() }] });
+      }
     });
     observer.observe(container);
     return () => {
@@ -386,13 +435,110 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
       observer.disconnect();
       chart.dispose();
       chartRef.current = null;
+      renderedMapRef.current = null;
       if (import.meta.env.DEV) delete (window as Window & { __travelMapChart?: EChartsType }).__travelMapChart;
     };
+  }, []);
+
+  // Re-sync canvas size when returning from another tab while kept mounted.
+  useEffect(() => {
+    if (!visible) return;
+    const frame = window.requestAnimationFrame(() => {
+      const chart = chartRef.current;
+      const container = containerRef.current;
+      if (!chart || chart.isDisposed() || !container || container.clientWidth === 0 || container.clientHeight === 0) return;
+      chart.resize();
+      if (!renderedMapRef.current?.provinceCode && nationalLayoutSizeRef.current) {
+        chart.setOption({ series: [{ layoutSize: nationalLayoutSizeRef.current() }] });
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [visible]);
+
+  // Effect 1: switch registered map geometry on the existing ECharts instance
+  // without disposing the canvas or re-parsing already registered GeoJSON.
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart || chart.isDisposed() || !currentMap || (activeProvinceCode && !activeProvinceRef.current)) return;
+
+    const mapName = activeProvinceCode ? `province-${activeProvinceCode}` : 'china';
+    ensureMapRegistered(mapName, currentMap);
+
+    const adcodes = currentMap.features.map((feature) => String(feature.properties.adcode));
+    const layoutLabels = ({ dataIndex }: { dataIndex?: number }) => {
+      const option = chart.getOption() as { series?: Array<{ zoom?: number }> };
+      const zoom = Number(option.series?.[0]?.zoom) || 1;
+      const offsetWeight = Math.max(0, Math.min(1, (3 - zoom) / 2));
+      const code = dataIndex === undefined ? '' : adcodes[dataIndex];
+      const offset = !activeProvinceCode && code ? NATIONAL_LABEL_OFFSETS[code] : undefined;
+      return {
+        hideOverlap: true,
+        dx: (offset?.[0] ?? 0) * offsetWeight,
+        dy: (offset?.[1] ?? 0) * offsetWeight,
+      };
+    };
+    const nationalLayoutSize = () => Math.min(
+      chart.getWidth() * (compactMapRef.current ? 1.02 : 0.96),
+      chart.getHeight() * 0.94 * ((135.1 - 73.4) / (53.6 - 18)) * 0.75,
+    );
+    layoutLabelsRef.current = layoutLabels;
+    nationalLayoutSizeRef.current = nationalLayoutSize;
+
+    const { mapColors, data } = buildSeriesVisuals(currentMap);
+    const currentLang = langRef.current;
+    const isCompact = compactMapRef.current;
+    chart.setOption({
+      animationDurationUpdate: 220,
+      animationEasingUpdate: 'cubicOut',
+      tooltip: {
+        trigger: 'item',
+        formatter: (params: { name?: string; data?: { adcode?: string } }) => {
+          const rawName = params.name ?? '';
+          if (!activeProvinceCode) return provinceDisplayName(params.data?.adcode ?? '', rawName, langRef.current);
+          return rawName;
+        },
+        backgroundColor: mapColors.tooltip,
+        borderWidth: 0,
+        textStyle: { color: '#fff' },
+        enterable: false,
+        extraCssText: 'pointer-events: none;',
+      },
+      series: [{
+        type: 'map', map: mapName, roam: true, scaleLimit: { min: 0.8, max: 12 },
+        boundingCoords: activeProvinceCode ? undefined : [[73.4, 53.6], [135.1, 18]],
+        // 微微下移并留出顶部工具栏余量，避免最北端城市落到顶部按钮下方导致不好点。
+        layoutCenter: activeProvinceCode ? ['50%', '52%'] : ['50%', isCompact ? '53%' : '52%'],
+        layoutSize: activeProvinceCode ? '86%' : nationalLayoutSize(),
+        zoom: 1,
+        center: null,
+        selectedMode: false,
+        label: {
+          show: showMapLabels, fontSize: activeProvinceCode ? (isCompact ? 9.5 : 11) : (isCompact ? 9 : 10), color: mapColors.label,
+          formatter: ({ name }: { name: string }) => (!activeProvinceCode && currentLang === 'en'
+            ? provinceDisplayName('', name, 'en', true)
+            : shortRegionLabel(name)),
+        },
+        labelLayout: layoutLabels,
+        itemStyle: { borderColor: mapColors.border, borderWidth: 1.1, areaColor: mapColors.area },
+        emphasis: {
+          label: { show: true, color: mapColors.strong, fontWeight: 'bold' },
+          itemStyle: { areaColor: mapColors.emphasis, borderColor: mapColors.emphasisBorder, borderWidth: 1.4 },
+        },
+        data,
+      }],
+    }, true);
+
+    renderedMapRef.current = { map: currentMap, provinceCode: activeProvinceCode };
+    justSwitchedMapRef.current = true;
   }, [currentMap, activeProvinceCode, hasActiveProvince]);
 
   // Effect 2: lightweight incremental repaint when marks/theme/viewport change
   // (keeps current zoom/pan & avoids flicker or dropped clicks during rapid tapping).
   useEffect(() => {
+    if (justSwitchedMapRef.current) {
+      justSwitchedMapRef.current = false;
+      return;
+    }
     const chart = chartRef.current;
     if (!chart || chart.isDisposed() || !currentMap) return;
     const { mapColors, data } = buildSeriesVisuals(currentMap);
@@ -423,6 +569,62 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
       }],
     });
   }, [currentMap, activeProvinceCode, showMapLabels, compactMap, marks, dark, appearance, lang]);
+
+  // Effect 3: silently prefetch & register province maps during browser idle time
+  // (visited provinces first) so clicking any province opens instantaneously.
+  useEffect(() => {
+    if (!resolvedNationalMap || shouldAvoidBackgroundPrefetch()) return;
+    let cancelled = false;
+    let idleHandle: number | null = null;
+    const win = window as Window & {
+      requestIdleCallback?: (cb: (deadline: { timeRemaining: () => number }) => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    const visitedCodes = new Set(marks.filter((mark) => mark.visited && mark.provinceCode).map((mark) => mark.provinceCode));
+    const allCodes = resolvedNationalMap.features.map((feature) => String(feature.properties.adcode));
+    const queue = [
+      ...allCodes.filter((code) => visitedCodes.has(code)),
+      ...allCodes.filter((code) => !visitedCodes.has(code)),
+    ].filter((code) => !getCachedProvinceMap(code) || !echarts.getMap(`province-${code}`));
+
+    let cursor = 0;
+    const scheduleNext = () => {
+      if (cancelled || cursor >= queue.length) return;
+      const run = () => {
+        idleHandle = null;
+        if (cancelled || cursor >= queue.length) return;
+        const code = queue[cursor++];
+        const cached = getCachedProvinceMap(code);
+        if (cached) {
+          ensureMapRegistered(`province-${code}`, cached);
+          scheduleNext();
+          return;
+        }
+        void prefetchProvinceMap(code).then((data) => {
+          if (cancelled) return;
+          if (data) ensureMapRegistered(`province-${code}`, data);
+          scheduleNext();
+        });
+      };
+      if (typeof win.requestIdleCallback === 'function') {
+        idleHandle = win.requestIdleCallback(() => run(), { timeout: 1200 });
+      } else {
+        idleHandle = window.setTimeout(run, 180);
+      }
+    };
+
+    // 稍微延后 350ms 启动，避免和首屏地图首次渲染抢主线程。
+    const startTimer = window.setTimeout(scheduleNext, 350);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(startTimer);
+      if (idleHandle !== null) {
+        if (typeof win.cancelIdleCallback === 'function') win.cancelIdleCallback(idleHandle);
+        else window.clearTimeout(idleHandle);
+      }
+    };
+  }, [resolvedNationalMap]);
 
   function adjustZoom(multiplier: number): void {
     const chart = chartRef.current;
@@ -460,14 +662,14 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
     return counts;
   }, [visitedMarks]);
   const visitedProvincesCount = visitedCountByProvince.size;
-  const totalProvinces = nationalMap?.features.length || 34;
+  const totalProvinces = resolvedNationalMap?.features.length || 34;
   const provinceExplorePct = Math.min(100, Math.round((visitedProvincesCount / totalProvinces) * 100));
   const filteredProvinces = useMemo(() => {
-    const all = nationalMap?.features ?? [];
+    const all = resolvedNationalMap?.features ?? [];
     if (provinceFilter === 'visited') return all.filter((feature) => (visitedCountByProvince.get(String(feature.properties.adcode)) ?? 0) > 0);
     if (provinceFilter === 'unvisited') return all.filter((feature) => (visitedCountByProvince.get(String(feature.properties.adcode)) ?? 0) === 0);
     return all;
-  }, [nationalMap, provinceFilter, visitedCountByProvince]);
+  }, [resolvedNationalMap, provinceFilter, visitedCountByProvince]);
 
   const activeProvinceColor = activeProvinceCode ? provinceColor(activeProvinceCode) : undefined;
   const activeProvinceVisitedCount = useMemo(() => {
@@ -483,6 +685,10 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
   const activeProvinceTitle = activeProvince
     ? provinceDisplayName(String(activeProvince.properties.adcode), activeProvince.properties.name, lang)
     : '';
+
+  const hasLoadError = notice === 'offline-province'
+    || notice.startsWith('province-error:')
+    || notice.startsWith('national-error:');
 
   const noticeText = notice === 'loading-map'
     ? t('正在加载地图…', 'Loading map…')
@@ -537,7 +743,7 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
           </div>
           <div ref={containerRef} className="map-canvas" role="img" aria-label={activeProvince ? t(`${activeProvinceTitle}城市地图`, `${activeProvinceTitle} city map`) : t('中国省级地图', 'China province map')} />
           {loading && <div className="map-overlay">{t('正在加载地图…', 'Loading map…')}</div>}
-          {!loading && !currentMap && <div className="map-overlay error">{noticeText}<button type="button" onClick={() => setRetryAttempt((attempt) => attempt + 1)}>{t('重新加载地图', 'Retry Map')}</button></div>}
+          {!loading && !currentMap && hasLoadError && <div className="map-overlay error">{noticeText}<button type="button" onClick={() => setRetryAttempt((attempt) => attempt + 1)}>{t('重新加载地图', 'Retry Map')}</button></div>}
           <div className="map-bottom">
             <span className="map-notice-text">{noticeText}</span>
             <div className="map-legend">
@@ -636,8 +842,10 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
                     ? t(`${fullName} · 已点亮 ${litCount} 座城市`, `${fullName} · ${litCount} cities visited`)
                     : t(`${fullName} · 点击进入市级地图`, `${fullName} · Click to view cities`)}
                   onClick={() => setActiveProvinceCode(code)}
-                  onMouseEnter={() => highlightRegion(feature.properties.name)}
+                  onMouseEnter={() => { highlightRegion(feature.properties.name); prefetchAndRegisterProvince(code); }}
                   onMouseLeave={() => highlightRegion(null)}
+                  onPointerDown={() => prefetchAndRegisterProvince(code)}
+                  onFocus={() => prefetchAndRegisterProvince(code)}
                 >
                   <i style={{ background: color }} />
                   <span className="province-name">{shortName}</span>
@@ -662,6 +870,8 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
                         type="button"
                         className="map-recent-chip"
                         onClick={() => mark.provinceCode && setActiveProvinceCode(mark.provinceCode)}
+                        onMouseEnter={() => prefetchAndRegisterProvince(mark.provinceCode)}
+                        onPointerDown={() => prefetchAndRegisterProvince(mark.provinceCode)}
                         title={t(`查看 ${mark.name} 所在省份`, `View province for ${mark.name}`)}
                       >
                         <i style={{ background: provinceColor(mark.provinceCode) }} />
