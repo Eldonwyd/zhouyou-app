@@ -28,14 +28,29 @@
 </p>
 
 <p>
+  <a href="https://eldonwyd.github.io/zhouyou-app/?demo=1"><b>🚀 Live Interactive Demo</b></a>
+  &nbsp;·&nbsp;
   <a href="#-desktop-download"><b>💻 Desktop Download</b></a>
   &nbsp;·&nbsp;
   <a href="#-mobile-download"><b>📱 Mobile Download</b></a>
   &nbsp;·&nbsp;
-  <a href="https://eldonwyd.github.io/zhouyou-app/"><b>✨ Live Web / PWA</b></a>
-  &nbsp;·&nbsp;
   <a href="#-screenshots"><b>🖼️ Screenshots</b></a>
 </p>
+
+<br />
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/demo-ai-planner.gif" alt="AI Trip Planning -> Route Map -> Local OCR Booking Ledger" />
+      <br /><b>🤖 One-Prompt AI Plan → Auto Route Map → Local OCR Ticket Ledger</b>
+    </td>
+    <td align="center" width="50%">
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/demo-map-journal.gif" alt="Light Up Map -> Warm Travel Journal -> Export Poster" />
+      <br /><b>🗺️ Light Up Footprint Map → Travel Journal → Export Poster</b>
+    </td>
+  </tr>
+</table>
 
 </div>
 
@@ -68,29 +83,29 @@
   <tr>
     <td align="center" width="50%">
       <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-journal.png" alt="Travel Journal" />
-      <br /><b>📔 Travel Journal</b> — trip booklets &amp; illustrated city postcards
+      <br /><b>📔 Travel Journal &amp; Postcards</b> — trip booklets, photo &amp; voice memories, and illustrated city postcards
     </td>
     <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-trip-memories.png" alt="Photo Memories" />
-      <br /><b>📸 Photo Memories</b> — organize original photos, notes &amp; voice memos by city and spot
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-achievements.png" alt="Traveler Achievements" />
+      <br /><b>🏆 Traveler Achievements</b> — 8-stage roadmap, custom stamps &amp; shareable posters
     </td>
   </tr>
 </table>
 
 <div align="center">
   <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner.png" alt="One-Click AI Trip Planner" width="100%" />
-  <p><i><b>🤖 One-Click AI Trip Planner</b> — multi-model planning with scenic cards, budget breakdown, countdown &amp; direct Xiaohongshu guides</i></p>
+  <p><i><b>🤖 One-Click AI Trip Planner</b> — scenic cards, budget breakdown, countdown, calendar export &amp; offline HTML roadbook</i></p>
 </div>
 
 <table>
   <tr>
     <td align="center" width="50%">
       <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner-day.png" alt="Daily Itinerary with Amap and Xiaohongshu" />
-      <br /><b>🔗 Daily Plan · Amap &amp; Xiaohongshu</b> — one-click Amap lookup, Xiaohongshu search, AI tweaks &amp; live budget
+      <br /><b>🔗 Daily Plan · Amap &amp; Xiaohongshu</b> — one-click Amap navigation, Xiaohongshu search, AI tweaks &amp; live budget
     </td>
     <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-achievements.png" alt="Traveler Achievements" />
-      <br /><b>🏆 Traveler Achievements</b> — 8-stage roadmap, custom stamps &amp; shareable posters
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner-create.png" alt="Custom AI Plan Creation and Xiaohongshu Import" />
+      <br /><b>✨ Custom AI Plan &amp; Guide Import</b> — import tickets, hotels &amp; Xiaohongshu notes directly into your itinerary
     </td>
   </tr>
 </table>

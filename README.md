@@ -37,11 +37,11 @@
 </p>
 
 <p>
+  <a href="https://eldonwyd.github.io/zhouyou-app/?demo=1"><b>🚀 一键在线试玩（含示例数据）</b></a>
+  &nbsp;·&nbsp;
   <a href="#-电脑版下载"><b>💻 电脑版下载</b></a>
   &nbsp;·&nbsp;
   <a href="#-手机版下载"><b>📱 手机版下载</b></a>
-  &nbsp;·&nbsp;
-  <a href="https://eldonwyd.github.io/zhouyou-app/"><b>✨ 在线网页版 (PWA)</b></a>
   &nbsp;·&nbsp;
   <a href="#-界面预览"><b>🖼️ 界面预览</b></a>
   &nbsp;·&nbsp;
@@ -49,6 +49,23 @@
   &nbsp;·&nbsp;
   <a href="#-开发者快速开始"><b>🛠️ 本地开发</b></a>
 </p>
+
+<br />
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/demo-ai-planner.gif" alt="AI 一键生成行程 → 地图自动连线 → 高铁票本地 OCR 自动记账" />
+      <br /><b>🤖 一句话生成行程 → 地图自动连线 → 高铁票本地 OCR 记账</b>
+    </td>
+    <td align="center" width="50%">
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/demo-map-journal.gif" alt="点亮中国省市地图 → 暖日手账与城市明信片 → 一键导出成就海报" />
+      <br /><b>🗺️ 一键点亮中国地图 → 暖日手账明信片 → 导出旅人成就海报</b>
+    </td>
+  </tr>
+</table>
+
+<p><sub>💡 第一次打开？直接点 <a href="https://eldonwyd.github.io/zhouyou-app/?demo=1"><b>在线演示模式（?demo=1）</b></a>，一键体验 14 座点亮城市、完整大理 AI 路书、照片手账与每日账本，随时一键清空。</sub></p>
 
 </div>
 
@@ -99,18 +116,18 @@
   <tr>
     <td align="center" width="50%">
       <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-journal.png" alt="旅行手账与城市明信片" />
-      <br /><b>📔 旅行手账全景</b> — 每次旅程独立成册，自动匹配专属城市地标明信片
+      <br /><b>📔 旅行手账与城市明信片</b> — 每次旅程独立成册，珍藏原图照片、语音评语与专属城市明信片
     </td>
     <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-trip-memories.png" alt="地点照片与旅途回忆墙" />
-      <br /><b>📸 照片记忆手账</b> — 按城市与地点珍藏原图照片、文字感悟与语音评语，随时翻阅重温
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-achievements.png" alt="旅途成就与成长路线" />
+      <br /><b>🏆 旅途成就与成长路线</b> — 八阶旅人成长里程碑、手作纪念章与一键导出分享海报
     </td>
   </tr>
 </table>
 
 <div align="center">
   <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner.png" alt="AI 一键规划完整行程" width="100%" />
-  <p><i><b>🤖 AI 一键规划行程</b> —— 多模型自由切换，自动生成每日路线、实景配图、预算拆解、出发倒计时与小红书游玩 / 美食攻略直达</i></p>
+  <p><i><b>🤖 AI 一键规划行程</b> —— 每日顺路行程、实景配图、预算拆解、出发倒计时、日历提醒、小红书加景点与离线 HTML 路书导出</i></p>
 </div>
 
 <table>
@@ -120,8 +137,8 @@
       <br /><b>🔗 每日行程 · 联动高德 &amp; 小红书</b> — 一键跳转高德地图导航、去小红书搜同款、AI 局部微调与实时费用概览
     </td>
     <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-achievements.png" alt="旅途成就与成长路线" />
-      <br /><b>🏆 旅途成就与深浅色主题</b> — 八阶旅人成长路线、手作纪念章与一键导出分享海报
+      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner-create.png" alt="一键新建 AI 计划与小红书攻略导入" />
+      <br /><b>✨ AI 计划定制 &amp; 攻略导入</b> — 提前录入机票酒店、粘贴小红书链接或攻略截图，一键融入行程
     </td>
   </tr>
 </table>
