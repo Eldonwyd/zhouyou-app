@@ -580,3 +580,36 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .85; }
   .planner-chat-tools { justify-content: flex-start; }
   .planner-ai-status { border-radius: 14px; }
 }
+
+/* ---------- 官网在线漫游体验模式 (?tour=1) ---------- */
+.tour-mode-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px 18px; flex-wrap: wrap;
+  margin: 14px 32px 0; padding: 12px 18px; border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--coral, #e5634f) 32%, var(--line));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--coral, #e5634f) 10%, var(--surface)), color-mix(in srgb, var(--teal, #1d6478) 8%, var(--surface)));
+  font-size: .86rem;
+}
+.tour-mode-bar-copy { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; min-width: 0; }
+.tour-mode-bar-copy strong { color: var(--coral, #e5634f); font-weight: 800; white-space: nowrap; }
+.tour-mode-bar-copy span { color: var(--ink-2, var(--muted)); font-size: .82rem; }
+.tour-mode-bar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tour-mode-bar-actions button { min-height: 34px; padding: 6px 14px; font-size: .82rem; border-radius: 999px; }
+.tour-pill-btn {
+  border: 1px solid color-mix(in srgb, var(--coral, #e5634f) 38%, transparent);
+  background: color-mix(in srgb, var(--coral, #e5634f) 12%, var(--surface));
+  color: var(--coral, #e5634f); font-weight: 700; cursor: pointer;
+  transition: transform .15s ease, filter .15s ease;
+}
+.tour-pill-btn:hover { transform: translateY(-1px); filter: brightness(1.03); }
+.tour-planner-notice {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  margin: 0 0 14px; padding: 11px 16px; border-radius: 14px;
+  border: 1px dashed color-mix(in srgb, var(--coral, #e5634f) 38%, var(--line-strong));
+  background: color-mix(in srgb, var(--coral, #e5634f) 7%, var(--surface));
+  font-size: .84rem; color: var(--ink-2, var(--muted));
+}
+.tour-planner-notice button { min-height: 34px; padding: 6px 14px; border-radius: 999px; font-size: .8rem; white-space: nowrap; }
+.tour-upgrade-dialog p { line-height: 1.75; }
+@media (max-width: 850px) {
+  .tour-mode-bar { margin: 12px 16px 0; padding: 11px 14px; }
+}

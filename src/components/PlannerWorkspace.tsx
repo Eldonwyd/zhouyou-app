@@ -97,6 +97,7 @@ import { needsTicketPreparation } from '../planner-ticket-display';
 import { BUDGET_LABELS, type TripPlan } from '../types';
 import { createLocalId, currency, downloadBlob } from '../utils';
 import { useI18n } from '../i18n';
+import { isWebTourMode, type TourRestrictedFeature } from '../web-tour';
 
 const isNativeMobileApp = () => Boolean(
   (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.(),
@@ -114,6 +115,8 @@ interface PlannerWorkspaceProps extends ComponentProps<typeof FinanceView> {
   onSaveJournalVisit: typeof recordPlannerJournalVisit;
   onOpenJournalPlace: (placeId: string) => void;
   onSavePreferences: (preferences: PlannerPreferences) => Promise<void>;
+  webTourMode?: boolean;
+  onRequireClient?: (feature: TourRestrictedFeature) => void;
 }
 
 type PlannerTab = 'discover' | 'itineraries' | 'finance';
@@ -300,7 +303,7 @@ function PlacePhoto({
   }, []);
   useEffect(() => {
     // 行程先显示，没有照片的卡片自动排队补图；每张卡只自动查一次。
-    if (!autoLoad || photo || autoTried.current) return;
+    if (isWebTourMode() || !autoLoad || photo || autoTried.current) return;
     autoTried.current = true;
     setQueued(true);
     queueAutoPhoto(async () => {
@@ -316,6 +319,10 @@ function PlacePhoto({
     return () => window.clearInterval(timer);
   }, [busy]);
   async function retry() {
+    if (isWebTourMode()) {
+      setMessage('在线体验模式暂不支持联网抓取实拍配图，请下载客户端体验');
+      return;
+    }
     controller.current?.abort();
     const currentRequest = new AbortController();
     controller.current = currentRequest;
@@ -353,7 +360,7 @@ function PlacePhoto({
   }
   return (
     <div className="planner-photo">
-      {photo && !failed && !loadingLocal ? (
+      {photo && !failed && !loadingLocal && (localUrl || !isWebTourMode()) ? (
         <>
           <img
             src={localUrl || (photo.assetId ? plannerApiUrl(`photo-file/${photo.assetId}`) : photo.url)}
@@ -964,6 +971,7 @@ function ActivityEditor({
  */
 export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
   const { t } = useI18n();
+  const webTourMode = Boolean(props.webTourMode);
   const [tab, setTab] = useState<PlannerTab>(
     props.provinceIntent ? 'discover' : 'itineraries',
   );
@@ -1031,7 +1039,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
   /** 行程先显示，抢票资料后台补全。改日期/增删活动/AI修改/恢复历史都走同一更新路径。
    * 独立取消请求，避免后台抢票查询阻塞用户继续编辑；旧行程的结果不会覆盖新行程。 */
   useEffect(() => {
-    if (!ticketPlanId || !ticketSignature || savedTicketSignature === ticketSignature || busy || bookingDialog) return;
+    if (webTourMode || !ticketPlanId || !ticketSignature || savedTicketSignature === ticketSignature || busy || bookingDialog) return;
     const abort = new AbortController();
     const key = `${ticketPlanId}:${ticketSignature}`;
     const timer = window.setTimeout(() => {
@@ -1071,7 +1079,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
 
   /** 已有行程缺少详细两站交通时，打开后自动在后台计算并保存，直接呈现在两张卡片之间，无需手动点补全。 */
   useEffect(() => {
-    if (!ticketPlanId || !missingTransferSig || busy || bookingDialog || aiStatus?.configured !== true) return;
+    if (webTourMode || !ticketPlanId || !missingTransferSig || busy || bookingDialog || aiStatus?.configured !== true) return;
     if (triedTransferSigsRef.current.has(missingTransferSig)) return;
     const abort = new AbortController();
     let started = false;
@@ -1184,6 +1192,11 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
   ])];
 
   useEffect(() => {
+    if (webTourMode) {
+      setAiStatus(null);
+      setAiBackendOffline(false);
+      return;
+    }
     let active = true;
     let healthController: AbortController | null = null;
     const probeHealth = () => {
@@ -1232,6 +1245,10 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
     operation: (signal: AbortSignal) => Promise<void>,
     retry: () => Promise<void>,
   ) {
+    if (webTourMode) {
+      props.onRequireClient?.('ai');
+      return false;
+    }
     if (controller.current) return false;
     const next = new AbortController();
     controller.current = next;
@@ -1587,6 +1604,10 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
     );
   }
   function focusPlannerChat(): void {
+    if (webTourMode) {
+      props.onRequireClient?.('ai');
+      return;
+    }
     if (!activePlan) return;
     // 先提交展开状态，再在同一次点击中聚焦，短屏上也能直接输入。
     if (!chatOpen) flushSync(() => setOpenChatPlanId(activePlan.id));
@@ -1596,6 +1617,10 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
   }
 
   function openXhsDialog(options: XhsDialogOptions) {
+    if (webTourMode) {
+      props.onRequireClient?.('ai');
+      return;
+    }
     // 一次只保留一份导入草稿。其他入口在任务收起时也优先回到这份草稿。
     if (xhsDialog) {
       resumeXhsDialog();
@@ -1965,37 +1990,48 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            className="mobile-disclosure-toggle planner-service-toggle"
-            aria-expanded={serviceToolsExpanded}
-            aria-controls="planner-ai-tools"
-            onClick={() => setServiceToolsExpanded((expanded) => !expanded)}
-          >
-            <span>{t('AI 服务设置', 'AI Settings')}</span>
-            <small className={aiStatus?.configured ? 'planner-service-summary ok' : 'planner-service-summary'}>
-              <i className="planner-service-dot" aria-hidden="true" />
-              {aiStatus
-                ? (aiStatus.configured ? (aiStatus.label ?? aiStatus.model ?? t('AI 已配置', 'AI Ready')) : t('AI 待配置', 'Setup AI'))
-                : (aiBackendOffline ? t('AI 未连接', 'AI Offline') : t('AI 检查中', 'Checking AI'))}
-            </small>
-          </button>
-          {!isNativeMobileApp() && (
+          {!webTourMode && (
+            <button
+              type="button"
+              className="mobile-disclosure-toggle planner-service-toggle"
+              aria-expanded={serviceToolsExpanded}
+              aria-controls="planner-ai-tools"
+              onClick={() => setServiceToolsExpanded((expanded) => !expanded)}
+            >
+              <span>{t('AI 服务设置', 'AI Settings')}</span>
+              <small className={aiStatus?.configured ? 'planner-service-summary ok' : 'planner-service-summary'}>
+                <i className="planner-service-dot" aria-hidden="true" />
+                {aiStatus
+                  ? (aiStatus.configured ? (aiStatus.label ?? aiStatus.model ?? t('AI 已配置', 'AI Ready')) : t('AI 待配置', 'Setup AI'))
+                  : (aiBackendOffline ? t('AI 未连接', 'AI Offline') : t('AI 检查中', 'Checking AI'))}
+              </small>
+            </button>
+          )}
+          {!webTourMode && !isNativeMobileApp() && (
             <div id="planner-photo-tools" className="planner-service-panel planner-xhs-login-desktop">
               <PlannerPhotoSettings />
             </div>
           )}
         </div>
         <div id="planner-ai-tools" className="planner-service-panel">
-          <PlannerAiStatusBar
-            status={aiStatus}
-            offline={aiBackendOffline}
-            onOpen={() => setAiSettingsOpen(true)}
-            onChange={(next) => {
-              setAiStatus(next);
-              setAiBackendOffline(false);
-            }}
-          />
+          {webTourMode ? (
+            <div className="tour-planner-notice" role="note">
+              <span>{t('🔒 在线体验模式仅展示示例大理路书、路线地图与预算账本；AI 规划、对话微调与离线 OCR 识票为客户端专属能力。', '🔒 Web Tour previews the sample Dali roadbook, route map & ledger; live AI planning and offline OCR are client-only.')}</span>
+              <button type="button" className="primary" onClick={() => props.onRequireClient?.('ai')}>
+                {t('下载客户端解锁 AI', 'Unlock AI in Client')}
+              </button>
+            </div>
+          ) : (
+            <PlannerAiStatusBar
+              status={aiStatus}
+              offline={aiBackendOffline}
+              onOpen={() => setAiSettingsOpen(true)}
+              onChange={(next) => {
+                setAiStatus(next);
+                setAiBackendOffline(false);
+              }}
+            />
+          )}
         </div>
       </div>
       {aiSettingsOpen && createPortal(
@@ -2432,7 +2468,13 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                   >
                     ✦ 小红书加景点 / 改计划
                   </button>
-                  <button className="secondary" disabled={busy} onClick={() => setBookingDialog({})}>
+                  <button className="secondary" disabled={busy} onClick={() => {
+                    if (webTourMode) {
+                      props.onRequireClient?.('ai');
+                      return;
+                    }
+                    setBookingDialog({});
+                  }}>
                     ＋ 导入车次 / 酒店
                   </button>
                   <button

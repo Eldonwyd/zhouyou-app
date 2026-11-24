@@ -5,19 +5,21 @@ import { calculatePlannerBudget, plannerFillEstimates, plannerLocalTransport } f
 import { plannerDisplayText } from '../planner-display';
 import type { AiTravelPlan } from '../planner-types';
 import { currency } from '../utils';
+import { isWebTourMode } from '../web-tour';
 
-/** 优先加载服务端本地图；若服务未启动或离线则回退 IndexedDB 缓存，再失败则展示柔和占位卡而非裂图图标。 */
+/** 优先加载服务端本地图；在在线漫游模式或离线时直接读 IndexedDB 缓存，避免无效请求。 */
 function PlanCardPhoto({ title, assetId, url }: { title: string; assetId?: string; url?: string }) {
-  const primarySrc = assetId ? plannerApiUrl(`photo-file/${assetId}`) : (url ?? '');
+  const tourIdbFirst = Boolean(assetId && isWebTourMode());
+  const primarySrc = tourIdbFirst ? '' : (assetId ? plannerApiUrl(`photo-file/${assetId}`) : (url ?? ''));
   const [src, setSrc] = useState(primarySrc);
-  const [triedIdb, setTriedIdb] = useState(false);
-  const [failed, setFailed] = useState(!primarySrc);
+  const [triedIdb, setTriedIdb] = useState(tourIdbFirst);
+  const [failed, setFailed] = useState(!primarySrc && !tourIdbFirst);
 
   useEffect(() => {
     setSrc(primarySrc);
-    setTriedIdb(false);
-    setFailed(!primarySrc);
-  }, [primarySrc]);
+    setTriedIdb(tourIdbFirst);
+    setFailed(!primarySrc && !tourIdbFirst);
+  }, [primarySrc, tourIdbFirst]);
 
   useEffect(() => {
     if (!triedIdb || !assetId) return;

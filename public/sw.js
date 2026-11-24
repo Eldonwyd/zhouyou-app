@@ -1,7 +1,7 @@
 /* Cache the app shell and national map after the first online visit. Province
  * maps are cached only when the user presses the explicit region-cache button.
  */
-const SHELL_CACHE = 'travel-shell-v6';
+const SHELL_CACHE = 'travel-shell-v7';
 const REGION_CACHE = 'travel-region-maps-v1';
 
 self.addEventListener('install', (event) => {
@@ -36,8 +36,14 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
-  // AI replies and release metadata must always reach the network, never a stale shell.
-  if (url.pathname.includes('/api/planner/') || url.pathname.endsWith('/releases.json')) return;
+  // AI replies, release metadata, and edge download routes must always reach the network.
+  if (
+    url.pathname.includes('/api/planner/') ||
+    url.pathname.includes('/api/releases') ||
+    url.pathname.includes('/api/download') ||
+    url.pathname.includes('/install/') ||
+    url.pathname.endsWith('/releases.json')
+  ) return;
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
   if (/\/maps\/\d{6}\.json$/.test(url.pathname)) {
     event.respondWith(caches.open(REGION_CACHE).then(async (cache) => (await cache.match(request, { ignoreVary: true })) || fetch(request)));

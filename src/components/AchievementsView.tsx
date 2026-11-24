@@ -5,6 +5,7 @@ import { AchievementBadgeArt, CuteSticker, HighlightEmptyArt, getTravelerLevel }
 import { createLocalId, downloadBlob } from '../utils';
 import { themeColor } from '../theme';
 import { useI18n, type AppLanguage } from '../i18n';
+import type { TourRestrictedFeature } from '../web-tour';
 
 // 每站沿用应用内的旅行图标，等级数超过现有图标时仍可显示默认地图图标。
 const travelerStopIcons = ['leaf', 'detail', 'map', 'camera', 'mountain', 'train', 'sun', 'plane'];
@@ -19,6 +20,8 @@ interface AchievementsViewProps {
   onOpenEntry: (entry: DayEntry) => void;
   onError: (message: string) => void;
   onNotice: (message: string) => void;
+  webTourMode?: boolean;
+  onRequireClient?: (feature: TourRestrictedFeature) => void;
 }
 
 interface PresetBadgeSpec {
@@ -180,6 +183,8 @@ export default function AchievementsView({
   onOpenEntry,
   onError,
   onNotice,
+  webTourMode = false,
+  onRequireClient,
 }: AchievementsViewProps) {
   const { lang, isEn, t } = useI18n();
   const [title, setTitle] = useState('');
@@ -510,17 +515,28 @@ export default function AchievementsView({
             </label>
             <label>
               {t('徽章图片', 'Badge Image')}
-              <span className={`file-picker-box ${imageName ? 'has-file' : ''}`}>
-                <input
-                  className="file-picker-input"
-                  type="file"
-                  accept="image/*"
-                  ref={imageInputRef}
-                  onChange={(event) => setImageName(event.target.files?.[0]?.name ?? '')}
-                />
-                <TravelIcon name="camera" />
-                <span>{imageName || t('挑选一张喜欢的图片…', 'Choose a photo…')}</span>
-              </span>
+              {webTourMode ? (
+                <button
+                  type="button"
+                  className="file-picker-box"
+                  onClick={() => onRequireClient?.('photo')}
+                >
+                  <TravelIcon name="camera" />
+                  <span>{t('🔒 上传图片请下载客户端', '🔒 Client only for photo upload')}</span>
+                </button>
+              ) : (
+                <span className={`file-picker-box ${imageName ? 'has-file' : ''}`}>
+                  <input
+                    className="file-picker-input"
+                    type="file"
+                    accept="image/*"
+                    ref={imageInputRef}
+                    onChange={(event) => setImageName(event.target.files?.[0]?.name ?? '')}
+                  />
+                  <TravelIcon name="camera" />
+                  <span>{imageName || t('挑选一张喜欢的图片…', 'Choose a photo…')}</span>
+                </span>
+              )}
             </label>
             <label>
               {t('关联高光记录', 'Link Highlight Entry')}

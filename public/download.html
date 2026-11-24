@@ -3,654 +3,820 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>周游地图 · 电脑版 &amp; 手机版独立下载中心</title>
-    <meta name="description" content="周游地图独立下载中心：电脑桌面版（Windows / macOS / Linux）与手机移动版（Android / iOS / PWA）分别提供独立下载。" />
+    <title>周游地图 · Zhouyou Map — 开源跨平台旅行足迹地图、照片手账与 AI 行程规划</title>
+    <meta
+      name="description"
+      content="周游地图（Zhouyou Map）官方主页与下载中心：支持在线漫游试玩中国 34 省 370+ 城市足迹地图，并提供 Windows / macOS / Linux / Android / iOS / PWA 全平台免梯子高速直下。"
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="周游地图 · Zhouyou Map — 把走过的每一座城，收进旅行小册子" />
+    <meta property="og:description" content="开源本地优先的跨平台旅游集成工具：34 省 370+ 城市足迹地图、多模型 AI 路书、高德 & 小红书联动、照片语音手账。即刻在线体验或下载全平台客户端。" />
+    <meta property="og:image" content="https://zhouyou.online/icons/icon-512.png" />
+    <meta name="theme-color" content="#fbf8f3" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111014" media="(prefers-color-scheme: dark)" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
-    <style>
-      :root {
-        --bg: #fffaf4;
-        --surface: #ffffff;
-        --surface-soft: #fff3e6;
-        --ink: #162c38;
-        --muted: #5a6d78;
-        --accent: #ef6351;
-        --accent-dark: #d44b3a;
-        --teal: #1d6478;
-        --border: rgba(22, 44, 56, 0.1);
-        --shadow: 0 18px 45px rgba(22, 44, 56, 0.08);
-        --radius: 22px;
-      }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --bg: #0f1b24;
-          --surface: #162633;
-          --surface-soft: #1d3142;
-          --ink: #f4f7f9;
-          --muted: #9eb3c2;
-          --accent: #ff7866;
-          --accent-dark: #ef5e4c;
-          --teal: #5bc0d8;
-          --border: rgba(255, 255, 255, 0.1);
-          --shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
-        }
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", sans-serif;
-        background: radial-gradient(circle at 12% 8%, rgba(255, 138, 101, 0.16), transparent 38%),
-                    radial-gradient(circle at 88% 12%, rgba(29, 100, 120, 0.16), transparent 42%),
-                    var(--bg);
-        color: var(--ink);
-        line-height: 1.6;
-        min-height: 100vh;
-      }
-      .wrap {
-        max-width: 1080px;
-        margin: 0 auto;
-        padding: 36px 20px 72px;
-      }
-      header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        flex-wrap: wrap;
-        margin-bottom: 36px;
-      }
-      .brand {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        text-decoration: none;
-        color: inherit;
-        font-weight: 800;
-        font-size: 18px;
-      }
-      .brand img { width: 42px; height: 42px; border-radius: 12px; }
-      .nav-links { display: flex; gap: 10px; flex-wrap: wrap; }
-      .nav-links a {
-        text-decoration: none;
-        color: var(--muted);
-        font-size: 14px;
-        font-weight: 600;
-        padding: 8px 14px;
-        border-radius: 999px;
-        border: 1px solid var(--border);
-        background: var(--surface);
-        transition: transform 0.15s ease, border-color 0.15s ease;
-      }
-      .nav-links a:hover { transform: translateY(-1px); border-color: var(--accent); color: var(--ink); }
-
-      .hero {
-        text-align: center;
-        max-width: 780px;
-        margin: 0 auto 32px;
-      }
-      .hero-icon {
-        width: 92px;
-        height: 92px;
-        border-radius: 24px;
-        box-shadow: 0 14px 30px rgba(239, 99, 81, 0.25);
-        margin-bottom: 14px;
-      }
-      h1 {
-        margin: 0 0 10px;
-        font-size: clamp(28px, 4.6vw, 42px);
-        line-height: 1.2;
-        letter-spacing: -0.02em;
-      }
-      .subtitle {
-        margin: 0 0 24px;
-        color: var(--muted);
-        font-size: 16px;
-      }
-
-      /* 独立电脑版 / 手机版切换栏 */
-      .mode-tabs {
-        display: inline-flex;
-        gap: 8px;
-        padding: 6px;
-        border-radius: 16px;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        box-shadow: var(--shadow);
-        margin-bottom: 24px;
-        flex-wrap: wrap;
-        justify-content: center;
-      }
-      .mode-tab {
-        border: none;
-        background: transparent;
-        color: var(--muted);
-        font-size: 15px;
-        font-weight: 700;
-        padding: 10px 20px;
-        border-radius: 12px;
-        cursor: pointer;
-        transition: background 0.15s ease, color 0.15s ease;
-      }
-      .mode-tab.is-active {
-        background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-        color: #fff;
-      }
-
-      .section-panel { margin-top: 12px; }
-      .section-panel[hidden] { display: none; }
-      .panel-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin: 24px 0 16px;
-      }
-      .section-title {
-        font-size: 21px;
-        font-weight: 800;
-        margin: 0;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .release-tag {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 13px;
-        font-weight: 700;
-        color: var(--teal);
-        background: var(--surface-soft);
-        border: 1px solid var(--border);
-        padding: 6px 14px;
-        border-radius: 999px;
-        text-decoration: none;
-      }
-      .release-tag:hover { border-color: var(--accent); }
-
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 18px;
-      }
-      .card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        padding: 22px;
-        box-shadow: var(--shadow);
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        position: relative;
-      }
-      .card.is-recommended { border: 2px solid var(--accent); }
-      .pwa-hero-card {
-        margin-bottom: 18px;
-        border: 2px solid var(--teal);
-        background: linear-gradient(135deg, var(--surface), var(--surface-soft));
-      }
-      .pwa-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-top: 4px;
-      }
-      .pwa-actions .inapp-btn {
-        padding: 10px 16px;
-        font-size: 14px;
-        border-radius: 12px;
-      }
-      .pwa-steps {
-        margin: 4px 0 0;
-        padding-left: 18px;
-        color: var(--muted);
-        font-size: 13px;
-        display: grid;
-        gap: 4px;
-      }
-      .pwa-status {
-        margin: 0;
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--teal);
-      }
-      .pwa-status:empty { display: none; }
-      .badge {
-        position: absolute;
-        top: 16px;
-        right: 16px;
-        font-size: 12px;
-        font-weight: 700;
-        color: #fff;
-        background: var(--accent);
-        padding: 3px 10px;
-        border-radius: 999px;
-      }
-      .card-head { display: flex; align-items: center; gap: 12px; }
-      .os-icon {
-        width: 44px;
-        height: 44px;
-        border-radius: 14px;
-        background: var(--surface-soft);
-        display: grid;
-        place-items: center;
-        font-size: 22px;
-        flex-shrink: 0;
-      }
-      .card h3 { margin: 0; font-size: 18px; }
-      .card small { color: var(--muted); font-size: 13px; }
-      .card p { margin: 0; color: var(--muted); font-size: 14px; }
-      .dl-list {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        margin-top: auto;
-        padding-top: 6px;
-      }
-      .dl-link {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        padding: 11px 14px;
-        border-radius: 12px;
-        background: var(--surface-soft);
-        color: var(--ink);
-        text-decoration: none;
-        font-size: 14px;
-        font-weight: 600;
-        border: 1px solid var(--border);
-        transition: border-color 0.15s ease, transform 0.12s ease;
-      }
-      .dl-link:hover { border-color: var(--accent); transform: translateX(2px); }
-      .dl-meta { font-size: 12px; color: var(--muted); font-weight: 500; }
-
-      .tips {
-        margin-top: 36px;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        padding: 24px;
-        box-shadow: var(--shadow);
-      }
-      .tips h2 { margin: 0 0 14px; font-size: 18px; }
-      .tips ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 14px; display: grid; gap: 10px; }
-      .tips code {
-        background: var(--surface-soft);
-        color: var(--ink);
-        padding: 2px 7px;
-        border-radius: 6px;
-        font-size: 13px;
-      }
-      footer {
-        text-align: center;
-        margin-top: 48px;
-        color: var(--muted);
-        font-size: 13px;
-      }
-      footer a { color: var(--teal); text-decoration: none; font-weight: 600; }
-
-      /* 微信 / QQ / 小红书内置浏览器提示条与右上角跳转引导遮罩 */
-      .inapp-banner {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin-bottom: 20px;
-        padding: 14px 18px;
-        border-radius: 16px;
-        background: linear-gradient(135deg, rgba(239, 99, 81, 0.14), rgba(29, 100, 120, 0.12));
-        border: 1px solid rgba(239, 99, 81, 0.35);
-        color: var(--ink);
-        font-size: 14px;
-      }
-      .inapp-banner[hidden] { display: none; }
-      .inapp-banner-text {
-        flex: 1;
-        min-width: 220px;
-      }
-      .inapp-banner-text strong { color: var(--accent-dark); }
-      @media (prefers-color-scheme: dark) {
-        .inapp-banner-text strong { color: var(--accent); }
-      }
-      .inapp-banner-actions {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .inapp-btn {
-        border: 1px solid var(--border);
-        background: var(--surface);
-        color: var(--ink);
-        font-size: 13px;
-        font-weight: 700;
-        padding: 8px 14px;
-        border-radius: 999px;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-      }
-      .inapp-btn.is-primary {
-        background: linear-gradient(135deg, var(--accent), var(--accent-dark));
-        color: #fff;
-        border-color: transparent;
-      }
-
-      .inapp-guide-mask {
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-        background: rgba(10, 20, 28, 0.84);
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 24px 20px;
-        color: #fff;
-      }
-      .inapp-guide-mask[hidden] { display: none; }
-      .inapp-guide-arrow {
-        position: fixed;
-        top: 14px;
-        right: 22px;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 6px;
-        pointer-events: none;
-        animation: inappFloat 1.5s ease-in-out infinite;
-      }
-      .inapp-guide-arrow svg {
-        width: 52px;
-        height: 52px;
-        color: #ff8a65;
-        filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45));
-      }
-      .inapp-guide-pill {
-        background: #ef6351;
-        color: #fff;
-        font-size: 13px;
-        font-weight: 700;
-        padding: 5px 12px;
-        border-radius: 999px;
-        box-shadow: 0 6px 18px rgba(239, 99, 81, 0.45);
-      }
-      @keyframes inappFloat {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-6px); }
-      }
-      .inapp-guide-card {
-        width: 100%;
-        max-width: 420px;
-        background: var(--surface);
-        color: var(--ink);
-        border: 1px solid var(--border);
-        border-radius: 22px;
-        padding: 24px 22px 20px;
-        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
-      }
-      .inapp-guide-card h3 {
-        margin: 0 0 8px;
-        font-size: 19px;
-        line-height: 1.3;
-      }
-      .inapp-guide-card p {
-        margin: 0 0 14px;
-        color: var(--muted);
-        font-size: 14px;
-      }
-      .inapp-guide-steps {
-        margin: 0 0 18px;
-        padding: 14px 16px 14px 32px;
-        border-radius: 14px;
-        background: var(--surface-soft);
-        border: 1px solid var(--border);
-        font-size: 14px;
-        display: grid;
-        gap: 8px;
-      }
-      .inapp-guide-steps strong { color: var(--accent-dark); }
-      @media (prefers-color-scheme: dark) {
-        .inapp-guide-steps strong { color: var(--accent); }
-      }
-      .inapp-guide-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-      .inapp-guide-actions .inapp-btn {
-        justify-content: center;
-        padding: 11px 16px;
-        font-size: 14px;
-        border-radius: 12px;
-      }
-      .inapp-guide-row {
-        display: flex;
-        gap: 10px;
-      }
-      .inapp-guide-row .inapp-btn {
-        flex: 1;
-      }
-      .inapp-copy-status {
-        margin-top: 10px;
-        min-height: 18px;
-        text-align: center;
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--teal);
-      }
-    </style>
+    <link rel="stylesheet" href="./download.css" />
+    <script>
+      try {
+        var t = localStorage.getItem('zhouyou-site-theme');
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
   </head>
   <body>
-    <div class="wrap">
+    <!-- 顶部磨砂导航栏 -->
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand-link" href="./download.html">
+          <img src="./icons/icon-192.png" alt="周游地图 Logo" width="36" height="36" />
+          <span class="brand-text">
+            <strong>周游地图</strong>
+            <small>ZHOUYOU MAP</small>
+          </span>
+        </a>
+
+        <nav class="nav-center" aria-label="主导航">
+          <a href="#tour" data-i18n="nav.tour">在线体验</a>
+          <a href="#features" data-i18n="nav.features">核心亮点</a>
+          <a href="#showcase" data-i18n="nav.showcase">界面与皮肤</a>
+          <a href="#download" data-i18n="nav.download">下载客户端</a>
+          <a href="#faq" data-i18n="nav.faq">安装贴士</a>
+        </nav>
+
+        <div class="header-actions">
+          <button type="button" id="lang-toggle" class="icon-pill" title="Switch language">EN</button>
+          <button type="button" id="theme-toggle" class="icon-pill" aria-label="切换浅色或深色主题">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+            </svg>
+            <span id="theme-toggle-label">深色</span>
+          </button>
+          <a class="icon-pill" href="https://github.com/Eldonwyd/zhouyou-app" target="_blank" rel="noreferrer" aria-label="GitHub 仓库">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.2.7-3.87-1.54-3.87-1.54-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.16 1.18a10.98 10.98 0 0 1 5.76 0c2.2-1.49 3.16-1.18 3.16-1.18.63 1.59.23 2.76.11 3.05.74.8 1.18 1.83 1.18 3.08 0 4.41-2.69 5.39-5.26 5.67.41.36.78 1.06.78 2.14 0 1.55-.01 2.79-.01 3.17 0 .31.21.67.8.56A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z" />
+            </svg>
+            <span>GitHub</span>
+          </a>
+          <a class="btn-header-cta" href="#download" data-i18n="nav.cta">立即下载</a>
+        </div>
+      </div>
+    </header>
+
+    <!-- 微信 / QQ / 小红书内置浏览器提示条 -->
+    <div class="container">
       <div id="inapp-banner" class="inapp-banner" role="alert" hidden>
         <div class="inapp-banner-text">
           检测到你正在使用 <strong id="inapp-banner-app">内置浏览器</strong> 打开，可能会拦截安装包下载。请点击右上角 <strong>「···」→「在默认浏览器中打开」</strong> 即可正常下载。
         </div>
         <div class="inapp-banner-actions">
-          <button type="button" id="inapp-banner-guide" class="inapp-btn is-primary">查看打开指引</button>
-          <button type="button" id="inapp-banner-copy" class="inapp-btn">复制下载页链接</button>
+          <button type="button" id="inapp-banner-guide" class="btn btn-primary btn-sm">查看打开指引</button>
+          <button type="button" id="inapp-banner-copy" class="btn btn-secondary btn-sm">复制下载页链接</button>
         </div>
       </div>
-
-      <header>
-        <a class="brand" href="./">
-          <img src="./icons/icon-192.png" alt="周游地图图标" />
-          <span>周游地图 · Zhouyou Map</span>
-        </a>
-        <nav class="nav-links">
-          <a href="./download-desktop.html">💻 电脑版专区</a>
-          <a href="./download-mobile.html">📱 手机版专区</a>
-          <a href="./?demo=1">✨ 在线体验示例版</a>
-          <a href="https://github.com/Eldonwyd/zhouyou-app" target="_blank" rel="noreferrer">GitHub 仓库</a>
-        </nav>
-      </header>
-
-      <section class="hero">
-        <img class="hero-icon" src="./icons/icon-512.png" alt="Zhouyou Map Logo" />
-        <h1>选择你的设备版本</h1>
-        <p class="subtitle">
-          电脑桌面版与手机移动版均为独立客户端、独立发布与下载，数据保存在各自设备本地，也可随时通过 ZIP 备份互传。
-        </p>
-        <div class="mode-tabs" role="tablist" aria-label="下载专区切换">
-          <button type="button" class="mode-tab is-active" data-tab="all" role="tab">📦 全部平台</button>
-          <button type="button" class="mode-tab" data-tab="desktop" role="tab">💻 电脑桌面版</button>
-          <button type="button" class="mode-tab" data-tab="mobile" role="tab">📱 手机移动版</button>
-        </div>
-      </section>
-
-      <!-- 电脑桌面版独立下载区 -->
-      <section class="section-panel" id="desktop" data-panel="desktop">
-        <div class="panel-header">
-          <h2 class="section-title">💻 电脑桌面版下载（独立客户端）</h2>
-          <a id="desktop-release-link" class="release-tag" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop" target="_blank" rel="noreferrer">
-            📦 正在查询电脑版最新 Release…
-          </a>
-        </div>
-        <div class="grid">
-          <article class="card" data-os="windows">
-            <div class="card-head">
-              <div class="os-icon">🪟</div>
-              <div>
-                <h3>Windows 电脑版</h3>
-                <small>Windows 10 / 11 (x64)</small>
-              </div>
-            </div>
-            <p>内置完整本地 AI 行程规划与离线 OCR 引擎，无需安装 Node.js，提供标准安装版与免安装便携版。</p>
-            <div class="dl-list">
-              <a class="dl-link" data-asset="win-setup" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop">
-                <span>Windows 安装版 (.exe)</span>
-                <span class="dl-meta">推荐</span>
-              </a>
-              <a class="dl-link" data-asset="win-portable" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop">
-                <span>Windows 绿色便携版 (.exe)</span>
-                <span class="dl-meta">免安装</span>
-              </a>
-            </div>
-          </article>
-
-          <article class="card" data-os="macos">
-            <div class="card-head">
-              <div class="os-icon">🍎</div>
-              <div>
-                <h3>macOS 苹果电脑版</h3>
-                <small>Apple Silicon &amp; Intel</small>
-              </div>
-            </div>
-            <p>原生支持 M1 / M2 / M3 / M4 与 Intel 芯片 Mac，内置完整桌面 AI 与离线地图能力。</p>
-            <div class="dl-list">
-              <a class="dl-link" data-asset="mac-arm64" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop">
-                <span>Apple Silicon 芯片 (.dmg)</span>
-                <span class="dl-meta">M1 - M4</span>
-              </a>
-              <a class="dl-link" data-asset="mac-x64" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop">
-                <span>Intel 芯片 (.dmg)</span>
-                <span class="dl-meta">x64</span>
-              </a>
-            </div>
-          </article>
-
-          <article class="card" data-os="linux">
-            <div class="card-head">
-              <div class="os-icon">🐧</div>
-              <div>
-                <h3>Linux 电脑版</h3>
-                <small>Ubuntu / Debian / 通用发行版</small>
-              </div>
-            </div>
-            <p>提供开箱即用的 AppImage 通用包与 Debian/Ubuntu 原生 .deb 安装包。</p>
-            <div class="dl-list">
-              <a class="dl-link" data-asset="linux-appimage" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop">
-                <span>Linux 通用版 (.AppImage)</span>
-                <span class="dl-meta">x64</span>
-              </a>
-              <a class="dl-link" data-asset="linux-deb" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop">
-                <span>Debian / Ubuntu (.deb)</span>
-                <span class="dl-meta">amd64</span>
-              </a>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <!-- 手机移动版独立下载区 -->
-      <section class="section-panel" id="mobile" data-panel="mobile">
-        <div class="panel-header">
-          <h2 class="section-title">📱 手机移动版（PWA 免弹窗推荐 + 独立安装包）</h2>
-          <a id="mobile-release-link" class="release-tag" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile" target="_blank" rel="noreferrer">
-            📦 正在查询手机版最新 Release…
-          </a>
-        </div>
-
-        <article class="card pwa-hero-card" id="pwa-install-card">
-          <span class="badge" style="background: var(--teal);">最推荐 · 无风险弹窗</span>
-          <div class="card-head">
-            <div class="os-icon">✨</div>
-            <div>
-              <h3>PWA 网页版「添加到主屏幕」（Android / iOS 通用）</h3>
-              <small>桌面独立 App 图标 · 全屏离线运行 · 不触发「未实名/风险应用」拦截 · 自动更新</small>
-            </div>
-          </div>
-          <p>
-            用手机浏览器（Safari / Chrome / Edge / 系统浏览器）打开 <strong>zhouyou.online</strong> → 点击菜单里的<strong>「添加到主屏幕 / 添加到桌面」</strong>即可像原生 App 一样离线使用地图与手账，完全不会弹「不安全/未实名」提示，也不用每次更新重下 APK。
-          </p>
-          <ol class="pwa-steps" id="pwa-steps-list">
-            <li><strong>Android 手机</strong>：用 Chrome / Edge / 系统浏览器打开 → 点下方「一键安装到桌面」或浏览器菜单「添加到主屏幕 / 添加到桌面」。</li>
-            <li><strong>iPhone / iPad</strong>：用自带 <strong>Safari</strong> 打开 → 点底部分享按钮 → 选择「添加到主屏幕」（免自签、永不掉签）。</li>
-          </ol>
-          <div class="pwa-actions">
-            <button type="button" id="pwa-install-btn" class="inapp-btn is-primary" hidden>📲 一键添加到手机桌面</button>
-            <a class="inapp-btn is-primary" id="pwa-open-btn" href="./">✨ 打开网页版立即使用 / 添加到桌面</a>
-            <a class="inapp-btn" href="./?demo=1">🗺️ 先看示例数据</a>
-          </div>
-          <p id="pwa-install-status" class="pwa-status" aria-live="polite"></p>
-        </article>
-
-        <div class="grid">
-          <article class="card" data-os="android">
-            <div class="card-head">
-              <div class="os-icon">🤖</div>
-              <div>
-                <h3>Android 安卓手机版</h3>
-                <small>Android 8.0 及以上</small>
-              </div>
-            </div>
-            <p>独立安装的原生安卓 APK，支持离线中国足迹地图、照片/视频/语音手账、每日账本、成就海报与 ZIP 备份。</p>
-            <div class="dl-list">
-              <a class="dl-link" data-asset="android-apk" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile">
-                <span>下载安卓安装包 (.apk)</span>
-                <span class="dl-meta">通用架构</span>
-              </a>
-            </div>
-          </article>
-
-          <article class="card" data-os="ios">
-            <div class="card-head">
-              <div class="os-icon">📱</div>
-              <div>
-                <h3>iOS 苹果手机版</h3>
-                <small>iPhone / iPad</small>
-              </div>
-            </div>
-            <p>提供独立开源 <code>.ipa</code> 安装包（支持 AltStore / SideStore / TrollStore / Sideloadly），亦可通过 Safari 一键添加到主屏幕免自签运行。</p>
-            <div class="dl-list">
-              <a class="dl-link" data-asset="ios-ipa" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile">
-                <span>下载 iOS 安装包 (.ipa)</span>
-                <span class="dl-meta">AltStore / 巨魔</span>
-              </a>
-              <a class="dl-link" href="./">
-                <span>Safari PWA 一键安装</span>
-                <span class="dl-meta">免自签推荐</span>
-              </a>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section class="tips">
-        <h2>🛠️ 安装贴士</h2>
-        <ul>
-          <li><strong>Windows</strong>：若弹出 SmartScreen 提示，点击「更多信息」→「仍要运行」即可。</li>
-          <li><strong>macOS</strong>：开源应用未购买苹果公证证书，首次打开若提示“已损坏”，在终端运行 <code>xattr -cr "/Applications/Zhouyou Map.app"</code> 即可。</li>
-          <li><strong>Linux</strong>：AppImage 需执行 <code>chmod +x Zhouyou-Map-*.AppImage &amp;&amp; ./Zhouyou-Map-*.AppImage</code>；Debian/Ubuntu 执行 <code>sudo apt install ./Zhouyou-Map-*.deb</code>。</li>
-          <li><strong>Android</strong>：下载 <code>.apk</code> 后直接点击安装（若提示未知来源应用，允许安装即可）。</li>
-          <li><strong>iOS 免自签</strong>：使用 iPhone 自带 <strong>Safari</strong> 打开 <a href="./">在线网页版</a>，点击底部「分享」→ <strong>「添加到主屏幕」</strong> 即可作为独立全屏 App 离线使用。</li>
-        </ul>
-      </section>
-
-      <footer>
-        开源遵循 MIT 协议 · <a href="https://github.com/Eldonwyd/zhouyou-app" target="_blank" rel="noreferrer">Eldonwyd/zhouyou-app</a>
-      </footer>
     </div>
 
+    <main>
+      <!-- Hero 首屏：地形等高线 + 航迹动画 + 旋转邮戳 -->
+      <section class="hero-section">
+        <div class="hero-topo-bg" aria-hidden="true">
+          <svg viewBox="0 0 1440 540" fill="none" preserveAspectRatio="xMidYMid slice">
+            <path d="M-80 390 C 200 260, 420 440, 720 310 C 1020 180, 1230 330, 1520 180" stroke="var(--topo-stroke)" stroke-width="1.3" />
+            <path d="M-60 450 C 240 310, 490 480, 790 350 C 1080 225, 1270 365, 1520 240" stroke="var(--topo-stroke)" stroke-width="1.1" />
+            <path d="M-90 320 C 180 200, 390 370, 680 250 C 970 130, 1180 280, 1500 120" stroke="var(--topo-stroke)" stroke-width="1" />
+            <ellipse cx="230" cy="180" rx="170" ry="74" stroke="var(--topo-stroke)" stroke-width="1" transform="rotate(-14 230 180)" />
+            <ellipse cx="1220" cy="210" rx="200" ry="82" stroke="var(--topo-stroke)" stroke-width="1" transform="rotate(12 1220 210)" />
+            <!-- 虚线飞行航迹 -->
+            <path
+              class="flight-dash"
+              d="M120 340 C 310 180, 520 120, 720 210 C 910 295, 1100 140, 1320 220"
+              stroke="var(--accent)"
+              stroke-opacity="0.34"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <g class="flight-pin p1">
+              <circle cx="195" cy="285" r="10" fill="var(--accent)" fill-opacity="0.14" />
+              <circle cx="195" cy="285" r="4" fill="var(--accent)" />
+            </g>
+            <g class="flight-pin p2">
+              <circle cx="520" cy="166" r="11" fill="var(--teal)" fill-opacity="0.16" />
+              <circle cx="520" cy="166" r="4.5" fill="var(--teal)" />
+            </g>
+            <g class="flight-pin p3">
+              <circle cx="945" cy="238" r="10" fill="var(--gold)" fill-opacity="0.18" />
+              <circle cx="945" cy="238" r="4" fill="var(--gold)" />
+            </g>
+            <g class="flight-pin p4">
+              <circle cx="1235" cy="196" r="11" fill="var(--accent)" fill-opacity="0.16" />
+              <circle cx="1235" cy="196" r="4.5" fill="var(--accent)" />
+            </g>
+          </svg>
+        </div>
+
+        <div class="container hero-inner">
+          <!-- 旋转旅行邮戳 -->
+          <svg class="hero-stamp" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+            <defs>
+              <path id="stampCircle" d="M 60, 60 m -42, 0 a 42,42 0 1,1 84,0 a 42,42 0 1,1 -84,0" />
+            </defs>
+            <circle cx="60" cy="60" r="54" stroke="currentColor" stroke-width="1.3" stroke-dasharray="4 4" />
+            <circle cx="60" cy="60" r="32" stroke="currentColor" stroke-width="1" />
+            <path d="M60 44 L64 56 L76 60 L64 64 L60 76 L56 64 L44 60 L56 56 Z" fill="currentColor" />
+            <text font-size="8.2" font-weight="700" letter-spacing="2.3" fill="currentColor">
+              <textPath href="#stampCircle">ZHOUYOU MAP · LOCAL FIRST · 370+ CITIES · </textPath>
+            </text>
+          </svg>
+
+          <a class="hero-pill reveal" href="#download">
+            <span class="hero-pill-dot" aria-hidden="true"></span>
+            <span>全平台开源免费 · 官网免梯子高速直连</span>
+            <span class="hero-pill-ver" id="hero-latest-ver">v1.0.4</span>
+          </a>
+
+          <h1 class="hero-title reveal reveal-delay-1">
+            <span data-i18n="hero.title1">把走过的每一座城，</span><br />
+            <span class="hero-title-accent" data-i18n="hero.title2">收进只属于你的旅行小册子</span>
+          </h1>
+
+          <p class="hero-subtitle reveal reveal-delay-2" data-i18n="hero.sub">
+            一站式、本地隐私优先的跨平台旅游集成工具。在网页上直接点亮全国 34 省 370+ 城市足迹，下载客户端解锁多模型 AI 路书规划、离线 OCR 识票、高德 &amp; 小红书联动与原图照片手账。
+          </p>
+
+          <div class="hero-cta-row reveal reveal-delay-2">
+            <a id="hero-primary-dl" class="btn btn-primary" href="#download">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 18v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1" />
+              </svg>
+              <span id="hero-primary-dl-label">免费下载客户端</span>
+            </a>
+            <a class="btn btn-secondary" href="#tour">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+                <line x1="9" y1="3" x2="9" y2="18" />
+                <line x1="15" y1="6" x2="15" y2="21" />
+              </svg>
+              <span data-i18n="hero.tryBtn">立即在线漫游网页版</span>
+            </a>
+          </div>
+
+          <div class="hero-cta-meta reveal reveal-delay-3">
+            <span>支持 Windows · macOS · Linux · Android · iOS · PWA</span>
+            <span>·</span>
+            <a href="./?demo=1&amp;tour=1" target="_blank" rel="noreferrer">↗ 新标签全屏试玩</a>
+            <span>·</span>
+            <a href="https://github.com/Eldonwyd/zhouyou-app/releases" target="_blank" rel="noreferrer">GitHub Releases</a>
+          </div>
+
+          <!-- 开源与质感信任条 -->
+          <div class="trust-strip reveal reveal-delay-3">
+            <div class="trust-item">
+              <span class="trust-icon coral">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-4.35-6-10a6 6 0 1 1 12 0c0 5.65-6 10-6 10z" /><circle cx="12" cy="11" r="2.2" /></svg>
+              </span>
+              <div><strong>34 省 × 370+ 城</strong><span>精准下钻离线足迹地图</span></div>
+            </div>
+            <div class="trust-item">
+              <span class="trust-icon teal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              </span>
+              <div><strong>100% 本地优先</strong><span>零登录零广告 · 数据不上传</span></div>
+            </div>
+            <div class="trust-item">
+              <span class="trust-icon gold">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6 7 18.2l1.9-5.8L4 8.8h6.1z" /></svg>
+              </span>
+              <div><strong>多模型 AI 路书</strong><span>DeepSeek / GPT / Claude / Gemini</span></div>
+            </div>
+            <div class="trust-item">
+              <span class="trust-icon sage">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>
+              </span>
+              <div><strong>MIT 完全开源</strong><span>ZIP v3 跨设备无损迁移</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 核心交互区：网页版嵌入式在线漫游沙盒 (#tour) -->
+      <section id="tour" class="tour-section">
+        <div class="container">
+          <div class="section-head reveal">
+            <span class="section-eyebrow" data-i18n="tour.eyebrow">INTERACTIVE WEB SANDBOX</span>
+            <h2 data-i18n="tour.h2">无需安装，就在这里直接试玩周游地图</h2>
+            <p data-i18n="tour.p">
+              这不是静态截图——下面运行着真实的周游地图网页体验版。你可以直接点亮全国城市、下钻省级地图、切换 5 套皮肤与深浅色，并翻阅示例大理路书、路线地图与照片手账；在线模式已关闭 AI 调用与照片存储，下载客户端即可解锁完整能力。
+            </p>
+          </div>
+
+          <div class="tour-shell reveal">
+            <div class="tour-chrome">
+              <div class="tour-chrome-left">
+                <span class="traffic-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                <span class="tour-address">
+                  <span class="tour-address-live" aria-hidden="true"></span>
+                  <span>zhouyou.online · 网页漫游体验沙盒</span>
+                </span>
+              </div>
+              <div class="tour-chrome-controls">
+                <div class="viewport-toggle" role="group" aria-label="切换桌面或手机预览视图">
+                  <button type="button" class="is-active" data-tour-viewport="desktop">💻 桌面视图</button>
+                  <button type="button" data-tour-viewport="mobile">📱 手机视图</button>
+                </div>
+                <button type="button" id="tour-lock-toggle" class="btn btn-secondary btn-sm">🖱️ 点击开始交互</button>
+                <a class="btn btn-ghost btn-sm" href="./?demo=1&amp;tour=1" target="_blank" rel="noreferrer">↗ 全屏体验</a>
+              </div>
+            </div>
+
+            <div class="tour-capability-bar">
+              <div class="tour-cap-list">
+                <span class="tour-cap ok"><b>✓</b> 自由点亮 / 取消点亮 370+ 城市</span>
+                <span class="tour-cap ok"><b>✓</b> 浏览示例大理路书、账本与成就</span>
+                <span class="tour-cap ok"><b>✓</b> 实时切换 5 套皮肤与深浅色</span>
+                <span class="tour-cap locked">🔒 AI 规划与照片存储需下载客户端</span>
+              </div>
+              <a class="btn btn-primary btn-sm" href="#download">解锁完整客户端 ↓</a>
+            </div>
+
+            <div id="tour-stage" class="tour-stage">
+              <div class="tour-frame-wrap">
+                <div id="tour-loading" class="tour-loading">
+                  <div>
+                    <div class="tour-spinner" aria-hidden="true"></div>
+                    <span>正在加载周游地图网页漫游沙盒…</span>
+                  </div>
+                </div>
+                <div id="tour-interact-veil" class="tour-interact-veil" role="button" tabindex="0" aria-label="点击进入交互式网页漫游">
+                  <span class="tour-veil-pill">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                    <span>点击画面进入实时交互 · 点亮你的中国地图</span>
+                  </span>
+                </div>
+                <iframe
+                  id="tour-iframe"
+                  class="tour-iframe"
+                  title="周游地图在线漫游体验版"
+                  loading="lazy"
+                  allow="clipboard-write"
+                ></iframe>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bento 核心亮点矩阵 (#features) -->
+      <section id="features" class="page-section">
+        <div class="container">
+          <div class="section-head reveal">
+            <span class="section-eyebrow" data-i18n="features.eyebrow">CRAFTED FOR EVERY JOURNEY</span>
+            <h2 data-i18n="features.h2">从做攻略到珍藏回忆，一个本地应用全搞定</h2>
+            <p data-i18n="features.p">不再在地图、攻略、记账、相册五个 App 之间反复切换。把出发前的规划与归来后的温暖回忆，连成一条流畅闭环。</p>
+          </div>
+
+          <div class="bento-grid">
+            <article class="bento-card bento-span-7 reveal">
+              <div class="bento-top">
+                <span class="bento-icon coral">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" /></svg>
+                </span>
+                <span class="bento-tag live">在线沙盒可直接点亮</span>
+              </div>
+              <h3>全国 34 省 × 370+ 城市足迹地图</h3>
+              <p>支持省级缩放下钻与智能标签避让，点击即可点亮「已去过」城市，实时计算全国探索百分比；支持按省一键缓存离线地理边界，坐飞机、坐高铁无网也能流畅浏览。</p>
+              <div class="bento-chips">
+                <span>🗺️ 34 省级行政区</span>
+                <span>✨ 一键点亮与取消</span>
+                <span>✈️ 按省离线缓存</span>
+                <span>📊 探索进度总览</span>
+              </div>
+            </article>
+
+            <article class="bento-card bento-span-5 reveal reveal-delay-1">
+              <div class="bento-top">
+                <span class="bento-icon teal">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4v1h1a3 3 0 0 1 3 3v2a3 3 0 0 1-3 3h-1v1a4 4 0 0 1-8 0v-1H7a3 3 0 0 1-3-3v-2a3 3 0 0 1 3-3h1V6a4 4 0 0 1 4-4z" /><circle cx="9.5" cy="11" r="1" /><circle cx="14.5" cy="11" r="1" /></svg>
+                </span>
+                <span class="bento-tag client">客户端专属 · 内置 AI</span>
+              </div>
+              <h3>多模型 AI 一键路书 + 离线 OCR</h3>
+              <p>输入目的地、天数、同行人群与预算，AI 自动规划每日顺路行程、站间交通、票价拆解与行李清单；内置本机 PP-OCRv5 离线识别高铁/机票/酒店截图，支持导出单文件离线 HTML 路书。</p>
+              <div class="bento-chips">
+                <span>DeepSeek</span><span>OpenAI</span><span>Claude</span><span>Gemini</span><span>通义 / Kimi</span>
+              </div>
+            </article>
+
+            <article class="bento-card bento-span-5 reveal">
+              <div class="bento-top">
+                <span class="bento-icon gold">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                </span>
+                <span class="bento-tag">生态无缝联动</span>
+              </div>
+              <h3>高德地图 × 小红书一键直达</h3>
+              <p>行程中的每一个景点、餐厅与酒店均支持一键跳转高德地图精准导航；内置分城市游玩/美食攻略入口，直连小红书查看最新实拍避坑，也能贴链接解析加入行程。</p>
+              <div class="bento-chips">
+                <span>🧭 高德精准导航</span>
+                <span>📕 小红书攻略直连</span>
+              </div>
+            </article>
+
+            <article class="bento-card bento-span-7 reveal reveal-delay-1">
+              <div class="bento-top">
+                <span class="bento-icon lilac">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
+                </span>
+                <span class="bento-tag client">客户端 / PWA 解锁原图存储</span>
+              </div>
+              <h3>照片、视频与现场语音手账</h3>
+              <p>按「某次旅程」或「某座城市」珍藏原图照片、短视频、文字随记与语音评语，自动读取 EXIF 拍摄时间并校验 GPS 城市归属；每座点亮城市配备专属地标明信片与高光拍立得墙。</p>
+              <div class="bento-chips">
+                <span>📮 专属城市明信片</span>
+                <span>🎙️ 现场语音评语</span>
+                <span>📍 EXIF GPS 校验</span>
+                <span>✦ 高光拍立得墙</span>
+              </div>
+            </article>
+
+            <article class="bento-card bento-span-6 reveal">
+              <div class="bento-top">
+                <span class="bento-icon sage">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>
+                </span>
+                <span class="bento-tag live">在线沙盒可浏览</span>
+              </div>
+              <h3>每日预算账本 &amp; 整数分精确 AA 分账</h3>
+              <p>按交通、住宿、门票、餐饮与其他五大维度逐日记账，自动关联 AI 行程预算与实付车票，多人同行一键精确 AA 结算。</p>
+              <div class="bento-mini-bar" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+              <div class="bento-chips">
+                <span>交通 ¥140</span><span>住宿 ¥800</span><span>门票 ¥280</span><span>餐饮 ¥340</span>
+              </div>
+            </article>
+
+            <article class="bento-card bento-span-6 reveal reveal-delay-1">
+              <div class="bento-top">
+                <span class="bento-icon coral">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6" /><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" /></svg>
+                </span>
+                <span class="bento-tag live">在线沙盒可体验</span>
+              </div>
+              <h3>8 阶旅人成长路线 &amp; 手作纪念章</h3>
+              <p>记录从「新手小旅人」到「传奇环游家」的成长轨迹，支持自定义圆形纪念章、年度足迹回顾与一键导出高颜值成就海报。</p>
+              <div class="bento-chips">
+                <span>🏆 9 枚预设成就</span>
+                <span>🎨 手作专属徽章</span>
+                <span>🖼️ 成就海报导出</span>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- 界面精选与 5 套皮肤 (#showcase) -->
+      <section id="showcase" class="page-section">
+        <div class="container">
+          <div class="section-head reveal">
+            <span class="section-eyebrow" data-i18n="showcase.eyebrow">VISUAL CRAFT &amp; 5 SKINS</span>
+            <h2 data-i18n="showcase.h2">温暖手账质感，浅色明快、夜间护眼</h2>
+            <p data-i18n="showcase.p">内置 5 套独立视觉风格与浅色 / 深色 / 跟随系统模式，从糖果贴纸到暖日纸感手账，每一帧都像翻开一本用心装帧的旅行画册。</p>
+          </div>
+
+          <div class="showcase-wrap reveal">
+            <div class="showcase-toolbar">
+              <div class="showcase-tabs" role="tablist" aria-label="界面截图切换">
+                <button type="button" class="showcase-tab is-active" data-shot-tab="map">🗺️ 足迹地图</button>
+                <button type="button" class="showcase-tab" data-shot-tab="planner">🤖 AI 行程路书</button>
+                <button type="button" class="showcase-tab" data-shot-tab="journal">📔 照片手账与明信片</button>
+              </div>
+              <div id="map-tone-switch" class="map-tone-switch">
+                <span>配色：</span>
+                <button type="button" class="tone-btn is-active" data-map-tone="light">☀ 浅色</button>
+                <button type="button" class="tone-btn" data-map-tone="dark">☾ 深色</button>
+              </div>
+            </div>
+
+            <div class="showcase-stage">
+              <img id="showcase-img" src="./screenshots/desktop-map-light.png" alt="周游地图界面预览" />
+            </div>
+
+            <div class="showcase-caption">
+              <div>
+                <strong id="showcase-title">全国 34 省 × 370+ 城市足迹地图</strong>
+                <div id="showcase-desc">点击任意省份丝滑下钻，逐城点亮已去过足迹，实时统计探索进度并支持离线缓存。</div>
+              </div>
+              <a class="btn btn-secondary btn-sm" href="#tour">去上方沙盒亲自点亮 ↑</a>
+            </div>
+
+            <div class="skin-strip" aria-label="内置 5 套主题皮肤">
+              <div class="skin-pill">
+                <span class="skin-dots"><i style="background:#fff8f2"></i><i style="background:#e5634f"></i><i style="background:#ffd166"></i></span>
+                <strong>糖果贴纸</strong>
+                <small>明快珊瑚 × 贴纸手绘</small>
+              </div>
+              <div class="skin-pill">
+                <span class="skin-dots"><i style="background:#ffffff"></i><i style="background:#467a58"></i><i style="background:#eceef0"></i></span>
+                <strong>纯白极简</strong>
+                <small>干净留白 × 松绿点缀</small>
+              </div>
+              <div class="skin-pill">
+                <span class="skin-dots"><i style="background:#f5efe3"></i><i style="background:#866041"></i><i style="background:#dfb267"></i></span>
+                <strong>纸感手账</strong>
+                <small>复古牛皮纸 × 温暖衬线</small>
+              </div>
+              <div class="skin-pill">
+                <span class="skin-dots"><i style="background:#f3f9fd"></i><i style="background:#1d6478"></i><i style="background:#6cc4d4"></i></span>
+                <strong>海风海岸</strong>
+                <small>蔚蓝海风 × 清透玻璃</small>
+              </div>
+              <div class="skin-pill">
+                <span class="skin-dots"><i style="background:#f7f6f0"></i><i style="background:#526c48"></i><i style="background:#d56a45"></i></span>
+                <strong>暖日手账</strong>
+                <small>草木自然 × 慢旅书卷气</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 在线漫游版 vs 独立客户端对比 (#compare) -->
+      <section id="compare" class="page-section">
+        <div class="container">
+          <div class="section-head reveal">
+            <span class="section-eyebrow" data-i18n="compare.eyebrow">WEB TOUR VS CLIENT</span>
+            <h2 data-i18n="compare.h2">先在线游览体验，满意再装到你的设备</h2>
+            <p data-i18n="compare.p">清晰区分网页漫游沙盒与独立客户端的能力边界，零套路、零付费墙，全部核心能力下载即免费开源使用。</p>
+          </div>
+
+          <div class="compare-grid">
+            <article class="compare-card reveal">
+              <span class="compare-badge">即开即玩 · 免安装</span>
+              <h3>网页在线漫游版</h3>
+              <p>适合先体验周游地图的视觉质感、地图下钻点亮与交互细节。</p>
+              <ul class="compare-list">
+                <li class="yes"><span class="mark">✓</span><span>自由点亮 / 取消点亮全国 370+ 城市</span></li>
+                <li class="yes"><span class="mark">✓</span><span>浏览完整大理示例路书、路线图与账本</span></li>
+                <li class="yes"><span class="mark">✓</span><span>实时切换 5 套皮肤、深浅色与中英文</span></li>
+                <li class="no"><span class="mark">✕</span><span>不支持 AI 生成 / 对话改行程与 OCR</span></li>
+                <li class="no"><span class="mark">✕</span><span>不支持上传与持久化保存照片 / 语音</span></li>
+              </ul>
+              <a class="btn btn-secondary" href="#tour">回到上方漫游沙盒</a>
+            </article>
+
+            <article class="compare-card reveal reveal-delay-1">
+              <span class="compare-badge" style="background:var(--teal-soft);color:var(--teal);">手机首选 · 免弹窗</span>
+              <h3>手机移动版（PWA / APK / IPA）</h3>
+              <p>随时随地记录旅途足迹、拍立得照片与语音评语，离线流畅运行。</p>
+              <ul class="compare-list">
+                <li class="yes"><span class="mark">✓</span><span>PWA 添加到主屏幕无「风险应用」弹窗</span></li>
+                <li class="yes"><span class="mark">✓</span><span>原图照片、视频与语音评语永久存本机</span></li>
+                <li class="yes"><span class="mark">✓</span><span>按省离线地图缓存 + 每日随手记账</span></li>
+                <li class="yes"><span class="mark">✓</span><span>局域网一键连接电脑端 AI 规划服务</span></li>
+                <li class="yes"><span class="mark">✓</span><span>ZIP v3 全量备份与电脑端无损互传</span></li>
+              </ul>
+              <a class="btn btn-secondary" href="#mobile">获取手机版 / PWA</a>
+            </article>
+
+            <article class="compare-card is-featured reveal reveal-delay-2">
+              <span class="compare-badge">完全体 · 推荐主力</span>
+              <h3>电脑桌面版（Win / Mac / Linux）</h3>
+              <p>内置完整本地 Node.js AI 引擎与 ONNX 离线模型，无需配置环境，双击即用。</p>
+              <ul class="compare-list">
+                <li class="yes"><span class="mark">✓</span><span>多模型 AI 一键生成与多轮对话微调路书</span></li>
+                <li class="yes"><span class="mark">✓</span><span>本机离线 PP-OCRv5 识别车票 / 机票 / 酒店</span></li>
+                <li class="yes"><span class="mark">✓</span><span>小红书攻略链接 / 截图智能解析加景点</span></li>
+                <li class="yes"><span class="mark">✓</span><span>大容量本地原图相册手账与单文件路书导出</span></li>
+                <li class="yes"><span class="mark">✓</span><span>可开启局域网共享，让手机端无线用 AI</span></li>
+              </ul>
+              <a class="btn btn-primary" href="#desktop">下载电脑桌面版</a>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- 全平台下载中心 (#download / #desktop / #mobile) -->
+      <section id="download" class="page-section download-section">
+        <div class="container">
+          <div class="section-head reveal">
+            <span class="section-eyebrow" data-i18n="download.eyebrow">DOWNLOAD CENTER</span>
+            <h2 data-i18n="download.h2">选择你的设备版本，免梯子高速直下</h2>
+            <p data-i18n="download.p">
+              电脑桌面版与手机移动版均为独立客户端、独立发布与下载。在 <strong>zhouyou.online</strong> 上自动启用 Cloudflare 边缘加速直链，支持断点续传；同时完整保留 GitHub Releases 备用。
+            </p>
+          </div>
+
+          <div class="mode-tabs-wrap reveal">
+            <div class="mode-tabs" role="tablist" aria-label="下载专区切换">
+              <button type="button" class="mode-tab is-active" data-tab="all" role="tab">全部平台</button>
+              <button type="button" class="mode-tab" data-tab="desktop" role="tab">电脑桌面版</button>
+              <button type="button" class="mode-tab" data-tab="mobile" role="tab">手机移动版</button>
+            </div>
+          </div>
+
+          <!-- 电脑桌面版独立下载区 -->
+          <section class="section-panel" id="desktop" data-panel="desktop">
+            <div class="panel-header">
+              <h3 class="panel-title">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
+                <span>电脑桌面版（内置完整 AI 与离线 OCR）</span>
+              </h3>
+              <a id="desktop-release-link" class="release-tag" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop" target="_blank" rel="noreferrer">
+                📦 正在查询电脑版最新 Release…
+              </a>
+            </div>
+
+            <div class="dl-grid">
+              <article class="dl-card" data-os="windows">
+                <div class="card-head">
+                  <div class="os-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4.5 11.2 3.4v8H3v-6.9zm9.4-1.3L21 2v9.4h-8.6V3.2zM3 12.6h8.2v8L3 19.5v-6.9zm9.4 0H21V22l-8.6-1.2v-8.2z" /></svg>
+                  </div>
+                  <div>
+                    <h3>Windows 电脑版</h3>
+                    <small>Windows 10 / 11 (x64)</small>
+                  </div>
+                </div>
+                <p>内置完整本地 AI 行程规划与离线 OCR 引擎，无需安装 Node.js，提供标准安装版与免安装绿色便携版。</p>
+                <div class="dl-list">
+                  <a class="dl-link primary-dl" data-asset="win-setup" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop">
+                    <span>Windows 安装版 (.exe)</span>
+                    <span class="dl-meta">推荐</span>
+                  </a>
+                  <a class="dl-link" data-asset="win-portable" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop">
+                    <span>Windows 绿色便携版 (.exe)</span>
+                    <span class="dl-meta">免安装</span>
+                  </a>
+                </div>
+              </article>
+
+              <article class="dl-card" data-os="macos">
+                <div class="card-head">
+                  <div class="os-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.94 2.71-3.43 2.71-1.517 0-1.9-.88-3.63-.88-1.698 0-2.302.91-3.67.91-1.377 0-2.332-1.26-3.428-2.8-1.287-1.82-2.323-4.63-2.323-7.28 0-4.28 2.797-6.55 5.552-6.55 1.448 0 2.675.95 3.6.95.865 0 2.222-1.01 3.902-1.01.613 0 2.886.06 4.374 2.19-.13.09-2.383 1.37-2.383 4.19 0 3.26 2.854 4.42 2.955 4.45z" /></svg>
+                  </div>
+                  <div>
+                    <h3>macOS 苹果电脑版</h3>
+                    <small>Apple Silicon (M1–M4) &amp; Intel</small>
+                  </div>
+                </div>
+                <p>原生支持 Apple Silicon 与 Intel 芯片 Mac，开箱体验完整桌面 AI 路书与离线地图。</p>
+                <div class="dl-list">
+                  <a class="dl-link primary-dl" data-asset="mac-arm64" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop">
+                    <span>Apple Silicon 芯片 (.dmg)</span>
+                    <span class="dl-meta">M1 - M4</span>
+                  </a>
+                  <a class="dl-link" data-asset="mac-x64" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop">
+                    <span>Intel 芯片 (.dmg)</span>
+                    <span class="dl-meta">x64</span>
+                  </a>
+                </div>
+              </article>
+
+              <article class="dl-card" data-os="linux">
+                <div class="card-head">
+                  <div class="os-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>
+                  </div>
+                  <div>
+                    <h3>Linux 电脑版</h3>
+                    <small>Ubuntu / Debian / 通用发行版</small>
+                  </div>
+                </div>
+                <p>提供开箱即用的 AppImage 通用可执行包与 Debian/Ubuntu 原生 .deb 安装包。</p>
+                <div class="dl-list">
+                  <a class="dl-link primary-dl" data-asset="linux-appimage" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop">
+                    <span>Linux 通用版 (.AppImage)</span>
+                    <span class="dl-meta">x64</span>
+                  </a>
+                  <a class="dl-link" data-asset="linux-deb" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=desktop">
+                    <span>Debian / Ubuntu (.deb)</span>
+                    <span class="dl-meta">amd64</span>
+                  </a>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <!-- 手机移动版独立下载区 -->
+          <section class="section-panel" id="mobile" data-panel="mobile">
+            <div class="panel-header">
+              <h3 class="panel-title">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2.5" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
+                <span>手机移动版（PWA 免弹窗推荐 + 独立安装包）</span>
+              </h3>
+              <a id="mobile-release-link" class="release-tag" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile" target="_blank" rel="noreferrer">
+                📦 正在查询手机版最新 Release…
+              </a>
+            </div>
+
+            <!-- PWA 首推卡 -->
+            <article class="dl-card pwa-hero-card" id="pwa-install-card">
+              <span class="badge teal">最推荐 · 无风险弹窗</span>
+              <div class="card-head">
+                <div class="os-icon" style="background:var(--teal-soft);color:var(--teal);border-color:rgba(29,100,120,0.22);" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.2H22l-6.2 4.5 2.4 7.3L12 16.5 5.8 21l2.4-7.3L2 9.2h7.6z" /></svg>
+                </div>
+                <div>
+                  <h3>PWA 网页版「添加到主屏幕」（Android / iOS 通用）</h3>
+                  <small>桌面独立 App 图标 · 全屏离线运行 · 不触发「未实名/风险应用」拦截 · 自动更新</small>
+                </div>
+              </div>
+              <p>
+                用手机浏览器（Safari / Chrome / Edge / 系统浏览器）打开 <strong>zhouyou.online</strong> → 点击菜单里的 <strong>「添加到主屏幕 / 添加到桌面」</strong> 即可像原生 App 一样保存原图照片、语音手账并离线看地图，完全不弹风险拦截，也无需每次更新重下 APK。
+              </p>
+              <ol class="pwa-steps" id="pwa-steps-list">
+                <li><strong>Android 手机</strong>：用 Chrome / Edge / 系统浏览器打开 → 点下方「一键添加到手机桌面」或浏览器菜单「添加到主屏幕 / 添加到桌面」。</li>
+                <li><strong>iPhone / iPad</strong>：用自带 <strong>Safari</strong> 打开 → 点底部分享按钮 → 选择「添加到主屏幕」（免自签、永不掉签）。</li>
+              </ol>
+              <div class="pwa-actions">
+                <button type="button" id="pwa-install-btn" class="btn btn-primary btn-sm" hidden>📲 一键添加到手机桌面</button>
+                <a class="btn btn-primary btn-sm" id="pwa-open-btn" href="./">✨ 打开完整网页版 / 添加到桌面</a>
+                <a class="btn btn-secondary btn-sm" href="./?demo=1&amp;tour=1">🗺️ 在线漫游试玩</a>
+              </div>
+              <p id="pwa-install-status" class="pwa-status" aria-live="polite"></p>
+            </article>
+
+            <div class="dl-grid">
+              <article class="dl-card" data-os="android">
+                <div class="card-head">
+                  <div class="os-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10h14v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-8z" /><path d="M7 10a5 5 0 0 1 10 0" /><line x1="9" y1="4" x2="7.5" y2="2" /><line x1="15" y1="4" x2="16.5" y2="2" /></svg>
+                  </div>
+                  <div>
+                    <h3>Android 安卓手机版</h3>
+                    <small>Android 8.0 及以上</small>
+                  </div>
+                </div>
+                <p>独立安装的原生安卓 APK，支持离线中国足迹地图、原图照片/视频/语音手账、每日账本、成就海报与 ZIP 备份。</p>
+                <div class="dl-list">
+                  <a class="dl-link primary-dl" data-asset="android-apk" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile">
+                    <span>下载安卓安装包 (.apk)</span>
+                    <span class="dl-meta">通用架构</span>
+                  </a>
+                </div>
+              </article>
+
+              <article class="dl-card" data-os="ios">
+                <div class="card-head">
+                  <div class="os-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="3" /><line x1="10" y1="5" x2="14" y2="5" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
+                  </div>
+                  <div>
+                    <h3>iOS 苹果手机版</h3>
+                    <small>iPhone / iPad</small>
+                  </div>
+                </div>
+                <p>提供独立开源 <code>.ipa</code> 安装包（支持 AltStore / SideStore / TrollStore / Sideloadly），亦可直接通过 Safari 添加到主屏幕免自签运行。</p>
+                <div class="dl-list">
+                  <a class="dl-link" data-asset="ios-ipa" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile">
+                    <span>下载 iOS 安装包 (.ipa)</span>
+                    <span class="dl-meta">AltStore / 巨魔</span>
+                  </a>
+                  <a class="dl-link primary-dl" href="./">
+                    <span>Safari PWA 一键安装</span>
+                    <span class="dl-meta">免自签推荐</span>
+                  </a>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <!-- 永久固定直链分享条 -->
+          <div class="shortlink-bar reveal">
+            <span>🔗 <strong>永久固定下载直链</strong>（自动指向最新版，发给朋友永不过期，点一下即可复制）：</span>
+            <div class="shortlink-pills">
+              <button type="button" class="shortlink-copy" data-copy-text="https://zhouyou.online/install/android">/install/android</button>
+              <button type="button" class="shortlink-copy" data-copy-text="https://zhouyou.online/install/win">/install/win</button>
+              <button type="button" class="shortlink-copy" data-copy-text="https://zhouyou.online/install/mac">/install/mac</button>
+              <button type="button" class="shortlink-copy" data-copy-text="https://zhouyou.online/install/linux">/install/linux</button>
+              <button type="button" class="shortlink-copy" data-copy-text="https://zhouyou.online/install/ios">/install/ios</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 本地优先隐私宣言 -->
+      <section class="page-section">
+        <div class="container">
+          <div class="privacy-banner reveal">
+            <div>
+              <span class="section-eyebrow">LOCAL-FIRST ARCHITECTURE</span>
+              <h2>你的旅途与相册，只属于你自己的设备</h2>
+              <p>
+                灵感来自最纯粹的本地优先开源软件理念：没有账号绑架、没有云端付费扩容、没有隐藏埋点。周游地图把所有足迹、原图照片、AI 密钥与识别模型都留在本机，随时一键导出标准 ZIP 备份。
+              </p>
+            </div>
+            <div class="privacy-points">
+              <div class="privacy-point">
+                <strong>🔒 零云端上传</strong>
+                <span>照片、语音与行程全部存储在本地 IndexedDB，断网也能完整浏览。</span>
+              </div>
+              <div class="privacy-point">
+                <strong>🧠 本地离线 OCR</strong>
+                <span>桌面端内置 ONNX PP-OCRv5 识票模型，机票高铁截图不传第三方。</span>
+              </div>
+              <div class="privacy-point">
+                <strong>🔑 自带模型密钥</strong>
+                <span>支持 DeepSeek / OpenAI / Claude / Gemini 等多服务商，密钥仅存本机。</span>
+              </div>
+              <div class="privacy-point">
+                <strong>📦 ZIP v3 无损迁移</strong>
+                <span>手机与电脑之间随时一键打包与恢复，换机也不丢任何一张回忆。</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 安装贴士与常见问题 (#faq) -->
+      <section id="faq" class="page-section">
+        <div class="container">
+          <div class="section-head reveal">
+            <span class="section-eyebrow" data-i18n="faq.eyebrow">INSTALL TIPS &amp; FAQ</span>
+            <h2 data-i18n="faq.h2">安装贴士与常见问题</h2>
+          </div>
+
+          <div class="faq-grid reveal">
+            <details class="faq-item" open>
+              <summary>为什么网页在线漫游版不能使用 AI 规划和保存照片？</summary>
+              <div class="faq-body">
+                <p>
+                  周游地图坚持<strong>本地优先与零云端上传</strong>设计：AI 行程规划与离线 OCR 识票运行在客户端本机引擎上，原图照片与语音也存储在你的本地设备中。官网内置的「网页漫游沙盒」专为免安装预览打造，开放全国 370+ 城市地图点亮、皮肤切换与示例路书/手账浏览；下载客户端或将完整版 PWA 添加到主屏幕，即可解锁全部本地存储与 AI 能力。
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary>macOS 首次打开提示「已损坏」或「无法验证开发者」怎么办？</summary>
+              <div class="faq-body">
+                <p>作为免费开源软件，暂未购买苹果年费公证证书。将应用拖入「应用程序」文件夹后，在终端执行下方命令解除隔离属性即可正常打开：</p>
+                <div class="cmd-box">
+                  <code>xattr -cr "/Applications/Zhouyou Map.app"</code>
+                  <button type="button" class="cmd-copy" data-copy-text='xattr -cr "/Applications/Zhouyou Map.app"'>复制命令</button>
+                </div>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary>Windows 弹出 SmartScreen 蓝色保护提示怎么办？</summary>
+              <div class="faq-body">
+                <p>开源独立安装包未购买昂贵的 EV 代码签名证书，首次安装可能出现 Windows Defender SmartScreen 提示。点击弹窗左侧的 <strong>「更多信息」</strong> → 再点击 <strong>「仍要运行」</strong> 即可安全安装，全部源码均在 GitHub 公开可审计。</p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary>Linux 如何运行 AppImage 或安装 .deb 包？</summary>
+              <div class="faq-body">
+                <p>AppImage 通用包赋予执行权限后直接运行，或 Debian/Ubuntu 使用 apt 安装：</p>
+                <div class="cmd-box">
+                  <code>chmod +x Zhouyou-Map-*.AppImage &amp;&amp; ./Zhouyou-Map-*.AppImage</code>
+                  <button type="button" class="cmd-copy" data-copy-text="chmod +x Zhouyou-Map-*.AppImage && ./Zhouyou-Map-*.AppImage">复制命令</button>
+                </div>
+                <div class="cmd-box">
+                  <code>sudo apt install ./Zhouyou-Map-*.deb</code>
+                  <button type="button" class="cmd-copy" data-copy-text="sudo apt install ./Zhouyou-Map-*.deb">复制命令</button>
+                </div>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary>手机端怎么选 PWA 还是 APK / IPA？如何连接电脑 AI？</summary>
+              <div class="faq-body">
+                <p>
+                  普通手机用户强烈推荐 <strong>PWA「添加到主屏幕」</strong>（iPhone 用 Safari，安卓用 Chrome / Edge / 系统浏览器打开 zhouyou.online），完全不弹「未实名/风险应用」提示且自动更新。如偏好独立安装包，也可直接下载 <code>.apk</code> 或 <code>.ipa</code>。
+                </p>
+                <p>
+                  如需在手机上使用 AI 规划，可在电脑桌面版顶部菜单开启「允许局域网手机连接 AI 服务」，然后在手机端「个人中心 → 设置 → 远程 / 局域网 AI 服务」填入局域网地址即可无线互联。
+                </p>
+              </div>
+            </details>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <div>
+          <strong>周游地图 · Zhouyou Map</strong> · 基于 MIT 协议完全开源
+        </div>
+        <div class="footer-links">
+          <a href="#tour">在线漫游</a>
+          <a href="./download-desktop.html">电脑版专区</a>
+          <a href="./download-mobile.html">手机版专区</a>
+          <a href="./">完整网页版 (PWA)</a>
+          <a href="https://github.com/Eldonwyd/zhouyou-app" target="_blank" rel="noreferrer">GitHub 仓库</a>
+          <a href="https://github.com/Eldonwyd/zhouyou-app/releases" target="_blank" rel="noreferrer">更新日志</a>
+          <a href="https://github.com/Eldonwyd/zhouyou-app/issues" target="_blank" rel="noreferrer">反馈与建议</a>
+        </div>
+      </div>
+    </footer>
+
+    <!-- 微信 / QQ / 小红书内置浏览器右上角跳转引导遮罩 -->
     <div id="inapp-guide-mask" class="inapp-guide-mask" role="dialog" aria-modal="true" aria-labelledby="inapp-guide-title" hidden>
       <div class="inapp-guide-arrow" aria-hidden="true">
         <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
@@ -668,324 +834,16 @@
           <li>在系统浏览器中再次点击按钮即可直接下载安装包</li>
         </ol>
         <div class="inapp-guide-actions">
-          <button type="button" id="inapp-copy-btn" class="inapp-btn is-primary">📋 复制下载链接到浏览器打开</button>
+          <button type="button" id="inapp-copy-btn" class="btn btn-primary btn-sm">📋 复制下载链接到浏览器打开</button>
           <div class="inapp-guide-row">
-            <a id="inapp-continue-link" class="inapp-btn" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v" target="_blank" rel="noreferrer">仍尝试直接打开</a>
-            <button type="button" id="inapp-close-btn" class="inapp-btn">我知道了</button>
+            <a id="inapp-continue-link" class="btn btn-secondary btn-sm" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile-v" target="_blank" rel="noreferrer">仍尝试直接打开</a>
+            <button type="button" id="inapp-close-btn" class="btn btn-ghost btn-sm">我知道了</button>
           </div>
         </div>
         <div id="inapp-copy-status" class="inapp-copy-status" aria-live="polite"></div>
       </div>
     </div>
 
-    <script>
-      (function () {
-        const REPO = 'Eldonwyd/zhouyou-app';
-        const ua = navigator.userAgent || '';
-        const platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
-        let detected = 'windows';
-        if (/Android/i.test(ua)) detected = 'android';
-        else if (/iPhone|iPad|iPod/i.test(ua) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1)) detected = 'ios';
-        else if (/Mac/i.test(platform) || /Macintosh/i.test(ua)) detected = 'macos';
-        else if (/Linux/i.test(platform) || /Linux/i.test(ua)) detected = 'linux';
-
-        // 微信 / QQ / 小红书内置浏览器检测
-        const inAppRegex = /MicroMessenger|QQ\/|xhs|XiaoHongShu/i;
-        const isInAppBrowser = inAppRegex.test(ua);
-        const inAppName = /MicroMessenger/i.test(ua)
-          ? '微信'
-          : /QQ\//i.test(ua)
-            ? 'QQ'
-            : /xhs|XiaoHongShu/i.test(ua)
-              ? '小红书'
-              : '内置浏览器';
-
-        const card = document.querySelector(`.card[data-os="${detected}"]`);
-        if (card) {
-          card.classList.add('is-recommended');
-          const badge = document.createElement('span');
-          badge.className = 'badge';
-          badge.textContent = '适合当前设备';
-          card.appendChild(badge);
-        }
-
-        // 支持 #desktop / #mobile 或 ?tab=desktop / ?tab=mobile 独立访问；手机端无参数时默认优先展示手机版
-        const tabs = document.querySelectorAll('.mode-tab');
-        const panels = document.querySelectorAll('[data-panel]');
-        function applyTab(tabName) {
-          const valid = ['all', 'desktop', 'mobile'].includes(tabName) ? tabName : 'all';
-          tabs.forEach((btn) => btn.classList.toggle('is-active', btn.dataset.tab === valid));
-          panels.forEach((el) => {
-            el.hidden = valid !== 'all' && el.dataset.panel !== valid;
-          });
-        }
-        const params = new URLSearchParams(window.location.search);
-        const defaultTab = detected === 'android' || detected === 'ios' ? 'mobile' : 'all';
-        const initialTab = params.get('tab') || window.location.hash.replace('#', '') || defaultTab;
-        applyTab(initialTab);
-        tabs.forEach((btn) => btn.addEventListener('click', () => {
-          const target = btn.dataset.tab || 'all';
-          applyTab(target);
-          history.replaceState(null, '', target === 'all' ? './download.html' : `./download.html#${target}`);
-        }));
-        window.addEventListener('hashchange', () => applyTab(window.location.hash.replace('#', '') || defaultTab));
-
-        // 微信 / QQ / 小红书内置浏览器下载拦截与跳转引导
-        const inappBanner = document.getElementById('inapp-banner');
-        const inappBannerApp = document.getElementById('inapp-banner-app');
-        const inappBannerGuide = document.getElementById('inapp-banner-guide');
-        const inappBannerCopy = document.getElementById('inapp-banner-copy');
-        const guideMask = document.getElementById('inapp-guide-mask');
-        const guideDesc = document.getElementById('inapp-guide-desc');
-        const copyBtn = document.getElementById('inapp-copy-btn');
-        const continueLink = document.getElementById('inapp-continue-link');
-        const closeBtn = document.getElementById('inapp-close-btn');
-        const copyStatus = document.getElementById('inapp-copy-status');
-        let pendingUrl = window.location.href;
-
-        async function copyText(text) {
-          if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-            try {
-              await navigator.clipboard.writeText(text);
-              return true;
-            } catch {}
-          }
-          try {
-            const input = document.createElement('textarea');
-            input.value = text;
-            input.setAttribute('readonly', '');
-            input.style.position = 'fixed';
-            input.style.opacity = '0';
-            document.body.appendChild(input);
-            input.select();
-            const ok = document.execCommand('copy');
-            document.body.removeChild(input);
-            return ok;
-          } catch {
-            return false;
-          }
-        }
-
-        function openInAppGuide(targetUrl, labelText) {
-          pendingUrl = targetUrl || window.location.href;
-          if (guideDesc) {
-            const label = labelText ? `下载「${labelText}」` : '下载安装包';
-            guideDesc.textContent = `${inAppName}内置浏览器会拦截直接${label}。点击右上角「···」→「在默认浏览器中打开」即可下载：`;
-          }
-          if (continueLink) continueLink.href = pendingUrl;
-          if (copyStatus) copyStatus.textContent = '';
-          if (guideMask) guideMask.hidden = false;
-        }
-
-        function closeInAppGuide() {
-          if (guideMask) guideMask.hidden = true;
-        }
-
-        if (isInAppBrowser) {
-          if (inappBannerApp) inappBannerApp.textContent = `${inAppName}内置浏览器`;
-          if (inappBanner) inappBanner.hidden = false;
-        }
-
-        if (inappBannerGuide) {
-          inappBannerGuide.addEventListener('click', () => openInAppGuide(window.location.href, '周游地图'));
-        }
-        if (inappBannerCopy) {
-          inappBannerCopy.addEventListener('click', async () => {
-            const ok = await copyText(window.location.href);
-            inappBannerCopy.textContent = ok ? '✅ 已复制链接' : '请长按地址栏复制';
-            setTimeout(() => {
-              inappBannerCopy.textContent = '复制下载页链接';
-            }, 2200);
-          });
-        }
-        if (copyBtn) {
-          copyBtn.addEventListener('click', async () => {
-            const isDirectDl = /\.apk(?:$|[?#])|\/api\/download\b|\/install\//i.test(pendingUrl);
-            const urlToCopy = isDirectDl ? pendingUrl : window.location.href;
-            const ok = await copyText(urlToCopy);
-            if (copyStatus) {
-              copyStatus.textContent = ok
-                ? '✅ 链接已复制，请粘贴到手机系统浏览器地址栏打开下载'
-                : '复制失败，请点击右上角「···」选择在默认浏览器中打开';
-            }
-          });
-        }
-        if (closeBtn) closeBtn.addEventListener('click', closeInAppGuide);
-        if (guideMask) {
-          guideMask.addEventListener('click', (e) => {
-            if (e.target === guideMask) closeInAppGuide();
-          });
-        }
-        window.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape') closeInAppGuide();
-        });
-
-        document.querySelectorAll('a.dl-link[data-asset]').forEach((link) => {
-          link.addEventListener('click', (e) => {
-            if (!isInAppBrowser) return;
-            const asset = link.dataset.asset || '';
-            const href = link.getAttribute('href') || '';
-            const isInstaller =
-              asset === 'android-apk' ||
-              asset === 'ios-ipa' ||
-              /\.(apk|ipa|exe|dmg|AppImage|deb)(?:$|[?#])/i.test(href) ||
-              /^win-|^mac-|^linux-/.test(asset);
-            if (!isInstaller) return;
-            e.preventDefault();
-            const titleEl = link.querySelector('span');
-            openInAppGuide(link.href, titleEl ? titleEl.textContent.trim() : '安装包');
-          });
-        });
-
-        // PWA 一键添加到主屏幕支持
-        let deferredInstallPrompt = null;
-        const pwaInstallBtn = document.getElementById('pwa-install-btn');
-        const pwaInstallStatus = document.getElementById('pwa-install-status');
-        window.addEventListener('beforeinstallprompt', (e) => {
-          e.preventDefault();
-          deferredInstallPrompt = e;
-          if (pwaInstallBtn) pwaInstallBtn.hidden = false;
-        });
-        if (pwaInstallBtn) {
-          pwaInstallBtn.addEventListener('click', async () => {
-            if (!deferredInstallPrompt) return;
-            deferredInstallPrompt.prompt();
-            try {
-              const choice = await deferredInstallPrompt.userChoice;
-              if (pwaInstallStatus) {
-                pwaInstallStatus.textContent =
-                  choice && choice.outcome === 'accepted'
-                    ? '✅ 已触发添加到桌面，请稍候在手机桌面查看「周游地图」图标。'
-                    : '你也可以随时点击浏览器菜单「添加到主屏幕 / 添加到桌面」。';
-              }
-            } catch {}
-            deferredInstallPrompt = null;
-            pwaInstallBtn.hidden = true;
-          });
-        }
-        window.addEventListener('appinstalled', () => {
-          if (pwaInstallBtn) pwaInstallBtn.hidden = true;
-          if (pwaInstallStatus) pwaInstallStatus.textContent = '✅ 周游地图已添加到主屏幕！';
-        });
-
-        // 在自定义域名 / Cloudflare Pages 上自动启用同源边缘下载加速（无需梯子直连 GitHub）
-        const useEdgeProxy =
-          /^https?:$/i.test(window.location.protocol) &&
-          !/(^|\.)github\.io$/i.test(window.location.hostname) &&
-          !/^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
-
-        const INSTALL_ROUTE_BY_ASSET = {
-          'win-setup': './install/win',
-          'win-portable': './install/win-portable',
-          'mac-arm64': './install/mac',
-          'mac-x64': './install/mac-x64',
-          'linux-appimage': './install/linux',
-          'linux-deb': './install/linux-deb',
-          'android-apk': './install/android',
-          'ios-ipa': './install/ios',
-        };
-
-        if (useEdgeProxy) {
-          for (const [assetKey, route] of Object.entries(INSTALL_ROUTE_BY_ASSET)) {
-            const link = document.querySelector(`a[data-asset="${assetKey}"]`);
-            if (link) link.href = route;
-          }
-        }
-
-        function buildAssetDownloadUrl(release, asset) {
-          if (useEdgeProxy && release && release.tag_name && asset && asset.name) {
-            return `./api/download?tag=${encodeURIComponent(release.tag_name)}&file=${encodeURIComponent(asset.name)}`;
-          }
-          return asset.browser_download_url;
-        }
-
-        function bindAssets(release, matchers) {
-          if (!release || !Array.isArray(release.assets)) return;
-          for (const [key, test] of Object.entries(matchers)) {
-            const found = release.assets.find((a) => test(a.name));
-            if (!found) continue;
-            const link = document.querySelector(`a[data-asset="${key}"]`);
-            if (link) {
-              link.href = buildAssetDownloadUrl(release, found);
-              const meta = link.querySelector('.dl-meta');
-              if (meta && found.size) meta.textContent = `${(found.size / (1024 * 1024)).toFixed(1)} MB`;
-            }
-          }
-        }
-
-        const desktopTagEl = document.getElementById('desktop-release-link');
-        const mobileTagEl = document.getElementById('mobile-release-link');
-        let boundDesktop = false;
-        let boundMobile = false;
-
-        function applyReleases(releases) {
-          const list = Array.isArray(releases) ? releases.filter((r) => !r.draft) : [];
-          if (!list.length) return false;
-          const desktopRelease =
-            list.find((r) => /^desktop-v/i.test(r.tag_name || '')) ||
-            list.find((r) => (r.assets || []).some((a) => /\.(exe|dmg|AppImage|deb)$/i.test(a.name)));
-          const mobileRelease =
-            list.find((r) => /^mobile-v/i.test(r.tag_name || '')) ||
-            list.find((r) => (r.assets || []).some((a) => /\.(apk|ipa)$/i.test(a.name)));
-
-          if (desktopRelease) {
-            boundDesktop = true;
-            if (desktopTagEl) {
-              desktopTagEl.textContent = `✨ 电脑版最新 ${desktopRelease.tag_name} · 查看 Release`;
-              desktopTagEl.href = desktopRelease.html_url;
-            }
-            bindAssets(desktopRelease, {
-              'win-setup': (n) => /win.*setup\.exe$/i.test(n),
-              'win-portable': (n) => /win.*portable\.exe$/i.test(n),
-              'mac-arm64': (n) => /mac.*arm64\.dmg$/i.test(n),
-              'mac-x64': (n) => /mac.*x64\.dmg$/i.test(n),
-              'linux-appimage': (n) => /\.AppImage$/i.test(n),
-              'linux-deb': (n) => /\.deb$/i.test(n),
-            });
-          }
-
-          if (mobileRelease) {
-            boundMobile = true;
-            if (mobileTagEl) {
-              mobileTagEl.textContent = `✨ 手机版最新 ${mobileRelease.tag_name} · 查看 Release`;
-              mobileTagEl.href = mobileRelease.html_url;
-            }
-            bindAssets(mobileRelease, {
-              'android-apk': (n) => /\.apk$/i.test(n),
-              'ios-ipa': (n) => /\.ipa$/i.test(n),
-            });
-          }
-          return boundDesktop || boundMobile;
-        }
-
-        function applyFallbackLabels() {
-          if (!boundDesktop && desktopTagEl) desktopTagEl.textContent = '📦 前往 GitHub Releases 查看电脑版';
-          if (!boundMobile && mobileTagEl) mobileTagEl.textContent = '📦 前往 GitHub Releases 查看手机版';
-        }
-
-        // 优先读取同源静态 releases.json（免梯子且不受 GitHub API 限流影响），再尝试边缘接口/实时刷新
-        const liveReleasesUrl = useEdgeProxy
-          ? './api/releases'
-          : `https://api.github.com/repos/${REPO}/releases?per_page=20`;
-
-        fetch('./releases.json', { cache: 'no-cache' })
-          .then((res) => (res.ok ? res.json() : []))
-          .then((data) => {
-            applyReleases(data);
-          })
-          .catch(() => {})
-          .finally(() => {
-            fetch(liveReleasesUrl)
-              .then((res) => (res.ok ? res.json() : Promise.reject(new Error('api-error'))))
-              .then((releases) => {
-                applyReleases(releases);
-              })
-              .catch(() => {})
-              .finally(() => {
-                applyFallbackLabels();
-              });
-          });
-      })();
-    </script>
+    <script src="./download.js"></script>
   </body>
 </html>

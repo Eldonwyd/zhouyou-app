@@ -7,6 +7,14 @@ import { describeStorageError } from './utils';
 import { applyThemeMode, useThemeMode, type ThemeMode } from './theme';
 import { readLanguage, syncDocumentLanguage, useI18n } from './i18n';
 import { checkForAppUpdate, isNativeAppPlatform, type AppUpdateInfo } from './app-updater';
+import {
+  isEmbeddedTour,
+  isWebTourMode,
+  openDownloadFromTour,
+  openFullscreenTour,
+  tourRestrictionCopy,
+  type TourRestrictedFeature,
+} from './web-tour';
 import MapView from './components/MapView';
 
 const DEMO_ACTIVE_KEY = 'zhouyou-demo-active';
@@ -77,6 +85,9 @@ export default function App() {
   const [demoMode, setDemoMode] = useState(readDemoActive);
   const [demoDismissed, setDemoDismissed] = useState(readDemoDismissed);
   const [demoBusy, setDemoBusy] = useState(false);
+  const [tourRestriction, setTourRestriction] = useState<TourRestrictedFeature | null>(null);
+  const tourMode = useMemo(() => isWebTourMode(), []);
+  const embeddedTour = useMemo(() => isEmbeddedTour(), []);
   const [availableUpdate, setAvailableUpdate] = useState<AppUpdateInfo | null>(null);
   const [updateBannerDismissed, setUpdateBannerDismissed] = useState(false);
   const [updateFocusToken, setUpdateFocusToken] = useState(0);
@@ -163,7 +174,7 @@ export default function App() {
     let active = true;
     loadSnapshot().then(async (data) => {
       if (!active) return;
-      const wantsDemo = new URLSearchParams(window.location.search).get('demo') === '1';
+      const wantsDemo = new URLSearchParams(window.location.search).get('demo') === '1' || tourMode;
       const isEmpty = data.marks.length === 0 && data.trips.length === 0 && data.aiPlans.length === 0;
       if (wantsDemo && isEmpty) {
         try {
@@ -173,9 +184,11 @@ export default function App() {
           setSnapshot(seeded);
           setDemoMode(true);
           setReady(true);
-          showNotice(readLanguage() === 'en'
-            ? '✨ Entered Demo Mode: explore the footprint map, AI roadbook, photo journal, and ledger!'
-            : '✨ 已自动进入演示模式：可自由浏览足迹地图、AI 路书、照片手账与账本！');
+          if (!tourMode) {
+            showNotice(readLanguage() === 'en'
+              ? '✨ Entered Demo Mode: explore the footprint map, AI roadbook, photo journal, and ledger!'
+              : '✨ 已自动进入演示模式：可自由浏览足迹地图、AI 路书、照片手账与账本！');
+          }
           return;
         } catch { /* 回退到空白态 */ }
       }
@@ -233,13 +246,21 @@ export default function App() {
     return () => unsubscribe?.();
   }, [openUpdateSection]);
 
+  const requestClientForTour = useCallback((feature: TourRestrictedFeature) => {
+    setTourRestriction(feature);
+  }, []);
+
   const reload = useCallback(async () => setSnapshot(await loadSnapshot()), []);
   const saveAiPlan = useCallback(async (plan: AiTravelPlan, expectedVersion: number | null) => {
     await saveAiPlanRecord(plan, expectedVersion); await reload();
   }, [reload]);
   const saveAiPhoto = useCallback(async (planId: string, activityId: string, photo: PlannerPhoto) => {
+    if (tourMode) {
+      requestClientForTour('photo');
+      return;
+    }
     await saveAiPlanPhoto(planId, activityId, photo); await reload();
-  }, [reload]);
+  }, [reload, requestClientForTour, tourMode]);
   const publishPlan = useCallback(async (plan: AiTravelPlan, initialFinance?: TripPlan) => {
     const updated = await publishAiPlan(plan, initialFinance); await reload(); return updated;
   }, [reload]);
@@ -270,13 +291,21 @@ export default function App() {
     catch (error) { showError(describeStorageError(error)); throw error; }
   }, [reload, showError]);
   const saveMedia = useCallback(async (media: TravelMedia, blob: Blob) => {
+    if (tourMode) {
+      requestClientForTour(media.kind === 'audio' ? 'voice' : 'photo');
+      return;
+    }
     try { await saveMediaBatch([{ media, blob }]); await reload(); }
     catch (error) { showError(describeStorageError(error)); throw error; }
-  }, [reload, showError]);
+  }, [reload, requestClientForTour, showError, tourMode]);
   const saveMediaGroup = useCallback(async (items: Array<{ media: TravelMedia; blob: Blob }>, entries: DayEntry[]) => {
+    if (tourMode) {
+      requestClientForTour('photo');
+      return;
+    }
     try { await saveMediaBatch(items, entries); await reload(); }
     catch (error) { showError(describeStorageError(error)); throw error; }
-  }, [reload, showError]);
+  }, [reload, requestClientForTour, showError, tourMode]);
   const updateMedia = useCallback(async (media: TravelMedia) => {
     try { await saveItem('media', media); await reload(); }
     catch (error) { showError(describeStorageError(error)); throw error; }
@@ -460,7 +489,18 @@ export default function App() {
         </div>
         <div className="topbar-right">
           <ThemeSwitch />
-          <span className="local-pill">{t('本机版', 'Local')}</span>
+          {tourMode ? (
+            <button
+              type="button"
+              className="local-pill tour-pill-btn"
+              onClick={() => openDownloadFromTour('download')}
+              title={t('在线漫游体验版 · 点击下载完整客户端', 'Online Web Tour · Download Full Client')}
+            >
+              {t('在线体验 · 下载客户端', 'Web Tour · Download')}
+            </button>
+          ) : (
+            <span className="local-pill">{t('本机版', 'Local')}</span>
+          )}
           <button
             type="button"
             className="topbar-avatar-btn"
@@ -472,7 +512,25 @@ export default function App() {
           </button>
         </div>
       </header>
-      {ready && page === 'map' && !demoMode && !demoDismissed && snapshot.marks.length === 0 && snapshot.trips.length === 0 && snapshot.aiPlans.length === 0 && (
+      {ready && tourMode && !embeddedTour && (
+        <div className="tour-mode-bar" role="status">
+          <span className="tour-mode-bar-copy">
+            <strong>{t('🧭 网页漫游体验中', '🧭 Online Web Tour')}</strong>
+            <span>{t('可自由点亮全国地图、切换 5 套皮肤与浏览示例手账/路书 · AI 规划与照片存储请下载客户端', 'Light up China cities, switch themes & browse sample journal/roadbook · AI & photo storage are client-only')}</span>
+          </span>
+          <div className="tour-mode-bar-actions">
+            {embeddedTour && (
+              <button type="button" className="secondary" onClick={openFullscreenTour}>
+                {t('↗ 全屏体验', '↗ Fullscreen')}
+              </button>
+            )}
+            <button type="button" className="primary" onClick={() => openDownloadFromTour('download')}>
+              {t('📥 下载完整客户端', '📥 Download Client')}
+            </button>
+          </div>
+        </div>
+      )}
+      {ready && !tourMode && page === 'map' && !demoMode && !demoDismissed && snapshot.marks.length === 0 && snapshot.trips.length === 0 && snapshot.aiPlans.length === 0 && (
         <section className="demo-welcome-bar" aria-label={t('演示模式引导', 'Demo mode prompt')}>
           <div className="demo-welcome-copy">
             <strong>{t('✨ 第一次来？一键载入演示数据快速体验', '✨ First time here? Try Demo Mode with sample data')}</strong>
@@ -506,7 +564,7 @@ export default function App() {
           </div>
         </div>
       )}
-      {ready && demoMode && (
+      {ready && demoMode && !tourMode && (
         <div className="demo-active-bar" role="status">
           <span>{t('✨ 演示模式体验中 · 包含示例足迹、大理 AI 路书、照片手账与账本', '✨ Demo Mode active · Exploring sample footprints, Dali AI roadbook, journal & ledger')}</span>
           <button type="button" className="secondary" disabled={demoBusy} onClick={() => void exitDemoMode()}>
@@ -518,13 +576,13 @@ export default function App() {
         {/* 保持规划组件挂载，让 AI 请求和小红书解析在浏览其他页面时继续。 */}
         {plannerOpened && <div hidden={page !== 'plan'}>
           <Suspense fallback={<div className="empty-state">{t('正在打开页面…', 'Opening page…')}</div>}>
-            <PlanView visible={page === 'plan'} onReturnToPlanner={() => openPage('plan')} city={selectedCity} marks={effectiveMarks} trips={snapshot.trips} plans={snapshot.plans} onSave={savePlan} onMoveLegacy={movePlan} onCreateJourney={() => openPage('detail')} onError={showError} onNotice={showNotice} aiPlans={snapshot.aiPlans} preferences={snapshot.plannerPreferences[0]} provinceIntent={plannerProvince} onSaveAi={saveAiPlan} onSaveAiPhoto={saveAiPhoto} onPublishAi={publishPlan} onSavePreferences={savePlannerPreferences} onSaveJournalVisit={saveJournalVisit} onOpenJournalPlace={openJournalPlace} />
+            <PlanView visible={page === 'plan'} onReturnToPlanner={() => openPage('plan')} city={selectedCity} marks={effectiveMarks} trips={snapshot.trips} plans={snapshot.plans} onSave={savePlan} onMoveLegacy={movePlan} onCreateJourney={() => openPage('detail')} onError={showError} onNotice={showNotice} aiPlans={snapshot.aiPlans} preferences={snapshot.plannerPreferences[0]} provinceIntent={plannerProvince} onSaveAi={saveAiPlan} onSaveAiPhoto={saveAiPhoto} onPublishAi={publishPlan} onSavePreferences={savePlannerPreferences} onSaveJournalVisit={saveJournalVisit} onOpenJournalPlace={openJournalPlace} webTourMode={tourMode} onRequireClient={requestClientForTour} />
           </Suspense>
         </div>}
         <Suspense fallback={<div className="empty-state">{t('正在打开页面…', 'Opening page…')}</div>}>
           {page === 'map' && <MapView marks={effectiveMarks} activeProvinceCode={activeProvinceCode} setActiveProvinceCode={setActiveProvinceCode} onSelectCity={selectCity} onError={showError} onRecommendProvince={recommendProvince} />}
-          {page === 'detail' && <DetailView city={selectedCity} marks={effectiveMarks} entries={snapshot.entries} media={snapshot.media} trips={snapshot.trips} aiPlans={snapshot.aiPlans} places={snapshot.places} targetEntryId={targetEntryId} targetPlaceId={targetPlaceId} onSaveEntry={saveEntry} onSaveMedia={saveMedia} onSaveMediaGroup={saveMediaGroup} onUpdateMedia={updateMedia} onDeleteMedia={deleteMedia} onSaveTrip={saveTrip} onSavePlace={savePlace} onSaveCityMark={saveMark} onUpdateMark={updateSelectedMark} onError={showError} onNotice={showNotice} />}
-          {page === 'achievements' && <AchievementsView marks={effectiveMarks} entries={snapshot.entries} trips={snapshot.trips} media={snapshot.media} badges={snapshot.badges} onSaveBadge={saveBadge} onOpenEntry={openEntry} onError={showError} onNotice={showNotice} />}
+          {page === 'detail' && <DetailView city={selectedCity} marks={effectiveMarks} entries={snapshot.entries} media={snapshot.media} trips={snapshot.trips} aiPlans={snapshot.aiPlans} places={snapshot.places} targetEntryId={targetEntryId} targetPlaceId={targetPlaceId} onOpenMap={() => openPage('map')} onSaveEntry={saveEntry} onSaveMedia={saveMedia} onSaveMediaGroup={saveMediaGroup} onUpdateMedia={updateMedia} onDeleteMedia={deleteMedia} onSaveTrip={saveTrip} onSavePlace={savePlace} onSaveCityMark={saveMark} onUpdateMark={updateSelectedMark} onError={showError} onNotice={showNotice} webTourMode={tourMode} onRequireClient={requestClientForTour} />}
+          {page === 'achievements' && <AchievementsView marks={effectiveMarks} entries={snapshot.entries} trips={snapshot.trips} media={snapshot.media} badges={snapshot.badges} onSaveBadge={saveBadge} onOpenEntry={openEntry} onError={showError} onNotice={showNotice} webTourMode={tourMode} onRequireClient={requestClientForTour} />}
           {page === 'profile' && <ProfileView snapshot={snapshot} activeProvinceCode={activeProvinceCode} resetSettingsToken={profileResetToken} demoMode={demoMode} demoBusy={demoBusy} availableUpdate={availableUpdate} updateFocusToken={updateFocusToken} updateCheckToken={updateCheckToken} onUpdateFound={setAvailableUpdate} onLoadDemo={() => void enterDemoMode(true)} onClearDemo={() => void exitDemoMode()} onSaveProfile={saveProfile} onImported={(data) => {
             // 恢复备份会替换行程数据，清除上一份数据上打开的规划会话。
             setPlannerOpened(false);
@@ -561,6 +619,39 @@ export default function App() {
         </div>
       </div>
     )}
+    {tourRestriction && (() => {
+      const copy = tourRestrictionCopy(tourRestriction);
+      return (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setTourRestriction(null); }}>
+          <div className="dialog tour-upgrade-dialog" role="dialog" aria-modal="true" aria-labelledby="tour-upgrade-title">
+            <span className="city-dialog-pill">
+              {tourRestriction === 'ai'
+                ? t('✨ 客户端专属 · AI 引擎', '✨ Client Only · AI Engine')
+                : t('✨ 客户端专属 · 本地相册归档', '✨ Client Only · Local Media Vault')}
+            </span>
+            <h2 id="tour-upgrade-title">{copy.title}</h2>
+            <p>{copy.body}</p>
+            <div className="dialog-actions">
+              <button
+                type="button"
+                className="primary"
+                onClick={() => {
+                  setTourRestriction(null);
+                  openDownloadFromTour(tourRestriction === 'ai' ? 'desktop' : 'download');
+                }}
+              >
+                {tourRestriction === 'ai'
+                  ? t('💻 获取桌面版 / 客户端解锁 AI', '💻 Download Client to Unlock AI')
+                  : t('📥 获取客户端 / PWA 保存原图', '📥 Download Client / PWA')}
+              </button>
+              <button type="button" className="secondary" onClick={() => setTourRestriction(null)}>
+                {t('继续在线漫游体验', 'Continue Web Tour')}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
     {notice && (
       <div className="toast" role="status">
         {notice}

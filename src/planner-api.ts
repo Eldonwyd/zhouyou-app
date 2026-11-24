@@ -1,6 +1,7 @@
 import { plannerApiUrl } from './api-base';
 import { cachePlannerResponsePhotos } from './planner-photo-cache';
 import { readLanguage } from './i18n';
+import { isWebTourMode } from './web-tour';
 
 /** Consume server progress without exposing the provider key to the browser. */
 export async function plannerApi<T>(
@@ -9,6 +10,11 @@ export async function plannerApi<T>(
   signal: AbortSignal,
   onProgress: (stage: string) => void,
 ): Promise<T> {
+  if (isWebTourMode()) {
+    throw new Error(readLanguage() === 'en'
+      ? 'AI planning is disabled in Online Web Tour mode. Please download the Desktop or Mobile client for full AI capabilities.'
+      : '在线体验模式暂不支持 AI 调用，请下载电脑桌面版或手机客户端解锁完整 AI 规划与离线 OCR。');
+  }
   const url = plannerApiUrl(endpoint);
   let response: Response;
   try {

@@ -15,6 +15,7 @@ import { CuteSticker, IllustratedJourneyCover, JournalEmptyArt } from './CuteArt
 import JournalCover, { findJournalPlannerPhotos } from './JournalCover';
 import type { AiTravelPlan } from '../planner-types';
 import { provinceDisplayName, useI18n } from '../i18n';
+import type { TourRestrictedFeature } from '../web-tour';
 
 interface DetailViewProps {
   city: CityMark | null;
@@ -35,8 +36,11 @@ interface DetailViewProps {
   onDeleteMedia: (id: string) => Promise<void>;
   onUpdateMark: (visited: boolean) => Promise<void>;
   onSaveCityMark: (mark: CityMark) => Promise<void>;
+  onOpenMap?: () => void;
   onError: (message: string) => void;
   onNotice: (message: string) => void;
+  webTourMode?: boolean;
+  onRequireClient?: (feature: TourRestrictedFeature) => void;
 }
 
 interface SavedCitySummary extends JourneyCity {
@@ -248,7 +252,7 @@ export default function DetailView(props: DetailViewProps) {
   const { lang, locale, t } = useI18n();
   const { city, marks, trips, aiPlans, places, entries, media, targetEntryId, targetPlaceId, onSaveTrip, onSavePlace,
     onSaveEntry, onSaveMedia, onSaveMediaGroup, onUpdateMedia, onDeleteMedia,
-    onUpdateMark, onSaveCityMark, onError, onNotice } = props;
+    onUpdateMark, onSaveCityMark, onOpenMap, onError, onNotice, webTourMode = false, onRequireClient } = props;
   const [showAll, setShowAll] = useState(false);
   const [recordQuery, setRecordQuery] = useState('');
   const [recordYear, setRecordYear] = useState('all');
@@ -644,6 +648,10 @@ export default function DetailView(props: DetailViewProps) {
 
   /** 每段录音等待最后一个数据事件落盘后才允许开始下一段。 */
   async function toggleRecording(place: JourneyPlace): Promise<void> {
+    if (webTourMode) {
+      onRequireClient?.('voice');
+      return;
+    }
     if (recordingPlaceId === place.id) {
       if (recorderRef.current?.state === 'recording') { setAudioBusy(true); recorderRef.current.stop(); }
       return;
@@ -756,10 +764,15 @@ export default function DetailView(props: DetailViewProps) {
         <button type="button" className="secondary" onClick={() => { setCityBrowserOpen(!cityBrowserOpen); setSelectedTripId(null); setSelectedPlaceId(null); }}>
           {cityBrowserOpen ? t('收起城市选择', 'Hide City Browser') : t('按省份选择城市', 'Browse by Province')}
         </button>
+        {onOpenMap && (
+          <button type="button" className="secondary" onClick={onOpenMap}>
+            {t('去地图选择城市', 'Pick on Map')}
+          </button>
+        )}
         <button type="button" className="primary" onClick={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }}>{t('＋ 新建旅行', '+ New Trip')}</button>
       </div>
     </div>
-    {cityBrowserOpen && !selectedTrip && !editingTrip && <TravelCityBrowser trips={trips} places={places} marks={marks} selectedCityCode={scopeCityCode} onSelectCity={(pickedCity) => { setBrowseCity(pickedCity); setShowAll(false); setSelectedTripId(null); }} onShowAll={() => { setShowAll(true); setBrowseCity(null); setCityBrowserOpen(false); setSelectedTripId(null); }} onError={onError} />}
+    {cityBrowserOpen && !selectedTrip && !editingTrip && <TravelCityBrowser trips={trips} places={places} marks={marks} selectedCityCode={scopeCityCode} onSelectCity={(pickedCity) => { setBrowseCity(pickedCity); setShowAll(false); setSelectedTripId(null); }} onShowAll={() => { setShowAll(true); setBrowseCity(null); setCityBrowserOpen(false); setSelectedTripId(null); }} onOpenMap={onOpenMap} onError={onError} />}
     {city && !browseCity && !showAll && !selectedTrip && <div className="card status-card"><div><strong>{t(`${city.name}的城市状态`, `${city.name} Status`)}</strong><p>{trips.some((trip) => trip.cities.some((item) => item.code === city.id && trip.status !== 'planned')) ? t('这座城市已包含在去过的旅行中，地图会保持点亮。', 'This city is part of a visited trip and stays lit on the map.') : t('确认去过的城市会点亮地图，也可以在这里取消手动标记。', 'Marked cities light up the map. You can toggle manual marks here.')}</p></div><label className="checkbox"><input type="checkbox" checked={city.visited} disabled={trips.some((trip) => trip.status !== 'planned' && trip.cities.some((item) => item.code === city.id))} onChange={(event) => void onUpdateMark(event.target.checked)} />{t('已去过', 'Visited')}</label></div>}
     {editingTrip && <JourneyEditor key={editingTrip === 'new' ? 'new' : editingTrip.id} initial={editingTrip === 'new' ? null : editingTrip} initialCity={scopeCityMark} lockedCityCodes={editingTrip === 'new' ? [] : places.filter((place) => place.tripId === editingTrip.id).map((place) => place.cityCode)} onSave={saveTrip} onCancel={() => setEditingTrip(null)} onError={onError} />}
     {!selectedTrip && !editingTrip && !scopeCity && <>
@@ -810,11 +823,27 @@ export default function DetailView(props: DetailViewProps) {
           <button className="secondary" onClick={() => void createPlace()} disabled={!newPlaceName.trim()}>{t('创建地点', 'Create Place')}</button>
         </div>
         <div className="heading-actions">
-          <button className="primary" disabled={!uploadCityCode || Boolean(uploadProgress)} onClick={() => fileInputRef.current?.click()}>{uploadProgress || (selectedUploadPlace ? t(`上传照片 / 视频到「${selectedUploadPlace.name}」`, `Upload Photos / Videos to "${selectedUploadPlace.name}"`) : t(`上传照片 / 视频到整个${uploadCityName}`, `Upload Photos / Videos to ${uploadCityName}`))}</button>
+          <button
+            className="primary"
+            disabled={!uploadCityCode || Boolean(uploadProgress)}
+            onClick={() => {
+              if (webTourMode) {
+                onRequireClient?.('photo');
+                return;
+              }
+              fileInputRef.current?.click();
+            }}
+          >
+            {webTourMode
+              ? t('🔒 上传照片 / 视频（下载客户端解锁）', '🔒 Upload Photos / Videos (Client Only)')
+              : (uploadProgress || (selectedUploadPlace ? t(`上传照片 / 视频到「${selectedUploadPlace.name}」`, `Upload Photos / Videos to "${selectedUploadPlace.name}"`) : t(`上传照片 / 视频到整个${uploadCityName}`, `Upload Photos / Videos to ${uploadCityName}`)))}
+          </button>
           <button className="secondary" disabled={!uploadCityCode || Boolean(uploadProgress)} onClick={() => void openCurrentMemoryBook()}>{selectedUploadPlace ? t(`写下「${selectedUploadPlace.name}」的文字 / 语音`, `Write Note / Voice for "${selectedUploadPlace.name}"`) : t(`写下整个${uploadCityName}的文字 / 语音`, `Write Note / Voice for ${uploadCityName}`)}</button>
         </div>
-        <input ref={fileInputRef} type="file" multiple accept="image/*,video/*,.heic,.heif,.mov" hidden onChange={(event) => void uploadFiles(event.target.files)} />
-        <p className="muted">{t('不填具体地点也可直接上传照片或写下随记，会自动按城市整理。', 'Upload photos or write notes directly—organized automatically by city. ')}{selectedTrip ? t('日期超出旅程范围会先提示。', 'Dates outside trip range will prompt first.') : t('无需先新建旅行。', 'No trip required first.')}</p>
+        {!webTourMode && <input ref={fileInputRef} type="file" multiple accept="image/*,video/*,.heic,.heif,.mov" hidden onChange={(event) => void uploadFiles(event.target.files)} />}
+        <p className="muted">{webTourMode
+          ? t('当前为在线体验模式：支持点亮地图、创建地点与写文字便签；原图照片与视频归档请下载客户端使用。', 'Web Tour mode supports lighting cities and writing notes; photo & video storage requires the client.')
+          : `${t('不填具体地点也可直接上传照片或写下随记，会自动按城市整理。', 'Upload photos or write notes directly—organized automatically by city. ')}${selectedTrip ? t('日期超出旅程范围会先提示。', 'Dates outside trip range will prompt first.') : t('无需先新建旅行。', 'No trip required first.')}`}</p>
         {uploadFailures.length > 0 && <div className="upload-failures" role="alert"><strong>{t(`${uploadFailures.length} 个文件未导入`, `${uploadFailures.length} files skipped`)}</strong><ul>{uploadFailures.map((reason, index) => <li key={`${reason}-${index}`}>{reason}</li>)}</ul></div>}
       </section>
       <div className="journal-places">{(selectedTrip?.cities ?? (scopeCity ? [scopeCity] : [])).map((tripCity) => <section key={tripCity.code}><h3>{t(`${tripCity.name} · 地点记忆`, `${tripCity.name} · Places`)}</h3><div className="place-card-grid">{tripPlaces.filter((place) => place.cityCode === tripCity.code).map((place) => {
@@ -896,11 +925,24 @@ export default function DetailView(props: DetailViewProps) {
     {selectedPlace && (selectedTrip || scopeCityCode) && <div className="memory-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedPlaceId(null); }}><section className="memory-book" role="dialog" aria-modal="true" aria-label={t(`${selectedPlace.name}的回忆`, `Memories of ${selectedPlace.name}`)}>
       <div className="memory-header"><button className="text-button" onClick={() => setSelectedPlaceId(null)}>{t(`← 返回${selectedTrip ? '旅行' : '城市记录'}`, `← Back to ${selectedTrip ? 'Trip' : 'City'}`)}</button><span>{selectedTrip ? `${selectedTrip.startDate} — ${selectedTrip.endDate}` : t('城市记忆', 'City Memory')}</span><button aria-label={t('关闭地点回忆', 'Close place memories')} onClick={() => setSelectedPlaceId(null)}>×</button></div><div className="memory-title"><span className="eyebrow">A PLACE TO REMEMBER</span><h2>{selectedPlace.name}</h2><p>{selectedTrip?.cities.find((item) => item.code === selectedPlace.cityCode)?.name ?? scopeCity?.name} · {t(`${placeMedia.length} 个片段`, `${placeMedia.length} items`)}</p></div>
       <div className="memory-upload">
-        <button type="button" className="primary" disabled={Boolean(uploadProgress)} onClick={() => memoryFileInputRef.current?.click()}>
-          {uploadProgress && uploadFeedbackPlaceId === selectedPlace.id ? uploadProgress : t('上传照片 / 视频到这里', 'Upload Photos / Videos Here')}
+        <button
+          type="button"
+          className="primary"
+          disabled={Boolean(uploadProgress)}
+          onClick={() => {
+            if (webTourMode) {
+              onRequireClient?.('photo');
+              return;
+            }
+            memoryFileInputRef.current?.click();
+          }}
+        >
+          {webTourMode
+            ? t('🔒 上传照片 / 视频（下载客户端解锁）', '🔒 Upload Photos / Videos (Client Only)')
+            : (uploadProgress && uploadFeedbackPlaceId === selectedPlace.id ? uploadProgress : t('上传照片 / 视频到这里', 'Upload Photos / Videos Here'))}
         </button>
-        <input ref={memoryFileInputRef} type="file" multiple accept="image/*,video/*,.heic,.heif,.mov" hidden
-          onChange={(event) => void uploadFiles(event.target.files, selectedPlace)} />
+        {!webTourMode && <input ref={memoryFileInputRef} type="file" multiple accept="image/*,video/*,.heic,.heif,.mov" hidden
+          onChange={(event) => void uploadFiles(event.target.files, selectedPlace)} />}
         {uploadFeedbackPlaceId === selectedPlace.id && uploadFailures.length > 0 && (
           <div className="upload-failures" role="alert"><ul>{uploadFailures.map((reason, index) => <li key={`${reason}-${index}`}>{reason}</li>)}</ul></div>
         )}
@@ -910,7 +952,7 @@ export default function DetailView(props: DetailViewProps) {
         <div className="heading-actions">
           <button className="secondary" disabled={savingReview || !reviewDraft.trim()} onClick={() => void saveReview(selectedPlace)}>{savingReview ? t('保存中…', 'Saving…') : editingReviewId ? t('保存修改', 'Save Changes') : t('保存文字', 'Save Note')}</button>
           {editingReviewId && <button className="text-button" onClick={() => { setEditingReviewId(null); setReviewDraft(''); }}>{t('取消编辑', 'Cancel')}</button>}
-          <button className="secondary" disabled={audioBusy || Boolean(recordingPlaceId && recordingPlaceId !== selectedPlace.id)} onClick={() => void toggleRecording(selectedPlace)}>{audioBusy ? t('正在处理录音…', 'Processing audio…') : recordingPlaceId === selectedPlace.id ? t('停止录音', 'Stop Recording') : t('录制语音评语', 'Record Voice Note')}</button>
+          <button className="secondary" disabled={audioBusy || Boolean(recordingPlaceId && recordingPlaceId !== selectedPlace.id)} onClick={() => void toggleRecording(selectedPlace)}>{webTourMode ? t('🔒 录制语音评语（客户端专属）', '🔒 Record Voice (Client Only)') : (audioBusy ? t('正在处理录音…', 'Processing audio…') : recordingPlaceId === selectedPlace.id ? t('停止录音', 'Stop Recording') : t('录制语音评语', 'Record Voice Note'))}</button>
         </div>
         {recordingPlaceId === selectedPlace.id && <div className="recording-meter" role="status">
           <span className="recording-dot" aria-hidden="true" />
