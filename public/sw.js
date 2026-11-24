@@ -39,6 +39,7 @@ self.addEventListener('fetch', (event) => {
   // AI replies, release metadata, and edge download routes must always reach the network.
   if (
     url.pathname.includes('/api/planner/') ||
+    url.pathname.includes('/api/ai-proxy') ||
     url.pathname.includes('/api/releases') ||
     url.pathname.includes('/api/download') ||
     url.pathname.includes('/install/') ||

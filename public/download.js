@@ -11,6 +11,18 @@
   else if (/Linux/i.test(platform) || /Linux/i.test(ua)) detected = 'linux';
 
   const isMobileDevice = detected === 'android' || detected === 'ios';
+  const isWeChatOrQQ = /MicroMessenger|QQ\/|MQQBrowser/i.test(ua);
+
+  /* ---------- 0. 微信 / QQ 内置浏览器安全与下载提示 ---------- */
+  if (isWeChatOrQQ && document.body) {
+    const bar = document.createElement('div');
+    bar.setAttribute('role', 'status');
+    bar.style.cssText = 'position:sticky;top:0;z-index:9999;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#fff4ec;color:#5a372a;border-bottom:1px solid #f0d5c4;font-size:13px;line-height:1.45;';
+    bar.innerHTML = '<span>📱 当前在微信 / QQ 内置浏览器中打开：可直接安全浏览；如需下载 APK 安装包或添加到手机桌面，请点右上角 <strong>···</strong> 选择「在默认浏览器打开」。</span><button type="button" aria-label="关闭提示" style="border:0;background:transparent;color:#8a685b;font-size:18px;padding:2px 6px;cursor:pointer;flex:0 0 auto;">×</button>';
+    const closeBtn = bar.querySelector('button');
+    if (closeBtn) closeBtn.addEventListener('click', () => bar.remove());
+    document.body.insertBefore(bar, document.body.firstChild);
+  }
 
   /* ---------- 1. 浅色 / 深色主题切换 ---------- */
   const themeBtn = document.getElementById('theme-toggle');

@@ -1,4 +1,5 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
+import sha256 from 'fast-sha256';
 import { jsonrepair } from 'jsonrepair';
 import { getPlannerApiOrigin } from './api-base';
 import type {
@@ -72,6 +73,52 @@ export function isMobileNativeAiActive(): boolean {
   return Boolean(getNativeBridge() || isStaticHostedWebPwa());
 }
 
+const PROXY_ALLOWED_HOSTS = new Set([
+  'auth.openai.com',
+  'chatgpt.com',
+  'api.openai.com',
+  'platform.claude.com',
+  'api.anthropic.com',
+  'auth.kimi.com',
+  'api.kimi.com',
+  'api.deepseek.com',
+  'generativelanguage.googleapis.com',
+  'dashscope.aliyuncs.com',
+  'open.bigmodel.cn',
+  'api.moonshot.cn',
+  'ark.cn-beijing.volces.com',
+]);
+
+function resolveAiProxyEndpoint(): string {
+  const host = (window.location.hostname || '').toLowerCase();
+  if (host === 'zhouyou.online' || host === 'www.zhouyou.online' || host.endsWith('.zhouyou.online') || host.endsWith('.pages.dev')) {
+    return `${window.location.origin}/api/ai-proxy`;
+  }
+  return 'https://zhouyou.online/api/ai-proxy';
+}
+
+function shouldUseEdgeProxy(rawUrl: string): boolean {
+  try {
+    const parsed = new URL(rawUrl);
+    return parsed.protocol === 'https:' && !parsed.port && PROXY_ALLOWED_HOSTS.has(parsed.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+async function openAuthPage(url: string): Promise<void> {
+  const bridge = getNativeBridge();
+  if (bridge) {
+    await bridge.openExternalUrl({ url });
+    return;
+  }
+  try {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  } catch {
+    // 浏览器拦截弹窗时，用户可直接点击卡片上的授权链接
+  }
+}
+
 async function transportHttpRequest(options: {
   url: string;
   method?: string;
@@ -83,11 +130,41 @@ async function transportHttpRequest(options: {
   if (bridge) {
     return bridge.httpRequest(options);
   }
+  const timeoutMs = options.timeoutMs ?? 90000;
+  if (shouldUseEdgeProxy(options.url)) {
+    const proxyRes = await fetch(resolveAiProxyEndpoint(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        url: options.url,
+        method: options.method || 'GET',
+        headers: options.headers || {},
+        body: options.body,
+        timeoutMs,
+      }),
+      signal: AbortSignal.timeout(timeoutMs + 5000),
+    });
+    const rawText = await proxyRes.text();
+    let parsed: { status?: number; body?: string; headers?: Record<string, string>; error?: string } | null = null;
+    try {
+      parsed = JSON.parse(rawText) as { status?: number; body?: string; headers?: Record<string, string>; error?: string };
+    } catch {
+      // non-json proxy response
+    }
+    if (!proxyRes.ok) {
+      throw new Error(parsed?.error || `边缘转发接口返回异常（HTTP ${proxyRes.status}）`);
+    }
+    return {
+      status: typeof parsed?.status === 'number' ? parsed.status : 502,
+      body: typeof parsed?.body === 'string' ? parsed.body : '',
+      headers: parsed?.headers,
+    };
+  }
   const resp = await fetch(options.url, {
     method: options.method || 'GET',
     headers: options.headers,
     body: options.body,
-    signal: AbortSignal.timeout(options.timeoutMs ?? 90000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const text = await resp.text();
   return { status: resp.status, body: text };
@@ -234,6 +311,7 @@ const CLAUDE_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
 const CLAUDE_AUTHORIZE_URL = 'https://claude.ai/oauth/authorize';
 const CLAUDE_TOKEN_URL = 'https://platform.claude.com/v1/oauth/token';
 const CLAUDE_REDIRECT_URI = 'http://localhost:53692/callback';
+const CLAUDE_COPY_CODE_REDIRECT_URI = 'https://platform.claude.com/oauth/code/callback';
 const CLAUDE_SCOPES = 'org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload';
 
 const KIMI_CLIENT_ID = '17e5f671-d194-4dfb-9706-5516cb48c098';
@@ -417,8 +495,11 @@ async function generatePkce(): Promise<{ verifier: string; challenge: string; st
   const verifierBytes = new Uint8Array(32);
   crypto.getRandomValues(verifierBytes);
   const verifier = base64Url(verifierBytes);
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
-  const challenge = base64Url(new Uint8Array(digest));
+  const encoded = new TextEncoder().encode(verifier);
+  const digestBytes = typeof crypto !== 'undefined' && crypto.subtle
+    ? new Uint8Array(await crypto.subtle.digest('SHA-256', encoded))
+    : sha256(encoded);
+  const challenge = base64Url(digestBytes);
   const stateBytes = new Uint8Array(16);
   crypto.getRandomValues(stateBytes);
   const state = base64Url(stateBytes);
@@ -482,9 +563,7 @@ async function cleanupLoginSession(key: string): Promise<void> {
 }
 
 async function exchangeChatGptCode(code: string, verifier: string, redirectUri: string): Promise<StoredSubCred> {
-  const bridge = getNativeBridge();
-  if (!bridge) throw new Error('原生网络插件未就绪');
-  const resp = await bridge.httpRequest({
+  const resp = await transportHttpRequest({
     url: CHATGPT_TOKEN_URL,
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
@@ -511,9 +590,7 @@ async function exchangeChatGptCode(code: string, verifier: string, redirectUri: 
 }
 
 async function exchangeClaudeCode(code: string, state: string, verifier: string, redirectUri: string): Promise<StoredSubCred> {
-  const bridge = getNativeBridge();
-  if (!bridge) throw new Error('原生网络插件未就绪');
-  const resp = await bridge.httpRequest({
+  const resp = await transportHttpRequest({
     url: CLAUDE_TOKEN_URL,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -545,11 +622,9 @@ async function ensureFreshSubCred(key: 'chatgpt' | 'claude' | 'kimi'): Promise<S
   if (!cred?.access) throw new Error(`请先登录 ${SUB_CATALOG[key]?.name ?? key} 订阅账号`);
   if (!cred.refresh || Date.now() < cred.expires - 120_000) return cred;
 
-  const bridge = getNativeBridge();
-  if (!bridge) return cred;
   try {
     if (key === 'chatgpt') {
-      const resp = await bridge.httpRequest({
+      const resp = await transportHttpRequest({
         url: CHATGPT_TOKEN_URL,
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
@@ -575,7 +650,7 @@ async function ensureFreshSubCred(key: 'chatgpt' | 'claude' | 'kimi'): Promise<S
         }
       }
     } else if (key === 'claude') {
-      const resp = await bridge.httpRequest({
+      const resp = await transportHttpRequest({
         url: CLAUDE_TOKEN_URL,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -600,7 +675,7 @@ async function ensureFreshSubCred(key: 'chatgpt' | 'claude' | 'kimi'): Promise<S
         }
       }
     } else if (key === 'kimi') {
-      const resp = await bridge.httpRequest({
+      const resp = await transportHttpRequest({
         url: KIMI_TOKEN_URL,
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
@@ -680,17 +755,15 @@ async function finishOAuthLogin(session: ActiveLoginSession, code: string, retur
 async function startSubLogin(providerKey: string, method?: string): Promise<Record<string, unknown>> {
   const key = providerKey.replace(/^sub:/, '') as 'chatgpt' | 'claude' | 'kimi' | 'gemini';
   if (key === 'gemini') {
-    throw new Error('手机端不支持电脑命令行 Gemini CLI；请在下方「API Key」中填写 Google AI Studio 免费 API Key，即可直接用 Gemini 4 Neon。');
+    throw new Error('手机端与 PWA 不支持电脑命令行 Gemini CLI；请在下方「API Key」中填写 Google AI Studio 免费 API Key，即可直接用 Gemini 4 Neon。');
   }
   const bridge = getNativeBridge();
-  if (!bridge) {
-    throw new Error('当前打开的是网页 PWA 版，受浏览器安全限制无法直接登录订阅。请下载安装 Android APK 客户端（免电脑直接登录 ChatGPT / Claude / Kimi 订阅），或直接在下方「API Key」填写 DeepSeek / Gemini / OpenAI 等密钥使用。');
-  }
 
   await cleanupLoginSession(key);
 
-  if (key === 'chatgpt' && method === 'device_code') {
-    const resp = await bridge.httpRequest({
+  // PWA 网页端无法监听 localhost 回调端口，ChatGPT 自动优先使用官方设备码免回调登录流
+  if (key === 'chatgpt' && (method === 'device_code' || !bridge)) {
+    const resp = await transportHttpRequest({
       url: 'https://auth.openai.com/api/accounts/deviceauth/usercode',
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -698,7 +771,7 @@ async function startSubLogin(providerKey: string, method?: string): Promise<Reco
       timeoutMs: 25000,
     });
     if (resp.status < 200 || resp.status >= 300) {
-      throw new Error(`ChatGPT 设备码申请失败（HTTP ${resp.status}），请改用浏览器直接登录`);
+      throw new Error(`ChatGPT 设备码申请失败（HTTP ${resp.status}），请稍后重试或安装 Android APK 客户端`);
     }
     const json = JSON.parse(resp.body) as { device_auth_id?: string; user_code?: string; interval?: number };
     if (!json.device_auth_id || !json.user_code) throw new Error('ChatGPT 未返回有效设备码');
@@ -709,10 +782,10 @@ async function startSubLogin(providerKey: string, method?: string): Promise<Reco
       authUrl,
       userCode: json.user_code,
       verificationUri: authUrl,
-      instructions: `请在浏览器打开页面并输入设备码 ${json.user_code}，确认后会自动保存登录状态。`,
+      instructions: `请在浏览器打开页面并输入设备码 ${json.user_code}，确认后会自动保存登录状态（无需电脑端）。`,
     };
     loginSessions.set('chatgpt', session);
-    void bridge.openExternalUrl({ url: authUrl }).catch(() => {});
+    void openAuthPage(authUrl).catch(() => {});
 
     const intervalMs = Math.max(3000, (Number(json.interval) || 5) * 1000);
     const deadline = Date.now() + 15 * 60 * 1000;
@@ -721,7 +794,7 @@ async function startSubLogin(providerKey: string, method?: string): Promise<Reco
         await new Promise((r) => setTimeout(r, intervalMs));
         if (session.cancelled || session.state !== 'pending') break;
         try {
-          const poll = await bridge.httpRequest({
+          const poll = await transportHttpRequest({
             url: 'https://auth.openai.com/api/accounts/deviceauth/token',
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -770,7 +843,7 @@ async function startSubLogin(providerKey: string, method?: string): Promise<Reco
   }
 
   if (key === 'kimi') {
-    const resp = await bridge.httpRequest({
+    const resp = await transportHttpRequest({
       url: KIMI_DEVICE_URL,
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
@@ -799,7 +872,7 @@ async function startSubLogin(providerKey: string, method?: string): Promise<Reco
       instructions: `请在浏览器中确认设备码 ${json.user_code}，确认后会自动保存登录状态。`,
     };
     loginSessions.set('kimi', session);
-    void bridge.openExternalUrl({ url: authUrl }).catch(() => {});
+    void openAuthPage(authUrl).catch(() => {});
 
     // 后台轮询 Kimi 设备码
     const intervalMs = Math.max(3000, (Number(json.interval) || 5) * 1000);
@@ -809,7 +882,7 @@ async function startSubLogin(providerKey: string, method?: string): Promise<Reco
         await new Promise((r) => setTimeout(r, intervalMs));
         if (session.cancelled || session.state !== 'pending') break;
         try {
-          const poll = await bridge.httpRequest({
+          const poll = await transportHttpRequest({
             url: KIMI_TOKEN_URL,
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
@@ -864,12 +937,14 @@ async function startSubLogin(providerKey: string, method?: string): Promise<Reco
     };
   }
 
-  // ChatGPT / Claude OAuth PKCE
+  // ChatGPT / Claude OAuth PKCE（原生 APK 自动回调；PWA 版 Claude 走官方复制授权码页）
   const { verifier, challenge, state } = await generatePkce();
   const isChatGpt = key === 'chatgpt';
   const port = isChatGpt ? 1455 : 53692;
   const callbackPath = isChatGpt ? '/auth/callback' : '/callback';
-  const redirectUri = isChatGpt ? CHATGPT_REDIRECT_URI : CLAUDE_REDIRECT_URI;
+  const redirectUri = isChatGpt
+    ? CHATGPT_REDIRECT_URI
+    : (bridge ? CLAUDE_REDIRECT_URI : CLAUDE_COPY_CODE_REDIRECT_URI);
 
   const params = new URLSearchParams(
     isChatGpt
@@ -905,29 +980,33 @@ async function startSubLogin(providerKey: string, method?: string): Promise<Reco
     verifier,
     oauthState: state,
     redirectUri,
-    instructions: '已在手机浏览器打开登录页，完成授权后会自动跳回本机并保存；如浏览器未自动跳转，也可复制回调网址粘贴到下方完成登录。',
+    instructions: bridge
+      ? '已在手机浏览器打开登录页，完成授权后会自动跳回本机并保存；如浏览器未自动跳转，也可复制回调网址粘贴到下方完成登录。'
+      : '请点击上方链接完成 Claude 授权，授权后网页会显示一段授权码，复制粘贴到下方输入框即可完成登录并保存在本机。',
   };
   loginSessions.set(key, session);
 
-  try {
-    await bridge.startOAuthCallbackServer({ port, callbackPath });
-    const handle = await bridge.addListener('oauthCallback', (cbParams) => {
-      if (session.cancelled || session.state !== 'pending') return;
-      if (cbParams.error) {
-        session.state = 'failed';
-        session.error = cbParams.error_description || cbParams.error;
-        return;
-      }
-      if (cbParams.code) {
-        void finishOAuthLogin(session, cbParams.code, cbParams.state);
-      }
-    });
-    session.listenerRemove = handle.remove;
-  } catch {
-    // 即使本地回调端口被占用，用户仍可粘贴回调网址手动完成
+  if (bridge) {
+    try {
+      await bridge.startOAuthCallbackServer({ port, callbackPath });
+      const handle = await bridge.addListener('oauthCallback', (cbParams) => {
+        if (session.cancelled || session.state !== 'pending') return;
+        if (cbParams.error) {
+          session.state = 'failed';
+          session.error = cbParams.error_description || cbParams.error;
+          return;
+        }
+        if (cbParams.code) {
+          void finishOAuthLogin(session, cbParams.code, cbParams.state);
+        }
+      });
+      session.listenerRemove = handle.remove;
+    } catch {
+      // 即使本地回调端口被占用，用户仍可粘贴回调网址手动完成
+    }
   }
 
-  await bridge.openExternalUrl({ url: authUrl });
+  await openAuthPage(authUrl);
 
   return {
     status: 'pending',
@@ -956,11 +1035,6 @@ export async function fetchMobileSubscriptionQuota(idOrKey: string, force = fals
   const cached = quotaCache.get(key);
   if (!force && cached && Date.now() - cached.fetchedAt < 60_000) return cached.value;
 
-  const bridge = getNativeBridge();
-  if (!bridge) {
-    return { status: 'info', title: '已登录', note: '已保存本机登录状态', manageUrl: spec.manageUrl };
-  }
-
   try {
     const cred = await ensureFreshSubCred(key);
     if (key === 'chatgpt') {
@@ -970,7 +1044,7 @@ export async function fetchMobileSubscriptionQuota(idOrKey: string, force = fals
         'User-Agent': 'codex_cli_rs/0.38.0',
       };
       if (cred.accountId) headers['chatgpt-account-id'] = cred.accountId;
-      const resp = await bridge.httpRequest({
+      const resp = await transportHttpRequest({
         url: 'https://chatgpt.com/backend-api/wham/usage',
         method: 'GET',
         headers,
@@ -1017,7 +1091,7 @@ export async function fetchMobileSubscriptionQuota(idOrKey: string, force = fals
     }
 
     if (key === 'claude') {
-      const resp = await bridge.httpRequest({
+      const resp = await transportHttpRequest({
         url: 'https://api.anthropic.com/api/oauth/usage',
         method: 'GET',
         headers: {
@@ -1062,7 +1136,7 @@ export async function fetchMobileSubscriptionQuota(idOrKey: string, force = fals
     }
 
     if (key === 'kimi') {
-      const resp = await bridge.httpRequest({
+      const resp = await transportHttpRequest({
         url: 'https://api.kimi.com/coding/v1/usages',
         method: 'GET',
         headers: { Authorization: `Bearer ${cred.access}`, Accept: 'application/json' },
