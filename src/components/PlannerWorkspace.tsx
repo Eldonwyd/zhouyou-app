@@ -90,12 +90,16 @@ import { plannerXiaohongshuSearchUrl } from '../planner-photo';
 import { getPlannerPhotoBlob, savePlannerMapPositions, type recordPlannerJournalVisit } from '../db';
 import { plannerJournalActivityKey, plannerJournalCity, plannerJournalVisitFor } from '../planner-journal';
 import { plannerAmapUrl } from '../planner-map';
-import { plannerApiUrl } from '../api-base';
+import { PLANNER_API_ORIGIN_EVENT, plannerApiUrl } from '../api-base';
 import { plannerApi } from '../planner-api';
 import { ticketPlanSignature } from '../planner-ticket-signature';
 import { needsTicketPreparation } from '../planner-ticket-display';
 import { BUDGET_LABELS, type TripPlan } from '../types';
 import { createLocalId, currency, downloadBlob } from '../utils';
+
+const isNativeMobileApp = () => Boolean(
+  (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.(),
+);
 
 interface PlannerWorkspaceProps extends ComponentProps<typeof FinanceView> {
   visible: boolean;
@@ -987,6 +991,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
   const [error, setError] = useState('');
   const [lastTask, setLastTask] = useState<(() => Promise<void>) | null>(null);
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const [aiBackendOffline, setAiBackendOffline] = useState(false);
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const [editing, setEditing] = useState<{
     dayIndex: number;
@@ -1177,15 +1182,35 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
   ])];
 
   useEffect(() => {
-    const healthController = new AbortController();
-    fetch(plannerApiUrl('health'), {
-      signal: healthController.signal,
-    })
-      .then((response) => response.json())
-      .then((health: Partial<AiStatus>) => setAiStatus(normalizeAiStatus(health)))
-      .catch(() => undefined);
+    let active = true;
+    let healthController: AbortController | null = null;
+    const probeHealth = () => {
+      healthController?.abort();
+      healthController = new AbortController();
+      const signal = AbortSignal.any([healthController.signal, AbortSignal.timeout(8000)]);
+      fetch(plannerApiUrl('health'), { signal })
+        .then((response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.json() as Promise<Partial<AiStatus>>;
+        })
+        .then((health) => {
+          if (!active) return;
+          setAiStatus(normalizeAiStatus(health));
+          setAiBackendOffline(false);
+        })
+        .catch(() => {
+          if (!active || healthController?.signal.aborted) return;
+          setAiStatus(null);
+          setAiBackendOffline(true);
+        });
+    };
+    probeHealth();
+    const onOriginChange = () => probeHealth();
+    window.addEventListener(PLANNER_API_ORIGIN_EVENT, onOriginChange);
     return () => {
-      healthController.abort();
+      active = false;
+      window.removeEventListener(PLANNER_API_ORIGIN_EVENT, onOriginChange);
+      healthController?.abort();
       controller.current?.abort();
     };
   }, []);
@@ -1942,25 +1967,45 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
             type="button"
             className="mobile-disclosure-toggle planner-service-toggle"
             aria-expanded={serviceToolsExpanded}
-            aria-controls="planner-photo-tools planner-ai-tools"
+            aria-controls="planner-ai-tools"
             onClick={() => setServiceToolsExpanded((expanded) => !expanded)}
           >
-            <span>AI 与小红书设置</span>
-            {aiStatus && (
-              <small className={aiStatus.configured ? 'planner-service-summary ok' : 'planner-service-summary'}>
-                <i className="planner-service-dot" aria-hidden="true" />
-                {aiStatus.configured ? (aiStatus.label ?? aiStatus.model ?? 'AI 已配置') : 'AI 待配置'}
-              </small>
-            )}
+            <span>AI 服务设置</span>
+            <small className={aiStatus?.configured ? 'planner-service-summary ok' : 'planner-service-summary'}>
+              <i className="planner-service-dot" aria-hidden="true" />
+              {aiStatus
+                ? (aiStatus.configured ? (aiStatus.label ?? aiStatus.model ?? 'AI 已配置') : 'AI 待配置')
+                : (aiBackendOffline ? 'AI 未连接' : 'AI 检查中')}
+            </small>
           </button>
-          <div id="planner-photo-tools" className="planner-service-panel"><PlannerPhotoSettings /></div>
+          {!isNativeMobileApp() && (
+            <div id="planner-photo-tools" className="planner-service-panel planner-xhs-login-desktop">
+              <PlannerPhotoSettings />
+            </div>
+          )}
         </div>
         <div id="planner-ai-tools" className="planner-service-panel">
-          <PlannerAiStatusBar status={aiStatus} onOpen={() => setAiSettingsOpen(true)} onChange={setAiStatus} />
+          <PlannerAiStatusBar
+            status={aiStatus}
+            offline={aiBackendOffline}
+            onOpen={() => setAiSettingsOpen(true)}
+            onChange={(next) => {
+              setAiStatus(next);
+              setAiBackendOffline(false);
+            }}
+          />
         </div>
       </div>
-      {aiSettingsOpen && (
-        <PlannerAiSettings onClose={() => setAiSettingsOpen(false)} onSaved={setAiStatus} />
+      {aiSettingsOpen && createPortal(
+        <PlannerAiSettings
+          initialOffline={aiBackendOffline}
+          onClose={() => setAiSettingsOpen(false)}
+          onSaved={(next) => {
+            setAiStatus(next);
+            setAiBackendOffline(false);
+          }}
+        />,
+        document.body,
       )}
       {busy && createPortal(
         <div className="planner-status" role="status">

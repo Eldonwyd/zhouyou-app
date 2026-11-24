@@ -25,6 +25,15 @@
       } catch (e) {
         document.documentElement.dataset.appearance = 'candy';
       }
+      // 语言也在首帧前恢复，避免标题和语言属性闪烁。
+      try {
+        var l = localStorage.getItem('travel-lang') === 'en' ? 'en' : 'zh';
+        document.documentElement.dataset.lang = l;
+        document.documentElement.lang = l === 'en' ? 'en' : 'zh-CN';
+        document.title = l === 'en' ? 'Zhouyou Map' : '周游地图';
+      } catch (e) {
+        document.documentElement.dataset.lang = 'zh';
+      }
     </script>
   </head>
   <body>

@@ -1,22 +1,35 @@
 import type { CSSProperties } from 'react';
 import { APPEARANCE_STYLES, applyAppearanceStyle, applyThemeMode, useAppearanceStyle, useThemeMode } from '../theme';
+import { useI18n } from '../i18n';
 
 /** 风格工坊：每张样卡真实还原对应风格的底纹、描边、圆角、阴影与装饰气质。 */
 export default function AppearanceSettings() {
   const selected = useAppearanceStyle();
   const mode = useThemeMode();
+  const { isEn, t } = useI18n();
+
+  const modes = [
+    ['system', t('跟随系统', 'System')],
+    ['light', t('浅色', 'Light')],
+    ['dark', t('深色', 'Dark')],
+  ] as const;
 
   return (
-    <section className="card appearance-settings" aria-labelledby="appearance-heading">
+    <section id="settings-appearance" className="card appearance-settings" aria-labelledby="appearance-heading">
       <div className="card-heading">
         <div>
-          <h2 id="appearance-heading">外观风格工坊</h2>
-          <p className="muted">不只是换颜色——底纹材质、卡片边框、贴纸胶带与交互手感都会一起变身。</p>
+          <h2 id="appearance-heading">{t('外观风格工坊', 'Appearance & Themes')}</h2>
+          <p className="muted">
+            {t(
+              '不只是换颜色——底纹材质、卡片边框、贴纸胶带与交互手感都会一起变身。',
+              'More than just colors—paper texture, card borders, stickers, and motion transform together.',
+            )}
+          </p>
         </div>
-        <span className="appearance-autosave-pill">即时生效 · 自动保存</span>
+        <span className="appearance-autosave-pill">{t('即时生效 · 自动保存', 'Instant · Auto-saved')}</span>
       </div>
 
-      <div className="appearance-grid" role="group" aria-label="外观风格">
+      <div className="appearance-grid" role="group" aria-label={t('外观风格', 'Appearance style')}>
         {APPEARANCE_STYLES.map((style) => (
           <button
             type="button"
@@ -55,22 +68,22 @@ export default function AppearanceSettings() {
             </span>
 
             <span className="appearance-name">
-              <strong>{style.name}</strong>
-              <em className="appearance-tag">{style.badge}</em>
+              <strong>{isEn ? style.nameEn : style.name}</strong>
+              <em className="appearance-tag">{isEn ? style.badgeEn : style.badge}</em>
               {selected === style.id && <span className="appearance-check" aria-hidden="true">✓</span>}
             </span>
-            <small>{style.description}</small>
+            <small>{isEn ? style.descriptionEn : style.description}</small>
           </button>
         ))}
       </div>
 
       <div className="appearance-mode">
         <div>
-          <strong>明暗模式</strong>
-          <small>五种风格均已独立适配浅色与深色画面</small>
+          <strong>{t('明暗模式', 'Color Mode')}</strong>
+          <small>{t('五种风格均已独立适配浅色与深色画面', 'All five styles are crafted for both light and dark modes')}</small>
         </div>
-        <div role="group" aria-label="明暗模式">
-          {([['system', '跟随系统'], ['light', '浅色'], ['dark', '深色']] as const).map(([value, label]) => (
+        <div role="group" aria-label={t('明暗模式', 'Color mode')}>
+          {modes.map(([value, label]) => (
             <button type="button" key={value} aria-pressed={mode === value} onClick={() => applyThemeMode(value)}>
               {label}
             </button>

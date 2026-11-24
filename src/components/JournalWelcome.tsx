@@ -1,5 +1,6 @@
 import type { CityMark, Journey, JourneyCity, JourneyPlace, TravelMedia } from '../types';
 import type { PlannerPhoto } from '../planner-types';
+import { useI18n } from '../i18n';
 import { TravelCover, TravelIcon } from './TravelArt';
 import { CuteSticker } from './CuteArt';
 import JournalCover from './JournalCover';
@@ -27,6 +28,7 @@ export default function JournalWelcome({
   onStart?: () => void;
   onNewTrip?: () => void;
 }) {
+  const { t } = useI18n();
   const latestMedia = [...media]
     .filter((item) => item.kind === 'photo')
     .sort((a, b) => b.capturedAt.localeCompare(a.capturedAt))[0];
@@ -68,25 +70,25 @@ export default function JournalWelcome({
         <div className="postcard-thumb-frame">
           {coverCityCode ? <JournalCover cityCode={coverCityCode} photoId={coverPhoto?.id}
             plannerPhotos={trip && !coverPhoto ? plannerPhotosByTrip.get(trip.id) : undefined} />
-            : <TravelCover label="旅途明信片" />}
+            : <TravelCover label={t('旅途明信片', 'Travel Postcard')} />}
           <span className="postcard-stamp-dot cute-deco" aria-hidden="true">✦</span>
         </div>
         <div className="postcard-info">
           <div className="postcard-info-top">
             <span className="postcard-tag">
               <span className="cute-deco" aria-hidden="true">✦</span>
-              {hasMemory ? '最近去过' : '旅途明信片'}
+              {hasMemory ? t('最近去过', 'Recent Stop') : t('旅途明信片', 'Travel Postcard')}
             </span>
             <small className="postcard-date">
-              {trip ? `${trip.startDate} — ${trip.endDate}` : (place?.createdAt ?? recentMark?.updatedAt)?.slice(0, 10) ?? '待出发'}
+              {trip ? `${trip.startDate} — ${trip.endDate}` : (place?.createdAt ?? recentMark?.updatedAt)?.slice(0, 10) ?? t('待出发', 'Upcoming')}
             </small>
           </div>
-          <h2>{trip?.title ?? place?.name ?? recentMark?.name ?? '下一页精彩，等你来贴'}</h2>
+          <h2>{trip?.title ?? place?.name ?? recentMark?.name ?? t('下一页精彩，等你来贴', 'Your next story starts here')}</h2>
           <p className="postcard-desc">
-            {trip?.cities.map((city) => city.name).join(' · ') ?? '把照片、短记与声音收进这一页小册子。'}
+            {trip?.cities.map((city) => city.name).join(' · ') ?? t('把照片、短记与声音收进这一页小册子。', 'Collect photos, notes, and voice memos in this travel booklet.')}
           </p>
           <div className="postcard-footer">
-            <span className="postcard-cta">{hasMemory ? '翻开这一页' : '去记录第一站'} <b>↗</b></span>
+            <span className="postcard-cta">{hasMemory ? t('翻开这一页', 'Open this page') : t('去记录第一站', 'Log your first stop')} <b>↗</b></span>
             <CuteSticker kind="plane" className="postcard-mini-plane" />
           </div>
         </div>
@@ -96,40 +98,40 @@ export default function JournalWelcome({
       <aside className="warm-note-paper compact-note-card">
         <span className="washi-tape tape-center" aria-hidden="true" />
         <CuteSticker kind="sparkle" className="note-float-sparkle" />
-        <MobileDisclosure label="最近便签" value={notePlace?.name}>
-        <div className="note-paper-head">
-          <span className="warm-note-label"><TravelIcon name="detail" />最近便签</span>
-          <div className="note-head-right">
-            {audioCount > 0 && <span className="note-audio-pill">🎙 {audioCount}</span>}
-            <small className="note-date-pill">{noteDate || '小贴士'}</small>
-            <button
-              type="button"
-              className="note-mini-link"
-              disabled={!notePlace && !onStart}
-              onClick={() => { if (notePlace) onOpen(notePlace.tripId, notePlace); else onStart?.(); }}
-            >
-              {notePlace ? '打开 ↗' : '去写 ↗'}
-            </button>
+        <MobileDisclosure label={t('最近便签', 'Latest Note')} value={notePlace?.name}>
+          <div className="note-paper-head">
+            <span className="warm-note-label"><TravelIcon name="detail" />{t('最近便签', 'Latest Note')}</span>
+            <div className="note-head-right">
+              {audioCount > 0 && <span className="note-audio-pill">🎙 {audioCount}</span>}
+              <small className="note-date-pill">{noteDate || t('小贴士', 'Tip')}</small>
+              <button
+                type="button"
+                className="note-mini-link"
+                disabled={!notePlace && !onStart}
+                onClick={() => { if (notePlace) onOpen(notePlace.tripId, notePlace); else onStart?.(); }}
+              >
+                {notePlace ? t('打开 ↗', 'Open ↗') : t('去写 ↗', 'Write ↗')}
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div className="note-memo-box">
-          <span className="note-memo-quote cute-deco" aria-hidden="true">“</span>
-          <div className="note-memo-row">
-            <h3>{notePlace?.name ?? '还没有贴上第一张便签'}</h3>
-            {!notePlace && onNewTrip && (
-              <button type="button" className="note-quick-pill" onClick={onNewTrip}>＋ 记一段旅行</button>
-            )}
+          <div className="note-memo-box">
+            <span className="note-memo-quote cute-deco" aria-hidden="true">“</span>
+            <div className="note-memo-row">
+              <h3>{notePlace?.name ?? t('还没有贴上第一张便签', 'No notes pinned yet')}</h3>
+              {!notePlace && onNewTrip && (
+                <button type="button" className="note-quick-pill" onClick={onNewTrip}>{t('＋ 记一段旅行', '+ New Trip')}</button>
+              )}
+            </div>
+            <p>{noteText || t('挑一座去过的城市，贴几张照片或写几句当时的天气与心情。', 'Pick a visited city to add photos, weather, and thoughts from that day.')}</p>
           </div>
-          <p>{noteText || '挑一座去过的城市，贴几张照片或写几句当时的天气与心情。'}</p>
-        </div>
         </MobileDisclosure>
 
         <dl className="warm-memory-counts compact-counts">
-          <div className="count-pill-sage"><dt>旅行</dt><dd>{trips.length}</dd></div>
-          <div className="count-pill-blue"><dt>城市</dt><dd>{visitedCities.length}</dd></div>
-          <div className="count-pill-peach"><dt>地点</dt><dd>{places.length}</dd></div>
-          <div className="count-pill-honey"><dt>照片</dt><dd>{photoCount}</dd></div>
+          <div className="count-pill-sage"><dt>{t('旅行', 'Trips')}</dt><dd>{trips.length}</dd></div>
+          <div className="count-pill-blue"><dt>{t('城市', 'Cities')}</dt><dd>{visitedCities.length}</dd></div>
+          <div className="count-pill-peach"><dt>{t('地点', 'Places')}</dt><dd>{places.length}</dd></div>
+          <div className="count-pill-honey"><dt>{t('照片', 'Photos')}</dt><dd>{photoCount}</dd></div>
         </dl>
       </aside>
     </section>

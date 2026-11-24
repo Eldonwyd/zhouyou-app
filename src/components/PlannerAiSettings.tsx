@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { getPlannerApiOrigin, setPlannerApiOrigin } from '../api-base';
 import { plannerApi } from '../planner-api';
 
 export interface ModelCatalogItem {
@@ -143,6 +144,118 @@ const THINKING_LABEL: Record<string, string> = {
 };
 
 const SEARCH_TEXT = { direct: '可联网', citation: '可联网', none: '不支持联网' } as const;
+
+/** 手机端/静态端尚未连通 AI 后端时的兜底目录：完整保留与电脑版一致的 5 张卡片样式与交互结构。 */
+const FALLBACK_OFFLINE_STATE: AiState = {
+  configured: false,
+  provider: 'deepseek',
+  authMode: 'api',
+  label: '',
+  model: 'deepseek-chat',
+  modelId: 'deepseek-chat',
+  baseUrl: 'https://api.deepseek.com',
+  keyConfigured: false,
+  thinking: 'low',
+  thinkingLevels: ['off', 'low', 'medium', 'high'],
+  vision: false,
+  searchAvailable: false,
+  searchLabel: '',
+  saved: [],
+  subscriptions: [
+    {
+      id: 'sub:chatgpt',
+      key: 'chatgpt',
+      name: 'ChatGPT',
+      loginKind: 'oauth_browser',
+      connected: false,
+      active: false,
+      model: 'gpt-5.4',
+      defaultModel: 'gpt-5.4',
+      thinking: 'low',
+      thinkingLevels: ['off', 'low', 'medium', 'high'],
+      vision: true,
+      models: [
+        { id: 'gpt-5.4', name: 'GPT-5.4', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true },
+        { id: 'gpt-5.4-mini', name: 'GPT-5.4 Mini', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true },
+      ],
+      manageUrl: 'https://chatgpt.com/#settings/DataControls',
+      search: 'direct',
+      quota: null,
+    },
+    {
+      id: 'sub:claude',
+      key: 'claude',
+      name: 'Claude',
+      loginKind: 'oauth_browser',
+      connected: false,
+      active: false,
+      model: 'claude-sonnet-4-6',
+      defaultModel: 'claude-sonnet-4-6',
+      thinking: 'low',
+      thinkingLevels: ['off', 'low', 'medium', 'high'],
+      vision: true,
+      models: [
+        { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true },
+        { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true },
+      ],
+      manageUrl: 'https://claude.ai/settings/usage',
+      search: 'direct',
+      quota: null,
+    },
+    {
+      id: 'sub:kimi',
+      key: 'kimi',
+      name: 'Kimi Code',
+      loginKind: 'device_code',
+      connected: false,
+      active: false,
+      model: 'kimi-for-coding',
+      defaultModel: 'kimi-for-coding',
+      thinking: 'low',
+      thinkingLevels: ['off', 'low', 'medium', 'high'],
+      vision: true,
+      models: [
+        { id: 'kimi-for-coding', name: 'Kimi for Coding', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true },
+      ],
+      manageUrl: 'https://www.kimi.com/code/console',
+      search: 'none',
+      quota: null,
+    },
+    {
+      id: 'sub:gemini',
+      key: 'gemini',
+      name: 'Gemini',
+      loginKind: 'gemini_cli',
+      connected: false,
+      active: false,
+      model: 'gemini-2.5-pro',
+      defaultModel: 'gemini-2.5-pro',
+      thinking: 'low',
+      thinkingLevels: ['off', 'low', 'medium', 'high'],
+      vision: false,
+      models: [
+        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', vision: false, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true },
+        { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', vision: false, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true },
+      ],
+      manageUrl: 'https://aistudio.google.com/',
+      search: 'direct',
+      quota: null,
+      cliInstalled: false,
+      cliLoggedIn: false,
+    },
+  ],
+  providers: [
+    { id: 'deepseek', label: 'DeepSeek', baseUrl: 'https://api.deepseek.com', model: 'deepseek-chat', keyUrl: 'https://platform.deepseek.com/api_keys', models: [{ id: 'deepseek-chat', name: 'DeepSeek Chat', vision: false, reasoning: false, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true }, { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner', vision: false, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true }] },
+    { id: 'anthropic', label: 'Anthropic Claude', baseUrl: 'https://api.anthropic.com', model: 'claude-sonnet-4-6', keyUrl: 'https://platform.claude.com/settings/keys', models: [{ id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true }] },
+    { id: 'openai', label: 'OpenAI', baseUrl: 'https://api.openai.com/v1', model: 'gpt-5.4', keyUrl: 'https://platform.openai.com/api-keys', models: [{ id: 'gpt-5.4', name: 'GPT-5.4', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true }] },
+    { id: 'gemini', label: 'Google Gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.5-flash', keyUrl: 'https://aistudio.google.com/apikey', models: [{ id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true }] },
+    { id: 'qwen', label: '通义千问（阿里云百炼）', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus', keyUrl: 'https://bailian.console.aliyun.com/', models: [{ id: 'qwen-plus', name: 'Qwen Plus', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true }] },
+    { id: 'zhipu', label: '智谱 GLM', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4.5', keyUrl: 'https://open.bigmodel.cn/usercenter/apikeys', models: [{ id: 'glm-4.5', name: 'GLM-4.5', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true }] },
+    { id: 'moonshot', label: 'Kimi（月之暗面）', baseUrl: 'https://api.moonshot.cn/v1', model: 'kimi-k2', keyUrl: 'https://platform.moonshot.cn/console/api-keys', models: [{ id: 'kimi-k2', name: 'Kimi K2', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true }] },
+    { id: 'doubao', label: '豆包（火山方舟）', baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-seed-2-0-pro', keyUrl: 'https://console.volcengine.com/ark', models: [{ id: 'doubao-seed-2-0-pro', name: 'Doubao Seed 2.0 Pro', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true }] },
+    { id: 'custom', label: '其他 OpenAI 兼容接口', baseUrl: '', model: '', keyUrl: '', models: [] },
+  ],
+};
 
 /** 服务端返回的状态补齐默认值：旧版服务没有新字段时也能正常显示。 */
 export function normalizeAiStatus<T extends Partial<AiStatus>>(value: T): T & AiStatus {
@@ -408,10 +521,12 @@ function ThinkingLevelSelector({
 /** 页面顶部的 AI 控制坞：清爽呈现当前服务与状态，并支持直接切换模型、调节思考强度。 */
 export function PlannerAiStatusBar({
   status,
+  offline = false,
   onOpen,
   onChange,
 }: {
   status: AiStatus | null;
+  offline?: boolean;
   onOpen: () => void;
   onChange: (status: AiStatus) => void;
 }) {
@@ -472,9 +587,9 @@ export function PlannerAiStatusBar({
     return () => { alive = false; };
   }, [status?.configured, activeProviderId, hasInlineModels]);
 
-  if (!status) return null;
-
-  if (!status.configured) {
+  if (!status || !status.configured) {
+    const title = !status && offline ? 'AI 登录与设置' : 'AI 尚未配置';
+    const subtitle = 'ChatGPT / Claude / Kimi / Gemini';
     return (
       <div className="planner-ai-status is-unconfigured" role="status">
         <div className="ai-dock-brand">
@@ -484,16 +599,16 @@ export function PlannerAiStatusBar({
           </span>
           <div className="ai-dock-identity">
             <div className="ai-dock-title-row">
-              <strong>AI 尚未配置</strong>
+              <strong>{title}</strong>
               <span className="ai-dock-auth-tag">订阅 / API</span>
             </div>
             <div className="ai-dock-subline">
-              <span>可连接 ChatGPT、Claude、Kimi Code、Gemini 或 API Key</span>
+              <span>{subtitle}</span>
             </div>
           </div>
         </div>
         <button className="ai-dock-settings-btn primary" type="button" onClick={onOpen}>
-          <span>配置 AI</span>
+          <span>{!status && offline ? '登录配置' : '配置 AI'}</span>
           <ChevronIcon />
         </button>
       </div>
@@ -857,13 +972,15 @@ export function PlannerAiStatusBar({
  * - 内置单模型测速与全部已连接模型一键测速
  */
 export default function PlannerAiSettings({
+  initialOffline = false,
   onClose,
   onSaved,
 }: {
+  initialOffline?: boolean;
   onClose: () => void;
   onSaved: (status: AiStatus) => void;
 }) {
-  const [state, setState] = useState<AiState | null>(null);
+  const [state, setState] = useState<AiState | null>(() => (initialOffline ? FALLBACK_OFFLINE_STATE : null));
   const [expandedCard, setExpandedCard] = useState<string>('');
   const [sessions, setSessions] = useState<Record<string, LoginSession>>({});
   const [manualCodes, setManualCodes] = useState<Record<string, string>>({});
@@ -882,8 +999,13 @@ export default function PlannerAiSettings({
   const [apiThinking, setApiThinking] = useState('low');
   const [apiMessage, setApiMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [globalError, setGlobalError] = useState('');
+  const [backendOffline, setBackendOffline] = useState(initialOffline);
+  const [remoteOrigin, setRemoteOrigin] = useState(() => getPlannerApiOrigin());
+  const [showRemoteBox, setShowRemoteBox] = useState(initialOffline);
+  const [remoteNotice, setRemoteNotice] = useState<{ ok: boolean; text: string } | null>(null);
 
   const pollTimers = useRef<Map<string, number>>(new Map());
+  const mountedRef = useRef(true);
   const request = <T,>(endpoint: string, body: unknown, timeoutMs = 60000) =>
     plannerApi<T>(endpoint, body, AbortSignal.timeout(timeoutMs), () => {});
 
@@ -895,52 +1017,89 @@ export default function PlannerAiSettings({
     }
   };
 
+  const loadSettings = useCallback(async (notifyParentOnSuccess = false) => {
+    try {
+      const current = normalizeAiStatus(await request<AiState>('ai-settings', {}, 12000));
+      if (!mountedRef.current) return false;
+      setBackendOffline(false);
+      setGlobalError('');
+      setState(current);
+      const initialApiProvider = current.provider.startsWith('sub:')
+        ? (current.saved.find((item) => item.authMode === 'api')?.id ?? 'deepseek')
+        : current.provider;
+      const spec = current.providers.find((item) => item.id === initialApiProvider);
+      const savedApi = current.saved.find((item) => item.id === initialApiProvider);
+      setApiProvider(initialApiProvider);
+      setApiModel(
+        initialApiProvider === current.provider ? current.model : (savedApi?.model ?? spec?.model ?? ''),
+      );
+      setApiBaseUrl(initialApiProvider === current.provider ? current.baseUrl : (spec?.baseUrl ?? ''));
+      setApiThinking(
+        initialApiProvider === current.provider ? (current.thinking ?? 'low') : (savedApi?.thinking ?? 'low'),
+      );
+      const restoredSessions: Record<string, LoginSession> = {};
+      for (const sub of current.subscriptions) {
+        if (sub.pendingSession) {
+          restoredSessions[sub.key] = sub.pendingSession;
+          startPollingLogin(sub);
+        }
+      }
+      if (Object.keys(restoredSessions).length > 0) {
+        setSessions(restoredSessions);
+        const firstPending = current.subscriptions.find((sub) => sub.pendingSession);
+        if (firstPending) setExpandedCard(firstPending.id);
+      }
+      if (current.subscriptions.some((sub) => sub.key === 'claude' && sub.connected)) {
+        void refreshQuota('sub:claude', false);
+      }
+      if (notifyParentOnSuccess) onSaved(current);
+      return true;
+    } catch {
+      if (!mountedRef.current) return false;
+      setBackendOffline(true);
+      setShowRemoteBox(true);
+      setState((prev) => prev ?? FALLBACK_OFFLINE_STATE);
+      setApiProvider((prev) => prev || 'deepseek');
+      setApiModel((prev) => prev || 'deepseek-chat');
+      setApiBaseUrl((prev) => prev || 'https://api.deepseek.com');
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
-    let active = true;
-    void request<AiState>('ai-settings', {})
-      .then(normalizeAiStatus)
-      .then((current) => {
-        if (!active) return;
-        setState(current);
-        const initialApiProvider = current.provider.startsWith('sub:')
-          ? (current.saved.find((item) => item.authMode === 'api')?.id ?? 'deepseek')
-          : current.provider;
-        const spec = current.providers.find((item) => item.id === initialApiProvider);
-        const savedApi = current.saved.find((item) => item.id === initialApiProvider);
-        setApiProvider(initialApiProvider);
-        setApiModel(
-          initialApiProvider === current.provider ? current.model : (savedApi?.model ?? spec?.model ?? ''),
-        );
-        setApiBaseUrl(initialApiProvider === current.provider ? current.baseUrl : (spec?.baseUrl ?? ''));
-        setApiThinking(
-          initialApiProvider === current.provider ? (current.thinking ?? 'low') : (savedApi?.thinking ?? 'low'),
-        );
-        // 恢复服务端正在等待回调的授权会话，避免重复点击冲突。
-        const restoredSessions: Record<string, LoginSession> = {};
-        for (const sub of current.subscriptions) {
-          if (sub.pendingSession) {
-            restoredSessions[sub.key] = sub.pendingSession;
-            startPollingLogin(sub);
-          }
-        }
-        if (Object.keys(restoredSessions).length > 0) {
-          setSessions(restoredSessions);
-          const firstPending = current.subscriptions.find((sub) => sub.pendingSession);
-          if (firstPending) setExpandedCard(firstPending.id);
-        }
-        if (current.subscriptions.some((sub) => sub.key === 'claude' && sub.connected)) {
-          void refreshQuota('sub:claude', false);
-        }
-      })
-      .catch(() => {
-        if (active) setGlobalError('暂时无法读取 AI 配置，请确认本地服务已启动');
-      });
+    mountedRef.current = true;
+    void loadSettings(false);
     return () => {
-      active = false;
+      mountedRef.current = false;
       for (const timer of pollTimers.current.values()) window.clearInterval(timer);
       pollTimers.current.clear();
     };
-  }, []);
+  }, [loadSettings]);
+
+  async function connectRemoteOrigin(nextOrigin: string) {
+    setBusyKey('remote:connect');
+    setRemoteNotice(null);
+    try {
+      const saved = setPlannerApiOrigin(nextOrigin);
+      setRemoteOrigin(saved);
+      const ok = await loadSettings(true);
+      if (ok) {
+        setShowRemoteBox(false);
+        setRemoteNotice({ ok: true, text: saved ? `已连通 AI 服务：${saved}` : '已连通本地 AI 服务' });
+      } else {
+        setRemoteNotice({
+          ok: false,
+          text: saved
+            ? `已保存地址 ${saved}，但暂未连通。请确认电脑端已启动且手机与电脑在同一局域网（或公网地址可访问）。`
+            : '当前设备未运行本地 AI 服务端，请填写电脑端或自建服务器地址。',
+        });
+      }
+    } catch (error) {
+      setRemoteNotice({ ok: false, text: error instanceof Error ? error.message : '服务地址格式无效' });
+    } finally {
+      setBusyKey('');
+    }
+  }
 
   function applyState(next: AiState) {
     const normalized = normalizeAiStatus(next);
@@ -1020,6 +1179,14 @@ export default function PlannerAiSettings({
 
   async function beginSubscriptionConnect(sub: SubscriptionProfile, method = '') {
     setExpandedCard(sub.id);
+    if (backendOffline) {
+      setShowRemoteBox(true);
+      setCardNotice((prev) => ({
+        ...prev,
+        [sub.key]: { ok: false, text: '请先在上方填写电脑端或自建 AI 服务地址并点击「连接并刷新」，连通后即可发起授权登录。' },
+      }));
+      return;
+    }
     setBusyKey(`connect:${sub.key}`);
     setCardNotice((prev) => {
       const next = { ...prev };
@@ -1145,6 +1312,14 @@ export default function PlannerAiSettings({
     sub: SubscriptionProfile,
     patch: { model?: string; thinking?: string; activate?: boolean },
   ) {
+    if (backendOffline) {
+      setShowRemoteBox(true);
+      setCardNotice((prev) => ({
+        ...prev,
+        [sub.key]: { ok: false, text: '请先在上方连接电脑端或自建 AI 服务地址，连通后即可保存模型与思考档位。' },
+      }));
+      return;
+    }
     setBusyKey(`model:${sub.key}`);
     setCardNotice((prev) => {
       const next = { ...prev };
@@ -1315,6 +1490,11 @@ export default function PlannerAiSettings({
   });
 
   async function testApi() {
+    if (backendOffline) {
+      setShowRemoteBox(true);
+      setApiMessage({ ok: false, text: '请先在上方连接电脑端或自建 AI 服务地址，连通后即可测试并保存 API Key。' });
+      return;
+    }
     setBusyKey('api:test');
     setApiMessage(null);
     try {
@@ -1340,6 +1520,11 @@ export default function PlannerAiSettings({
   }
 
   async function saveApi() {
+    if (backendOffline) {
+      setShowRemoteBox(true);
+      setApiMessage({ ok: false, text: '请先在上方连接电脑端或自建 AI 服务地址，连通后即可保存并启用 API。' });
+      return;
+    }
     setBusyKey('api:save');
     setApiMessage(null);
     try {
@@ -1399,6 +1584,56 @@ export default function PlannerAiSettings({
 
         {globalError && <p role="alert" className="planner-error">{globalError}</p>}
 
+        {(backendOffline || showRemoteBox) ? (
+          <div className="neo-remote-bar" role="region" aria-label="AI 服务端地址">
+            <div className="neo-remote-bar-head">
+              <strong>{backendOffline ? '连接电脑端 / 自建 AI 服务' : '远程 AI 服务地址'}</strong>
+              {!backendOffline && (
+                <button type="button" className="text-button" onClick={() => setShowRemoteBox(false)}>收起</button>
+              )}
+            </div>
+            <p className="muted">
+              手机版需连接桌面端或自建服务来执行订阅 OAuth 登录与 AI 规划（同一 Wi-Fi 下填电脑局域网地址）。
+            </p>
+            <div className="neo-remote-bar-row">
+              <input
+                type="url"
+                value={remoteOrigin}
+                placeholder="例如 http://192.168.1.100:14173"
+                onChange={(event) => setRemoteOrigin(event.target.value)}
+              />
+              <button
+                type="button"
+                className="primary"
+                disabled={busyKey === 'remote:connect'}
+                onClick={() => void connectRemoteOrigin(remoteOrigin)}
+              >
+                {busyKey === 'remote:connect' ? '连接中…' : '连接并刷新'}
+              </button>
+              {remoteOrigin && (
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={busyKey === 'remote:connect'}
+                  onClick={() => void connectRemoteOrigin('')}
+                >
+                  恢复默认
+                </button>
+              )}
+            </div>
+            {remoteNotice && (
+              <p role="status" className={remoteNotice.ok ? 'planner-ai-ok' : 'planner-error'}>
+                {remoteNotice.text}
+              </p>
+            )}
+          </div>
+        ) : remoteOrigin ? (
+          <div className="neo-remote-pill-row">
+            <span className="muted">已连服务端：{remoteOrigin}</span>
+            <button type="button" className="text-button" onClick={() => setShowRemoteBox(true)}>修改地址</button>
+          </div>
+        ) : null}
+
         <div className="neo-provider-stack">
           {subscriptions.map((sub) => {
             const isExpanded = expandedCard === sub.id;
@@ -1415,16 +1650,15 @@ export default function PlannerAiSettings({
                 key={sub.id}
                 className={`neo-provider-card${sub.active ? ' is-active' : ''}${sub.connected ? ' is-connected' : ''}${isExpanded ? ' is-expanded' : ''}`}
               >
-                <div
-                  className="neo-provider-row"
-                  onClick={() => {
-                    if (!sub.connected && !isExpanded && !isConnecting) {
+                  <div className="neo-provider-row" onClick={() => {
+                    if (backendOffline) {
+                      setExpandedCard(isExpanded ? '' : sub.id);
+                    } else if (!sub.connected && !isExpanded && !isConnecting) {
                       void beginSubscriptionConnect(sub);
                     } else {
                       setExpandedCard(isExpanded ? '' : sub.id);
                     }
-                  }}
-                >
+                  }}>
                   <div className="neo-provider-lead">
                     <AiProviderIcon kind={sub.key} size={40} />
                     <div className="neo-provider-title-group">
@@ -1492,7 +1726,7 @@ export default function PlannerAiSettings({
                         title={sub.connected ? (isExpanded ? '收起' : '展开详情') : `连接 ${sub.name}`}
                         aria-label={sub.connected ? `展开 ${sub.name}` : `连接 ${sub.name}`}
                         onClick={() => {
-                          if (!sub.connected && !isExpanded && !isConnecting) {
+                          if (!backendOffline && !sub.connected && !isExpanded && !isConnecting) {
                             void beginSubscriptionConnect(sub);
                           } else {
                             setExpandedCard(isExpanded ? '' : sub.id);

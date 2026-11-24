@@ -6,16 +6,19 @@ export type AppearanceStyle = 'candy' | 'white' | 'journal' | 'coast' | 'warm';
 export interface AppearanceStyleMeta {
   id: AppearanceStyle;
   name: string;
+  nameEn: string;
   badge: string;
+  badgeEn: string;
   description: string;
+  descriptionEn: string;
   colors: [string, string, string, string];
 }
 export const APPEARANCE_STYLES: AppearanceStyleMeta[] = [
-  { id: 'candy', name: '糖果贴纸', badge: '可爱活泼', description: '波点底纹 · 立体描边 · 贴纸胶带 · Q弹动效', colors: ['#fff8f2', '#eb6b56', '#ffe8cf', '#ffd97d'] },
-  { id: 'white', name: '简洁纯白', badge: '干净极简', description: '纯白干净底 · 清新彩色点缀 · 隐藏贴纸 · 利落方角', colors: ['#ffffff', '#467a58', '#ebf5ed', '#ffefe8'] },
-  { id: 'journal', name: '复古手账', badge: '纸本拼贴', description: '方格纸纹 · 和纸胶带 · 宋体标题 · 胶片邮戳', colors: ['#f5efe4', '#866041', '#eadcc4', '#d8b47c'] },
-  { id: 'coast', name: '海盐晴空', badge: '清爽通透', description: '浅蓝白底 · 纯白浮卡 · 清澈海蓝 · 胶囊圆角', colors: ['#f3f9fd', '#3c89b8', '#e1f1fa', '#9fd0ec'] },
-  { id: 'warm', name: '草木暖日', badge: '温柔自然', description: '奶油纸底 · 草木新绿 · 柔和圆角 · 舒缓耐看', colors: ['#f7f6f0', '#526c48', '#e9efdf', '#f9e7dc'] },
+  { id: 'candy', name: '糖果贴纸', nameEn: 'Candy Sticker', badge: '可爱活泼', badgeEn: 'Playful', description: '波点底纹 · 立体描边 · 贴纸胶带 · Q弹动效', descriptionEn: 'Polka dots · Bold outlines · Washi tape · Bouncy feel', colors: ['#fff8f2', '#eb6b56', '#ffe8cf', '#ffd97d'] },
+  { id: 'white', name: '简洁纯白', nameEn: 'Minimal White', badge: '干净极简', badgeEn: 'Clean', description: '纯白干净底 · 清新彩色点缀 · 隐藏贴纸 · 利落方角', descriptionEn: 'Crisp white · Subtle accents · Sticker-free · Sharp corners', colors: ['#ffffff', '#467a58', '#ebf5ed', '#ffefe8'] },
+  { id: 'journal', name: '复古手账', nameEn: 'Vintage Journal', badge: '纸本拼贴', badgeEn: 'Paper Craft', description: '方格纸纹 · 和纸胶带 · 宋体标题 · 胶片邮戳', descriptionEn: 'Grid paper · Washi tape · Serif headings · Postmarks', colors: ['#f5efe4', '#866041', '#eadcc4', '#d8b47c'] },
+  { id: 'coast', name: '海盐晴空', nameEn: 'Sea Salt Sky', badge: '清爽通透', badgeEn: 'Breezy', description: '浅蓝白底 · 纯白浮卡 · 清澈海蓝 · 胶囊圆角', descriptionEn: 'Airy sky tint · Floating cards · Ocean blue · Pill radius', colors: ['#f3f9fd', '#3c89b8', '#e1f1fa', '#9fd0ec'] },
+  { id: 'warm', name: '草木暖日', nameEn: 'Warm Meadow', badge: '温柔自然', badgeEn: 'Gentle', description: '奶油纸底 · 草木新绿 · 柔和圆角 · 舒缓耐看', descriptionEn: 'Cream paper · Sage green · Soft corners · Calm palette', colors: ['#f7f6f0', '#526c48', '#e9efdf', '#f9e7dc'] },
 ];
 const STORAGE_KEY = 'travel-theme';
 const STYLE_KEY = 'travel-appearance';
@@ -85,10 +88,21 @@ export function applyThemeMode(mode: ThemeMode) {
   window.dispatchEvent(new Event(EVENT));
 }
 
-/** 浏览器地址栏/状态栏颜色跟随当前主题。 */
+/** 浏览器地址栏/原生状态栏颜色与图标深浅跟随当前主题。 */
 export function syncThemeColor() {
+  const dark = isDarkTheme();
   const color = getComputedStyle(document.documentElement).getPropertyValue('--paper').trim();
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', color || (isDarkTheme() ? '#171e19' : '#f7f6f0'));
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', color || (dark ? '#171e19' : '#f7f6f0'));
+  const cap = (window as unknown as {
+    Capacitor?: {
+      isNativePlatform?: () => boolean;
+      Plugins?: { SystemBars?: { setStyle?: (opts: { style: 'LIGHT' | 'DARK' }) => Promise<void> } };
+    };
+  }).Capacitor;
+  if (cap?.isNativePlatform?.() && cap.Plugins?.SystemBars?.setStyle) {
+    // Capacitor SystemBars 约定：LIGHT = 浅色背景配深色状态栏图标，DARK = 深色背景配浅色状态栏图标。
+    void cap.Plugins.SystemBars.setStyle({ style: dark ? 'DARK' : 'LIGHT' }).catch(() => undefined);
+  }
 }
 
 /** canvas 绘制（地图）无法使用 CSS 变量，读取当前计算值。 */

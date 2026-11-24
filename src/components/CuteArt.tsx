@@ -1,22 +1,24 @@
 import type { ReactNode } from 'react';
+import type { AppLanguage } from '../i18n';
 
 export interface AvatarPreset {
   id: string;
   label: string;
+  labelEn: string;
   bg: string;
   accent: string;
 }
 
 export const AVATAR_PRESETS: AvatarPreset[] = [
-  { id: 'bear', label: '小熊旅人', bg: '#fde8d7', accent: '#c98253' },
-  { id: 'cat', label: '元气橘猫', bg: '#fff0cc', accent: '#e39142' },
-  { id: 'bunny', label: '云朵小兔', bg: '#fce4ec', accent: '#d97396' },
-  { id: 'fox', label: '森林小狐', bg: '#ffe6d5', accent: '#df6d43' },
-  { id: 'camera', label: '微笑相机', bg: '#dff2ec', accent: '#42907c' },
-  { id: 'luggage', label: '快乐行李箱', bg: '#e3effc', accent: '#4d82bd' },
-  { id: 'balloon', label: '彩虹热气球', bg: '#efe6fb', accent: '#8e66c7' },
-  { id: 'sun', label: '元气太阳', bg: '#fff3c4', accent: '#de9a2c' },
-  { id: 'initial', label: '经典文字', bg: '#eaf0e1', accent: '#526c48' },
+  { id: 'bear', label: '小熊旅人', labelEn: 'Bear', bg: '#fde8d7', accent: '#c98253' },
+  { id: 'cat', label: '元气橘猫', labelEn: 'Orange Cat', bg: '#fff0cc', accent: '#e39142' },
+  { id: 'bunny', label: '云朵小兔', labelEn: 'Cloud Bunny', bg: '#fce4ec', accent: '#d97396' },
+  { id: 'fox', label: '森林小狐', labelEn: 'Forest Fox', bg: '#ffe6d5', accent: '#df6d43' },
+  { id: 'camera', label: '微笑相机', labelEn: 'Camera', bg: '#dff2ec', accent: '#42907c' },
+  { id: 'luggage', label: '快乐行李箱', labelEn: 'Suitcase', bg: '#e3effc', accent: '#4d82bd' },
+  { id: 'balloon', label: '彩虹热气球', labelEn: 'Hot Air Balloon', bg: '#efe6fb', accent: '#8e66c7' },
+  { id: 'sun', label: '元气太阳', labelEn: 'Sunshine', bg: '#fff3c4', accent: '#de9a2c' },
+  { id: 'initial', label: '经典文字', labelEn: 'Initial', bg: '#eaf0e1', accent: '#526c48' },
 ];
 
 export function TravelAvatar({
@@ -510,6 +512,17 @@ export const TRAVELER_LEVEL_TIERS: TravelerLevelTier[] = [
   { level: 8, minCities: 120, title: '传奇环游家', subtitle: '满级达成！把山河岁月酿成永恒纪念' },
 ];
 
+export const TRAVELER_LEVEL_TIERS_EN: TravelerLevelTier[] = [
+  { level: 1, minCities: 0, title: 'Rookie Traveler', subtitle: 'Backpack ready, adventure awaits' },
+  { level: 2, minCities: 1, title: 'Junior Backpacker', subtitle: 'Your very first city stamp is in' },
+  { level: 3, minCities: 5, title: 'City Stroller', subtitle: 'Tucking street breezes into your booklet' },
+  { level: 4, minCities: 12, title: 'Scenery Collector', subtitle: 'Wider footprints, warmer stories' },
+  { level: 5, minCities: 25, title: 'Landscape Explorer', subtitle: 'Across mountains, lakes, and all four seasons' },
+  { level: 6, minCities: 45, title: 'Grand Voyager', subtitle: 'Leaving footprints across half the map' },
+  { level: 7, minCities: 75, title: 'Starlight Nomad', subtitle: 'A living travel album in motion' },
+  { level: 8, minCities: 120, title: 'Legendary Globetrotter', subtitle: 'Max level! Turning every mile into memory' },
+];
+
 export interface TravelerLevelInfo {
   level: number;
   maxLevel: number;
@@ -525,13 +538,14 @@ export interface TravelerLevelInfo {
 }
 
 /** 按已点亮城市数计算旅人成长等级（共 8 级，规则透明直观）。 */
-export function getTravelerLevel(visitedCities: number, _travelDays = 0): TravelerLevelInfo {
-  let currentTier = TRAVELER_LEVEL_TIERS[0];
-  let nextTier: TravelerLevelTier | null = TRAVELER_LEVEL_TIERS[1];
-  for (let i = 0; i < TRAVELER_LEVEL_TIERS.length; i += 1) {
-    if (visitedCities >= TRAVELER_LEVEL_TIERS[i].minCities) {
-      currentTier = TRAVELER_LEVEL_TIERS[i];
-      nextTier = TRAVELER_LEVEL_TIERS[i + 1] ?? null;
+export function getTravelerLevel(visitedCities: number, _travelDays = 0, lang: AppLanguage = 'zh'): TravelerLevelInfo {
+  const tiers = lang === 'en' ? TRAVELER_LEVEL_TIERS_EN : TRAVELER_LEVEL_TIERS;
+  let currentTier = tiers[0];
+  let nextTier: TravelerLevelTier | null = tiers[1];
+  for (let i = 0; i < tiers.length; i += 1) {
+    if (visitedCities >= tiers[i].minCities) {
+      currentTier = tiers[i];
+      nextTier = tiers[i + 1] ?? null;
     }
   }
   const span = nextTier ? Math.max(1, nextTier.minCities - currentTier.minCities) : 1;
@@ -542,7 +556,7 @@ export function getTravelerLevel(visitedCities: number, _travelDays = 0): Travel
 
   return {
     level: currentTier.level,
-    maxLevel: TRAVELER_LEVEL_TIERS.length,
+    maxLevel: tiers.length,
     title: currentTier.title,
     subtitle: currentTier.subtitle,
     visitedCities,
@@ -551,6 +565,6 @@ export function getTravelerLevel(visitedCities: number, _travelDays = 0): Travel
     nextTitle: nextTier?.title ?? null,
     remainingCities: nextTier ? Math.max(0, nextTier.minCities - visitedCities) : 0,
     progressPct,
-    tiers: TRAVELER_LEVEL_TIERS,
+    tiers,
   };
 }

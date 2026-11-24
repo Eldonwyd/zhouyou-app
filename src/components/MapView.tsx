@@ -6,6 +6,7 @@ import { CanvasRenderer } from 'echarts/renderers';
 import { LabelLayout } from 'echarts/features';
 import type { EChartsType } from 'echarts/core';
 import { themeColor, useAppearanceStyle, useDarkTheme } from '../theme';
+import { provinceDisplayName, useI18n } from '../i18n';
 import type { AdministrativeFeature, AdministrativeGeoJSON, CityMark } from '../types';
 import {
   fillForStatus, loadNationalMap, loadProvinceMap, pointInFeature, provinceColor, statusForCity, statusForProvince,
@@ -97,6 +98,7 @@ function findNearestFeatureAtPixel(
 
 /** A single chart is reused for country and city levels; click changes the registered geometry. */
 export default function MapView({ marks, activeProvinceCode, setActiveProvinceCode, onSelectCity, onError, onRecommendProvince }: MapViewProps) {
+  const { lang, t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<EChartsType | null>(null);
   const suppressClickUntilRef = useRef(0);
@@ -116,7 +118,7 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
   const provinceMap = loadedProvince?.code === activeProvinceCode ? loadedProvince.data : null;
   const [retryAttempt, setRetryAttempt] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [notice, setNotice] = useState('正在加载地图…');
+  const [notice, setNotice] = useState<'loading-map' | 'loading-province' | 'ready-province' | 'ready-national' | 'offline-province' | string>('loading-map');
   const [provinceFilter, setProvinceFilter] = useState<'all' | 'visited' | 'unvisited'>('all');
   const hoveredRegionRef = useRef<string | null>(null);
   // 手机端无鼠标悬浮提示，全国和省内市级地图均直接显示名称，重叠交给 ECharts hideOverlap 自动避让。
@@ -141,7 +143,7 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
     let loadingProvince = false;
     setLoading(true);
     setLoadedProvince(null);
-    setNotice(activeProvinceCode ? '正在加载市级边界…' : '正在加载地图…');
+    setNotice(activeProvinceCode ? 'loading-province' : 'loading-map');
 
     async function loadCurrentMap(): Promise<void> {
       try {
@@ -156,14 +158,14 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
           if (!isCurrentRequest) return;
           setLoadedProvince({ code: activeProvinceCode, data: provinceData });
         }
-        setNotice(activeProvinceCode ? '点击城市直接点亮，再次点击可进入手账或取消点亮' : '点击省份进入市级地图');
+        setNotice(activeProvinceCode ? 'ready-province' : 'ready-national');
       } catch (error: unknown) {
         if (!isCurrentRequest) return;
-        const detail = error instanceof Error ? error.message : '未知错误';
+        const detail = error instanceof Error ? error.message : 'Unknown error';
         // Keep the concrete cause visible in the map after the toast expires.
         setNotice(loadingProvince && !navigator.onLine
-          ? '当前地区尚未缓存，请联网后前往个人中心的「离线地图」下载。'
-          : `${loadingProvince ? '市级' : '全国'}地图加载失败：${detail}`);
+          ? 'offline-province'
+          : `${loadingProvince ? 'province-error:' : 'national-error:'}${detail}`);
         onError(detail);
       } finally {
         if (isCurrentRequest) setLoading(false);
@@ -253,7 +255,11 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
     chart.setOption({
       tooltip: {
         trigger: 'item',
-        formatter: '{b}',
+        formatter: (params: { name?: string; data?: { adcode?: string } }) => {
+          const rawName = params.name ?? '';
+          if (!activeProvinceCode) return provinceDisplayName(params.data?.adcode ?? '', rawName, lang);
+          return rawName;
+        },
         backgroundColor: mapColors.tooltip,
         borderWidth: 0,
         textStyle: { color: '#fff' },
@@ -270,7 +276,9 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
         selectedMode: false,
         label: {
           show: showMapLabels, fontSize: activeProvinceCode ? (compactMap ? 9.5 : 11) : (compactMap ? 9 : 10), color: mapColors.label,
-          formatter: ({ name }: { name: string }) => shortRegionLabel(name),
+          formatter: ({ name }: { name: string }) => (!activeProvinceCode && lang === 'en'
+            ? provinceDisplayName('', name, 'en', true)
+            : shortRegionLabel(name)),
         },
         labelLayout: layoutLabels,
         itemStyle: { borderColor: mapColors.border, borderWidth: 1.1, areaColor: mapColors.area },
@@ -389,9 +397,23 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
     if (!chart || chart.isDisposed() || !currentMap) return;
     const { mapColors, data } = buildSeriesVisuals(currentMap);
     chart.setOption({
-      tooltip: { backgroundColor: mapColors.tooltip },
+      tooltip: {
+        backgroundColor: mapColors.tooltip,
+        formatter: (params: { name?: string; data?: { adcode?: string } }) => {
+          const rawName = params.name ?? '';
+          if (!activeProvinceCode) return provinceDisplayName(params.data?.adcode ?? '', rawName, lang);
+          return rawName;
+        },
+      },
       series: [{
-        label: { show: showMapLabels, fontSize: activeProvinceCode ? (compactMap ? 9.5 : 11) : (compactMap ? 9 : 10), color: mapColors.label },
+        label: {
+          show: showMapLabels,
+          fontSize: activeProvinceCode ? (compactMap ? 9.5 : 11) : (compactMap ? 9 : 10),
+          color: mapColors.label,
+          formatter: ({ name }: { name: string }) => (!activeProvinceCode && lang === 'en'
+            ? provinceDisplayName('', name, 'en', true)
+            : shortRegionLabel(name)),
+        },
         itemStyle: { borderColor: mapColors.border, areaColor: mapColors.area },
         emphasis: {
           label: { color: mapColors.strong },
@@ -400,7 +422,7 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
         data,
       }],
     });
-  }, [currentMap, activeProvinceCode, showMapLabels, compactMap, marks, dark, appearance]);
+  }, [currentMap, activeProvinceCode, showMapLabels, compactMap, marks, dark, appearance, lang]);
 
   function adjustZoom(multiplier: number): void {
     const chart = chartRef.current;
@@ -458,40 +480,69 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
     .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))
     .slice(0, 4), [visitedMarks]);
 
+  const activeProvinceTitle = activeProvince
+    ? provinceDisplayName(String(activeProvince.properties.adcode), activeProvince.properties.name, lang)
+    : '';
+
+  const noticeText = notice === 'loading-map'
+    ? t('正在加载地图…', 'Loading map…')
+    : notice === 'loading-province'
+      ? t('正在加载市级边界…', 'Loading city boundaries…')
+      : notice === 'ready-province'
+        ? t('点击城市直接点亮，再次点击可进入手账或取消点亮', 'Click a city to mark as visited; click again to open Journal or unmark')
+        : notice === 'ready-national'
+          ? t('点击省份进入市级地图', 'Click a province to view its cities')
+          : notice === 'offline-province'
+            ? t('当前地区尚未缓存，请联网后前往个人中心的「设置 → 离线地图」下载。', 'This region is not cached yet. Connect online and download it in Profile → Settings → Offline Maps.')
+            : notice.startsWith('province-error:')
+              ? t(`市级地图加载失败：${notice.slice('province-error:'.length)}`, `Failed to load province map: ${notice.slice('province-error:'.length)}`)
+              : notice.startsWith('national-error:')
+                ? t(`全国地图加载失败：${notice.slice('national-error:'.length)}`, `Failed to load China map: ${notice.slice('national-error:'.length)}`)
+                : notice;
+
   return (
     <div className="map-page">
       <div className="section-heading map-heading">
         <div className="map-heading-main">
-          <h1>中国旅行地图</h1>
-          <p>点选省份探索城市 · <span className="map-zoom-desktop">滚轮缩放</span><span className="map-zoom-phone">双指缩放</span> · 拖动漫游</p>
+          <h1>{t('中国旅行地图', 'China Travel Map')}</h1>
+          <p>
+            {t('点选省份探索城市 · ', 'Tap a province to explore cities · ')}
+            <span className="map-zoom-desktop">{t('滚轮缩放', 'Scroll to zoom')}</span>
+            <span className="map-zoom-phone">{t('双指缩放', 'Pinch to zoom')}</span>
+            {t(' · 拖动漫游', ' · Drag to pan')}
+          </p>
         </div>
       </div>
       <div className="map-layout">
         <div className="map-card">
           <div className="map-toolbar">
             <div className="map-toolbar-context">
-              {activeProvince && <button type="button" className="map-back-button" onClick={() => setActiveProvinceCode(null)}>← 返回全国</button>}
+              {activeProvince && (
+                <button type="button" className="map-back-button" onClick={() => setActiveProvinceCode(null)}>
+                  {t('← 返回全国', '← Back to China')}
+                </button>
+              )}
               <span className={`map-level-chip${activeProvince ? ' is-province' : ''}`}>
                 <i className="map-level-dot" style={activeProvinceColor ? { background: activeProvinceColor } : undefined} />
-                {activeProvince ? `${activeProvince.properties.name} · 市级` : '全国 · 省级'}
+                {activeProvince ? t(`${activeProvinceTitle} · 市级`, `${activeProvinceTitle} · Cities`) : t('全国 · 省级', 'China · Provinces')}
               </span>
             </div>
             <div className="map-control-group">
-              <button type="button" aria-label="放大地图" title="放大" onClick={() => adjustZoom(1.35)}>＋</button>
-              <button type="button" aria-label="缩小地图" title="缩小" onClick={() => adjustZoom(1 / 1.35)}>－</button>
-              <button type="button" aria-label="重置地图视野" title="重置视野" onClick={() => {
+              <button type="button" aria-label={t('放大地图', 'Zoom in')} title={t('放大', 'Zoom in')} onClick={() => adjustZoom(1.35)}>＋</button>
+              <button type="button" aria-label={t('缩小地图', 'Zoom out')} title={t('缩小', 'Zoom out')} onClick={() => adjustZoom(1 / 1.35)}>－</button>
+              <button type="button" aria-label={t('重置地图视野', 'Reset map view')} title={t('重置视野', 'Reset view')} onClick={() => {
                 chartRef.current?.setOption({ series: [{ zoom: 1, center: null }] });
-              }}>重置</button>
+              }}>{t('重置', 'Reset')}</button>
             </div>
           </div>
-          <div ref={containerRef} className="map-canvas" role="img" aria-label={activeProvince ? `${activeProvince.properties.name}城市地图` : '中国省级地图'} />
-          {loading && <div className="map-overlay">正在加载地图…</div>}
-          {!loading && !currentMap && <div className="map-overlay error">{notice}<button type="button" onClick={() => setRetryAttempt((attempt) => attempt + 1)}>重新加载地图</button></div>}
+          <div ref={containerRef} className="map-canvas" role="img" aria-label={activeProvince ? t(`${activeProvinceTitle}城市地图`, `${activeProvinceTitle} city map`) : t('中国省级地图', 'China province map')} />
+          {loading && <div className="map-overlay">{t('正在加载地图…', 'Loading map…')}</div>}
+          {!loading && !currentMap && <div className="map-overlay error">{noticeText}<button type="button" onClick={() => setRetryAttempt((attempt) => attempt + 1)}>{t('重新加载地图', 'Retry Map')}</button></div>}
           <div className="map-bottom">
-            <span className="map-notice-text">{notice}</span>
+            <span className="map-notice-text">{noticeText}</span>
             <div className="map-legend">
-              <span><i className="legend-dot visited" style={activeProvinceColor ? { background: activeProvinceColor } : undefined} />已去过</span>
-              <span><i className="legend-dot empty" />未标记</span>
+              <span><i className="legend-dot visited" style={activeProvinceColor ? { background: activeProvinceColor } : undefined} />{t('已去过', 'Visited')}</span>
+              <span><i className="legend-dot empty" />{t('未标记', 'Unvisited')}</span>
             </div>
           </div>
         </div>
@@ -501,22 +552,24 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
               <div className="map-province-head">
                 <div className="map-province-title">
                   <i className="map-province-accent" style={{ background: activeProvinceColor }} />
-                  <h2>{activeProvince.properties.name}</h2>
+                  <h2>{activeProvinceTitle}</h2>
                 </div>
                 <span className="map-progress-pill" style={{ '--pill-color': activeProvinceColor } as CSSProperties}>
-                  {activeProvinceVisitedCount} / {cities.length} 城
+                  {t(`${activeProvinceVisitedCount} / ${cities.length} 城`, `${activeProvinceVisitedCount} / ${cities.length}`)}
                 </span>
               </div>
               <div className="side-stat-bar" aria-hidden="true">
                 <span style={{ width: `${activeProvincePct}%`, background: activeProvinceColor }} />
               </div>
               <div className="map-province-actions">
-                <button type="button" className="primary province-ai-button" onClick={() => onRecommendProvince(activeProvince.properties.name)}>✦ AI 推荐怎么玩</button>
+                <button type="button" className="primary province-ai-button" onClick={() => onRecommendProvince(activeProvince.properties.name)}>
+                  {t('✦ AI 推荐怎么玩', '✦ AI Trip Ideas')}
+                </button>
               </div>
             </div>
             <div className="map-list-header">
-              <span>城市索引</span>
-              <small>点击点亮 · 再点记手账</small>
+              <span>{t('城市索引', 'Cities')}</span>
+              <small>{t('点击点亮 · 再点记手账', 'Tap to mark · Tap again for Journal')}</small>
             </div>
             <div className="city-list">{cities.map((feature) => {
               const code = String(feature.properties.adcode);
@@ -538,29 +591,33 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
               </button>;
             })}</div>
             <div className="map-side-foot">
-              <span>{activeProvinceVisitedCount > 0 ? `已点亮 ${activeProvinceVisitedCount} 座 · 再次点击可进入手账` : '点击任意城市即可直接点亮足迹'}</span>
+              <span>
+                {activeProvinceVisitedCount > 0
+                  ? t(`已点亮 ${activeProvinceVisitedCount} 座 · 再次点击可进入手账`, `${activeProvinceVisitedCount} visited · Click again to open Journal`)
+                  : t('点击任意城市即可直接点亮足迹', 'Click any city to mark it as visited')}
+              </span>
             </div>
           </> : <>
             <div className="side-stat-box map-atlas-summary">
               <div className="map-atlas-summary-head">
-                <h2>足迹总览</h2>
-                <span className="map-progress-pill">探索 {provinceExplorePct}%</span>
+                <h2>{t('足迹总览', 'Footprint Overview')}</h2>
+                <span className="map-progress-pill">{t(`探索 ${provinceExplorePct}%`, `${provinceExplorePct}% Explored`)}</span>
               </div>
               <div className="side-stat">
-                <div><strong>{visitedMarks.length}</strong><span>已去城市</span></div>
-                <div><strong>{visitedProvincesCount}<em> / {totalProvinces}</em></strong><span>点亮省份</span></div>
+                <div><strong>{visitedMarks.length}</strong><span>{t('已去城市', 'Visited Cities')}</span></div>
+                <div><strong>{visitedProvincesCount}<em> / {totalProvinces}</em></strong><span>{t('点亮省份', 'Provinces')}</span></div>
               </div>
               <div className="side-stat-bar" aria-hidden="true"><span style={{ width: `${provinceExplorePct}%` }} /></div>
             </div>
-            <div className="map-province-filter" role="tablist" aria-label="筛选省份">
+            <div className="map-province-filter" role="tablist" aria-label={t('筛选省份', 'Filter provinces')}>
               <button type="button" role="tab" aria-selected={provinceFilter === 'all'} className={provinceFilter === 'all' ? 'active' : ''} onClick={() => setProvinceFilter('all')}>
-                全部 <span>{totalProvinces}</span>
+                {t('全部', 'All')} <span>{totalProvinces}</span>
               </button>
               <button type="button" role="tab" aria-selected={provinceFilter === 'visited'} className={provinceFilter === 'visited' ? 'active' : ''} onClick={() => setProvinceFilter('visited')}>
-                已点亮 <span>{visitedProvincesCount}</span>
+                {t('已点亮', 'Visited')} <span>{visitedProvincesCount}</span>
               </button>
               <button type="button" role="tab" aria-selected={provinceFilter === 'unvisited'} className={provinceFilter === 'unvisited' ? 'active' : ''} onClick={() => setProvinceFilter('unvisited')}>
-                待探索 <span>{Math.max(0, totalProvinces - visitedProvincesCount)}</span>
+                {t('待探索', 'To Go')} <span>{Math.max(0, totalProvinces - visitedProvincesCount)}</span>
               </button>
             </div>
             {filteredProvinces.length > 0 ? (
@@ -568,30 +625,36 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
                 const code = String(feature.properties.adcode);
                 const color = provinceColor(code);
                 const litCount = visitedCountByProvince.get(code) ?? 0;
+                const fullName = provinceDisplayName(code, feature.properties.name, lang);
+                const shortName = lang === 'en' ? provinceDisplayName(code, feature.properties.name, 'en', true) : labelForFeature(feature);
                 return <button
                   key={code}
                   type="button"
                   className={litCount > 0 ? 'is-visited' : undefined}
                   style={{ '--prov-color': color } as CSSProperties}
-                  title={litCount > 0 ? `${feature.properties.name} · 已点亮 ${litCount} 座城市` : `${feature.properties.name} · 点击进入市级地图`}
+                  title={litCount > 0
+                    ? t(`${fullName} · 已点亮 ${litCount} 座城市`, `${fullName} · ${litCount} cities visited`)
+                    : t(`${fullName} · 点击进入市级地图`, `${fullName} · Click to view cities`)}
                   onClick={() => setActiveProvinceCode(code)}
                   onMouseEnter={() => highlightRegion(feature.properties.name)}
                   onMouseLeave={() => highlightRegion(null)}
                 >
                   <i style={{ background: color }} />
-                  <span className="province-name">{labelForFeature(feature)}</span>
+                  <span className="province-name">{shortName}</span>
                   {litCount > 0 && <em className="province-count">{litCount}</em>}
                 </button>;
               })}</div>
             ) : (
               <div className="map-filter-empty">
-                {provinceFilter === 'visited' ? '还没有点亮任何省份，点击左侧地图开始第一段旅程吧' : '太棒了，全国 34 个省级行政区都已点亮！'}
+                {provinceFilter === 'visited'
+                  ? t('还没有点亮任何省份，点击左侧地图开始第一段旅程吧', 'No provinces lit yet. Click the map to start your first journey.')
+                  : t('太棒了，全国 34 个省级行政区都已点亮！', 'Amazing! All 34 provincial regions are lit!')}
               </div>
             )}
             <div className="map-side-foot">
               {recentVisitedMarks.length > 0 ? (
                 <div className="map-recent-strip">
-                  <span className="map-recent-label">最近点亮</span>
+                  <span className="map-recent-label">{t('最近点亮', 'Recent')}</span>
                   <div className="map-recent-chips">
                     {recentVisitedMarks.map((mark) => (
                       <button
@@ -599,7 +662,7 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
                         type="button"
                         className="map-recent-chip"
                         onClick={() => mark.provinceCode && setActiveProvinceCode(mark.provinceCode)}
-                        title={`查看 ${mark.name} 所在省份`}
+                        title={t(`查看 ${mark.name} 所在省份`, `View province for ${mark.name}`)}
                       >
                         <i style={{ background: provinceColor(mark.provinceCode) }} />
                         {shortRegionLabel(mark.name)}
@@ -608,7 +671,7 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
                   </div>
                 </div>
               ) : (
-                <span>点击地图或省份标签，点亮你的第一座城市</span>
+                <span>{t('点击地图或省份标签，点亮你的第一座城市', 'Tap the map or a province to light your first city')}</span>
               )}
             </div>
           </>}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { cacheProvinceMap, listCachedProvinceCodes, loadNationalMap, removeCachedProvinceMap } from '../map-data';
+import { provinceDisplayName, useI18n } from '../i18n';
 import type { AdministrativeFeature } from '../types';
 import MobileDisclosure from './MobileDisclosure';
 
@@ -10,6 +11,7 @@ interface OfflineMapSettingsProps {
 }
 
 export default function OfflineMapSettings({ initialProvinceCode, onError, onNotice }: OfflineMapSettingsProps) {
+  const { lang, t } = useI18n();
   const [provinces, setProvinces] = useState<AdministrativeFeature[]>([]);
   const [selectedCode, setSelectedCode] = useState(initialProvinceCode ?? '');
   const [cachedCodes, setCachedCodes] = useState<string[]>([]);
@@ -38,53 +40,64 @@ export default function OfflineMapSettings({ initialProvinceCode, onError, onNot
   /** 缓存写入或删除成功后才更新状态，失败时可直接重试。 */
   async function toggleSelectedCache(): Promise<void> {
     if (!selectedProvince || busy) return;
-    const name = selectedProvince.properties.name;
+    const name = provinceDisplayName(selectedCode, selectedProvince.properties.name, lang);
     setBusy(true);
     try {
       if (isCached) {
         await removeCachedProvinceMap(selectedCode);
         setCachedCodes((codes) => codes.filter((code) => code !== selectedCode));
-        onNotice(`已删除${name}的离线地图。`);
+        onNotice(t(`已删除${name}的离线地图。`, `Removed offline map for ${name}.`));
       } else {
         await cacheProvinceMap(selectedCode);
         setCachedCodes((codes) => [...codes, selectedCode]);
-        onNotice(`已缓存${name}的市级地图。`);
+        onNotice(t(`已缓存${name}的市级地图。`, `Cached city map for ${name}.`));
       }
     } catch (error) {
-      const detail = error instanceof Error ? `：${error.message}` : '';
-      onError(`离线地图${isCached ? '删除' : '下载'}失败${detail}`);
+      const detail = error instanceof Error ? `${t('：', ': ')}${error.message}` : '';
+      onError(
+        t(
+          `离线地图${isCached ? '删除' : '下载'}失败${detail}`,
+          `Failed to ${isCached ? 'remove' : 'download'} offline map${detail}`,
+        ),
+      );
     } finally {
       setBusy(false);
     }
   }
 
+  const cachedCountText = t(`已缓存 ${cachedCodes.length} 个地区`, `${cachedCodes.length} cached`);
+
   return (
-    <section className="card profile-offline-maps" aria-labelledby="offline-maps-title">
+    <section id="settings-offline-maps" className="card profile-offline-maps" aria-labelledby="offline-maps-title">
       <div className="card-heading">
-        <h2 id="offline-maps-title">离线地图</h2>
-        {loadState === 'ready' && <span>已缓存 {cachedCodes.length} 个地区</span>}
+        <h2 id="offline-maps-title">{t('离线地图', 'Offline Maps')}</h2>
+        {loadState === 'ready' && <span>{cachedCountText}</span>}
       </div>
-      <MobileDisclosure label="离线地图" value={loadState === 'ready' ? `已缓存 ${cachedCodes.length} 个地区` : undefined}>
-      <p>联网时下载市级地图，断网后仍可在当前浏览器查看城市边界和足迹。</p>
-      {!cacheAvailable ? <p className="muted">请用 HTTPS 地址打开应用以管理离线地图。</p> : (
-        <>
-          {loadState === 'failed' && <p role="alert">离线地图列表加载失败，请联网后重新打开个人中心。</p>}
-          <div className="profile-offline-map-controls">
-            <label htmlFor="offline-map-province">省级地区</label>
-            <select id="offline-map-province" value={selectedProvince ? selectedCode : ''} disabled={busy || loadState !== 'ready'} onChange={(event) => setSelectedCode(event.target.value)}>
-              <option value="">{loadState === 'loading' ? '正在加载地区…' : '请选择地区'}</option>
-              {provinces.map(({ properties }) => (
-                <option key={properties.adcode} value={properties.adcode}>
-                  {properties.name}{cachedCodes.includes(String(properties.adcode)) ? '（已缓存）' : ''}
-                </option>
-              ))}
-            </select>
-            <button type="button" className={isCached ? 'secondary' : 'primary'} disabled={!selectedProvince || busy} onClick={() => void toggleSelectedCache()}>
-              {busy ? '处理中…' : isCached ? '删除离线地图' : '缓存离线地图'}
-            </button>
-          </div>
-        </>
-      )}
+      <MobileDisclosure label={t('离线地图', 'Offline Maps')} value={loadState === 'ready' ? cachedCountText : undefined}>
+        <p>{t('联网时下载市级地图，断网后仍可在当前浏览器查看城市边界和足迹。', 'Download city-level maps while online to view boundaries and footprints offline in this browser.')}</p>
+        {!cacheAvailable ? <p className="muted">{t('请用 HTTPS 地址打开应用以管理离线地图。', 'Open the app over HTTPS to manage offline maps.')}</p> : (
+          <>
+            {loadState === 'failed' && <p role="alert">{t('离线地图列表加载失败，请联网后重新打开设置。', 'Failed to load region list. Connect to the internet and reopen Settings.')}</p>}
+            <div className="profile-offline-map-controls">
+              <label htmlFor="offline-map-province">{t('省级地区', 'Province / Region')}</label>
+              <select id="offline-map-province" value={selectedProvince ? selectedCode : ''} disabled={busy || loadState !== 'ready'} onChange={(event) => setSelectedCode(event.target.value)}>
+                <option value="">{loadState === 'loading' ? t('正在加载地区…', 'Loading regions…') : t('请选择地区', 'Select a region')}</option>
+                {provinces.map(({ properties }) => {
+                  const code = String(properties.adcode);
+                  const display = provinceDisplayName(code, properties.name, lang);
+                  return (
+                    <option key={properties.adcode} value={properties.adcode}>
+                      {display}{cachedCodes.includes(code) ? t('（已缓存）', ' (Cached)') : ''}
+                    </option>
+                  );
+                })}
+              </select>
+              <button type="button" className={isCached ? 'secondary' : 'primary'} disabled={!selectedProvince || busy} onClick={() => void toggleSelectedCache()}>
+                {busy ? t('处理中…', 'Working…') : isCached ? t('删除离线地图', 'Remove Offline Map') : t('缓存离线地图', 'Cache Offline Map')}
+              </button>
+            </div>
+          </>
+        )}
       </MobileDisclosure>
     </section>
   );

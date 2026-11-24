@@ -380,14 +380,15 @@
   color: var(--ink);
   background: color-mix(in srgb, var(--surface-2) 50%, var(--surface));
 }
-.ai-dock-settings-btn.primary {
-  background: var(--warm-green, var(--teal));
-  border-color: transparent;
-  color: #fff;
+.planner-ai-status .ai-dock-settings-btn.primary {
+  background: var(--warm-green, var(--teal)) !important;
+  border: 1px solid transparent !important;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--warm-green, var(--teal)) 26%, transparent) !important;
+  color: #fff !important;
 }
-.ai-dock-settings-btn.primary:hover {
+.planner-ai-status .ai-dock-settings-btn.primary:hover {
   filter: brightness(1.06);
-  color: #fff;
+  color: #fff !important;
 }
 .ai-dock-settings-btn svg {
   opacity: .76;
@@ -651,15 +652,86 @@
 /* ---------- 3. NeoRead 风格 AI 服务与订阅设置弹窗 ---------- */
 .neo-ai-dialog {
   width: min(680px, calc(100vw - 24px));
-  max-height: calc(100vh - 36px);
+  max-height: calc(100dvh - 36px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 22px 22px 24px;
   border-radius: 22px;
   background: var(--paper);
 }
+.neo-remote-bar {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 15px;
+  border: 1px dashed color-mix(in srgb, var(--warm-green, var(--teal)) 45%, var(--line));
+  background: color-mix(in srgb, var(--surface-2) 72%, var(--surface));
+}
+.neo-remote-bar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.neo-remote-bar-head strong {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.neo-remote-bar > p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.48;
+}
+.neo-remote-bar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.neo-remote-bar-row input {
+  flex: 1 1 200px;
+  min-width: 0;
+  height: 36px;
+  padding: 0 11px;
+  font-size: 13px;
+}
+.neo-remote-bar-row button {
+  min-height: 36px;
+  padding: 0 13px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.neo-remote-pill-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 12px;
+}
+.neo-remote-pill-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
 .neo-ai-header {
+  display: flex;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
   margin-bottom: 6px;
+}
+.neo-ai-header > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .neo-ai-header h2 {
   margin: 0;
@@ -1201,6 +1273,33 @@
 }
 
 @media (max-width: 600px) {
+  .planner-ai-status.is-unconfigured {
+    flex-wrap: nowrap;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+  .planner-ai-status.is-unconfigured .ai-dock-brand {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .planner-ai-status.is-unconfigured .ai-dock-subline {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .planner-ai-status.is-unconfigured .ai-dock-settings-btn,
+  .planner-ai-status .ai-dock-settings-btn.primary {
+    flex: 0 0 auto;
+    height: 34px;
+    min-height: 34px;
+    padding: 0 11px;
+    font-size: 12px;
+    white-space: nowrap;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--warm-green, var(--teal)) 28%, transparent);
+  }
   .neo-ai-dialog {
     padding: 16px 14px 18px;
     border-radius: 18px;

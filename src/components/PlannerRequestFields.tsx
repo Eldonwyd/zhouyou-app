@@ -61,7 +61,7 @@ export default function PlannerRequestFields({
           </label>
           {/* 学生、老人、儿童默认收起，不填为 0；其余按成人计价。 */}
           <details className="planner-party-details">
-            <summary>其中学生 / 老人 / 儿童{groupSummary ? `：${groupSummary}` : '（不填为 0）'}</summary>
+            <summary>学生 / 老人 / 儿童{groupSummary ? `：${groupSummary}` : '（选填）'}</summary>
             <div className="planner-party-grid">
               {groups.map(([key, label]) => (
                 <label key={key}>
@@ -107,7 +107,7 @@ export default function PlannerRequestFields({
             step="1"
             min="1"
             value={value.days ?? ''}
-            placeholder="留空先让 AI 推荐时长"
+            placeholder="留空由 AI 推荐"
             onChange={(event) =>
               onChange(
                 updatePlannerDates(value, {
@@ -118,7 +118,7 @@ export default function PlannerRequestFields({
           />
         </label>
         <label>
-          Base／所在地（可选）
+          所在地（选填）
           <input
             value={value.base}
             placeholder="例如：广州"
@@ -126,18 +126,19 @@ export default function PlannerRequestFields({
           />
         </label>
       </div>
-      <p className="muted">结束日期和天数会自动换算；只填开始日期，也可以让 AI 推荐。</p>
+      <p className="muted planner-date-hint">日期与天数自动换算，留空可由 AI 推荐</p>
       <details className="planner-preferences">
-        <summary>预算、节奏、交通与吃住偏好（可选）</summary>
+        <summary>预算、节奏与吃住偏好（选填）</summary>
         <div className="planner-input-grid">
           <label>
-            整次旅行预算（元）
+            总预算（元）
             <input
+              aria-label="整次旅行预算（元）"
               type="number"
               min="0"
               step="0.01"
               value={value.budgetCents === null ? '' : value.budgetCents / 100}
-              placeholder="例如：5000（全部同行者合计）"
+              placeholder="如 5000（合计）"
               onChange={(event) =>
                 update(
                   'budgetCents',
@@ -187,28 +188,30 @@ export default function PlannerRequestFields({
               min="1"
               step="1"
               value={value.rooms ?? ''}
-              placeholder={`默认 ${Math.ceil(Math.max(1, value.people) / 2)} 间（每间两人）`}
+              placeholder={`默认 ${Math.ceil(Math.max(1, value.people) / 2)} 间`}
               onChange={(event) =>
                 update('rooms', event.target.value === '' ? null : Number(event.target.value))
               }
             />
           </label>
           <label>
-            忌口／饮食偏好
+            忌口 / 饮食
             <input
+              aria-label="忌口／饮食偏好"
               value={value.dietary}
-              placeholder="例如：不吃辣、素食"
+              placeholder="如：不吃辣、素食"
               onChange={(event) => update('dietary', event.target.value)}
             />
           </label>
         </div>
       </details>
-      <label>
-        补充要求（可任意填写）
+      <label className="planner-notes-field">
+        补充要求（选填）
         <textarea
-          rows={5}
+          aria-label="补充要求（可任意填写）"
+          rows={3}
           value={value.notes}
-          placeholder="例如：前两天丽江，后面去香格里拉；不要早起；必去玉龙雪山；希望少换住宿。也可以补充预算、交通和不想去的地方。"
+          placeholder="如：前两天丽江、后去香格里拉；不想早起；必去玉龙雪山，尽量少换住宿。"
           onChange={(event) => onChange({ ...value, notes: event.target.value })}
         />
       </label>
@@ -219,7 +222,7 @@ export default function PlannerRequestFields({
             checked={value.foodMode}
             onChange={(event) => onChange({ ...value, foodMode: event.target.checked })}
           />
-          开启当地美食推荐
+          当地美食推荐
         </label>
         <label>
           <input

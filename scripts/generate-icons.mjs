@@ -41,7 +41,20 @@ async function renderPng(svgBuffer, size) {
     .toBuffer();
 }
 
-const svgBuffer = await readFile(sourceSvg);
+const svgText = await readFile(sourceSvg, 'utf8');
+const svgBuffer = Buffer.from(svgText, 'utf8');
+const fullBleedCombined = Buffer.from(
+  svgText
+    .replace('<g clip-path="url(#iconClip)">', '<g>')
+    .replace('<rect x="44" y="44" width="936" height="936" rx="224" fill="url(#bg)"/>', '<rect x="0" y="0" width="1024" height="1024" fill="url(#bg)"/>'),
+  'utf8',
+);
+const mapMarker = '  <!-- Folded Paper Map Card -->';
+const fullBleedBackground = Buffer.from(`${fullBleedCombined.toString('utf8').slice(0, fullBleedCombined.toString('utf8').indexOf(mapMarker))}</svg>`, 'utf8');
+const foregroundOnly = Buffer.from(
+  `${svgText.slice(0, svgText.indexOf('  <!-- Rounded App Icon Background -->'))}${svgText.slice(svgText.indexOf(mapMarker))}`,
+  'utf8',
+);
 
 await mkdir(resourcesDir, { recursive: true });
 await mkdir(path.join(webRoot, 'public', 'icons'), { recursive: true });
@@ -61,17 +74,19 @@ await writeFile(path.join(resourcesDir, 'icon.ico'), icoBuffer);
 await writeFile(path.join(webRoot, 'public', 'favicon.ico'), buildIco(icoFrames.filter((f) => [16, 32, 48].includes(f.size))));
 await writeFile(path.join(webRoot, 'public', 'favicon.svg'), svgBuffer);
 
-// 3. PWA & Apple Touch Icons
+// 3. PWA & Apple Touch Icons (Apple & Maskable use full-bleed gradient without outer border)
 await writeFile(path.join(webRoot, 'public', 'icons', 'icon-192.png'), await renderPng(svgBuffer, 192));
 await writeFile(path.join(webRoot, 'public', 'icons', 'icon-512.png'), await renderPng(svgBuffer, 512));
-await writeFile(path.join(webRoot, 'public', 'icons', 'apple-touch-icon.png'), await renderPng(svgBuffer, 180));
+await writeFile(
+  path.join(webRoot, 'public', 'icons', 'apple-touch-icon.png'),
+  await sharp(fullBleedCombined, { density: 300 }).resize(180, 180).flatten({ background: { r: 242, g: 107, b: 91 } }).png({ compressionLevel: 9 }).toBuffer(),
+);
 
-// Maskable icon with generous warm padding for Android adaptive icons
-const maskableInner = await renderPng(svgBuffer, 384);
-const maskable512 = await sharp({
-  create: { width: 512, height: 512, channels: 4, background: { r: 242, g: 107, b: 91, alpha: 1 } },
-})
-  .composite([{ input: maskableInner, left: 64, top: 64 }])
+// Maskable icon with full-bleed gradient background and centered foreground artwork inside safe zone
+const maskableBg = await sharp(fullBleedBackground, { density: 300 }).resize(512, 512).flatten({ background: { r: 242, g: 107, b: 91 } }).png().toBuffer();
+const maskableFg = await renderPng(foregroundOnly, 396);
+const maskable512 = await sharp(maskableBg)
+  .composite([{ input: maskableFg, left: 58, top: 58 }])
   .png({ compressionLevel: 9 })
   .toBuffer();
 await writeFile(path.join(webRoot, 'public', 'icons', 'icon-maskable-512.png'), maskable512);

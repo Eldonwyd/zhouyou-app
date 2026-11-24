@@ -18,6 +18,12 @@ const config: CapacitorConfig = {
     allowsLinkPreview: true,
     scrollEnabled: true,
   },
+  plugins: {
+    SystemBars: {
+      insetsHandling: 'css',
+      initialViewportFitValueHint: 'cover',
+    },
+  },
 };
 
 export default config;

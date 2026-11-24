@@ -5,6 +5,8 @@ import type { AiTravelPlan, PlannerPhoto, PlannerPreferences } from './planner-t
 import { provinceCodeForCity } from './map-data';
 import { describeStorageError } from './utils';
 import { applyThemeMode, useThemeMode, type ThemeMode } from './theme';
+import { readLanguage, syncDocumentLanguage, useI18n } from './i18n';
+import { checkForAppUpdate, isNativeAppPlatform, type AppUpdateInfo } from './app-updater';
 import MapView from './components/MapView';
 
 const DEMO_ACTIVE_KEY = 'zhouyou-demo-active';
@@ -23,27 +25,34 @@ const AchievementsView = lazy(() => import('./components/AchievementsView'));
 const ProfileView = lazy(() => import('./components/ProfileView'));
 
 const EMPTY_SNAPSHOT: AppSnapshot = { marks: [], entries: [], plans: [], media: [], badges: [], profile: [], trips: [], places: [], aiPlans: [], plannerPreferences: [] };
-const THEME_LABELS: Record<ThemeMode, { icon: string; label: string }> = {
-  system: { icon: '◐', label: '跟随系统' }, light: { icon: '☀', label: '浅色' }, dark: { icon: '☾', label: '深色' },
-};
 const THEME_ORDER: ThemeMode[] = ['system', 'light', 'dark'];
+
 /** 顶栏主题切换：跟随系统 → 浅色 → 深色 循环。 */
 function ThemeSwitch() {
   const mode = useThemeMode();
+  const { t } = useI18n();
+  const themeLabels: Record<ThemeMode, { icon: string; label: string }> = {
+    system: { icon: '◐', label: t('跟随系统', 'System') },
+    light: { icon: '☀', label: t('浅色', 'Light') },
+    dark: { icon: '☾', label: t('深色', 'Dark') },
+  };
   const next = THEME_ORDER[(THEME_ORDER.indexOf(mode) + 1) % THEME_ORDER.length];
-  return <button type="button" className="theme-switch" title={`当前：${THEME_LABELS[mode].label}，点击切换为${THEME_LABELS[next].label}`}
-    aria-label={`主题：${THEME_LABELS[mode].label}`} onClick={() => applyThemeMode(next)}>
-    <span className="theme-switch-icon" aria-hidden="true">{THEME_LABELS[mode].icon}</span><span className="theme-switch-label">{THEME_LABELS[mode].label}</span>
-  </button>;
+  return (
+    <button
+      type="button"
+      className="theme-switch"
+      title={t(
+        `当前：${themeLabels[mode].label}，点击切换为${themeLabels[next].label}`,
+        `Current: ${themeLabels[mode].label}. Click to switch to ${themeLabels[next].label}`,
+      )}
+      aria-label={t(`主题：${themeLabels[mode].label}`, `Theme: ${themeLabels[mode].label}`)}
+      onClick={() => applyThemeMode(next)}
+    >
+      <span className="theme-switch-icon" aria-hidden="true">{themeLabels[mode].icon}</span>
+      <span className="theme-switch-label">{themeLabels[mode].label}</span>
+    </button>
+  );
 }
-
-const NAV_ITEMS: Array<{ id: PageName; label: string; icon: string }> = [
-  { id: 'map', label: '地图足迹', icon: '◎' },
-  { id: 'plan', label: '行程规划', icon: '▦' },
-  { id: 'detail', label: '旅行手账', icon: '▤' },
-  { id: 'achievements', label: '旅途成就', icon: '✦' },
-  { id: 'profile', label: '个人中心', icon: '◉' },
-];
 
 interface PendingCity {
   code: string;
@@ -52,9 +61,11 @@ interface PendingCity {
 }
 
 export default function App() {
+  const { lang, t } = useI18n();
   const [snapshot, setSnapshot] = useState<AppSnapshot>(EMPTY_SNAPSHOT);
   const [ready, setReady] = useState(false);
   const [page, setPage] = useState<PageName>('map');
+  const [profileResetToken, setProfileResetToken] = useState(0);
   const [plannerOpened, setPlannerOpened] = useState(false);
   const [activeProvinceCode, setActiveProvinceCode] = useState<string | null>(null);
   const [selectedCityCode, setSelectedCityCode] = useState<string | null>(null);
@@ -66,21 +77,47 @@ export default function App() {
   const [demoMode, setDemoMode] = useState(readDemoActive);
   const [demoDismissed, setDemoDismissed] = useState(readDemoDismissed);
   const [demoBusy, setDemoBusy] = useState(false);
+  const [availableUpdate, setAvailableUpdate] = useState<AppUpdateInfo | null>(null);
+  const [updateBannerDismissed, setUpdateBannerDismissed] = useState(false);
+  const [updateFocusToken, setUpdateFocusToken] = useState(0);
+  const [updateCheckToken, setUpdateCheckToken] = useState(0);
+
+  useEffect(() => {
+    syncDocumentLanguage(lang);
+  }, [lang]);
+
+  const navItems: Array<{ id: PageName; label: string; icon: string }> = [
+    { id: 'map', label: t('地图足迹', 'Footprints'), icon: '◎' },
+    { id: 'plan', label: t('行程规划', 'Planner'), icon: '▦' },
+    { id: 'detail', label: t('旅行手账', 'Journal'), icon: '▤' },
+    { id: 'achievements', label: t('旅途成就', 'Badges'), icon: '✦' },
+    { id: 'profile', label: t('个人中心', 'Profile'), icon: '◉' },
+  ];
 
   const showNotice = useCallback((message: string) => setNotice(message), []);
-  const showError = useCallback((message: string) => setNotice(`操作未完成：${message}`), []);
+  const showError = useCallback((message: string) => {
+    const prefix = readLanguage() === 'en' ? 'Action failed: ' : '操作未完成：';
+    setNotice(`${prefix}${message}`);
+  }, []);
   const openPage = useCallback((nextPage: PageName) => {
     if (nextPage === 'plan') setPlannerOpened(true);
     if (nextPage === 'detail') {
       setTargetEntryId(null);
       setTargetPlaceId(null);
     }
+    if (nextPage === 'profile') {
+      setProfileResetToken((token) => token + 1);
+    }
     setPage(nextPage);
   }, []);
 
   const enterDemoMode = useCallback(async (confirmIfNonEmpty = false) => {
+    const isEn = readLanguage() === 'en';
     if (confirmIfNonEmpty && (snapshot.marks.length > 0 || snapshot.trips.length > 0 || snapshot.aiPlans.length > 0)) {
-      if (!window.confirm('载入示例数据会覆盖当前浏览器的旅行记录，确认继续体验演示模式吗？')) return;
+      const msg = isEn
+        ? 'Loading sample data will overwrite current travel records in this browser. Continue with Demo Mode?'
+        : '载入示例数据会覆盖当前浏览器的旅行记录，确认继续体验演示模式吗？';
+      if (!window.confirm(msg)) return;
     }
     setDemoBusy(true);
     try {
@@ -91,7 +128,9 @@ export default function App() {
       setSnapshot(seeded);
       setDemoMode(true);
       setDemoDismissed(false);
-      showNotice('✨ 已载入演示数据：14 座点亮城市、大理 AI 路书、照片手账与每日账本，可随时一键清空。');
+      showNotice(isEn
+        ? '✨ Sample data loaded: 14 lit cities, Dali AI roadbook, photo journal, and daily ledger. Clear anytime.'
+        : '✨ 已载入演示数据：14 座点亮城市、大理 AI 路书、照片手账与每日账本，可随时一键清空。');
     } catch (error: unknown) {
       showError(describeStorageError(error));
     } finally {
@@ -100,6 +139,7 @@ export default function App() {
   }, [showError, showNotice, snapshot.aiPlans.length, snapshot.marks.length, snapshot.trips.length]);
 
   const exitDemoMode = useCallback(async () => {
+    const isEn = readLanguage() === 'en';
     setDemoBusy(true);
     try {
       const { clearDemoWorkspace } = await import('./demo-seed');
@@ -109,7 +149,9 @@ export default function App() {
       setSnapshot(cleared);
       setDemoMode(false);
       setDemoDismissed(true);
-      showNotice('已清空演示数据，开始记录你自己的旅行足迹吧！');
+      showNotice(isEn
+        ? 'Sample data cleared. Start recording your own travel footprints!'
+        : '已清空演示数据，开始记录你自己的旅行足迹吧！');
     } catch (error: unknown) {
       showError(describeStorageError(error));
     } finally {
@@ -131,7 +173,9 @@ export default function App() {
           setSnapshot(seeded);
           setDemoMode(true);
           setReady(true);
-          showNotice('✨ 已自动进入演示模式：可自由浏览足迹地图、AI 路书、照片手账与账本！');
+          showNotice(readLanguage() === 'en'
+            ? '✨ Entered Demo Mode: explore the footprint map, AI roadbook, photo journal, and ledger!'
+            : '✨ 已自动进入演示模式：可自由浏览足迹地图、AI 路书、照片手账与账本！');
           return;
         } catch { /* 回退到空白态 */ }
       }
@@ -154,6 +198,40 @@ export default function App() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [page]);
+
+  const openUpdateSection = useCallback((triggerCheck = false) => {
+    setPage('profile');
+    setUpdateFocusToken((token) => token + 1);
+    if (triggerCheck) setUpdateCheckToken((token) => token + 1);
+  }, []);
+
+  // 原生手机 App 与桌面端启动后静默检查一次更新；无网络时静默跳过。
+  useEffect(() => {
+    if (!isNativeAppPlatform()) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void checkForAppUpdate(controller.signal)
+        .then((result) => {
+          if (!controller.signal.aborted && result.hasUpdate) {
+            setAvailableUpdate(result);
+            setUpdateBannerDismissed(false);
+          }
+        })
+        .catch(() => undefined);
+    }, 2500);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, []);
+
+  // 响应 Electron 顶部菜单「帮助 → 检查更新」。
+  useEffect(() => {
+    const unsubscribe = window.zhouyouDesktop?.onCheckUpdateRequest?.(() => {
+      openUpdateSection(true);
+    });
+    return () => unsubscribe?.();
+  }, [openUpdateSection]);
 
   const reload = useCallback(async () => setSnapshot(await loadSnapshot()), []);
   const saveAiPlan = useCallback(async (plan: AiTravelPlan, expectedVersion: number | null) => {
@@ -204,8 +282,11 @@ export default function App() {
     catch (error) { showError(describeStorageError(error)); throw error; }
   }, [reload, showError]);
   const deleteMedia = useCallback(async (id: string) => {
-    try { await deleteMediaRecord(id); await reload(); showNotice('媒体已删除。'); }
-    catch (error) { showError(describeStorageError(error)); }
+    try {
+      await deleteMediaRecord(id);
+      await reload();
+      showNotice(readLanguage() === 'en' ? 'Media deleted.' : '媒体已删除。');
+    } catch (error) { showError(describeStorageError(error)); }
   }, [reload, showError, showNotice]);
   const saveTrip = useCallback(async (trip: Journey) => {
     try { const linked = await saveJourneyAndLinkCityRecords(trip); await reload(); return linked; }
@@ -264,7 +345,9 @@ export default function App() {
     };
     void saveMark(mark).then(() => {
       setSelectedCityCode(mark.id);
-      showNotice(`${mark.name}已点亮为已去过，再次点击可进入旅行手账或取消点亮。`);
+      showNotice(readLanguage() === 'en'
+        ? `${mark.name} marked as visited. Tap again to open Journal or unmark.`
+        : `${mark.name}已点亮为已去过，再次点击可进入旅行手账或取消点亮。`);
     }).catch(() => { /* saveMark reports the storage error. */ });
   }, [effectiveMarks, saveMark, showNotice]);
 
@@ -292,14 +375,14 @@ export default function App() {
       await saveMark(mark);
       if (selectedCityCode === mark.id) setSelectedCityCode(null);
       setActionCity(null);
-      showNotice(`${mark.name}已取消点亮。`);
+      showNotice(t(`${mark.name}已取消点亮。`, `${mark.name} unmarked.`));
     } catch { /* saveMark reports the storage error and keeps the dialog open. */ }
   }
 
   async function updateSelectedMark(visited: boolean): Promise<void> {
     if (!selectedCity) return;
     await saveMark({ ...selectedCity, visited, planned: false, updatedAt: new Date().toISOString() });
-    showNotice('城市状态已更新。');
+    showNotice(t('城市状态已更新。', 'City status updated.'));
   }
 
   function openEntry(entry: DayEntry): void {
@@ -310,15 +393,36 @@ export default function App() {
   }
 
   const activeProfile = snapshot.profile[0];
+  const currentPageLabel = navItems.find((item) => item.id === page)?.label ?? '';
+  const avatarNickname = activeProfile?.nickname && activeProfile.nickname !== '旅行者'
+    ? activeProfile.nickname
+    : t('旅行者', 'Traveler');
 
   return <div className={`app-shell${page === 'map' ? ' is-map-page' : ''}`}>
     <aside className="sidebar">
       <div className="brand">
         {/* 复用导航中的折叠地图图标，沿用品牌贴纸随主题切换的配色。 */}
         <div className="brand-symbol"><TravelIcon name="map" /></div>
-        <div><strong>周游地图</strong><span>自己的旅行小册子</span></div>
+        <div><strong>{t('周游地图', 'Zhouyou Map')}</strong><span>{t('自己的旅行小册子', 'Your travel booklet')}</span></div>
       </div>
-      <nav aria-label="主导航">{NAV_ITEMS.map((item) => <button key={item.id} className={`nav-item nav-${item.id} ${page === item.id ? 'active' : ''}`} aria-current={page === item.id ? 'page' : undefined} onClick={() => openPage(item.id)}><span className="nav-icon"><TravelIcon name={item.id} /></span>{item.label}</button>)}</nav>
+      <nav aria-label={t('主导航', 'Main navigation')}>
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            className={`nav-item nav-${item.id} ${page === item.id ? 'active' : ''}`}
+            aria-current={page === item.id ? 'page' : undefined}
+            onClick={() => openPage(item.id)}
+          >
+            <span className="nav-icon">
+              <TravelIcon name={item.id} />
+              {item.id === 'profile' && availableUpdate && (
+                <i className="nav-update-dot" aria-label={t('有新版本可更新', 'Update available')} />
+              )}
+            </span>
+            {item.label}
+          </button>
+        ))}
+      </nav>
       {/* 明信片和路线贴纸共用一块装饰区域，侧栏变高时一起移动。 */}
       <div className="sidebar-art cute-deco" aria-hidden="true">
         <div className="sidebar-postcard-frame"><TravelCover label="" /></div>
@@ -337,56 +441,131 @@ export default function App() {
           <TravelAvatar avatarId="balloon" nickname="" className="sidebar-doodle-item is-balloon" />
         </div>
       </div>
-      <div className="sidebar-footer"><span className="footer-dot" />本机保存 · 离线地图</div>
+      <div className="sidebar-footer"><span className="footer-dot" />{t('本机保存 · 离线地图', 'Saved locally · Offline maps')}</div>
     </aside>
-    <div className="main-shell"><header className="topbar"><div className="topbar-title"><button type="button" className="topbar-mobile-brand" onClick={() => openPage('map')} aria-label="周游地图，返回地图足迹"><span className="brand-symbol topbar-brand-symbol" aria-hidden="true"><TravelIcon name="map" /></span><span className="topbar-brand-text"><b>周游地图</b><small>{NAV_ITEMS.find((item) => item.id === page)?.label}</small></span></button><strong className="topbar-page-title">{NAV_ITEMS.find((item) => item.id === page)?.label}</strong><span>把走过的路，留在地图上</span></div><div className="topbar-right"><ThemeSwitch /><span className="local-pill">本机版</span><button type="button" className="topbar-avatar-btn" aria-label={activeProfile?.nickname || '旅行者'} title="打开个人中心" onClick={() => openPage('profile')}><TravelAvatar avatarId={activeProfile?.avatar} nickname={activeProfile?.nickname || '旅行者'} className="avatar" /></button></div></header>
+    <div className="main-shell">
+      <header className="topbar">
+        <div className="topbar-title">
+          <button
+            type="button"
+            className="topbar-mobile-brand"
+            onClick={() => openPage('map')}
+            aria-label={t('周游地图，返回地图足迹', 'Zhouyou Map, back to Footprint Map')}
+          >
+            <span className="brand-symbol topbar-brand-symbol" aria-hidden="true"><TravelIcon name="map" /></span>
+            <span className="topbar-brand-text"><b>{t('周游地图', 'Zhouyou Map')}</b><small>{currentPageLabel}</small></span>
+          </button>
+          <strong className="topbar-page-title">{currentPageLabel}</strong>
+          <span>{t('把走过的路，留在地图上', 'Keep every road you have walked on the map')}</span>
+        </div>
+        <div className="topbar-right">
+          <ThemeSwitch />
+          <span className="local-pill">{t('本机版', 'Local')}</span>
+          <button
+            type="button"
+            className="topbar-avatar-btn"
+            aria-label={avatarNickname}
+            title={t('打开个人中心', 'Open Personal Center')}
+            onClick={() => openPage('profile')}
+          >
+            <TravelAvatar avatarId={activeProfile?.avatar} nickname={avatarNickname} className="avatar" />
+          </button>
+        </div>
+      </header>
       {ready && page === 'map' && !demoMode && !demoDismissed && snapshot.marks.length === 0 && snapshot.trips.length === 0 && snapshot.aiPlans.length === 0 && (
-        <section className="demo-welcome-bar" aria-label="演示模式引导">
+        <section className="demo-welcome-bar" aria-label={t('演示模式引导', 'Demo mode prompt')}>
           <div className="demo-welcome-copy">
-            <strong>✨ 第一次来？一键载入演示数据快速体验</strong>
-            <span>内含 14 座点亮城市、完整大理 AI 行程路书与路线地图、照片手账及每日账本，随时一键清空。</span>
+            <strong>{t('✨ 第一次来？一键载入演示数据快速体验', '✨ First time here? Try Demo Mode with sample data')}</strong>
+            <span>{t('内含 14 座点亮城市、完整大理 AI 行程路书与路线地图、照片手账及每日账本，随时一键清空。', 'Includes 14 lit cities, a full Dali AI roadbook & route map, photo journal, and daily ledger—clear anytime.')}</span>
           </div>
           <div className="demo-welcome-actions">
             <button type="button" className="primary" disabled={demoBusy} onClick={() => void enterDemoMode(false)}>
-              {demoBusy ? '正在载入示例…' : '✨ 体验示例数据'}
+              {demoBusy ? t('正在载入示例…', 'Loading sample…') : t('✨ 体验示例数据', '✨ Try Sample Data')}
             </button>
             <button type="button" className="secondary" disabled={demoBusy} onClick={() => { writeDemoDismissed(); setDemoDismissed(true); }}>
-              暂不需要
+              {t('暂不需要', 'Not now')}
             </button>
           </div>
         </section>
       )}
+      {ready && availableUpdate && !updateBannerDismissed && page !== 'profile' && (
+        <div className="app-update-top-bar" role="status">
+          <span>
+            {t(
+              `✨ 发现新版本 v${availableUpdate.latestVersion}（当前 v${availableUpdate.currentVersion}）`,
+              `✨ New version v${availableUpdate.latestVersion} available (current v${availableUpdate.currentVersion})`,
+            )}
+          </span>
+          <div className="app-update-top-actions">
+            <button type="button" className="primary" onClick={() => openUpdateSection(false)}>
+              {t('立即更新', 'Update Now')}
+            </button>
+            <button type="button" className="text-button" onClick={() => setUpdateBannerDismissed(true)}>
+              {t('稍后', 'Later')}
+            </button>
+          </div>
+        </div>
+      )}
       {ready && demoMode && (
         <div className="demo-active-bar" role="status">
-          <span>✨ 演示模式体验中 · 包含示例足迹、大理 AI 路书、照片手账与账本</span>
+          <span>{t('✨ 演示模式体验中 · 包含示例足迹、大理 AI 路书、照片手账与账本', '✨ Demo Mode active · Exploring sample footprints, Dali AI roadbook, journal & ledger')}</span>
           <button type="button" className="secondary" disabled={demoBusy} onClick={() => void exitDemoMode()}>
-            {demoBusy ? '清空中…' : '退出并清空示例'}
+            {demoBusy ? t('清空中…', 'Clearing…') : t('退出并清空示例', 'Exit & Clear Demo')}
           </button>
         </div>
       )}
-      <main>{!ready ? <div className="empty-state">正在读取本机旅行数据…</div> : <>
+      <main>{!ready ? <div className="empty-state">{t('正在读取本机旅行数据…', 'Loading local travel data…')}</div> : <>
         {/* 保持规划组件挂载，让 AI 请求和小红书解析在浏览其他页面时继续。 */}
         {plannerOpened && <div hidden={page !== 'plan'}>
-          <Suspense fallback={<div className="empty-state">正在打开页面…</div>}>
+          <Suspense fallback={<div className="empty-state">{t('正在打开页面…', 'Opening page…')}</div>}>
             <PlanView visible={page === 'plan'} onReturnToPlanner={() => openPage('plan')} city={selectedCity} marks={effectiveMarks} trips={snapshot.trips} plans={snapshot.plans} onSave={savePlan} onMoveLegacy={movePlan} onCreateJourney={() => openPage('detail')} onError={showError} onNotice={showNotice} aiPlans={snapshot.aiPlans} preferences={snapshot.plannerPreferences[0]} provinceIntent={plannerProvince} onSaveAi={saveAiPlan} onSaveAiPhoto={saveAiPhoto} onPublishAi={publishPlan} onSavePreferences={savePlannerPreferences} onSaveJournalVisit={saveJournalVisit} onOpenJournalPlace={openJournalPlace} />
           </Suspense>
         </div>}
-        <Suspense fallback={<div className="empty-state">正在打开页面…</div>}>
-        {page === 'map' && <MapView marks={effectiveMarks} activeProvinceCode={activeProvinceCode} setActiveProvinceCode={setActiveProvinceCode} onSelectCity={selectCity} onError={showError} onRecommendProvince={recommendProvince} />}
-        {page === 'detail' && <DetailView city={selectedCity} marks={effectiveMarks} entries={snapshot.entries} media={snapshot.media} trips={snapshot.trips} aiPlans={snapshot.aiPlans} places={snapshot.places} targetEntryId={targetEntryId} targetPlaceId={targetPlaceId} onSaveEntry={saveEntry} onSaveMedia={saveMedia} onSaveMediaGroup={saveMediaGroup} onUpdateMedia={updateMedia} onDeleteMedia={deleteMedia} onSaveTrip={saveTrip} onSavePlace={savePlace} onSaveCityMark={saveMark} onUpdateMark={updateSelectedMark} onError={showError} onNotice={showNotice} />}
-        {page === 'achievements' && <AchievementsView marks={effectiveMarks} entries={snapshot.entries} trips={snapshot.trips} media={snapshot.media} badges={snapshot.badges} onSaveBadge={saveBadge} onOpenEntry={openEntry} onError={showError} onNotice={showNotice} />}
-        {page === 'profile' && <ProfileView snapshot={snapshot} activeProvinceCode={activeProvinceCode} demoMode={demoMode} demoBusy={demoBusy} onLoadDemo={() => void enterDemoMode(true)} onClearDemo={() => void exitDemoMode()} onSaveProfile={saveProfile} onImported={(data) => {
-          // 恢复备份会替换行程数据，清除上一份数据上打开的规划会话。
-          setPlannerOpened(false);
-          setDemoMode(false);
-          setSnapshot(data);
-          setSelectedCityCode(null);
-          setPage('map');
-        }} onError={showError} onNotice={showNotice} />}
+        <Suspense fallback={<div className="empty-state">{t('正在打开页面…', 'Opening page…')}</div>}>
+          {page === 'map' && <MapView marks={effectiveMarks} activeProvinceCode={activeProvinceCode} setActiveProvinceCode={setActiveProvinceCode} onSelectCity={selectCity} onError={showError} onRecommendProvince={recommendProvince} />}
+          {page === 'detail' && <DetailView city={selectedCity} marks={effectiveMarks} entries={snapshot.entries} media={snapshot.media} trips={snapshot.trips} aiPlans={snapshot.aiPlans} places={snapshot.places} targetEntryId={targetEntryId} targetPlaceId={targetPlaceId} onSaveEntry={saveEntry} onSaveMedia={saveMedia} onSaveMediaGroup={saveMediaGroup} onUpdateMedia={updateMedia} onDeleteMedia={deleteMedia} onSaveTrip={saveTrip} onSavePlace={savePlace} onSaveCityMark={saveMark} onUpdateMark={updateSelectedMark} onError={showError} onNotice={showNotice} />}
+          {page === 'achievements' && <AchievementsView marks={effectiveMarks} entries={snapshot.entries} trips={snapshot.trips} media={snapshot.media} badges={snapshot.badges} onSaveBadge={saveBadge} onOpenEntry={openEntry} onError={showError} onNotice={showNotice} />}
+          {page === 'profile' && <ProfileView snapshot={snapshot} activeProvinceCode={activeProvinceCode} resetSettingsToken={profileResetToken} demoMode={demoMode} demoBusy={demoBusy} availableUpdate={availableUpdate} updateFocusToken={updateFocusToken} updateCheckToken={updateCheckToken} onUpdateFound={setAvailableUpdate} onLoadDemo={() => void enterDemoMode(true)} onClearDemo={() => void exitDemoMode()} onSaveProfile={saveProfile} onImported={(data) => {
+            // 恢复备份会替换行程数据，清除上一份数据上打开的规划会话。
+            setPlannerOpened(false);
+            setDemoMode(false);
+            setSnapshot(data);
+            setSelectedCityCode(null);
+            setPage('map');
+          }} onError={showError} onNotice={showNotice} />}
         </Suspense>
       </>}</main>
     </div>
-    {actionCity && <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setActionCity(null); }}><div className="dialog city-action-dialog" role="dialog" aria-modal="true" aria-labelledby="city-dialog-title"><span className="city-dialog-pill">已点亮足迹</span><h2 id="city-dialog-title">{actionCity.name}</h2><p>{actionCityLockedByTrip ? '这座城市已关联到已保存的旅行，可进入旅行手账查看或编辑。' : '这座城市已点亮，可进入旅行手账记录回忆，或取消点亮状态。'}</p><div className="dialog-actions"><button className="primary" onClick={openActionCityJournal}>进入旅行手账</button><button className="secondary" disabled={actionCityLockedByTrip} title={actionCityLockedByTrip ? '该城市已包含在已保存的旅行中，请在旅行手账中调整' : undefined} onClick={() => void unvisitActionCity()}>取消点亮</button><button className="text-button" onClick={() => setActionCity(null)}>取消</button></div></div></div>}
-    {notice && <div className="toast" role="status">{notice}<button onClick={() => setNotice(null)} aria-label="关闭提示">×</button></div>}
+    {actionCity && (
+      <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setActionCity(null); }}>
+        <div className="dialog city-action-dialog" role="dialog" aria-modal="true" aria-labelledby="city-dialog-title">
+          <span className="city-dialog-pill">{t('已点亮足迹', 'Visited City')}</span>
+          <h2 id="city-dialog-title">{actionCity.name}</h2>
+          <p>
+            {actionCityLockedByTrip
+              ? t('这座城市已关联到已保存的旅行，可进入旅行手账查看或编辑。', 'This city is linked to a saved trip. Open Travel Journal to view or edit it.')
+              : t('这座城市已点亮，可进入旅行手账记录回忆，或取消点亮状态。', 'This city is marked as visited. Open Travel Journal to add memories, or unmark it.')}
+          </p>
+          <div className="dialog-actions">
+            <button className="primary" onClick={openActionCityJournal}>{t('进入旅行手账', 'Open Journal')}</button>
+            <button
+              className="secondary"
+              disabled={actionCityLockedByTrip}
+              title={actionCityLockedByTrip ? t('该城市已包含在已保存的旅行中，请在旅行手账中调整', 'Included in a saved trip. Adjust it in Travel Journal.') : undefined}
+              onClick={() => void unvisitActionCity()}
+            >
+              {t('取消点亮', 'Unmark')}
+            </button>
+            <button className="text-button" onClick={() => setActionCity(null)}>{t('取消', 'Cancel')}</button>
+          </div>
+        </div>
+      </div>
+    )}
+    {notice && (
+      <div className="toast" role="status">
+        {notice}
+        <button onClick={() => setNotice(null)} aria-label={t('关闭提示', 'Dismiss notice')}>×</button>
+      </div>
+    )}
   </div>;
 }

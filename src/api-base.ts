@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'zhouyou-api-origin';
+export const PLANNER_API_ORIGIN_EVENT = 'zhouyou-api-origin-change';
 
 /** 读取自定义 AI 服务地址（移动端 App / 局域网联机使用；桌面端与本地网页留空即可走同源）。 */
 export function getPlannerApiOrigin(): string {
@@ -21,6 +22,11 @@ export function setPlannerApiOrigin(origin: string): string {
     else localStorage.removeItem(STORAGE_KEY);
   } catch {
     /* 忽略受限存储异常 */
+  }
+  try {
+    window.dispatchEvent(new CustomEvent(PLANNER_API_ORIGIN_EVENT, { detail: cleaned }));
+  } catch {
+    /* 忽略非浏览器环境 */
   }
   return cleaned;
 }

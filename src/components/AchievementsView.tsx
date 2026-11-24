@@ -4,6 +4,7 @@ import { TravelCover, TravelIcon } from './TravelArt';
 import { AchievementBadgeArt, CuteSticker, HighlightEmptyArt, getTravelerLevel } from './CuteArt';
 import { createLocalId, downloadBlob } from '../utils';
 import { themeColor } from '../theme';
+import { useI18n, type AppLanguage } from '../i18n';
 
 // 每站沿用应用内的旅行图标，等级数超过现有图标时仍可显示默认地图图标。
 const travelerStopIcons = ['leaf', 'detail', 'map', 'camera', 'mountain', 'train', 'sun', 'plane'];
@@ -30,12 +31,12 @@ interface PresetBadgeSpec {
   current: number;
 }
 
-async function drawBadgePoster(title: string, symbol: string, image: Blob | null): Promise<Blob> {
+async function drawBadgePoster(title: string, symbol: string, image: Blob | null, lang: AppLanguage): Promise<Blob> {
   const canvas = document.createElement('canvas');
   canvas.width = 900;
   canvas.height = 1200;
   const context = canvas.getContext('2d');
-  if (!context) throw new Error('当前浏览器无法生成海报');
+  if (!context) throw new Error(lang === 'en' ? 'Unable to generate poster in this browser' : '当前浏览器无法生成海报');
   const paper = themeColor('--paper', '#fff8f2');
   const surface = themeColor('--surface', '#ffffff');
   const accent = themeColor('--warm-green', '#eb6b56');
@@ -109,14 +110,14 @@ async function drawBadgePoster(title: string, symbol: string, image: Blob | null
 
   context.fillStyle = muted;
   context.font = '28px "PingFang SC", "Microsoft YaHei UI", sans-serif';
-  context.fillText('旅行足迹 · 我的旅途纪念章', 450, 962);
+  context.fillText(lang === 'en' ? 'Zhouyou Map · Travel Commemorative Badge' : '旅行足迹 · 我的旅途纪念章', 450, 962);
 
   context.fillStyle = accent;
   context.font = '600 22px "PingFang SC", "Microsoft YaHei UI", sans-serif';
   context.fillText(new Date().toISOString().slice(0, 10), 450, 1020);
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-  if (!blob) throw new Error('海报生成失败');
+  if (!blob) throw new Error(lang === 'en' ? 'Failed to generate poster' : '海报生成失败');
   return blob;
 }
 
@@ -131,6 +132,7 @@ function CustomBadgeCard({
   onOpenEntry: (entry: DayEntry) => void;
   linkedEntry?: DayEntry;
 }) {
+  const { t } = useI18n();
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!badge.image) { setUrl(null); return; }
@@ -141,13 +143,13 @@ function CustomBadgeCard({
 
   return (
     <div className="badge-card custom-badge-card">
-      <span className="badge-status-pill is-custom">专属手作</span>
+      <span className="badge-status-pill is-custom">{t('专属手作', 'Custom')}</span>
       <div className="badge-art custom-badge-art">{url ? <img src={url} alt="" /> : '✧'}</div>
       <h3>{badge.title}</h3>
-      <p>自己收藏的特别纪念章</p>
+      <p>{t('自己收藏的特别纪念章', 'Your custom travel keepsake')}</p>
       <div className="badge-actions">
-        <button className="text-button" onClick={onShare}>生成海报</button>
-        {linkedEntry && <button className="text-button" onClick={() => onOpenEntry(linkedEntry)}>查看高光</button>}
+        <button className="text-button" onClick={onShare}>{t('生成海报', 'Poster')}</button>
+        {linkedEntry && <button className="text-button" onClick={() => onOpenEntry(linkedEntry)}>{t('查看高光', 'View Highlight')}</button>}
       </div>
     </div>
   );
@@ -179,6 +181,7 @@ export default function AchievementsView({
   onError,
   onNotice,
 }: AchievementsViewProps) {
+  const { lang, isEn, t } = useI18n();
   const [title, setTitle] = useState('');
   const [linkedEntryId, setLinkedEntryId] = useState('');
   const [imageName, setImageName] = useState('');
@@ -201,24 +204,24 @@ export default function AchievementsView({
   const audioCount = media.filter((item) => item.kind === 'audio').length;
   const companionTrips = completedTrips.filter((trip) => trip.companions.length > 0).length;
 
-  const levelInfo = getTravelerLevel(visited.length, travelDays);
+  const levelInfo = getTravelerLevel(visited.length, travelDays, lang);
 
   const presetBadges: PresetBadgeSpec[] = [
-    { id: 'first-trip', title: '初次出发', symbol: '✦', threshold: 1, unit: '城', hint: '点亮第 1 座城市', current: visited.length },
-    { id: 'five-cities', title: '五城玩家', symbol: '✺', threshold: 5, unit: '城', hint: '走过 5 座不同城市', current: visited.length },
-    { id: 'ten-cities', title: '十城收藏家', symbol: '◆', threshold: 10, unit: '城', hint: '足迹覆盖 10 座城市', current: visited.length },
-    { id: 'province-hopper', title: '跨省达人', symbol: '❖', threshold: 3, unit: '省', hint: '足迹跨越 3 个省份', current: visitedProvinces.size },
-    { id: 'photo-lover', title: '镜头捕手', symbol: '◎', threshold: 10, unit: '张', hint: '珍藏 10 张旅途照片', current: photoCount },
-    { id: 'voice-keeper', title: '声音日记本', symbol: '♪', threshold: 1, unit: '段', hint: '录下 1 段旅途语音', current: audioCount },
-    { id: 'highlight-hunter', title: '高光猎人', symbol: '★', threshold: 3, unit: '篇', hint: '收藏 3 个高光时刻', current: highlights.length },
-    { id: 'companion-joy', title: '结伴同行', symbol: '♥', threshold: 1, unit: '次', hint: '记录 1 次同行旅程', current: companionTrips },
-    { id: 'long-wanderer', title: '漫游时光', symbol: '☀', threshold: 7, unit: '天', hint: '累计旅行达到 7 天', current: travelDays },
+    { id: 'first-trip', title: t('初次出发', 'First Departure'), symbol: '✦', threshold: 1, unit: t('城', ' cities'), hint: t('点亮第 1 座城市', 'Light up your 1st city'), current: visited.length },
+    { id: 'five-cities', title: t('五城玩家', 'Five-City Explorer'), symbol: '✺', threshold: 5, unit: t('城', ' cities'), hint: t('走过 5 座不同城市', 'Visit 5 different cities'), current: visited.length },
+    { id: 'ten-cities', title: t('十城收藏家', 'Ten-City Collector'), symbol: '◆', threshold: 10, unit: t('城', ' cities'), hint: t('足迹覆盖 10 座城市', 'Cover 10 cities on the map'), current: visited.length },
+    { id: 'province-hopper', title: t('跨省达人', 'Province Hopper'), symbol: '❖', threshold: 3, unit: t('省', ' provinces'), hint: t('足迹跨越 3 个省份', 'Travel across 3 provinces'), current: visitedProvinces.size },
+    { id: 'photo-lover', title: t('镜头捕手', 'Shutterbug'), symbol: '◎', threshold: 10, unit: t('张', ' photos'), hint: t('珍藏 10 张旅途照片', 'Save 10 travel photos'), current: photoCount },
+    { id: 'voice-keeper', title: t('声音日记本', 'Voice Keeper'), symbol: '♪', threshold: 1, unit: t('段', ' clip'), hint: t('录下 1 段旅途语音', 'Record 1 voice memo'), current: audioCount },
+    { id: 'highlight-hunter', title: t('高光猎人', 'Highlight Hunter'), symbol: '★', threshold: 3, unit: t('篇', ' highlights'), hint: t('收藏 3 个高光时刻', 'Bookmark 3 highlights'), current: highlights.length },
+    { id: 'companion-joy', title: t('结伴同行', 'Travel Buddies'), symbol: '♥', threshold: 1, unit: t('次', ' trip'), hint: t('记录 1 次同行旅程', 'Log 1 trip with companions'), current: companionTrips },
+    { id: 'long-wanderer', title: t('漫游时光', 'Weeklong Wanderer'), symbol: '☀', threshold: 7, unit: t('天', ' days'), hint: t('累计旅行达到 7 天', 'Reach 7 total travel days'), current: travelDays },
   ];
 
   const unlockedPresetCount = presetBadges.filter((badge) => badge.current >= badge.threshold).length;
 
   async function createBadge(): Promise<void> {
-    if (!title.trim()) { onError('请填写徽章名称'); return; }
+    if (!title.trim()) { onError(t('请填写徽章名称', 'Please enter a badge name')); return; }
     const image = imageInputRef.current?.files?.[0] ?? null;
     try {
       await onSaveBadge({
@@ -232,13 +235,19 @@ export default function AchievementsView({
       setLinkedEntryId('');
       setImageName('');
       if (imageInputRef.current) imageInputRef.current.value = '';
-      onNotice('专属徽章已创建。');
-    } catch (error) { onError(error instanceof Error ? error.message : '徽章保存失败'); }
+      onNotice(t('专属徽章已创建。', 'Custom badge created.'));
+    } catch (error) { onError(error instanceof Error ? error.message : t('徽章保存失败', 'Failed to save badge')); }
   }
 
   async function shareBadge(badgeTitle: string, symbol: string, image: Blob | null): Promise<void> {
-    try { downloadBlob(await drawBadgePoster(badgeTitle, symbol, image), `${badgeTitle}-旅行徽章.png`); }
-    catch (error) { onError(error instanceof Error ? error.message : '海报生成失败'); }
+    try {
+      downloadBlob(
+        await drawBadgePoster(badgeTitle, symbol, image, lang),
+        isEn ? `${badgeTitle}-travel-badge.png` : `${badgeTitle}-旅行徽章.png`,
+      );
+    } catch (error) {
+      onError(error instanceof Error ? error.message : t('海报生成失败', 'Failed to generate poster'));
+    }
   }
 
   function showBadgeCreator(): void {
@@ -255,15 +264,15 @@ export default function AchievementsView({
     <div className="content-page warm-achievements">
       <div className="section-heading">
         <div>
-          <h1>旅途成就</h1>
-          <p>走过的每一站，都在悄悄攒成亮晶晶的纪念印章。</p>
+          <h1>{t('旅途成就', 'Travel Achievements')}</h1>
+          <p>{t('走过的每一站，都在悄悄攒成亮晶晶的纪念印章。', 'Every stop along the way turns into a shiny commemorative stamp.')}</p>
         </div>
         <button
           type="button"
           className="primary desktop-badge-create"
           onClick={showBadgeCreator}
         >
-          ＋ 手作一枚纪念章
+          {t('＋ 手作一枚纪念章', '+ Craft a Custom Badge')}
         </button>
       </div>
 
@@ -275,16 +284,16 @@ export default function AchievementsView({
           <div className="passport-level-copy">
             <div className="passport-level-badges">
               <span className="level-pill">Lv.{levelInfo.level} / {levelInfo.maxLevel} · {levelInfo.title}</span>
-              <span className="stamp-counter-pill">已集章 {unlockedPresetCount + badges.length} 枚</span>
+              <span className="stamp-counter-pill">{t(`已集章 ${unlockedPresetCount + badges.length} 枚`, `${unlockedPresetCount + badges.length} Stamps`)}</span>
             </div>
-            <h2 className="passport-desktop-intro">走过的路，每一站都闪闪发光。</h2>
+            <h2 className="passport-desktop-intro">{t('走过的路，每一站都闪闪发光。', 'Every stop you visit shines bright.')}</h2>
             <p className="passport-desktop-intro">{levelInfo.subtitle}</p>
             {/* 手机把当前称号作为主要信息，保留等级徽章与罗盘角标，沿用桌面进度条。 */}
             <div className="passport-mobile-level">
               <div className="passport-mobile-level-main">
                 <div className="passport-mobile-badges">
                   <span className="level-pill passport-mobile-level-number">Lv.{levelInfo.level} / {levelInfo.maxLevel}</span>
-                  <span className="stamp-counter-pill">已集章 {unlockedPresetCount + badges.length} 枚</span>
+                  <span className="stamp-counter-pill">{t(`已集章 ${unlockedPresetCount + badges.length} 枚`, `${unlockedPresetCount + badges.length} Stamps`)}</span>
                 </div>
                 <h2>{levelInfo.title}</h2>
                 <p className="passport-mobile-subtitle">{levelInfo.subtitle}</p>
@@ -300,20 +309,26 @@ export default function AchievementsView({
               <div className="passport-xp-head">
                 <strong>
                   {levelInfo.nextTarget !== null
-                    ? `再点亮 ${levelInfo.remainingCities} 座城市 → 升级 Lv.${levelInfo.level + 1} ${levelInfo.nextTitle}`
-                    : `已达成满级 Lv.${levelInfo.maxLevel} ${levelInfo.title} ✦`}
+                    ? t(
+                      `再点亮 ${levelInfo.remainingCities} 座城市 → 升级 Lv.${levelInfo.level + 1} ${levelInfo.nextTitle}`,
+                      `Light ${levelInfo.remainingCities} more ${levelInfo.remainingCities === 1 ? 'city' : 'cities'} → Lv.${levelInfo.level + 1} ${levelInfo.nextTitle}`,
+                    )
+                    : t(
+                      `已达成满级 Lv.${levelInfo.maxLevel} ${levelInfo.title} ✦`,
+                      `Max Level Reached: Lv.${levelInfo.maxLevel} ${levelInfo.title} ✦`,
+                    )}
                 </strong>
                 <span className="passport-xp-nums">
                   {levelInfo.nextTarget !== null
-                    ? `${levelInfo.visitedCities} / ${levelInfo.nextTarget} 城（${levelInfo.progressPct}%）`
-                    : `已点亮 ${levelInfo.visitedCities} 城 · 100%`}
+                    ? t(`${levelInfo.visitedCities} / ${levelInfo.nextTarget} 城（${levelInfo.progressPct}%）`, `${levelInfo.visitedCities} / ${levelInfo.nextTarget} (${levelInfo.progressPct}%)`)
+                    : t(`已点亮 ${levelInfo.visitedCities} 城 · 100%`, `${levelInfo.visitedCities} cities · 100%`)}
                 </span>
               </div>
               <div className="passport-mobile-progress">
-                <strong>{levelInfo.nextTarget !== null ? `下一站 · Lv.${levelInfo.level + 1} ${levelInfo.nextTitle}` : '已达成满级'}</strong>
-                {levelInfo.nextTarget !== null && <span>还差 {levelInfo.remainingCities} 城</span>}
+                <strong>{levelInfo.nextTarget !== null ? t(`下一站 · Lv.${levelInfo.level + 1} ${levelInfo.nextTitle}`, `Next · Lv.${levelInfo.level + 1} ${levelInfo.nextTitle}`) : t('已达成满级', 'Max Level')}</strong>
+                {levelInfo.nextTarget !== null && <span>{t(`还差 ${levelInfo.remainingCities} 城`, `${levelInfo.remainingCities} to go`)}</span>}
               </div>
-              <div className="passport-xp-track" role="progressbar" aria-valuenow={levelInfo.progressPct} aria-valuemin={0} aria-valuemax={100} aria-label="旅人等级进度">
+              <div className="passport-xp-track" role="progressbar" aria-valuenow={levelInfo.progressPct} aria-valuemin={0} aria-valuemax={100} aria-label={t('旅人等级进度', 'Traveler level progress')}>
                 <span style={{ width: `${Math.max(levelInfo.progressPct, levelInfo.visitedCities > 0 ? 4 : 0)}%` }} />
               </div>
             </div>
@@ -329,7 +344,7 @@ export default function AchievementsView({
         <section className="level-roadmap" aria-labelledby="traveler-roadmap-title">
           <div className="level-roadmap-head">
             <span className="level-roadmap-icon"><TravelIcon name="map" /></span>
-            <h3 id="traveler-roadmap-title">旅人成长路线</h3>
+            <h3 id="traveler-roadmap-title">{t('旅人成长路线', 'Traveler Roadmap')}</h3>
             <button
               type="button"
               className="level-roadmap-toggle"
@@ -337,7 +352,7 @@ export default function AchievementsView({
               aria-controls="traveler-roadmap-steps"
               onClick={() => setRoadmapExpanded((expanded) => !expanded)}
             >
-              {roadmapExpanded ? '收起' : `查看全部 ${levelInfo.maxLevel} 级`}
+              {roadmapExpanded ? t('收起', 'Collapse') : t(`查看全部 ${levelInfo.maxLevel} 级`, `View all ${levelInfo.maxLevel} tiers`)}
               <span aria-hidden="true" />
             </button>
           </div>
@@ -354,7 +369,7 @@ export default function AchievementsView({
                   <span><b>Lv.{levelInfo.level + 1}</b> {levelInfo.nextTitle}</span>
                 </span>
               ) : (
-                <span className="roadmap-mini-node is-done">✦ 已达成满级</span>
+                <span className="roadmap-mini-node is-done">{t('✦ 已达成满级', '✦ Max Level')}</span>
               )}
             </div>
           )}
@@ -374,14 +389,14 @@ export default function AchievementsView({
                 >
                   <div className="level-step-marker">
                     <TravelIcon name={travelerStopIcons[tier.level - 1] ?? 'map'} />
-                    {isReached && <span className="level-step-check" role="img" aria-label="已达成">✓</span>}
+                    {isReached && <span className="level-step-check" role="img" aria-label={t('已达成', 'Reached')}>✓</span>}
                   </div>
                   <div className="level-step-card">
                     <span className="level-step-number">Lv.{tier.level}</span>
-                    {isCurrent && <span className="level-step-status">当前</span>}
-                    {isNext && <span className="level-step-status">下一站</span>}
+                    {isCurrent && <span className="level-step-status">{t('当前', 'Now')}</span>}
+                    {isNext && <span className="level-step-status">{t('下一站', 'Next')}</span>}
                     <strong className="level-step-title">{tier.title}</strong>
-                    <span className="level-step-threshold">{tier.minCities} 座城市</span>
+                    <span className="level-step-threshold">{t(`${tier.minCities} 座城市`, `${tier.minCities} cities`)}</span>
                   </div>
                 </li>
               );
@@ -391,24 +406,24 @@ export default function AchievementsView({
 
         <div className="metric-grid passport-metrics">
           <div className="metric-card metric-sage">
-            <span>已去城市</span>
+            <span>{t('已去城市', 'Visited Cities')}</span>
             <strong>{visited.length}</strong>
-            <small>座城市</small>
+            <small>{t('座城市', 'cities')}</small>
           </div>
           <div className="metric-card metric-peach">
-            <span>累计天数</span>
+            <span>{t('累计天数', 'Travel Days')}</span>
             <strong>{travelDays}</strong>
-            <small>个旅行日</small>
+            <small>{t('个旅行日', 'days')}</small>
           </div>
           <div className="metric-card metric-blue">
-            <span>点亮省份</span>
+            <span>{t('点亮省份', 'Provinces')}</span>
             <strong>{visitedProvinces.size}</strong>
-            <small>个省级行政区</small>
+            <small>{t('个省级行政区', 'regions')}</small>
           </div>
           <div className="metric-card metric-honey">
-            <span>高光时刻</span>
+            <span>{t('高光时刻', 'Highlights')}</span>
             <strong>{highlights.length}</strong>
-            <small>篇珍藏</small>
+            <small>{t('篇珍藏', 'saved')}</small>
           </div>
         </div>
       </section>
@@ -417,13 +432,16 @@ export default function AchievementsView({
       <section className="card warm-badges">
         <div className="card-heading">
           <div>
-            <h2>旅途集章册</h2>
-            <p className="muted">走过城市、拍下照片、录下语音，都会自动点亮对应的贴纸印章。</p>
+            <h2>{t('旅途集章册', 'Stamp Collection')}</h2>
+            <p className="muted">{t('走过城市、拍下照片、录下语音，都会自动点亮对应的贴纸印章。', 'Visiting cities, saving photos, and recording voice notes automatically unlock matching badges.')}</p>
           </div>
           <div className="badge-wall-actions">
-            <span className="badge-wall-counter">已解锁 {unlockedPresetCount} / {presetBadges.length}{badges.length ? ` · 专属 ${badges.length}` : ''}</span>
+            <span className="badge-wall-counter">
+              {t(`已解锁 ${unlockedPresetCount} / ${presetBadges.length}`, `Unlocked ${unlockedPresetCount} / ${presetBadges.length}`)}
+              {badges.length ? t(` · 专属 ${badges.length}`, ` · ${badges.length} custom`) : ''}
+            </span>
             <button type="button" className="secondary mobile-badge-create" onClick={showBadgeCreator}>
-              ＋ 手作纪念章
+              {t('＋ 手作纪念章', '+ Custom Badge')}
             </button>
           </div>
         </div>
@@ -436,14 +454,18 @@ export default function AchievementsView({
             return (
               <div className={`badge-card preset-badge ${unlocked ? 'is-unlocked' : 'locked'}`} key={badge.id}>
                 <span className={`badge-status-pill ${unlocked ? 'is-done' : ''}`}>
-                  {unlocked ? '已点亮 ✦' : `${Math.min(badge.current, badge.threshold)}/${badge.threshold}${badge.unit}`}
+                  {unlocked ? t('已点亮 ✦', 'Unlocked ✦') : `${Math.min(badge.current, badge.threshold)}/${badge.threshold}${badge.unit}`}
                 </span>
                 <AchievementBadgeArt id={badge.id} unlocked={unlocked} />
                 <h3>{badge.title}</h3>
-                <p>{unlocked ? badge.hint : `还差 ${badge.threshold - badge.current} ${badge.unit} · ${badge.hint}`}</p>
+                <p>
+                  {unlocked
+                    ? badge.hint
+                    : t(`还差 ${badge.threshold - badge.current} ${badge.unit} · ${badge.hint}`, `${badge.threshold - badge.current} left · ${badge.hint}`)}
+                </p>
                 {unlocked ? (
                   <button className="text-button badge-poster-btn" onClick={() => void shareBadge(badge.title, badge.symbol, null)}>
-                    生成纪念海报 ↗
+                    {t('生成纪念海报 ↗', 'Download Poster ↗')}
                   </button>
                 ) : (
                   <div className="badge-mini-progress" aria-hidden="true">
@@ -470,24 +492,24 @@ export default function AchievementsView({
           aria-controls="achievement-badge-grid"
           onClick={() => setBadgeWallExpanded((expanded) => !expanded)}
         >
-          <span>{badgeWallExpanded ? '收起预设徽章' : `查看全部 ${presetBadges.length} 枚预设徽章`}</span>
+          <span>{badgeWallExpanded ? t('收起预设徽章', 'Show fewer badges') : t(`查看全部 ${presetBadges.length} 枚预设徽章`, `View all ${presetBadges.length} preset badges`)}</span>
         </button>
 
         <div className="badge-creator" id="badge-creator" tabIndex={-1}>
           <div className="badge-creator-head">
             <div>
-              <h3>手作专属纪念章</h3>
-              <p className="muted">给一次难忘的日落、一场演唱会或一段徒步，定制只属于自己的圆形徽章。</p>
+              <h3>{t('手作专属纪念章', 'Craft a Custom Badge')}</h3>
+              <p className="muted">{t('给一次难忘的日落、一场演唱会或一段徒步，定制只属于自己的圆形徽章。', 'Create a personal round keepsake for an unforgettable sunset, concert, or hike.')}</p>
             </div>
             <CuteSticker kind="stamp" className="creator-stamp-deco" />
           </div>
           <div className="entry-form">
             <label>
-              徽章名称
-              <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={12} placeholder="例如：洱海追风" />
+              {t('徽章名称', 'Badge Name')}
+              <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={24} placeholder={t('例如：洱海追风', 'e.g. Erhai Breeze')} />
             </label>
             <label>
-              徽章图片
+              {t('徽章图片', 'Badge Image')}
               <span className={`file-picker-box ${imageName ? 'has-file' : ''}`}>
                 <input
                   className="file-picker-input"
@@ -497,22 +519,22 @@ export default function AchievementsView({
                   onChange={(event) => setImageName(event.target.files?.[0]?.name ?? '')}
                 />
                 <TravelIcon name="camera" />
-                <span>{imageName || '挑选一张喜欢的图片…'}</span>
+                <span>{imageName || t('挑选一张喜欢的图片…', 'Choose a photo…')}</span>
               </span>
             </label>
             <label>
-              关联高光记录
+              {t('关联高光记录', 'Link Highlight Entry')}
               <select value={linkedEntryId} onChange={(event) => setLinkedEntryId(event.target.value)}>
-                <option value="">不关联</option>
+                <option value="">{t('不关联', 'None')}</option>
                 {highlights.map((entry) => (
                   <option key={entry.id} value={entry.id}>
-                    {marks.find((mark) => mark.id === entry.cityCode)?.name ?? '城市'} · {entry.date}
+                    {marks.find((mark) => mark.id === entry.cityCode)?.name ?? t('城市', 'City')} · {entry.date}
                   </option>
                 ))}
               </select>
             </label>
           </div>
-          <button className="primary" onClick={() => void createBadge()}>收入我的集章册</button>
+          <button className="primary" onClick={() => void createBadge()}>{t('收入我的集章册', 'Add to Collection')}</button>
         </div>
       </section>
 
@@ -520,10 +542,10 @@ export default function AchievementsView({
       <section className="warm-highlights">
         <div className="card-heading">
           <div>
-            <h2>想再看一遍的高光时刻</h2>
-            <p className="muted">把最心动的一页设为高光，做成贴在墙上的拍立得。</p>
+            <h2>{t('想再看一遍的高光时刻', 'Highlight Moments')}</h2>
+            <p className="muted">{t('把最心动的一页设为高光，做成贴在墙上的拍立得。', 'Star your favorite journal moments to display them like Polaroids on the wall.')}</p>
           </div>
-          <span>{highlights.length} 个高光时刻</span>
+          <span>{t(`${highlights.length} 个高光时刻`, `${highlights.length} highlights`)}</span>
         </div>
         {highlights.length ? (
           <div className="warm-highlight-grid">
@@ -535,12 +557,12 @@ export default function AchievementsView({
                     media.find((item) => item.kind === 'photo' && item.entryId === entry.id)
                     ?? media.find((item) => item.kind === 'photo' && item.placeId === entry.placeId)
                   }
-                  label={entry.place || '旅途高光'}
+                  label={entry.place || t('旅途高光', 'Highlight')}
                 />
                 <div>
-                  <h3>{entry.place || marks.find((mark) => mark.id === entry.cityCode)?.name || '旅途高光'}</h3>
-                  <p>{entry.note || '翻开这一页，再看一遍当时的风景。'}</p>
-                  <small>{entry.date} · 查看高光 ↗</small>
+                  <h3>{entry.place || marks.find((mark) => mark.id === entry.cityCode)?.name || t('旅途高光', 'Highlight')}</h3>
+                  <p>{entry.note || t('翻开这一页，再看一遍当时的风景。', 'Open this page to revisit the view.')}</p>
+                  <small>{entry.date} · {t('查看高光 ↗', 'View ↗')}</small>
                 </div>
               </button>
             ))}
@@ -549,8 +571,8 @@ export default function AchievementsView({
           <div className="warm-empty-note highlight-empty-card">
             <HighlightEmptyArt />
             <div>
-              <strong>高光墙正虚位以待</strong>
-              <p>在「旅行手账」打开任意地点回忆并勾选“设为高光时刻”，最喜欢的瞬间就会变成拍立得挂在这里。</p>
+              <strong>{t('高光墙正虚位以待', 'Your Highlight Wall awaits')}</strong>
+              <p>{t('在「旅行手账」打开任意地点回忆并勾选“设为高光时刻”，最喜欢的瞬间就会变成拍立得挂在这里。', 'Open any place memory in Travel Journal and check "Mark as Highlight" to pin it here.')}</p>
             </div>
           </div>
         )}
@@ -560,17 +582,17 @@ export default function AchievementsView({
       <section className="card warm-year-review">
         <div className="card-heading">
           <div>
-            <h2>旅行时间轴 & 回忆百宝箱</h2>
-            <p className="muted">按年份翻阅你的出发节奏与收藏统计。</p>
+            <h2>{t('旅行时间轴 & 回忆百宝箱', 'Travel Timeline & Keepsakes')}</h2>
+            <p className="muted">{t('按年份翻阅你的出发节奏与收藏统计。', 'Browse your travel cadence and keepsakes by year.')}</p>
           </div>
-          <span>{yearly.length ? `记录了 ${yearly.length} 个年份` : '随时开始记录'}</span>
+          <span>{yearly.length ? t(`记录了 ${yearly.length} 个年份`, `${yearly.length} ${yearly.length === 1 ? 'year' : 'years'} logged`) : t('随时开始记录', 'Ready to begin')}</span>
         </div>
 
         <div className="memory-treasure-strip">
-          <div className="treasure-chip chip-peach"><span>📷 珍藏照片</span><strong>{photoCount}</strong></div>
-          <div className="treasure-chip chip-blue"><span>🎬 旅途视频</span><strong>{videoCount}</strong></div>
-          <div className="treasure-chip chip-lilac"><span>🎙 语音评语</span><strong>{audioCount}</strong></div>
-          <div className="treasure-chip chip-sage"><span>🧳 完成旅程</span><strong>{completedTrips.length}</strong></div>
+          <div className="treasure-chip chip-peach"><span>📷 {t('珍藏照片', 'Photos')}</span><strong>{photoCount}</strong></div>
+          <div className="treasure-chip chip-blue"><span>🎬 {t('旅途视频', 'Videos')}</span><strong>{videoCount}</strong></div>
+          <div className="treasure-chip chip-lilac"><span>🎙 {t('语音评语', 'Voice Notes')}</span><strong>{audioCount}</strong></div>
+          <div className="treasure-chip chip-sage"><span>🧳 {t('完成旅程', 'Trips')}</span><strong>{completedTrips.length}</strong></div>
         </div>
 
         {yearly.length ? (
@@ -580,7 +602,7 @@ export default function AchievementsView({
                 <i />
                 <div className="timeline-year-head">
                   <strong>{year}</strong>
-                  <span className="year-days-pill">{count} 个旅行日</span>
+                  <span className="year-days-pill">{t(`${count} 个旅行日`, `${count} travel ${count === 1 ? 'day' : 'days'}`)}</span>
                 </div>
                 <div className="warm-year-photos">
                   {media
@@ -596,7 +618,7 @@ export default function AchievementsView({
         ) : (
           <div className="timeline-empty-note">
             <CuteSticker kind="plane" className="timeline-empty-plane" />
-            <p>点亮第一座城市或保存一段旅程后，这里会自动按年份铺开你的旅行时间轴。</p>
+            <p>{t('点亮第一座城市或保存一段旅程后，这里会自动按年份铺开你的旅行时间轴。', 'Light up your first city or save a trip to automatically build your yearly travel timeline.')}</p>
           </div>
         )}
       </section>

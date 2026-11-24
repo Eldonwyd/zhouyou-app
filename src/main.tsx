@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { syncThemeColor } from './theme';
 import './style.css';
 import './refine.css';
 import './warm.css';
@@ -15,6 +16,9 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </React.StrictMode>,
 );
+
+// 挂载后同步状态栏颜色与图标深浅（兼容 Capacitor 原生端与 PWA 浏览器）。
+requestAnimationFrame(() => syncThemeColor());
 
 // Service workers need a secure origin. Vite's localhost and HTTPS both qualify.
 if ('serviceWorker' in navigator) {

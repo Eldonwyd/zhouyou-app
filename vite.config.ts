@@ -1,4 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig, type Connect, type Plugin } from 'vite';
+
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version?: string };
+const appVersion = String(pkg.version || '1.0.0');
 
 /** 每个开发网页直接处理规划 API，避免依赖另一个开发进程占用的固定端口。 */
 function plannerApiPlugin(): Plugin {
@@ -26,6 +30,9 @@ function plannerApiPlugin(): Plugin {
 // A relative base lets the static build work under a subdirectory as well as a domain root.
 export default defineConfig({
   base: './',
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
   plugins: [plannerApiPlugin()],
   server: { host: '0.0.0.0' },
   build: { target: 'es2022' },

@@ -1004,8 +1004,26 @@ input, select, textarea { border-radius: 10px; }
 
 .planner-workspace > .content-page { padding-top: 18px; }
 .planner-discovery-form .heading-actions,
-.planner-create .heading-actions { margin-top: 20px; }
-.planner-input-grid { align-items: start; }
+.planner-create .heading-actions { margin-top: 16px; }
+.planner-input-grid { align-items: end; }
+/* 输入控件不继承 label 的加粗字重，整体更清秀耐看。 */
+.planner-workspace input,
+.planner-workspace select,
+.planner-workspace textarea {
+  font-weight: 450;
+  letter-spacing: 0.005em;
+}
+.planner-workspace input::placeholder,
+.planner-workspace textarea::placeholder {
+  font-weight: 400;
+  color: var(--muted);
+  opacity: .72;
+}
+.planner-date-hint {
+  margin: 4px 0 10px;
+  font-size: 12px;
+  line-height: 1.4;
+}
 .planner-workspace .planner-luggage-field { max-width: 245px; margin: 0 0 14px; }
 .planner-activity .planner-luggage-note { color: var(--ink-2); font-size: 12.5px; }
 .planner-luggage-note a { color: var(--link); white-space: nowrap; }
@@ -3327,4 +3345,154 @@ input, select, textarea { border-radius: 10px; }
 .demo-active-bar button {
   padding: 6px 12px;
   font-size: 12.5px;
+}
+
+/* ---------- 应用版本检查与一键更新（手机端 / 电脑端） ---------- */
+.nav-item .nav-icon {
+  position: relative;
+}
+.nav-update-dot {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e14b3c;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.app-update-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+  margin: 10px 18px 0;
+  padding: 10px 15px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--warm-green, #2f7d57) 30%, var(--line));
+  background: color-mix(in srgb, var(--app-sage, #eef7f1) 76%, var(--surface));
+  font-size: 13px;
+  color: var(--ink);
+}
+.app-update-top-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.app-update-top-actions > .primary {
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: 12px;
+}
+.app-update-card {
+  margin-bottom: 18px;
+  padding: 18px 20px;
+}
+.app-update-head {
+  align-items: flex-start;
+  gap: 10px 14px;
+  margin-bottom: 12px;
+}
+.app-update-head h2 {
+  margin: 0 0 4px;
+}
+.app-update-head p {
+  margin: 0;
+  font-size: 12.5px;
+}
+.app-update-ver-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink-2, var(--ink));
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.app-update-banner-box {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 13px;
+  border: 1px solid color-mix(in srgb, var(--warm-green, #2f7d57) 34%, var(--line));
+  background: color-mix(in srgb, var(--app-sage, #eef7f1) 58%, var(--surface));
+}
+.app-update-banner-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.app-update-banner-top strong {
+  font-size: 14px;
+  color: var(--ink);
+}
+.app-update-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+.app-update-notes {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-2, var(--ink));
+  white-space: pre-line;
+}
+.app-update-progress {
+  margin: 0 0 12px;
+  display: grid;
+  gap: 7px;
+}
+.app-update-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--ink-2, var(--ink));
+}
+.app-update-progress-head strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.app-update-progress-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.app-update-progress-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--warm-green, #3a7d5c), #61b289);
+  transition: width .18s ease;
+}
+.app-update-status-note {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  color: var(--warm-green, var(--teal));
+  font-weight: 600;
+}
+.app-update-error {
+  margin: 0 0 10px;
+}
+.app-update-actions {
+  gap: 8px;
+}
+@media (max-width: 600px) {
+  .app-update-top-bar {
+    margin: 8px 12px 0;
+    padding: 9px 12px;
+    font-size: 12.5px;
+  }
+  .app-update-card {
+    padding: 15px 14px;
+    margin-bottom: 14px;
+  }
 }

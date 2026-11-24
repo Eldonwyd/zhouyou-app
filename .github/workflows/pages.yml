@@ -58,6 +58,7 @@ jobs:
                   .map((r) => ({
                     tag_name: r.tag_name,
                     name: r.name,
+                    body: String(r.body || "").slice(0, 1200),
                     draft: Boolean(r.draft),
                     prerelease: Boolean(r.prerelease),
                     html_url: r.html_url,

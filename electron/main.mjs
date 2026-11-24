@@ -1,5 +1,7 @@
-import { app, BrowserWindow, dialog, Menu, shell } from 'electron';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
+import { spawn } from 'node:child_process';
+import { createWriteStream } from 'node:fs';
+import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +16,133 @@ let mainWindow = null;
 let server = null;
 let activePort = DEFAULT_PORT;
 let lanSharing = false;
+let activeUpdateController = null;
+
+function isTrustedUpdateUrl(rawUrl) {
+  try {
+    const u = new URL(String(rawUrl || ''));
+    if (u.protocol !== 'https:') return false;
+    const host = u.hostname.toLowerCase();
+    if (host === 'github.com') return u.pathname.toLowerCase().startsWith('/eldonwyd/zhouyou-app/');
+    return (
+      host === 'objects.githubusercontent.com' ||
+      host === 'release-assets.githubusercontent.com' ||
+      host === 'github-releases.githubusercontent.com'
+    );
+  } catch {
+    return false;
+  }
+}
+
+function sendUpdateProgress(payload) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('zhouyou:update-progress', payload);
+  }
+}
+
+function setupUpdateIpc() {
+  ipcMain.on('zhouyou:get-app-version', (event) => {
+    event.returnValue = app.getVersion();
+  });
+
+  ipcMain.handle('zhouyou:cancel-update', () => {
+    activeUpdateController?.abort();
+    activeUpdateController = null;
+  });
+
+  ipcMain.handle('zhouyou:download-update', async (_event, payload) => {
+    const url = String(payload?.url || '');
+    if (!isTrustedUpdateUrl(url)) {
+      return { ok: false, error: '无效的更新包下载地址' };
+    }
+    const rawName = path.basename(String(payload?.fileName || 'zhouyou-update.bin'));
+    const safeName = rawName.replace(/[^A-Za-z0-9._-]/g, '_') || 'zhouyou-update.bin';
+    const updatesDir = path.join(app.getPath('temp'), 'zhouyou-updates');
+    const filePath = path.join(updatesDir, safeName);
+
+    activeUpdateController?.abort();
+    const controller = new AbortController();
+    activeUpdateController = controller;
+
+    try {
+      await mkdir(updatesDir, { recursive: true });
+      sendUpdateProgress({ state: 'downloading', percent: 0, receivedBytes: 0, totalBytes: 0 });
+
+      const response = await fetch(url, {
+        redirect: 'follow',
+        headers: { 'User-Agent': `Zhouyou-Map/${app.getVersion()}` },
+        signal: controller.signal,
+      });
+      if (!response.ok || !response.body) {
+        throw new Error(`下载失败（HTTP ${response.status}）`);
+      }
+
+      const totalBytes = Number(response.headers.get('content-length') || 0);
+      let receivedBytes = 0;
+      let lastEmit = 0;
+
+      const out = createWriteStream(filePath);
+      const reader = response.body.getReader();
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          receivedBytes += value.byteLength;
+          if (!out.write(Buffer.from(value))) {
+            await new Promise((resolve) => out.once('drain', resolve));
+          }
+          const now = Date.now();
+          if (now - lastEmit >= 120 || (totalBytes > 0 && receivedBytes >= totalBytes)) {
+            lastEmit = now;
+            const percent = totalBytes > 0 ? Math.min(99, Math.round((receivedBytes / totalBytes) * 100)) : 0;
+            sendUpdateProgress({ state: 'downloading', percent, receivedBytes, totalBytes });
+          }
+        }
+        await new Promise((resolve, reject) => {
+          out.end((err) => (err ? reject(err) : resolve()));
+        });
+      } catch (err) {
+        out.destroy();
+        await rm(filePath, { force: true }).catch(() => undefined);
+        throw err;
+      } finally {
+        reader.releaseLock();
+      }
+
+      sendUpdateProgress({ state: 'installing', percent: 100, receivedBytes, totalBytes: totalBytes || receivedBytes, filePath });
+
+      if (process.platform === 'win32' && /\.exe$/i.test(safeName)) {
+        // 启动 Windows 安装程序并关闭当前进程，便于原地覆盖升级并保留用户数据。
+        const child = spawn(filePath, [], { detached: true, stdio: 'ignore' });
+        child.unref();
+        setTimeout(() => app.quit(), 700);
+      } else if (process.platform === 'darwin') {
+        const openError = await shell.openPath(filePath);
+        if (openError) throw new Error(openError);
+      } else {
+        if (/\.AppImage$/i.test(safeName)) {
+          await chmod(filePath, 0o755).catch(() => undefined);
+          shell.showItemInFolder(filePath);
+        } else {
+          const openError = await shell.openPath(filePath);
+          if (openError) shell.showItemInFolder(filePath);
+        }
+      }
+
+      return { ok: true, filePath };
+    } catch (error) {
+      if (controller.signal.aborted) {
+        sendUpdateProgress({ state: 'cancelled' });
+        return { ok: false, cancelled: true };
+      }
+      const message = error instanceof Error ? error.message : '下载更新失败';
+      sendUpdateProgress({ state: 'error', error: message });
+      return { ok: false, error: message };
+    } finally {
+      if (activeUpdateController === controller) activeUpdateController = null;
+    }
+  });
+}
 
 function getPrefsPath() {
   return path.join(app.getPath('userData'), 'desktop-prefs.json');
@@ -202,8 +331,16 @@ function buildAppMenu() {
       label: '帮助',
       submenu: [
         {
-          label: '下载最新版本 / 检查更新',
-          click: () => void shell.openExternal(RELEASES_URL),
+          label: '检查更新',
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.show();
+              mainWindow.focus();
+              mainWindow.webContents.send('zhouyou:open-updater');
+            } else {
+              void shell.openExternal(RELEASES_URL);
+            }
+          },
         },
         {
           label: '访问 GitHub 仓库',
@@ -273,6 +410,7 @@ if (!singleLock) {
 
   app.whenReady().then(async () => {
     app.setName('周游地图');
+    setupUpdateIpc();
     await loadPrefs();
     await startEmbeddedServer();
     buildAppMenu();

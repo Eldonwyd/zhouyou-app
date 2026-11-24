@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from 'react';
 import { getMediaBlob, getMediaPreview } from '../db';
+import { useI18n } from '../i18n';
 import type { TravelMedia } from '../types';
 
 /** 图标沿用轻线条笔触，使用内联 SVG，无需联网加载图标字体。 */
@@ -10,6 +11,10 @@ export function TravelIcon({ name }: { name: string }) {
     plan: 'M4 5h16v16H4Zm4-3v6m8-6v6M4 11h16m-12 4h2m4 0h2',
     achievements: 'M12 2a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm-4 13-2 7 6-3 6 3-2-7',
     profile: 'M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM4 22v-3a8 8 0 0 1 16 0v3',
+    settings: 'M12 8.75a3.25 3.25 0 1 0 0 6.5 3.25 3.25 0 0 0 0-6.5Zm7.4 4.25a7.5 7.5 0 0 0 .06-1 7.5 7.5 0 0 0-.06-1l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.3 7.3 0 0 0-1.73-1l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54a7.3 7.3 0 0 0-1.73 1l-2.39-.96a.5.5 0 0 0-.61.22L2.45 8.78a.5.5 0 0 0 .12.64L4.6 11a7.5 7.5 0 0 0-.06 1c0 .34.02.67.06 1l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .61.22l2.39-.96c.53.41 1.11.75 1.73 1l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54c.62-.25 1.2-.59 1.73-1l2.39.96a.5.5 0 0 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64L19.4 13Z',
+    globe: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z',
+    palette: 'M12 3a9 9 0 0 0 0 18h1.5a2.5 2.5 0 0 0 0-5H13a1.5 1.5 0 0 1 0-3h3a5 5 0 0 0 5-5c0-2.8-4-5-9-5Zm-4.5 7a1 1 0 1 1 0 .01M10 6.5a1 1 0 1 1 0 .01M14.5 6.5a1 1 0 1 1 0 .01',
+    server: 'M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5Zm0 10a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4Zm4-8h.01M8 17h.01',
     leaf: 'M19 3C5 1 1 10 7 16s15 2 12-13ZM5 21 16 8m-8 7 1-6m3 3h5',
     sun: 'M12 6a6 6 0 1 0 0 12 6 6 0 0 0 0-12Zm0-5v3m0 16v3M1 12h3m16 0h3M4 4l2 2m12 12 2 2M4 20l2-2M18 6l2-2',
     mountain: 'm2 20 8-16 5 9 3-5 5 12Zm4-8 4 3 3-3',
@@ -23,7 +28,9 @@ export function TravelIcon({ name }: { name: string }) {
 }
 
 /** 封面只使用用户自己的照片；没有照片时显示可爱手账风风景插画，绝不伪造实拍照片。 */
-export function TravelCover({ media, label = '等待下一次出发', full = false }: { media?: TravelMedia; label?: string; full?: boolean }) {
+export function TravelCover({ media, label, full = false }: { media?: TravelMedia; label?: string; full?: boolean }) {
+  const { t } = useI18n();
+  const displayLabel = label === undefined ? t('等待下一次出发', 'Ready for the next journey') : label;
   const [url, setUrl] = useState('');
   const uid = useId().replace(/:/g, '');
   useEffect(() => {
@@ -40,7 +47,7 @@ export function TravelCover({ media, label = '等待下一次出发', full = fal
   return (
     <div className={`travel-cover ${url ? 'has-photo' : 'illustrated'}`}>
       {url ? (
-        <img src={url} alt={label} loading="lazy" />
+        <img src={url} alt={displayLabel} loading="lazy" />
       ) : (
         <>
           <svg className="cover-art-svg" viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
@@ -124,7 +131,7 @@ export function TravelCover({ media, label = '等待下一次出发', full = fal
 
             <path d="M-20 326C150 272 318 268 660 324v56H-20Z" fill="var(--cover-hill-near, #53a677)" />
           </svg>
-          <span className="cover-caption">{label}</span>
+          <span className="cover-caption">{displayLabel}</span>
         </>
       )}
     </div>

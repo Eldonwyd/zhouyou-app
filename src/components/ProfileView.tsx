@@ -2,16 +2,25 @@ import { useEffect, useRef, useState } from 'react';
 import type { AppSnapshot, LocalProfile } from '../types';
 import { exportBackup, importBackup } from '../backup';
 import { getPlannerApiOrigin, setPlannerApiOrigin } from '../api-base';
+import { APPEARANCE_STYLES, useAppearanceStyle, useThemeMode } from '../theme';
+import { applyLanguage, useI18n, type AppLanguage } from '../i18n';
 import { TravelIcon } from './TravelArt';
 import { AVATAR_PRESETS, CuteSticker, TravelAvatar, getTravelerLevel } from './CuteArt';
 import AppearanceSettings from './AppearanceSettings';
 import OfflineMapSettings from './OfflineMapSettings';
+import AppUpdateCard from './AppUpdateCard';
+import type { AppUpdateInfo } from '../app-updater';
 
 interface ProfileViewProps {
   snapshot: AppSnapshot;
   activeProvinceCode: string | null;
+  resetSettingsToken?: number;
   demoMode?: boolean;
   demoBusy?: boolean;
+  availableUpdate?: AppUpdateInfo | null;
+  updateFocusToken?: number;
+  updateCheckToken?: number;
+  onUpdateFound?: (info: AppUpdateInfo | null) => void;
   onLoadDemo?: () => void;
   onClearDemo?: () => void;
   onSaveProfile: (profile: LocalProfile) => Promise<void>;
@@ -20,7 +29,8 @@ interface ProfileViewProps {
   onNotice: (message: string) => void;
 }
 
-const DEFAULT_MOTTO = '把喜欢的风和日落，悄悄夹进旅行小册子 ✨';
+const DEFAULT_MOTTO_ZH = '把喜欢的风和日落，悄悄夹进旅行小册子 ✨';
+const DEFAULT_MOTTO_EN = 'Tucking favorite breezes and sunsets into my travel booklet ✨';
 
 function readableBytes(bytes: number): string {
   if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
@@ -28,11 +38,42 @@ function readableBytes(bytes: number): string {
   return `${Math.ceil(bytes / 1024)} KB`;
 }
 
-export default function ProfileView({ snapshot, activeProvinceCode, demoMode, demoBusy, onLoadDemo, onClearDemo, onSaveProfile, onImported, onError, onNotice }: ProfileViewProps) {
+export default function ProfileView({
+  snapshot,
+  activeProvinceCode,
+  resetSettingsToken,
+  demoMode,
+  demoBusy,
+  availableUpdate,
+  updateFocusToken,
+  updateCheckToken,
+  onUpdateFound,
+  onLoadDemo,
+  onClearDemo,
+  onSaveProfile,
+  onImported,
+  onError,
+  onNotice,
+}: ProfileViewProps) {
+  const { lang, isEn, locale, t } = useI18n();
+  const appearanceId = useAppearanceStyle();
+  const themeMode = useThemeMode();
+
   const savedProfile = snapshot.profile[0];
+  const defaultNickname = t('旅行者', 'Traveler');
+  const defaultMotto = isEn ? DEFAULT_MOTTO_EN : DEFAULT_MOTTO_ZH;
+  const displaySavedNickname = savedProfile?.nickname && savedProfile.nickname !== '旅行者'
+    ? savedProfile.nickname
+    : (savedProfile?.nickname ? defaultNickname : defaultNickname);
+  const displaySavedMotto = savedProfile?.motto && savedProfile.motto !== DEFAULT_MOTTO_ZH
+    ? savedProfile.motto
+    : defaultMotto;
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [pendingSectionId, setPendingSectionId] = useState<string | null>(null);
   const [nickname, setNickname] = useState(savedProfile?.nickname ?? '旅行者');
   const [avatar, setAvatar] = useState(savedProfile?.avatar ?? 'bear');
-  const [motto, setMotto] = useState(savedProfile?.motto ?? DEFAULT_MOTTO);
+  const [motto, setMotto] = useState(savedProfile?.motto ?? DEFAULT_MOTTO_ZH);
   const [storageEstimate, setStorageEstimate] = useState<{ usage: number; quota: number } | null>(null);
   const [backupAction, setBackupAction] = useState<'export' | 'import' | null>(null);
   const [editing, setEditing] = useState(false);
@@ -46,7 +87,7 @@ export default function ProfileView({ snapshot, activeProvinceCode, demoMode, de
   useEffect(() => {
     setNickname(savedProfile?.nickname ?? '旅行者');
     setAvatar(savedProfile?.avatar ?? 'bear');
-    setMotto(savedProfile?.motto ?? DEFAULT_MOTTO);
+    setMotto(savedProfile?.motto ?? DEFAULT_MOTTO_ZH);
   }, [savedProfile]);
 
   useEffect(() => {
@@ -55,19 +96,75 @@ export default function ProfileView({ snapshot, activeProvinceCode, demoMode, de
       .catch(() => undefined);
   }, [snapshot.media.length]);
 
+  useEffect(() => {
+    if (resetSettingsToken) setSettingsOpen(false);
+  }, [resetSettingsToken]);
+
+  useEffect(() => {
+    if (updateFocusToken) {
+      setEditing(false);
+      setSettingsOpen(true);
+      setPendingSectionId('app-update-card');
+    }
+  }, [updateFocusToken]);
+
+  useEffect(() => {
+    if (!settingsOpen || !pendingSectionId) return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById(pendingSectionId);
+      if (target) {
+        target.scrollIntoView({
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+          block: 'start',
+        });
+        if (pendingSectionId === 'travel-data-backup') target.focus({ preventScroll: true });
+      }
+      setPendingSectionId(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [settingsOpen, pendingSectionId]);
+
+  function openSettings(sectionId?: string): void {
+    setEditing(false);
+    setSettingsOpen(true);
+    if (sectionId) {
+      setPendingSectionId(sectionId);
+    } else {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  }
+
+  function scrollToSettingsSection(sectionId: string): void {
+    const target = document.getElementById(sectionId);
+    if (!target) return;
+    target.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+      block: 'start',
+    });
+  }
+
+  function handleLanguageSelect(next: AppLanguage): void {
+    if (next === lang) return;
+    applyLanguage(next);
+    onNotice(next === 'en' ? 'Language switched to English.' : '已切换为简体中文。');
+  }
+
   const visitedCityCount = snapshot.marks.filter((m) => m.visited).length;
   const photoCount = snapshot.media.filter((item) => item.kind === 'photo').length;
   const videoCount = snapshot.media.filter((item) => item.kind === 'video').length;
   const audioCount = snapshot.media.filter((item) => item.kind === 'audio').length;
-  const levelInfo = getTravelerLevel(visitedCityCount, snapshot.entries.length);
+  const levelInfo = getTravelerLevel(visitedCityCount, snapshot.entries.length, lang);
   const profileStats = [
-    { icon: '📍', count: visitedCityCount, unit: '座城市' },
-    { icon: '🧳', count: snapshot.trips.length, unit: '段旅行' },
-    { icon: '📷', count: photoCount, unit: '张照片' },
+    { icon: '📍', count: visitedCityCount, unit: t('座城市', 'Cities') },
+    { icon: '🧳', count: snapshot.trips.length, unit: t('段旅行', 'Trips') },
+    { icon: '📷', count: photoCount, unit: t('张照片', 'Photos') },
   ];
 
   const backupHealthy = Boolean(lastBackup && (Date.now() - Date.parse(lastBackup)) < 30 * 86_400_000);
   const storagePct = storageEstimate?.quota ? Math.min(100, Math.max(3, (storageEstimate.usage / storageEstimate.quota) * 100)) : 0;
+
+  const activeStyleMeta = APPEARANCE_STYLES.find((item) => item.id === appearanceId) ?? APPEARANCE_STYLES[0];
+  const themeModeLabel = themeMode === 'light' ? t('浅色', 'Light') : themeMode === 'dark' ? t('深色', 'Dark') : t('跟随系统', 'System');
 
   async function saveMyProfile(): Promise<void> {
     try {
@@ -75,12 +172,12 @@ export default function ProfileView({ snapshot, activeProvinceCode, demoMode, de
         id: 'profile',
         nickname: nickname.trim() || '旅行者',
         avatar,
-        motto: motto.trim() || DEFAULT_MOTTO,
+        motto: motto.trim() || DEFAULT_MOTTO_ZH,
       });
       setEditing(false);
-      onNotice('旅人名片已更新。');
+      onNotice(t('旅人名片已更新。', 'Traveler card updated.'));
     } catch (error: unknown) {
-      onError(error instanceof Error ? error.message : '保存失败');
+      onError(error instanceof Error ? error.message : t('保存失败', 'Failed to save'));
     }
   }
 
@@ -92,9 +189,9 @@ export default function ProfileView({ snapshot, activeProvinceCode, demoMode, de
       const time = new Date().toISOString();
       try { localStorage.setItem('travel-last-backup', time); } catch { /* 当前页面仍可显示导出时间。 */ }
       setLastBackup(time);
-      onNotice('完整备份文件已生成。');
+      onNotice(t('完整备份文件已生成。', 'Full backup archive downloaded.'));
     } catch (error) {
-      onError(error instanceof Error ? error.message : '导出失败');
+      onError(error instanceof Error ? error.message : t('导出失败', 'Export failed'));
     } finally {
       setBackupAction(null);
     }
@@ -108,13 +205,15 @@ export default function ProfileView({ snapshot, activeProvinceCode, demoMode, de
     setBackupAction('import');
     try {
       const imported = await importBackup(file, (data) => window.confirm(
-        `将导入「${file.name}」，包含 ${data.trips.length} 段旅行、${data.entries.length} 篇手账、${data.places.length} 处地点、${data.aiPlans.length} 份 AI 计划、${data.media.length} 个媒体文件。\n\n此操作会覆盖当前浏览器的全部旅行数据。确认覆盖吗？`,
+        isEn
+          ? `Import "${file.name}" with ${data.trips.length} trips, ${data.entries.length} entries, ${data.places.length} places, ${data.aiPlans.length} AI plans, and ${data.media.length} media files?\n\nThis will overwrite all travel data in this browser. Continue?`
+          : `将导入「${file.name}」，包含 ${data.trips.length} 段旅行、${data.entries.length} 篇手账、${data.places.length} 处地点、${data.aiPlans.length} 份 AI 计划、${data.media.length} 个媒体文件。\n\n此操作会覆盖当前浏览器的全部旅行数据。确认覆盖吗？`,
       ));
       if (!imported) return;
       onImported(imported);
-      onNotice('备份已导入，旅行记录和媒体已恢复。');
+      onNotice(t('备份已导入，旅行记录和媒体已恢复。', 'Backup imported. Travel records and media restored.'));
     } catch (error) {
-      onError(error instanceof Error ? error.message : '导入失败');
+      onError(error instanceof Error ? error.message : t('导入失败', 'Import failed'));
     } finally {
       setBackupAction(null);
     }
@@ -125,33 +224,236 @@ export default function ProfileView({ snapshot, activeProvinceCode, demoMode, de
       const saved = setPlannerApiOrigin(apiOrigin);
       setApiOrigin(saved);
       if (!saved) {
-        onNotice('已恢复使用当前地址的本地 AI 服务。');
+        onNotice(t('已恢复使用当前地址的本地 AI 服务。', 'Restored default local AI server.'));
         return;
       }
       setTestingApi(true);
       try {
         const res = await fetch(`${saved}/api/planner/health`, { signal: AbortSignal.timeout(5000) });
-        if (res.ok) onNotice(`已保存并连上远程 AI 服务：${saved}`);
-        else onNotice(`已保存地址（返回状态 ${res.status}），请确认服务端已启动。`);
+        if (res.ok) onNotice(t(`已保存并连上远程 AI 服务：${saved}`, `Saved and connected to remote AI server: ${saved}`));
+        else onNotice(t(`已保存地址（返回状态 ${res.status}），请确认服务端已启动。`, `Address saved (HTTP ${res.status}). Make sure the server is running.`));
       } catch {
-        onNotice('地址已保存，但暂时未能连通，请确认电脑端或服务器已启动且在同一网络下。');
+        onNotice(t('地址已保存，但暂时未能连通，请确认电脑端或服务器已启动且在同一网络下。', 'Address saved, but could not connect yet. Ensure the server is running on the same network.'));
       } finally {
         setTestingApi(false);
       }
     } catch (error) {
-      onError(error instanceof Error ? error.message : '地址格式无效');
+      onError(error instanceof Error ? error.message : t('地址格式无效', 'Invalid URL format'));
     }
+  }
+
+  if (settingsOpen) {
+    const quickNavItems = [
+      { id: 'settings-language', label: t('语言', 'Language') },
+      { id: 'settings-appearance', label: t('页面外观', 'Appearance') },
+      { id: 'travel-data-backup', label: t('数据导出与导入', 'Backup & Export') },
+      { id: 'settings-offline-maps', label: t('离线地图', 'Offline Maps') },
+      { id: 'app-update-card', label: t('应用更新', 'Updates') },
+      { id: 'settings-more', label: t('更多', 'More') },
+    ];
+
+    return (
+      <div className="content-page warm-profile profile-settings-view">
+        <div className="section-heading settings-view-header">
+          <div>
+            <button
+              type="button"
+              className="secondary settings-back-btn"
+              onClick={() => {
+                setSettingsOpen(false);
+                window.scrollTo({ top: 0, behavior: 'auto' });
+              }}
+            >
+              <span aria-hidden="true">←</span> {t('返回个人中心', 'Back to Profile')}
+            </button>
+            <h1>{t('设置', 'Settings')}</h1>
+            <p>{t('切换界面语言、调整页面风格与明暗模式、导出导入备份及管理离线地图与服务。', 'Switch language, customize appearance & theme, export or import backups, and manage offline maps & services.')}</p>
+          </div>
+        </div>
+
+        <nav className="settings-quick-nav" aria-label={t('设置分组', 'Settings sections')}>
+          {quickNavItems.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className="settings-quick-pill"
+              onClick={() => scrollToSettingsSection(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        {/* 1. 语言设置 */}
+        <section id="settings-language" className="card settings-language-card" aria-labelledby="settings-language-title">
+          <div className="card-heading">
+            <div>
+              <h2 id="settings-language-title">{t('语言 / Language', 'Language / 语言')}</h2>
+              <p className="muted">{t('选择应用界面语言，切换后立即生效并保存在本机。', 'Choose the app display language. Changes apply immediately and save locally.')}</p>
+            </div>
+            <span className="appearance-autosave-pill">{t('即时生效 · 自动保存', 'Instant · Auto-saved')}</span>
+          </div>
+          <div className="language-option-grid" role="radiogroup" aria-label={t('界面语言', 'Display language')}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={lang === 'zh'}
+              className={`language-option-card ${lang === 'zh' ? 'selected' : ''}`}
+              onClick={() => handleLanguageSelect('zh')}
+            >
+              <span className="language-option-badge" aria-hidden="true">中</span>
+              <span className="language-option-copy">
+                <strong>简体中文</strong>
+                <small>Chinese (Simplified)</small>
+              </span>
+              {lang === 'zh' && <span className="appearance-check" aria-hidden="true">✓</span>}
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={lang === 'en'}
+              className={`language-option-card ${lang === 'en' ? 'selected' : ''}`}
+              onClick={() => handleLanguageSelect('en')}
+            >
+              <span className="language-option-badge" aria-hidden="true">EN</span>
+              <span className="language-option-copy">
+                <strong>English</strong>
+                <small>英文界面</small>
+              </span>
+              {lang === 'en' && <span className="appearance-check" aria-hidden="true">✓</span>}
+            </button>
+          </div>
+        </section>
+
+        {/* 2. 页面外观与主题 */}
+        <AppearanceSettings />
+
+        {/* 3. 数据导出与导入 */}
+        <section id="travel-data-backup" className="card backup-card settings-backup-card" tabIndex={-1} aria-labelledby="travel-data-backup-title">
+          <div className="backup-card-top">
+            <div className="warm-backup-art">
+              <CuteSticker kind="suitcase" className="backup-suitcase-svg" />
+              <div className="backup-fallback-icon">
+                <TravelIcon name="backup" />
+              </div>
+            </div>
+            <span className={`backup-health-pill ${backupHealthy ? 'is-safe' : 'is-remind'}`}>
+              {backupHealthy ? t('已安心备份 ✓', 'Backed up ✓') : t('建议留份备份', 'Backup suggested')}
+            </span>
+          </div>
+
+          <h2 id="travel-data-backup-title">{t('数据导出与导入', 'Data Export & Import')}</h2>
+          <p>{t('在手机导出 ZIP 并传到电脑，再在电脑的个人中心 → 设置中选取该文件，即可覆盖电脑浏览器中的旅行数据。', 'Export a ZIP archive on one device and import it in Profile → Settings on another browser to transfer all your travel data.')}</p>
+
+          <div className="heading-actions">
+            <button
+              className="primary"
+              type="button"
+              disabled={backupAction !== null}
+              onClick={() => void handleExport()}
+            >
+              {backupAction === 'export' ? t('正在打包备份…', 'Packaging backup…') : t('导出完整备份', 'Export Full Backup')}
+            </button>
+            <button type="button" className="secondary" disabled={backupAction !== null} onClick={() => inputRef.current?.click()}>
+              {backupAction === 'import' ? t('正在检查和导入…', 'Verifying & importing…') : t('导入备份', 'Import Backup')}
+            </button>
+            <input ref={inputRef} type="file" accept=".zip,application/zip" hidden onChange={(event) => void handleImport(event.currentTarget)} />
+          </div>
+
+          <small className="backup-time-note">
+            {lastBackup
+              ? t(`上次导出：${new Date(lastBackup).toLocaleString(locale)}`, `Last exported: ${new Date(lastBackup).toLocaleString(locale)}`)
+              : t('还没有导出记录，抽空给回忆留个双保险吧。', 'No backups yet. Export a ZIP archive to keep your memories safe.')}
+          </small>
+
+          <ul className="warm-backup-list" aria-label={t('备份范围', 'Backup contents')}>
+            <li><span>{t('足迹与旅行', 'Footprints & Trips')}</span><strong>{t(`${visitedCityCount} 城 · ${snapshot.trips.length} 段`, `${visitedCityCount} cities · ${snapshot.trips.length} trips`)}</strong></li>
+            <li><span>{t('手账与地点', 'Journal & Places')}</span><strong>{t(`${snapshot.entries.length} 篇 · ${snapshot.places.length} 处`, `${snapshot.entries.length} entries · ${snapshot.places.length} places`)}</strong></li>
+            <li><span>{t('AI 计划与账本', 'AI Plans & Budgets')}</span><strong>{t(`${snapshot.aiPlans.length} 份 · ${snapshot.plans.length} 本`, `${snapshot.aiPlans.length} plans · ${snapshot.plans.length} ledgers`)}</strong></li>
+            <li><span>{t('照片、视频与录音', 'Photos, Videos & Audio')}</span><strong>{t(`${snapshot.media.length} 个文件`, `${snapshot.media.length} files`)}</strong></li>
+          </ul>
+
+          <details className="warm-backup-details">
+            <summary>{t('备份包里包含哪些内容？', 'What is inside the backup archive?')}</summary>
+            <p>{t('包含城市足迹、旅行手账、地点回忆、AI 行程及修改历史、账本、原始照片视频和录音、徽章及个人名片。支持导入旧版本 ZIP。', 'Includes city footprints, journal entries, place memories, AI itineraries & history, budgets, original photos/videos/audio, badges, and profile card. Backward compatible with older ZIP archives.')}</p>
+            <small>{t('包含较多大体积视频时，打包可能需要十几秒，请耐心等待下载完成。', 'Large video libraries may take 10–20 seconds to package. Please wait until download completes.')}</small>
+          </details>
+        </section>
+
+        {/* 4. 离线地图 */}
+        <OfflineMapSettings initialProvinceCode={activeProvinceCode} onError={onError} onNotice={onNotice} />
+
+        {/* 5. 应用版本与一键更新（手机端 / 电脑端通用） */}
+        <AppUpdateCard
+          initialUpdate={availableUpdate}
+          autoCheckToken={updateCheckToken}
+          onUpdateFound={onUpdateFound}
+          onNotice={onNotice}
+          onError={onError}
+        />
+
+        {/* 6. 演示模式与远程 AI 服务 */}
+        <div id="settings-more" className="settings-more-grid">
+          <section className="card" aria-labelledby="demo-mode-card-title">
+            <h2 id="demo-mode-card-title">{t('演示模式与示例数据', 'Demo Mode & Sample Data')}</h2>
+            <p className="muted">{t('想先看看完整效果？一键载入内置示例（14 座点亮城市、完整大理 AI 路书、照片手账与每日账本），体验完随时可清空恢复空白。', 'Want to preview the full experience? Load built-in sample data (14 cities, Dali AI roadbook, photo journal, and daily ledger) and clear it anytime.')}</p>
+            <div className="heading-actions" style={{ marginTop: 10 }}>
+              <button type="button" className="primary" disabled={demoBusy} onClick={onLoadDemo}>
+                {demoBusy ? t('处理中…', 'Working…') : t('✨ 载入示例数据', '✨ Load Sample Data')}
+              </button>
+              {demoMode ? (
+                <button type="button" className="secondary" disabled={demoBusy} onClick={onClearDemo}>
+                  {t('清空示例数据', 'Clear Sample Data')}
+                </button>
+              ) : null}
+            </div>
+          </section>
+
+          <section className="card" aria-labelledby="remote-ai-server-title">
+            <h2 id="remote-ai-server-title">{t('远程 / 局域网 AI 服务', 'Remote / LAN AI Server')}</h2>
+            <p className="muted">{t('桌面版已内置本地 AI 服务，通常保持留空即可。在手机 App 或网页版使用时，可填写电脑桌面版或自建服务器的地址以启用完整 AI 行程规划。', 'Desktop includes a built-in AI server (leave blank). On mobile or web, enter your desktop or self-hosted server URL to enable full AI trip planning.')}</p>
+            <div className="heading-actions" style={{ marginTop: 10, flexWrap: 'wrap', gap: 8 }}>
+              <input
+                type="url"
+                value={apiOrigin}
+                onChange={(event) => setApiOrigin(event.target.value)}
+                placeholder={t('例如 http://192.168.1.100:14173（留空为默认同源）', 'e.g. http://192.168.1.100:14173 (blank = same origin)')}
+                style={{ flex: '1 1 240px', minWidth: 0 }}
+              />
+              <button type="button" className="primary" disabled={testingApi} onClick={() => void handleSaveApiOrigin()}>
+                {testingApi ? t('检测连接中…', 'Testing…') : t('保存并检测', 'Save & Test')}
+              </button>
+              {apiOrigin ? (
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={testingApi}
+                  onClick={() => {
+                    setPlannerApiOrigin('');
+                    setApiOrigin('');
+                    onNotice(t('已清空远程地址，恢复默认本地服务。', 'Cleared remote URL and restored local default.'));
+                  }}
+                >
+                  {t('恢复默认', 'Reset Default')}
+                </button>
+              ) : null}
+            </div>
+          </section>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="content-page warm-profile">
       <div className="section-heading">
         <div>
-          <h1>个人中心</h1>
-          <p>装扮你的旅人小护照，换一套喜欢的主题风格，收好所有回忆。</p>
+          <h1>{t('个人中心', 'Personal Center')}</h1>
+          <p>{t('装扮你的旅人小护照，珍藏所有回忆；语言、页面风格与数据备份均已收纳在设置中。', 'Customize your traveler passport and memories. Language, appearance, and backups live inside Settings.')}</p>
         </div>
-        <button type="button" className="secondary desktop-backup-link" onClick={() => document.getElementById('travel-data-backup')?.focus()}>
-          数据导出与导入
+        <button type="button" className="secondary profile-settings-trigger" onClick={() => openSettings()}>
+          <TravelIcon name="settings" />
+          <span>{t('设置', 'Settings')}</span>
         </button>
       </div>
 
@@ -165,13 +467,13 @@ export default function ProfileView({ snapshot, activeProvinceCode, demoMode, de
             type="button"
             className="warm-profile-avatar-btn"
             onClick={() => setEditing(!editing)}
-            title="点击更换头像与资料"
+            title={t('点击更换头像与资料', 'Edit avatar & profile')}
             aria-expanded={editing}
             aria-controls={editing ? 'profile-dressup-drawer' : undefined}
           >
             <TravelAvatar
               avatarId={editing ? avatar : savedProfile?.avatar}
-              nickname={editing ? nickname : (savedProfile?.nickname ?? '旅行者')}
+              nickname={editing ? nickname : displaySavedNickname}
               className="warm-profile-avatar"
             />
             <span className="avatar-edit-dot" aria-hidden="true">✎</span>
@@ -179,15 +481,15 @@ export default function ProfileView({ snapshot, activeProvinceCode, demoMode, de
 
           <div className="profile-banner-info">
             <div className="profile-name-row">
-              <h2>{editing ? (nickname.trim() || '旅行者') : (savedProfile?.nickname ?? '旅行者')}</h2>
+              <h2>{editing ? (nickname.trim() || defaultNickname) : displaySavedNickname}</h2>
               <span className="profile-level-tag">Lv.{levelInfo.level} {levelInfo.title}</span>
-              <span className="profile-local-tag">本机单机版</span>
+              <span className="profile-local-tag">{t('本机单机版', 'Local Only')}</span>
             </div>
-            <p className="profile-motto">{editing ? (motto.trim() || DEFAULT_MOTTO) : (savedProfile?.motto ?? DEFAULT_MOTTO)}</p>
+            <p className="profile-motto">{editing ? (motto.trim() || defaultMotto) : displaySavedMotto}</p>
             <div className="profile-quick-chips">
-              <span>📍 {visitedCityCount} 座城市</span>
-              <span>🧳 {snapshot.trips.length} 段旅行</span>
-              <span>📷 {photoCount} 张照片</span>
+              <span>📍 {t(`${visitedCityCount} 座城市`, `${visitedCityCount} Cities`)}</span>
+              <span>🧳 {t(`${snapshot.trips.length} 段旅行`, `${snapshot.trips.length} Trips`)}</span>
+              <span>📷 {t(`${photoCount} 张照片`, `${photoCount} Photos`)}</span>
             </div>
             {/* 手机统计独立成行，沿用名片上的足迹、旅程与照片计数。 */}
             <div className="profile-mobile-stats">
@@ -208,7 +510,7 @@ export default function ProfileView({ snapshot, activeProvinceCode, demoMode, de
             aria-controls={editing ? 'profile-dressup-drawer' : undefined}
             onClick={() => setEditing(!editing)}
           >
-            {editing ? '收起装扮' : '装扮名片 ✦'}
+            {editing ? t('收起装扮', 'Close Editor') : t('装扮名片 ✦', 'Edit Card ✦')}
           </button>
         </div>
 
@@ -216,18 +518,28 @@ export default function ProfileView({ snapshot, activeProvinceCode, demoMode, de
           <div id="profile-dressup-drawer" className="profile-dressup-drawer">
             <div className="profile-dressup-fields">
               <label className="stacked">
-                我的称呼
-                <input value={nickname} maxLength={24} onChange={(event) => setNickname(event.target.value)} placeholder="给自己起个好听的昵称" />
+                {t('我的称呼', 'Nickname')}
+                <input
+                  value={nickname}
+                  maxLength={24}
+                  onChange={(event) => setNickname(event.target.value)}
+                  placeholder={t('给自己起个好听的昵称', 'Choose a traveler nickname')}
+                />
               </label>
               <label className="stacked">
-                旅行小签名
-                <input value={motto} maxLength={48} onChange={(event) => setMotto(event.target.value)} placeholder="例如：收集世界的日落与晚风 ✨" />
+                {t('旅行小签名', 'Travel Motto')}
+                <input
+                  value={motto}
+                  maxLength={48}
+                  onChange={(event) => setMotto(event.target.value)}
+                  placeholder={t('例如：收集世界的日落与晚风 ✨', 'e.g. Collecting sunsets around the world ✨')}
+                />
               </label>
             </div>
 
             <div className="avatar-picker-block">
-              <span className="avatar-picker-label">挑选一个可爱旅人头像</span>
-              <div className="avatar-picker-grid" role="radiogroup" aria-label="旅人头像">
+              <span className="avatar-picker-label">{t('挑选一个可爱旅人头像', 'Choose a traveler avatar')}</span>
+              <div className="avatar-picker-grid" role="radiogroup" aria-label={t('旅人头像', 'Traveler avatar')}>
                 {AVATAR_PRESETS.map((preset) => (
                   <button
                     key={preset.id}
@@ -237,86 +549,165 @@ export default function ProfileView({ snapshot, activeProvinceCode, demoMode, de
                     className={`avatar-choice ${avatar === preset.id ? 'selected' : ''}`}
                     onClick={() => setAvatar(preset.id)}
                   >
-                    <TravelAvatar avatarId={preset.id} nickname={nickname || '旅'} className="avatar-choice-preview" />
-                    <small>{preset.label}</small>
+                    <TravelAvatar avatarId={preset.id} nickname={nickname || (isEn ? 'T' : '旅')} className="avatar-choice-preview" />
+                    <small>{isEn ? preset.labelEn : preset.label}</small>
                   </button>
                 ))}
               </div>
             </div>
 
             <div className="profile-dressup-actions">
-              <button type="button" className="primary" disabled={backupAction !== null} onClick={() => void saveMyProfile()}>保存名片装扮</button>
+              <button type="button" className="primary" disabled={backupAction !== null} onClick={() => void saveMyProfile()}>
+                {t('保存名片装扮', 'Save Profile')}
+              </button>
               <button
                 type="button"
                 className="text-button"
                 onClick={() => {
                   setNickname(savedProfile?.nickname ?? '旅行者');
                   setAvatar(savedProfile?.avatar ?? 'bear');
-                  setMotto(savedProfile?.motto ?? DEFAULT_MOTTO);
+                  setMotto(savedProfile?.motto ?? DEFAULT_MOTTO_ZH);
                   setEditing(false);
                 }}
               >
-                取消
+                {t('取消', 'Cancel')}
               </button>
             </div>
           </div>
         )}
       </section>
 
-      {/* 外观风格工坊置顶展示，成为个人中心核心亮点 */}
-      <AppearanceSettings />
-      <OfflineMapSettings initialProvinceCode={activeProvinceCode} onError={onError} onNotice={onNotice} />
+      {/* 设置中心快捷卡片：收拢语言、外观、导出备份、离线地图与更多设置 */}
+      <section className="card profile-settings-entry-card" aria-labelledby="profile-settings-entry-title">
+        <div className="card-heading">
+          <div>
+            <h2 id="profile-settings-entry-title">{t('偏好与设置', 'Preferences & Settings')}</h2>
+            <p className="muted">{t('语言切换、页面外观、数据备份、离线地图与 AI 服务都在这里。', 'Language, appearance themes, data backup, offline maps, and AI server settings.')}</p>
+          </div>
+          <button type="button" className="text-button" onClick={() => openSettings()}>
+            {t('全部设置 →', 'All Settings →')}
+          </button>
+        </div>
 
-      {/* 均衡双栏 Bento：左侧回忆收藏 + 存储行李箱，右侧备份小金库 */}
-      <div className="profile-grid">
+        <div className="settings-entry-list">
+          <button type="button" className="settings-entry-row" onClick={() => openSettings('settings-language')}>
+            <span className="settings-entry-icon is-lang"><TravelIcon name="globe" /></span>
+            <span className="settings-entry-copy">
+              <strong>{t('语言 / Language', 'Language')}</strong>
+              <small>{t('切换简体中文或英文界面', 'Switch between English and Simplified Chinese')}</small>
+            </span>
+            <span className="settings-entry-value">{lang === 'en' ? 'English' : '简体中文'}</span>
+            <span className="settings-entry-chevron" aria-hidden="true">›</span>
+          </button>
+
+          <button type="button" className="settings-entry-row" onClick={() => openSettings('settings-appearance')}>
+            <span className="settings-entry-icon is-theme"><TravelIcon name="palette" /></span>
+            <span className="settings-entry-copy">
+              <strong>{t('页面风格与明暗', 'Appearance & Theme')}</strong>
+              <small>{t('5 套外观主题与浅色 / 深色模式', '5 visual themes and light / dark mode')}</small>
+            </span>
+            <span className="settings-entry-value">{isEn ? activeStyleMeta.nameEn : activeStyleMeta.name} · {themeModeLabel}</span>
+            <span className="settings-entry-chevron" aria-hidden="true">›</span>
+          </button>
+
+          <button type="button" className="settings-entry-row" onClick={() => openSettings('travel-data-backup')}>
+            <span className="settings-entry-icon is-backup"><TravelIcon name="backup" /></span>
+            <span className="settings-entry-copy">
+              <strong>{t('数据导出与导入', 'Data Export & Import')}</strong>
+              <small>{t('导出或恢复完整 ZIP 旅行备份', 'Export or restore full ZIP travel backups')}</small>
+            </span>
+            <span className={`settings-entry-value ${backupHealthy ? 'is-safe' : ''}`}>
+              {backupHealthy ? t('已备份 ✓', 'Backed up ✓') : t('去备份', 'Backup')}
+            </span>
+            <span className="settings-entry-chevron" aria-hidden="true">›</span>
+          </button>
+
+          <button type="button" className="settings-entry-row" onClick={() => openSettings('settings-offline-maps')}>
+            <span className="settings-entry-icon is-map"><TravelIcon name="map" /></span>
+            <span className="settings-entry-copy">
+              <strong>{t('离线地图', 'Offline Maps')}</strong>
+              <small>{t('按省缓存市级地图，断网可看', 'Cache city-level province maps for offline use')}</small>
+            </span>
+            <span className="settings-entry-value">{t('管理缓存', 'Manage')}</span>
+            <span className="settings-entry-chevron" aria-hidden="true">›</span>
+          </button>
+
+          <button type="button" className="settings-entry-row" onClick={() => openSettings('app-update-card')}>
+            <span className="settings-entry-icon is-backup"><TravelIcon name="settings" /></span>
+            <span className="settings-entry-copy">
+              <strong>{t('检查应用更新', 'App Updates')}</strong>
+              <small>{t('手机端与电脑端一键检查并更新到最新版本', 'Check and install the latest mobile or desktop version')}</small>
+            </span>
+            <span className={`settings-entry-value ${availableUpdate ? 'is-safe' : ''}`}>
+              {availableUpdate ? t(`新版本 v${availableUpdate.latestVersion}`, `v${availableUpdate.latestVersion} Ready`) : t('检查更新', 'Check')}
+            </span>
+            <span className="settings-entry-chevron" aria-hidden="true">›</span>
+          </button>
+
+          <button type="button" className="settings-entry-row" onClick={() => openSettings('settings-more')}>
+            <span className="settings-entry-icon is-server"><TravelIcon name="server" /></span>
+            <span className="settings-entry-copy">
+              <strong>{t('演示模式与 AI 服务', 'Demo Mode & AI Server')}</strong>
+              <small>{t('示例数据体验、局域网 / 远程 AI 地址配置', 'Sample workspace and remote/LAN AI endpoint')}</small>
+            </span>
+            <span className="settings-entry-value">
+              {demoMode ? t('演示中', 'Demo On') : apiOrigin ? t('远程 AI', 'Remote AI') : t('默认本机', 'Local')}
+            </span>
+            <span className="settings-entry-chevron" aria-hidden="true">›</span>
+          </button>
+        </div>
+      </section>
+
+      {/* 双栏 Bento：回忆收藏 + 存储空间 */}
+      <div className="profile-grid profile-home-grid">
         <section className="card warm-profile-info">
           <div className="card-heading">
-            <h2>我的回忆小收藏</h2>
-            <span>全量保存在本机</span>
+            <h2>{t('我的回忆小收藏', 'My Travel Collection')}</h2>
+            <span>{t('全量保存在本机', 'Stored locally')}</span>
           </div>
           <div className="profile-bento-stats">
             <div className="bento-stat-tile tile-sage">
-              <small>已去城市</small>
+              <small>{t('已去城市', 'Cities')}</small>
               <strong>{visitedCityCount}</strong>
             </div>
             <div className="bento-stat-tile tile-peach">
-              <small>记录旅程</small>
+              <small>{t('记录旅程', 'Trips')}</small>
               <strong>{snapshot.trips.length}</strong>
             </div>
             <div className="bento-stat-tile tile-blue">
-              <small>打卡地点</small>
+              <small>{t('打卡地点', 'Places')}</small>
               <strong>{snapshot.places.length}</strong>
             </div>
             <div className="bento-stat-tile tile-honey">
-              <small>珍藏照片</small>
+              <small>{t('珍藏照片', 'Photos')}</small>
               <strong>{photoCount}</strong>
             </div>
             <div className="bento-stat-tile tile-lilac">
-              <small>视频 & 语音</small>
+              <small>{t('视频 & 语音', 'Video & Audio')}</small>
               <strong>{videoCount + audioCount}</strong>
             </div>
             <div className="bento-stat-tile tile-mint">
-              <small>专属徽章</small>
+              <small>{t('专属徽章', 'Badges')}</small>
               <strong>{snapshot.badges.length}</strong>
             </div>
           </div>
-          <p className="muted profile-privacy-note">单机隐私模式：不上传云端、无账号绑定，你的照片、语音和手账只属于这台设备。</p>
+          <p className="muted profile-privacy-note">{t('单机隐私模式：不上传云端、无账号绑定，你的照片、语音和手账只属于这台设备。', 'Local-first privacy: no cloud upload or account required. Your photos, voice notes, and journals stay on this device.')}</p>
         </section>
 
         <section className="card warm-storage">
           <div className="card-heading">
-            <h2>本机存储空间</h2>
-            <span>{storageEstimate ? `${storagePct.toFixed(1)}%` : '估算中'}</span>
+            <h2>{t('本机存储空间', 'Local Storage')}</h2>
+            <span>{storageEstimate ? `${storagePct.toFixed(1)}%` : t('估算中', 'Estimating')}</span>
           </div>
           {storageEstimate ? (
             <>
               <div className="storage-pill-row">
                 <div>
-                  <small>小册子已占用</small>
+                  <small>{t('小册子已占用', 'Used by booklet')}</small>
                   <strong>{readableBytes(storageEstimate.usage)}</strong>
                 </div>
                 <div className="storage-pill-right">
-                  <small>浏览器估算上限</small>
+                  <small>{t('浏览器估算上限', 'Browser quota')}</small>
                   <strong>{readableBytes(storageEstimate.quota)}</strong>
                 </div>
               </div>
@@ -325,104 +716,9 @@ export default function ProfileView({ snapshot, activeProvinceCode, demoMode, de
               </div>
             </>
           ) : (
-            <p className="muted">此浏览器暂未提供存储用量估算。</p>
+            <p className="muted">{t('此浏览器暂未提供存储用量估算。', 'Storage usage estimate is unavailable in this browser.')}</p>
           )}
-          <p className="muted">照片与视频保存在当前浏览器本地，清理浏览器数据前可以先导出备份。</p>
-        </section>
-
-        <section id="travel-data-backup" className="card backup-card" tabIndex={-1} aria-labelledby="travel-data-backup-title">
-          <div className="backup-card-top">
-            <div className="warm-backup-art">
-              <CuteSticker kind="suitcase" className="backup-suitcase-svg" />
-              <div className="backup-fallback-icon">
-                <TravelIcon name="backup" />
-              </div>
-            </div>
-            <span className={`backup-health-pill ${backupHealthy ? 'is-safe' : 'is-remind'}`}>
-              {backupHealthy ? '已安心备份 ✓' : '建议留份备份'}
-            </span>
-          </div>
-
-          <h2 id="travel-data-backup-title">数据导出与导入</h2>
-          <p>在手机导出 ZIP 并传到电脑，再在电脑的个人中心选取该文件，即可覆盖电脑浏览器中的旅行数据。</p>
-
-          <div className="heading-actions">
-            <button
-              className="primary"
-              type="button"
-              disabled={backupAction !== null}
-              onClick={() => void handleExport()}
-            >
-              {backupAction === 'export' ? '正在打包备份…' : '导出完整备份'}
-            </button>
-            <button type="button" className="secondary" disabled={backupAction !== null} onClick={() => inputRef.current?.click()}>
-              {backupAction === 'import' ? '正在检查和导入…' : '导入备份'}
-            </button>
-            <input ref={inputRef} type="file" accept=".zip,application/zip" hidden onChange={(event) => void handleImport(event.currentTarget)} />
-          </div>
-
-          <small className="backup-time-note">
-            {lastBackup ? `上次导出：${new Date(lastBackup).toLocaleString('zh-CN')}` : '还没有导出记录，抽空给回忆留个双保险吧。'}
-          </small>
-
-          <ul className="warm-backup-list" aria-label="备份范围">
-            <li><span>足迹与旅行</span><strong>{visitedCityCount} 城 · {snapshot.trips.length} 段</strong></li>
-            <li><span>手账与地点</span><strong>{snapshot.entries.length} 篇 · {snapshot.places.length} 处</strong></li>
-            <li><span>AI 计划与账本</span><strong>{snapshot.aiPlans.length} 份 · {snapshot.plans.length} 本</strong></li>
-            <li><span>照片、视频与录音</span><strong>{snapshot.media.length} 个文件</strong></li>
-          </ul>
-
-          <details className="warm-backup-details">
-            <summary>备份包里包含哪些内容？</summary>
-            <p>包含城市足迹、旅行手账、地点回忆、AI 行程及修改历史、账本、原始照片视频和录音、徽章及个人名片。支持导入旧版本 ZIP。</p>
-            <small>包含较多大体积视频时，打包可能需要十几秒，请耐心等待下载完成。</small>
-          </details>
-        </section>
-
-        <section className="card" aria-labelledby="demo-mode-card-title">
-          <h2 id="demo-mode-card-title">演示模式与示例数据</h2>
-          <p className="muted">想先看看完整效果？一键载入内置示例（14 座点亮城市、完整大理 AI 路书、照片手账与每日账本），体验完随时可清空恢复空白。</p>
-          <div className="heading-actions" style={{ marginTop: 10 }}>
-            <button type="button" className="primary" disabled={demoBusy} onClick={onLoadDemo}>
-              {demoBusy ? '处理中…' : '✨ 载入示例数据'}
-            </button>
-            {demoMode ? (
-              <button type="button" className="secondary" disabled={demoBusy} onClick={onClearDemo}>
-                清空示例数据
-              </button>
-            ) : null}
-          </div>
-        </section>
-
-        <section className="card" aria-labelledby="remote-ai-server-title">
-          <h2 id="remote-ai-server-title">远程 / 局域网 AI 服务</h2>
-          <p className="muted">桌面版已内置本地 AI 服务，通常保持留空即可。在手机 App 或网页版使用时，可填写电脑桌面版或自建服务器的地址以启用完整 AI 行程规划。</p>
-          <div className="heading-actions" style={{ marginTop: 10, flexWrap: 'wrap', gap: 8 }}>
-            <input
-              type="url"
-              value={apiOrigin}
-              onChange={(event) => setApiOrigin(event.target.value)}
-              placeholder="例如 http://192.168.1.100:14173（留空为默认同源）"
-              style={{ flex: '1 1 240px', minWidth: 0 }}
-            />
-            <button type="button" className="primary" disabled={testingApi} onClick={() => void handleSaveApiOrigin()}>
-              {testingApi ? '检测连接中…' : '保存并检测'}
-            </button>
-            {apiOrigin ? (
-              <button
-                type="button"
-                className="secondary"
-                disabled={testingApi}
-                onClick={() => {
-                  setPlannerApiOrigin('');
-                  setApiOrigin('');
-                  onNotice('已清空远程地址，恢复默认本地服务。');
-                }}
-              >
-                恢复默认
-              </button>
-            ) : null}
-          </div>
+          <p className="muted">{t('照片与视频保存在当前浏览器本地，清理浏览器数据前可在「设置 → 数据导出与导入」留份备份。', 'Photos and videos are stored locally in this browser. Export a backup in Settings before clearing browser data.')}</p>
         </section>
       </div>
     </div>
