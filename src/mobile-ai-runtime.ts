@@ -2,6 +2,33 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import sha256 from 'fast-sha256';
 import { jsonrepair } from 'jsonrepair';
 import { getPlannerApiOrigin } from './api-base';
+import {
+  addPlannerDays,
+  freshPlannerRequest,
+  isSelfDriveTransport,
+  plannerDayCount,
+  plannerFillEstimates,
+  plannerLocalTransport,
+  updatePlannerDates,
+  validatePlannerContent,
+} from './planner-domain';
+import type {
+  AiTravelPlan,
+  DestinationRecommendation,
+  PackingCategory,
+  PackingItem,
+  PackingList,
+  PlannerActivity,
+  PlannerContent,
+  PlannerCost,
+  PlannerDay,
+  PlannerPeriod,
+  PlannerRequest,
+  PlannerSource,
+  PlannerTransferModeKind,
+  PlannerTransferOption,
+} from './planner-types';
+import type { JourneyCity } from './types';
 import type {
   AiStatus,
   ModelCatalogItem,
@@ -1706,7 +1733,8 @@ export async function handleMobilePlannerApi<T>(
   }
 
   if (endpoint === 'ai-models-refresh') {
-    return buildMobileAiStatus() as unknown as T;
+    const status = buildMobileAiStatus();
+    return { count: status.models?.length ?? 0, state: status } as unknown as T;
   }
 
   if (endpoint === 'ai-sub-login') {
@@ -1775,51 +1803,700 @@ export async function handleMobilePlannerApi<T>(
     return { quota } as unknown as T;
   }
 
+const MOBILE_CITY_ADCODES: Array<[string, string, string]> = [
+  ['北京', '110100', '110000'], ['天津', '120100', '120000'], ['上海', '310100', '310000'], ['重庆', '500100', '500000'],
+  ['广州', '440100', '440000'], ['深圳', '440300', '440000'], ['珠海', '440400', '440000'], ['佛山', '440600', '440000'],
+  ['潮州', '445100', '440000'], ['汕头', '440500', '440000'], ['杭州', '330100', '330000'], ['宁波', '330200', '330000'],
+  ['绍兴', '330600', '330000'], ['嘉兴', '330400', '330000'], ['舟山', '330900', '330000'], ['南京', '320100', '320000'],
+  ['苏州', '320500', '320000'], ['无锡', '320200', '320000'], ['扬州', '321000', '320000'], ['成都', '510100', '510000'],
+  ['乐山', '511100', '510000'], ['阿坝', '513200', '510000'], ['甘孜', '513300', '510000'], ['西安', '610100', '610000'],
+  ['武汉', '420100', '420000'], ['宜昌', '420500', '420000'], ['恩施', '422800', '420000'], ['长沙', '430100', '430000'],
+  ['张家界', '430800', '430000'], ['湘西', '433100', '430000'], ['青岛', '370200', '370000'], ['济南', '370100', '370000'],
+  ['烟台', '370600', '370000'], ['威海', '371000', '370000'], ['泰安', '370900', '370000'], ['厦门', '350200', '350000'],
+  ['福州', '350100', '350000'], ['泉州', '350500', '350000'], ['三亚', '460200', '460000'], ['海口', '460100', '460000'],
+  ['昆明', '530100', '530000'], ['大理', '532900', '530000'], ['丽江', '530700', '530000'], ['西双版纳', '532800', '530000'],
+  ['迪庆', '533400', '530000'], ['香格里拉', '533400', '530000'], ['贵阳', '520100', '520000'], ['黔东南', '522600', '520000'],
+  ['桂林', '450300', '450000'], ['北海', '450500', '450000'], ['南宁', '450100', '450000'], ['拉萨', '540100', '540000'],
+  ['林芝', '540400', '540000'], ['乌鲁木齐', '650100', '650000'], ['伊犁', '654000', '650000'], ['喀什', '653100', '650000'],
+  ['阿勒泰', '654300', '650000'], ['哈尔滨', '230100', '230000'], ['沈阳', '210100', '210000'], ['大连', '210200', '210000'],
+  ['长春', '220100', '220000'], ['延边', '222400', '220000'], ['郑州', '410100', '410000'], ['洛阳', '410300', '410000'],
+  ['开封', '410200', '410000'], ['合肥', '340100', '340000'], ['黄山', '341000', '340000'], ['南昌', '360100', '360000'],
+  ['景德镇', '360200', '360000'], ['上饶', '361100', '360000'], ['太原', '140100', '140000'], ['大同', '140200', '140000'],
+  ['晋中', '140700', '140000'], ['石家庄', '130100', '130000'], ['秦皇岛', '130300', '130000'], ['承德', '130800', '130000'],
+  ['兰州', '620100', '620000'], ['敦煌', '620900', '620000'], ['酒泉', '620900', '620000'], ['张掖', '620700', '620000'],
+  ['西宁', '630100', '630000'], ['银川', '640100', '640000'], ['呼和浩特', '150100', '150000'], ['呼伦贝尔', '150700', '150000'],
+  ['香港', '810000', '810000'], ['澳门', '820000', '820000'], ['台北', '710000', '710000'],
+];
+
+function lookupMobileCity(name: string, rawCode?: unknown, rawProvinceCode?: unknown): JourneyCity {
+  const cleanName = String(name || '').trim() || '目的地';
+  const validCode = typeof rawCode === 'string' && /^\d{6}$/.test(rawCode.trim()) ? rawCode.trim() : '';
+  const validProv = typeof rawProvinceCode === 'string' && /^\d{6}$/.test(rawProvinceCode.trim()) ? rawProvinceCode.trim() : '';
+  if (validCode) {
+    return { code: validCode, provinceCode: validProv || `${validCode.slice(0, 2)}0000`, name: cleanName };
+  }
+  const matched = MOBILE_CITY_ADCODES.find(([key]) => cleanName.includes(key) || key.includes(cleanName.replace(/[市省州区县]$/, '')));
+  if (matched) {
+    return { code: matched[1], provinceCode: matched[2], name: cleanName };
+  }
+  return { code: '110100', provinceCode: '110000', name: cleanName };
+}
+
+function mobileClock(minutes: number): string {
+  const clamped = Math.max(0, Math.min(23 * 60 + 59, Math.round(minutes)));
+  return `${String(Math.floor(clamped / 60)).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`;
+}
+
+function parseMobileMinutes(value: unknown): number | null {
+  if (typeof value !== 'string') return null;
+  const raw = value.normalize('NFKC').replace(/：/g, ':').trim();
+  const match = raw.match(/(\d{1,2})\s*(?::|点|时)\s*(半|\d{1,2})?/) ?? raw.match(/^(\d{1,2})$/);
+  if (!match) return null;
+  const h = Number(match[1]);
+  const m = match[2] === '半' ? 30 : Number(match[2] ?? 0);
+  return h <= 24 && m < 60 ? Math.min(h * 60 + m, 23 * 60 + 59) : null;
+}
+
+function periodFromMinutes(minutes: number): PlannerPeriod {
+  if (minutes < 11 * 60) return 'morning';
+  if (minutes < 13 * 60 + 30) return 'noon';
+  if (minutes < 17 * 60 + 30) return 'afternoon';
+  return 'evening';
+}
+
+function normalizeMobileKind(value: unknown): PlannerActivity['kind'] {
+  const raw = String(value ?? '').trim().toLowerCase();
+  if (raw === 'food' || /meal|dining|restaurant|餐饮|美食|用餐|吃饭/.test(raw)) return 'food';
+  if (raw === 'transport' || /transit|traffic|transfer|交通|换乘|出行/.test(raw)) return 'transport';
+  if (raw === 'rest' || /free|break|hotel|休息|自由|入住/.test(raw)) return 'rest';
+  return 'sight';
+}
+
+function normalizeMobilePeriod(value: unknown, startMinutes: number): PlannerPeriod {
+  const raw = String(value ?? '').trim().toLowerCase();
+  if (raw === 'morning' || raw === 'noon' || raw === 'afternoon' || raw === 'evening') return raw;
+  if (/早|上午/.test(raw)) return 'morning';
+  if (/中|午/.test(raw)) return 'noon';
+  if (/下午/.test(raw)) return 'afternoon';
+  if (/晚|夜/.test(raw)) return 'evening';
+  return periodFromMinutes(startMinutes);
+}
+
+function normalizeMobileMeal(value: unknown, kind: PlannerActivity['kind'], startMinutes: number): PlannerActivity['meal'] {
+  const raw = String(value ?? '').trim().toLowerCase();
+  if (raw === 'breakfast' || raw === 'lunch' || raw === 'dinner' || raw === 'snack') return raw;
+  if (/早/.test(raw)) return 'breakfast';
+  if (/午/.test(raw)) return 'lunch';
+  if (/晚/.test(raw)) return 'dinner';
+  if (/小吃|夜宵|茶/.test(raw)) return 'snack';
+  if (kind !== 'food') return null;
+  if (startMinutes < 10 * 60 + 30) return 'breakfast';
+  if (startMinutes < 14 * 60 + 30) return 'lunch';
+  if (startMinutes >= 17 * 60 && startMinutes <= 21 * 60) return 'dinner';
+  return 'snack';
+}
+
+function normalizeMobileCosts(
+  rawCosts: unknown,
+  prefix: string,
+  usedCostIds: Set<string>,
+  defaultCategory: PlannerCost['category'],
+  fallbackCents?: unknown,
+  fallbackLabel?: string,
+): PlannerCost[] {
+  const list = Array.isArray(rawCosts) ? rawCosts : [];
+  const validCategories = new Set<PlannerCost['category']>(['transport', 'lodging', 'tickets', 'food', 'other']);
+  const validUnits = new Set<PlannerCost['unit']>(['ticket', 'person', 'room', 'vehicle', 'group']);
+  const out: PlannerCost[] = [];
+  for (let i = 0; i < list.length; i += 1) {
+    const item = list[i] as Record<string, unknown> | null;
+    if (!item || typeof item !== 'object') continue;
+    let id = typeof item.id === 'string' && item.id.trim() ? item.id.trim() : `${prefix}-${i + 1}`;
+    while (usedCostIds.has(id)) id = `${prefix}-${i + 1}-${usedCostIds.size + 1}`;
+    usedCostIds.add(id);
+    const cat = validCategories.has(item.category as PlannerCost['category'])
+      ? (item.category as PlannerCost['category'])
+      : defaultCategory;
+    const unit = validUnits.has(item.unit as PlannerCost['unit'])
+      ? (item.unit as PlannerCost['unit'])
+      : (cat === 'tickets' ? 'ticket' : cat === 'lodging' ? 'room' : cat === 'food' ? 'person' : 'group');
+    const rawPrice = item.unitPriceCents;
+    const unitPriceCents =
+      typeof rawPrice === 'number' && Number.isFinite(rawPrice) && rawPrice >= 0
+        ? Math.round(rawPrice)
+        : null;
+    const qty = typeof item.quantity === 'number' && Number.isSafeInteger(item.quantity) && item.quantity >= 1 ? item.quantity : 1;
+    const occ = typeof item.occurrences === 'number' && Number.isSafeInteger(item.occurrences) && item.occurrences >= 1 ? item.occurrences : 1;
+    out.push({
+      id,
+      label: String(item.label ?? fallbackLabel ?? '预估费用').trim() || '预估费用',
+      category: cat,
+      unit,
+      unitPriceCents,
+      studentPriceCents: typeof item.studentPriceCents === 'number' && Number.isFinite(item.studentPriceCents) && item.studentPriceCents >= 0 ? Math.round(item.studentPriceCents) : null,
+      seniorPriceCents: typeof item.seniorPriceCents === 'number' && Number.isFinite(item.seniorPriceCents) && item.seniorPriceCents >= 0 ? Math.round(item.seniorPriceCents) : null,
+      childPriceCents: typeof item.childPriceCents === 'number' && Number.isFinite(item.childPriceCents) && item.childPriceCents >= 0 ? Math.round(item.childPriceCents) : null,
+      quantity: qty,
+      occurrences: occ,
+      status: unitPriceCents === null ? 'unknown' : 'estimate',
+      qualification: String(item.qualification ?? '').trim(),
+      sourceIds: [],
+      includedIn: null,
+    });
+  }
+  if (!out.length && typeof fallbackCents === 'number' && Number.isFinite(fallbackCents) && fallbackCents > 0) {
+    let id = `${prefix}-1`;
+    while (usedCostIds.has(id)) id = `${prefix}-${usedCostIds.size + 1}`;
+    usedCostIds.add(id);
+    out.push({
+      id,
+      label: fallbackLabel || '预估费用',
+      category: defaultCategory,
+      unit: defaultCategory === 'tickets' ? 'ticket' : defaultCategory === 'lodging' ? 'room' : 'person',
+      unitPriceCents: Math.round(fallbackCents),
+      studentPriceCents: null,
+      seniorPriceCents: null,
+      childPriceCents: null,
+      quantity: 1,
+      occurrences: 1,
+      status: 'estimate',
+      qualification: '',
+      sourceIds: [],
+      includedIn: null,
+    });
+  }
+  return out;
+}
+
+function normalizeMobileRequest(rawReq: unknown): PlannerRequest {
+  const base = freshPlannerRequest();
+  const src = rawReq && typeof rawReq === 'object' ? (rawReq as Partial<PlannerRequest>) : {};
+  const merged: PlannerRequest = {
+    ...base,
+    destination: typeof src.destination === 'string' ? src.destination : base.destination,
+    base: typeof src.base === 'string' ? src.base : base.base,
+    people: typeof src.people === 'number' && Number.isSafeInteger(src.people) && src.people >= 1 ? src.people : base.people,
+    students: typeof src.students === 'number' && Number.isInteger(src.students) && src.students >= 0 ? src.students : 0,
+    seniors: typeof src.seniors === 'number' && Number.isInteger(src.seniors) && src.seniors >= 0 ? src.seniors : 0,
+    children: typeof src.children === 'number' && Number.isInteger(src.children) && src.children >= 0 ? src.children : 0,
+    travelersText: typeof src.travelersText === 'string' ? src.travelersText : '',
+    startDate: typeof src.startDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(src.startDate) ? src.startDate : base.startDate,
+    days: typeof src.days === 'number' && Number.isSafeInteger(src.days) && src.days >= 1 ? src.days : null,
+    endDate: typeof src.endDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(src.endDate) ? src.endDate : '',
+    budgetCents: typeof src.budgetCents === 'number' && Number.isSafeInteger(src.budgetCents) && src.budgetCents >= 0 ? src.budgetCents : null,
+    pace: typeof src.pace === 'string' && src.pace.trim() ? src.pace : base.pace,
+    transport: plannerLocalTransport(typeof src.transport === 'string' ? src.transport : base.transport),
+    luggageMode: src.luggageMode === 'backpack' ? 'backpack' : 'suitcase',
+    foodMode: Boolean(src.foodMode),
+    skipBreakfast: Boolean(src.skipBreakfast),
+    dietary: typeof src.dietary === 'string' ? src.dietary : '',
+    lodgingLevel: typeof src.lodgingLevel === 'string' && src.lodgingLevel.trim() ? src.lodgingLevel : base.lodgingLevel,
+    rooms: typeof src.rooms === 'number' && Number.isSafeInteger(src.rooms) && src.rooms >= 1 ? src.rooms : null,
+    notes: typeof src.notes === 'string' ? src.notes : '',
+  };
+  if (merged.students + (merged.seniors ?? 0) + (merged.children ?? 0) > merged.people) {
+    merged.students = 0;
+    merged.seniors = 0;
+    merged.children = 0;
+  }
+  const synced = merged.endDate
+    ? updatePlannerDates(merged, { endDate: merged.endDate })
+    : updatePlannerDates(merged, { days: merged.days ?? 3 });
+  if (!synced.days || synced.days < 1) {
+    return updatePlannerDates(synced, { days: 3 });
+  }
+  return synced;
+}
+
+function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: unknown): PlannerContent {
+  const req = normalizeMobileRequest(rawRequest);
+  const expectedDays = req.endDate ? plannerDayCount(req.startDate, req.endDate) : (req.days ?? 3);
+  const rawCities = Array.isArray(raw.cities) ? raw.cities : [];
+  const cities: JourneyCity[] = rawCities
+    .map((item) => {
+      if (typeof item === 'string') return lookupMobileCity(item);
+      if (!item || typeof item !== 'object') return null;
+      const obj = item as Record<string, unknown>;
+      return lookupMobileCity(String(obj.name ?? obj.city ?? ''), obj.code, obj.provinceCode);
+    })
+    .filter((c): c is JourneyCity => Boolean(c));
+  if (!cities.length) {
+    cities.push(lookupMobileCity(req.destination || String(raw.destination ?? '') || '北京'));
+  }
+  const primaryCity = cities[0].name;
+
+  const rawDays = Array.isArray(raw.days) ? raw.days : [];
+  const usedActIds = new Set<string>();
+  const usedCostIds = new Set<string>();
+  const days: PlannerDay[] = [];
+
+  for (let d = 0; d < expectedDays; d += 1) {
+    const srcDay = (rawDays[d] && typeof rawDays[d] === 'object' ? rawDays[d] : {}) as Record<string, unknown>;
+    const date = addPlannerDays(req.startDate, d);
+    const dayCity = String(srcDay.city ?? primaryCity).trim() || primaryCity;
+    const rawActs = Array.isArray(srcDay.activities)
+      ? srcDay.activities
+      : Array.isArray(srcDay.items)
+        ? srcDay.items
+        : [];
+    const activities: PlannerActivity[] = [];
+    let cursor = 9 * 60;
+
+    for (let i = 0; i < rawActs.length; i += 1) {
+      const a = rawActs[i] as Record<string, unknown> | null;
+      if (!a || typeof a !== 'object') continue;
+      let id = typeof a.id === 'string' && a.id.trim() ? a.id.trim() : `d${d + 1}-a${i + 1}`;
+      while (usedActIds.has(id)) id = `d${d + 1}-a${i + 1}-${usedActIds.size + 1}`;
+      usedActIds.add(id);
+
+      const kind = normalizeMobileKind(a.kind);
+      const parsedStart = parseMobileMinutes(a.startTime) ?? parseMobileMinutes(a.time) ?? cursor;
+      const startMin = Math.min(22 * 60 + 30, Math.max(6 * 60, parsedStart));
+      const dur = typeof a.durationMinutes === 'number' && a.durationMinutes > 0 ? Math.min(360, Math.round(a.durationMinutes)) : 90;
+      const parsedEnd = parseMobileMinutes(a.endTime);
+      const endMin = parsedEnd !== null && parsedEnd > startMin
+        ? Math.min(23 * 60 + 55, parsedEnd)
+        : Math.min(23 * 60 + 55, startMin + Math.max(30, dur));
+      cursor = Math.min(22 * 60, endMin + 30);
+
+      let meal = normalizeMobileMeal(a.meal, kind, startMin);
+      if (req.skipBreakfast && meal === 'breakfast') meal = null;
+
+      const defaultCat: PlannerCost['category'] =
+        kind === 'food' ? 'food' : kind === 'transport' ? 'transport' : kind === 'sight' ? 'tickets' : 'other';
+      const title = String(a.title ?? a.name ?? `${dayCity}行程安排`).trim() || `${dayCity}行程安排`;
+      const costs = normalizeMobileCosts(
+        a.costs,
+        `cost-${d + 1}-${i + 1}`,
+        usedCostIds,
+        defaultCat,
+        a.estimatedCostCents,
+        title,
+      );
+
+      activities.push({
+        id,
+        kind,
+        period: normalizeMobilePeriod(a.period, startMin),
+        startTime: mobileClock(startMin),
+        endTime: mobileClock(endMin),
+        title,
+        city: String(a.city ?? dayCity).trim() || dayCity,
+        location: String(a.location ?? title).trim() || title,
+        description: String(a.description ?? a.detail ?? a.tips ?? '').trim(),
+        transportMode: kind === 'transport' ? (String(a.transportMode ?? req.transport).trim() || '公共交通') : '',
+        meal,
+        locked: false,
+        photo: null,
+        sourceIds: [],
+        costs,
+        fromActivityId: null,
+        toActivityId: null,
+      });
+    }
+
+    if (!activities.length) {
+      const id = `d${d + 1}-a1`;
+      usedActIds.add(id);
+      activities.push({
+        id,
+        kind: 'sight',
+        period: 'morning',
+        startTime: '09:30',
+        endTime: '12:00',
+        title: `${dayCity}核心地标漫游`,
+        city: dayCity,
+        location: `${dayCity}市区`,
+        description: '自由探索当地代表性街区与风物。',
+        transportMode: '',
+        meal: null,
+        locked: false,
+        photo: null,
+        sourceIds: [],
+        costs: [],
+        fromActivityId: null,
+        toActivityId: null,
+      });
+    }
+
+    const isLastDay = d === expectedDays - 1;
+    let lodging: PlannerDay['lodging'] = null;
+    if (!isLastDay) {
+      const rawLodging = srcDay.lodging && typeof srcDay.lodging === 'object'
+        ? (srcDay.lodging as Record<string, unknown>)
+        : null;
+      const area = String(rawLodging?.area ?? srcDay.stayArea ?? `${dayCity}市中心商圈`).trim() || `${dayCity}市中心商圈`;
+      const lodgingCity = String(rawLodging?.city ?? dayCity).trim() || dayCity;
+      lodging = {
+        city: lodgingCity,
+        area,
+        searchKeyword: String(rawLodging?.searchKeyword ?? `${lodgingCity} ${area} 酒店`).trim(),
+        reason: String(rawLodging?.reason ?? '交通便利，方便次日游览与夜间觅食。').trim(),
+        costs: normalizeMobileCosts(rawLodging?.costs, `lodging-${d + 1}`, usedCostIds, 'lodging', undefined, `${lodgingCity}住宿`),
+        sourceIds: [],
+      };
+    }
+
+    days.push({
+      date,
+      title: String(srcDay.title ?? `第 ${d + 1} 天 · ${dayCity}`).trim() || `第 ${d + 1} 天 · ${dayCity}`,
+      weather: String(srcDay.weather ?? '请出发前关注当地实时天气').trim(),
+      activities,
+      lodging,
+    });
+  }
+
+  const rawAlts = Array.isArray(raw.alternatives) ? raw.alternatives : [];
+  const alternatives = rawAlts
+    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+    .map((item) => ({
+      title: String(item.title ?? item.name ?? '').trim(),
+      city: String(item.city ?? primaryCity).trim() || primaryCity,
+      reason: String(item.reason ?? item.description ?? '备选游览去处').trim(),
+      rainyDay: Boolean(item.rainyDay),
+    }))
+    .filter((item) => Boolean(item.title));
+
+  const toStringList = (v: unknown): string[] =>
+    Array.isArray(v) ? v.map((item) => String(item ?? '').trim()).filter(Boolean) : [];
+
+  const content: PlannerContent = {
+    title: String(raw.title ?? `${req.destination || primaryCity}${expectedDays}日游`).trim() || `${primaryCity}${expectedDays}日游`,
+    summary: String(raw.summary ?? `围绕${primaryCity}规划的 ${expectedDays} 天行程。`).trim(),
+    request: req,
+    cities,
+    constraints: toStringList(raw.constraints),
+    warnings: toStringList(raw.warnings ?? raw.tips),
+    days,
+    alternatives,
+    sources: [],
+  };
+
+  let filled: PlannerContent = content;
+  try {
+    filled = plannerFillEstimates(content);
+  } catch {
+    filled = content;
+  }
+  validatePlannerContent(filled);
+  return filled;
+}
+
+function normalizeMobileRecommendations(raw: Record<string, unknown>): {
+  recommendations: DestinationRecommendation[];
+  sources: PlannerSource[];
+} {
+  const list = Array.isArray(raw.recommendations) ? raw.recommendations : [];
+  const recommendations: DestinationRecommendation[] = [];
+  for (const entry of list.slice(0, 6)) {
+    if (!entry || typeof entry !== 'object') continue;
+    const item = entry as Record<string, unknown>;
+    const destination = String(item.destination ?? item.city ?? item.title ?? '').trim();
+    const title = String(item.title ?? item.city ?? item.destination ?? '').trim();
+    if (!title && !destination) continue;
+    const highlights = Array.isArray(item.highlights)
+      ? item.highlights.map((h) => String(h ?? '').trim()).filter(Boolean).join('、')
+      : '';
+    const baseReason = String(item.reason ?? item.summary ?? '').trim();
+    const reason = [baseReason, highlights ? `亮点：${highlights}` : ''].filter(Boolean).join(' ') || '当季景色与体验俱佳，适合按当前节奏出行。';
+    const season = String(item.season ?? item.bestSeason ?? '四季皆宜').trim();
+    const rawDays = item.suggestedDays ?? item.days;
+    const suggestedDays =
+      typeof rawDays === 'number' && rawDays > 0
+        ? `建议 ${rawDays} 天`
+        : String(rawDays ?? '建议 3~4 天').trim() || '建议 3~4 天';
+    const access = String(item.access ?? item.budgetHint ?? '高铁 / 航班直达').trim();
+    recommendations.push({
+      title: title || destination,
+      destination: destination || title,
+      reason,
+      season,
+      suggestedDays,
+      access,
+      photo: null,
+      sourceIds: [],
+    });
+  }
+  if (!recommendations.length) {
+    throw new Error('未能生成有效的目的地推荐，请重试');
+  }
+  return { recommendations, sources: [] };
+}
+
+function normalizeMobileDurations(raw: Record<string, unknown>): {
+  options: Array<{ days: number; title: string; reason: string }>;
+  sources: PlannerSource[];
+} {
+  const list = Array.isArray(raw.options) ? raw.options : [];
+  const options = list
+    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+    .map((item) => {
+      const days = Math.round(Number(item.days));
+      const title = String(item.title ?? item.label ?? `${days} 日游`).trim();
+      const reason = String(item.reason ?? item.summary ?? '节奏适中，覆盖核心景点与当地美食。').trim();
+      return { days, title, reason };
+    })
+    .filter((item) => Number.isInteger(item.days) && item.days >= 1 && Boolean(item.title))
+    .slice(0, 3);
+  if (!options.length) {
+    throw new Error('建议时长无效，请重试');
+  }
+  return { options, sources: [] };
+}
+
+function normalizeMobilePacking(raw: Record<string, unknown>): PackingList {
+  const validCategories = new Set<PackingCategory>(['documents', 'clothing', 'medicine', 'electronics', 'bookings', 'other']);
+  const rawItems = Array.isArray(raw.items) ? raw.items : [];
+  const seen = new Set<string>();
+  const items: PackingItem[] = [];
+  for (let i = 0; i < rawItems.length; i += 1) {
+    const row = rawItems[i] as Record<string, unknown> | null;
+    if (!row || typeof row !== 'object') continue;
+    const name = String(row.name ?? row.title ?? '').trim().slice(0, 60);
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    const cat = validCategories.has(row.category as PackingCategory) ? (row.category as PackingCategory) : 'other';
+    const note = String(row.note ?? '').trim().slice(0, 80);
+    items.push({
+      id: `pack-${Date.now()}-${i + 1}`,
+      category: cat,
+      name,
+      ...(note ? { note } : {}),
+      checked: false,
+    });
+  }
+  if (!items.length) throw new Error('未能生成有效的行前清单，请重试');
+  return { items, updatedAt: new Date().toISOString(), generatedByAi: true };
+}
+
+function normalizeMobileTickets(
+  raw: Record<string, unknown>,
+  plan: AiTravelPlan | undefined,
+): NonNullable<AiTravelPlan['ticketPlan']> {
+  const days = Array.isArray(plan?.content?.days) ? plan.content.days : [];
+  const sights = days.flatMap((day) =>
+    (Array.isArray(day.activities) ? day.activities : [])
+      .filter((item) => item.kind === 'sight' && !item.bookingId && !item.bookingTiming?.deferred)
+      .map((item) => ({ activityId: item.id, title: item.title, travelDate: day.date })),
+  );
+  const rows = Array.isArray(raw.items) ? (raw.items as Array<Record<string, unknown>>) : [];
+  const items = sights.map((sight) => {
+    const row = rows.find((r) => r && r.activityId === sight.activityId) ?? {};
+    const saleDate = typeof row.saleDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(row.saleDate) ? row.saleDate : '';
+    const saleTime = typeof row.saleTime === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(row.saleTime) ? row.saleTime : '';
+    const difficulty = typeof row.difficulty === 'string' && ['难', '中', '易', '待核实'].includes(row.difficulty)
+      ? row.difficulty
+      : '待核实';
+    return {
+      activityId: sight.activityId,
+      title: sight.title,
+      travelDate: sight.travelDate,
+      ...(typeof row.bookingRequired === 'boolean' ? { bookingRequired: row.bookingRequired } : {}),
+      saleDate,
+      saleTime,
+      difficulty,
+      platform: String(row.platform ?? '官方公众号 / 小程序（请核实）').trim() || '官方预约渠道待核实',
+      note: String(row.note ?? '手机直连模式未联网核验，请以景区官方公告为准。').trim(),
+      sources: [] as Array<{ title: string; url: string }>,
+    };
+  });
+  return {
+    signature: '',
+    checkedAt: new Date().toISOString(),
+    networkAvailable: false,
+    items,
+  };
+}
+
+function normalizeMobileTransfers(
+  raw: Record<string, unknown>,
+  allowedKeys: Set<string>,
+  selfDrive: boolean,
+): { legs: Record<string, PlannerTransferOption[]> } {
+  const validModes = new Set<PlannerTransferModeKind>(['walk', 'subway', 'bus', 'taxi', 'drive', 'train', 'flight', 'other']);
+  const items = Array.isArray(raw.items) ? (raw.items as Array<Record<string, unknown>>) : [];
+  const legs: Record<string, PlannerTransferOption[]> = {};
+  for (const item of items) {
+    if (!item || typeof item.key !== 'string' || !allowedKeys.has(item.key)) continue;
+    const rawOpts = Array.isArray(item.transferOptions) ? item.transferOptions : [];
+    const opts: PlannerTransferOption[] = [];
+    for (const rawOpt of rawOpts.slice(0, selfDrive ? 1 : 4)) {
+      if (!rawOpt || typeof rawOpt !== 'object') continue;
+      const o = rawOpt as Record<string, unknown>;
+      const mode: PlannerTransferModeKind = selfDrive
+        ? 'drive'
+        : validModes.has(o.mode as PlannerTransferModeKind)
+          ? (o.mode as PlannerTransferModeKind)
+          : 'other';
+      const opt: PlannerTransferOption = {
+        mode,
+        ...(typeof o.recommended === 'boolean' ? { recommended: o.recommended } : {}),
+        ...(typeof o.line === 'string' && o.line.trim() ? { line: o.line.trim() } : {}),
+        ...(typeof o.fromStation === 'string' && o.fromStation.trim() ? { fromStation: o.fromStation.trim() } : {}),
+        ...(typeof o.toStation === 'string' && o.toStation.trim() ? { toStation: o.toStation.trim() } : {}),
+        ...(typeof o.transferNote === 'string' && o.transferNote.trim() ? { transferNote: o.transferNote.trim() } : {}),
+        ...(typeof o.durationMinutes === 'number' && Number.isFinite(o.durationMinutes) && o.durationMinutes > 0
+          ? { durationMinutes: Math.round(o.durationMinutes) }
+          : {}),
+        ...(typeof o.distanceKm === 'number' && Number.isFinite(o.distanceKm) && o.distanceKm > 0
+          ? { distanceKm: Math.round(o.distanceKm * 100) / 100 }
+          : {}),
+        ...(typeof o.costCents === 'number' && Number.isFinite(o.costCents) && o.costCents >= 0
+          ? { costCents: Math.round(o.costCents) }
+          : {}),
+        ...(o.costUnit === 'person' || o.costUnit === 'vehicle' ? { costUnit: o.costUnit } : {}),
+      };
+      opts.push(opt);
+    }
+    if (opts.length) legs[item.key] = opts;
+  }
+  return { legs };
+}
+
   if (endpoint === 'generate') {
     onProgress('手机直连 AI 正在为你规划完整行程…');
-    const req = (payload.request ?? {}) as Record<string, unknown>;
+    const req = normalizeMobileRequest(payload.request);
+    const expectedDays = req.endDate ? plannerDayCount(req.startDate, req.endDate) : (req.days ?? 3);
     const sys = [
       '你是周游地图专业中文旅行规划师。请严格返回合法 JSON 对象，不要输出任何额外说明。',
-      'JSON 结构必须包含：title(字符串), summary(字符串), destination(字符串), cities([{name,province,nights}]), days([{dayIndex,date,city,title,stayArea,summary,items:[{id,period,time,kind,title,location,detail,durationMinutes,estimatedCostCents,tips}]}]), budget({totalCents,perPersonCents,breakdown:[{category,amountCents,note}]}), tips(字符串数组), packingTips(字符串数组)。',
-      'period 仅取 morning/noon/afternoon/evening；kind 仅取 sight/food/transit/hotel/rest/activity；金额单位为人民币分（整数）。',
+      `必须严格按以下结构返回，共 ${expectedDays} 天（从 ${req.startDate} 起连续每一天）：`,
+      '{"title":"行程标题","summary":"行程亮点概要","cities":[{"name":"城市名"}],"constraints":["约束说明"],"warnings":["实用提醒"],"days":[{"date":"YYYY-MM-DD","title":"当天主题","weather":"当季天气参考","activities":[{"id":"d1-a1","kind":"sight|food|transport|rest","period":"morning|noon|afternoon|evening","startTime":"09:00","endTime":"11:30","title":"活动名","city":"城市","location":"具体地点","description":"简明游玩建议","transportMode":"","meal":null,"costs":[{"id":"c1","label":"门票","category":"tickets","unit":"ticket","unitPriceCents":6000,"quantity":1,"occurrences":1}]}],"lodging":{"city":"城市","area":"推荐住宿片区","searchKeyword":"酒店搜索词","reason":"选址理由","costs":[{"id":"l1","label":"住宿","category":"lodging","unit":"room","unitPriceCents":35000,"quantity":1,"occurrences":1}]}}],"alternatives":[{"title":"备选景点","city":"城市","reason":"推荐理由","rainyDay":true}]}',
+      '注意：最后一天 lodging 必须为 null；所有金额为人民币整数分（如 60 元填 6000）；kind 仅取 sight/food/transport/rest；period 仅取 morning/noon/afternoon/evening。',
     ].join('\n');
     const res = await callMobileModel(sys, `旅行需求：\n${JSON.stringify(req, null, 2)}`, { maxTokens: 6000 });
     onProgress('正在整理每日路线与预算…');
-    const plan = extractJsonObject<Record<string, unknown>>(res.text);
-    return { plan, model: res.model } as unknown as T;
+    const raw = extractJsonObject<Record<string, unknown>>(res.text);
+    const content = normalizeMobilePlanContent(raw, req);
+    return { content } as unknown as T;
   }
 
   if (endpoint === 'chat') {
     onProgress('手机直连 AI 正在思考回复…');
-    const sys = '你是周游地图 AI 旅行助手。请用清晰简洁的中文回答用户问题或给出行程调整建议。如果用户明确要求修改行程，请返回 JSON {"reply":"说明","plan":{修改后的完整plan}}；否则直接返回 JSON {"reply":"你的回答"}。';
-    const res = await callMobileModel(sys, JSON.stringify(payload), { maxTokens: 4500 });
+    const baseVersion = Number(payload.baseVersion ?? (payload.plan as AiTravelPlan | undefined)?.version ?? 1);
+    const scopeId = typeof payload.scopeId === 'string' ? payload.scopeId : null;
+    if (payload.activityGuide === true) {
+      const sys = '你是周游地图专业旅行攻略助手。请直接输出清晰、实用、分段的中文攻略正文，不要输出 JSON。';
+      const res = await callMobileModel(sys, String(payload.message ?? ''), { maxTokens: 3000 });
+      return { action: 'answer', answer: res.text.trim(), baseVersion, scopeId } as unknown as T;
+    }
+    const plan = payload.plan as AiTravelPlan | undefined;
+    const sys = [
+      '你是周游地图 AI 旅行助手。请严格返回 JSON 对象，不要输出其他文本：',
+      '- 若是咨询问答或方案建议，返回：{"action":"answer","answer":"你的清晰中文回答"}',
+      '- 仅当用户明确要求直接修改行程时，返回：{"action":"revision","summary":"一句话改动说明","content":{修改后的完整行程content对象}}',
+    ].join('\n');
+    const userMsg = `当前行程概要：${JSON.stringify(plan?.content ?? {})}\n用户消息：${String(payload.message ?? '')}`;
+    const res = await callMobileModel(sys, userMsg, { maxTokens: 4500 });
     try {
-      const parsed = extractJsonObject<{ reply?: string; plan?: unknown }>(res.text);
-      return { reply: parsed.reply || res.text, plan: parsed.plan } as unknown as T;
+      const parsed = extractJsonObject<{
+        action?: string;
+        answer?: string;
+        reply?: string;
+        summary?: string;
+        content?: Record<string, unknown>;
+      }>(res.text);
+      if (parsed.action === 'revision' && parsed.content && plan?.content?.request) {
+        try {
+          const normalized = normalizeMobilePlanContent(parsed.content, plan.content.request);
+          return {
+            action: 'revision',
+            summary: String(parsed.summary || '已按要求调整行程'),
+            content: normalized,
+            baseVersion,
+            scopeId,
+          } as unknown as T;
+        } catch {
+          // 修订内容未通过结构校验时，退回普通文字回答，不丢原行程
+        }
+      }
+      return {
+        action: 'answer',
+        answer: String(parsed.answer ?? parsed.reply ?? parsed.summary ?? res.text).trim() || '已完成回复',
+        baseVersion,
+        scopeId,
+      } as unknown as T;
     } catch {
-      return { reply: res.text } as unknown as T;
+      return { action: 'answer', answer: res.text.trim() || '已完成回复', baseVersion, scopeId } as unknown as T;
     }
   }
 
   if (endpoint === 'recommendations') {
     onProgress('手机直连 AI 正在为你精选目的地…');
-    const sys = '你是中文旅行推荐专家。请严格返回 JSON：{"recommendations":[{"city":"城市名","province":"省份","days":3,"bestSeason":"最佳季节","budgetHint":"预算参考","reason":"推荐理由","highlights":["亮点1","亮点2","亮点3"]}]}，推荐 4 到 6 个城市。';
-    const res = await callMobileModel(sys, JSON.stringify(payload), { maxTokens: 3000 });
-    return extractJsonObject<T>(res.text);
+    const sys = [
+      '你是中文旅行推荐专家。请严格返回合法 JSON 对象，推荐 4 到 6 个目的地：',
+      '{"recommendations":[{"title":"地点名称","destination":"城市或可规划目的地","reason":"推荐理由（50~100字）","season":"当季看点与气候","suggestedDays":"建议 3~4 天","access":"结合出发地的交通方式"}]}',
+    ].join('\n');
+    const res = await callMobileModel(sys, `出行条件：\n${JSON.stringify(payload.request ?? payload)}`, { maxTokens: 3000 });
+    const raw = extractJsonObject<Record<string, unknown>>(res.text);
+    return normalizeMobileRecommendations(raw) as unknown as T;
   }
 
   if (endpoint === 'duration') {
     onProgress('正在评估建议游玩天数…');
-    const sys = '请严格返回 JSON：{"options":[{"days":3,"label":"紧凑精华","summary":"简短说明"},{"days":5,"label":"舒适深度","summary":"简短说明"}]}。';
-    const res = await callMobileModel(sys, JSON.stringify(payload), { maxTokens: 1500 });
-    return extractJsonObject<T>(res.text);
+    const sys = '你是中文旅行规划师。请严格返回 JSON：{"options":[{"days":3,"title":"紧凑精华","reason":"时长理由和大致路线"},{"days":5,"title":"舒适深度","reason":"时长理由和大致路线"}]}，给出 2 到 3 种建议天数。';
+    const res = await callMobileModel(sys, `出行条件：\n${JSON.stringify(payload.request ?? payload)}`, { maxTokens: 1500 });
+    const raw = extractJsonObject<Record<string, unknown>>(res.text);
+    return normalizeMobileDurations(raw) as unknown as T;
   }
 
-  if (endpoint === 'tickets' || endpoint === 'packing' || endpoint === 'transfers') {
-    onProgress('手机直连 AI 正在整理清单…');
-    const sys = `你是旅行助手，请针对 ${endpoint} 任务严格返回 JSON 对象。`;
-    const res = await callMobileModel(sys, JSON.stringify(payload), { maxTokens: 3000 });
-    return extractJsonObject<T>(res.text);
+  if (endpoint === 'tickets') {
+    onProgress('手机直连 AI 正在整理预约与购票清单…');
+    const plan = payload.plan as AiTravelPlan | undefined;
+    const days = Array.isArray(plan?.content?.days) ? plan.content.days : [];
+    const sights = days.flatMap((day) =>
+      (Array.isArray(day.activities) ? day.activities : [])
+        .filter((item) => item.kind === 'sight' && !item.bookingId && !item.bookingTiming?.deferred)
+        .map((item) => ({ activityId: item.id, title: item.title, city: item.city, travelDate: day.date })),
+    );
+    if (!sights.length) {
+      return { signature: '', checkedAt: new Date().toISOString(), networkAvailable: false, items: [] } as unknown as T;
+    }
+    const sys = '你是旅行预约助手。请严格返回 JSON：{"items":[{"activityId":"原活动ID","bookingRequired":true,"saleDate":"","saleTime":"","difficulty":"待核实","platform":"官方公众号/小程序","note":"预约提示与注意事项"}]}。';
+    const res = await callMobileModel(sys, `景点列表：${JSON.stringify(sights)}`, { maxTokens: 2500 });
+    const raw = extractJsonObject<Record<string, unknown>>(res.text);
+    return normalizeMobileTickets(raw, plan) as unknown as T;
+  }
+
+  if (endpoint === 'packing') {
+    onProgress('手机直连 AI 正在生成行前准备清单…');
+    const plan = payload.plan as AiTravelPlan | undefined;
+    const sys = '你是旅行行前顾问。请严格返回 JSON：{"items":[{"category":"documents|clothing|medicine|electronics|bookings|other","name":"具体物品","note":"简短原因（20字内）"}]}，给出 14~24 项实用清单。';
+    const res = await callMobileModel(
+      sys,
+      `行程信息：${JSON.stringify({ title: plan?.content?.title, cities: plan?.content?.cities?.map((c) => c.name), request: plan?.content?.request })}`,
+      { maxTokens: 2500 },
+    );
+    const raw = extractJsonObject<Record<string, unknown>>(res.text);
+    return normalizeMobilePacking(raw) as unknown as T;
+  }
+
+  if (endpoint === 'transfers') {
+    onProgress('手机直连 AI 正在整理两站交通方案…');
+    const rawLegs = Array.isArray(payload.legs) ? (payload.legs as Array<Record<string, unknown>>) : [];
+    const cleanLegs = rawLegs.filter((leg) => leg && typeof leg.key === 'string' && leg.key.trim()).slice(0, 40);
+    if (!cleanLegs.length) return { legs: {} } as unknown as T;
+    const selfDrive = isSelfDriveTransport(String(payload.transport ?? ''));
+    const sys = '你是中国城市交通规划师。请严格返回 JSON：{"items":[{"key":"原key","transferOptions":[{"mode":"walk|subway|bus|taxi|drive","recommended":true,"line":"具体线路","fromStation":"上车站","toStation":"下车站","durationMinutes":18,"distanceKm":3.2,"costCents":300,"costUnit":"person"}]}]}。';
+    const res = await callMobileModel(sys, `交通方式：${String(payload.transport ?? '公共交通')}\n路段：${JSON.stringify(cleanLegs)}`, { maxTokens: 3500 });
+    const raw = extractJsonObject<Record<string, unknown>>(res.text);
+    return normalizeMobileTransfers(raw, new Set(cleanLegs.map((l) => String(l.key))), selfDrive) as unknown as T;
+  }
+
+  if (endpoint === 'photo') {
+    return { photo: null, message: '手机直连模式暂不支持自动搜图，可连接电脑端服务获取实景配图' } as unknown as T;
+  }
+
+  if (endpoint === 'map') {
+    const places = Array.isArray(payload.places) ? (payload.places as Array<{ key?: string }>) : [];
+    return {
+      positions: places.map((p) => ({
+        key: String(p?.key ?? ''),
+        status: 'unresolved',
+        reason: '手机直连模式请点击地图手动选点，或连接电脑端自动定位',
+      })),
+      notice: '手机直连模式支持在地图上手动标点定位',
+      tileUrl: '',
+    } as unknown as T;
   }
 
   throw new Error(`手机端暂不支持该接口（${endpoint}），如需离线 OCR / 小红书解析请连接电脑端服务。`);

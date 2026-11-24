@@ -11,9 +11,94 @@ import './appearance.css';
 import './phone.css';
 import './planner-ai-neo.css';
 
+class AppErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('应用渲染异常', error, info);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div
+          style={{
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+            background: '#faf6f0',
+            color: '#2b241d',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+          }}
+        >
+          <div
+            style={{
+              maxWidth: '420px',
+              width: '100%',
+              background: '#fffdf9',
+              borderRadius: '18px',
+              padding: '24px',
+              boxShadow: '0 12px 32px rgba(43,36,29,0.08)',
+              border: '1px solid rgba(43,36,29,0.08)',
+            }}
+          >
+            <h2 style={{ margin: '0 0 8px', fontSize: '18px' }}>页面遇到了一点小问题</h2>
+            <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#6b6054', lineHeight: 1.5 }}>
+              已为你保护本地行程与手账数据，点击下方按钮即可恢复页面。
+            </p>
+            <pre
+              style={{
+                margin: '0 0 16px',
+                padding: '10px 12px',
+                borderRadius: '10px',
+                background: '#f7ece7',
+                color: '#8f3425',
+                fontSize: '12px',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+              }}
+            >
+              {this.state.error.message || '未知渲染错误'}
+            </pre>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              style={{
+                width: '100%',
+                padding: '11px 16px',
+                borderRadius: '12px',
+                border: 'none',
+                background: '#d6553b',
+                color: '#fff',
+                fontWeight: 600,
+                fontSize: '14px',
+                cursor: 'pointer',
+              }}
+            >
+              重新加载页面
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <AppErrorBoundary>
+      <App />
+    </AppErrorBoundary>
   </React.StrictMode>,
 );
 

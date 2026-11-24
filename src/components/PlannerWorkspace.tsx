@@ -220,8 +220,10 @@ const partyBreakdown = (request: PlannerRequest) => {
     .filter(([count]) => Number(count) > 0).map(([count, label]) => `${count} ${label}`).join(' / ');
 };
 
-function Sources({ ids, sources }: { ids: string[]; sources: PlannerSource[] }) {
-  const selected = sources.filter((source) => ids.includes(source.id));
+function Sources({ ids, sources }: { ids?: string[]; sources?: PlannerSource[] }) {
+  const idList = Array.isArray(ids) ? ids : [];
+  const sourceList = Array.isArray(sources) ? sources : [];
+  const selected = sourceList.filter((source) => idList.includes(source.id));
   return selected.length ? (
     <div className="planner-sources">
       {selected.map((source) => (
@@ -1308,8 +1310,8 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
         sources: PlannerSource[];
       }>('recommendations', { request: discover }, signal, setStage);
       await rememberBase(discover.base);
-      setRecommendations(result.recommendations);
-      setRecommendationSources(result.sources);
+      setRecommendations(Array.isArray(result.recommendations) ? result.recommendations : []);
+      setRecommendationSources(Array.isArray(result.sources) ? result.sources : []);
     }, recommend);
   }
   /** Duration discovery is a separate step: the user's selection becomes the
