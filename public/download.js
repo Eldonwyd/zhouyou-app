@@ -401,7 +401,7 @@
     jumpToDownload(event.data.section || 'download');
   });
 
-  /* ---------- 8. Cloudflare 边缘免梯子直链 + Releases 实时绑定 ---------- */
+  /* ---------- 8. Cloudflare 边缘加速直链 + Releases 实时绑定 ---------- */
   const useEdgeProxy =
     /^https?:$/i.test(window.location.protocol) &&
     !/(^|\.)github\.io$/i.test(window.location.hostname) &&

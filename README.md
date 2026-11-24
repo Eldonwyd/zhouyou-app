@@ -157,9 +157,9 @@
 
 | 平台 | 适用设备 | 安装方式 | 独立下载入口 |
 | :--- | :--- | :--- | :---: |
-| **Web PWA（推荐）** | Safari / Chrome / Edge / 系统浏览器 | **「添加到主屏幕 / 添加到桌面」**（全屏离线、无风险弹窗、自动更新） | [![Open Web PWA](https://img.shields.io/badge/Web%20PWA-推荐体验-ef6351?style=flat-square&logo=safari&logoColor=white)](https://zhouyou.online/) |
-| **Android (安卓)** | Android 8.0+ 手机 / 平板 | 官网直下 `.apk` | [![Download Android](https://img.shields.io/badge/Android-.apk%20官网直下-3DDC84?style=flat-square&logo=android&logoColor=white)](https://zhouyou.online/download-mobile.html) |
-| **iOS (苹果手机)** | iPhone / iPad | `.ipa` 自签（AltStore / SideStore / TrollStore） | [![Download iOS](https://img.shields.io/badge/iOS-.ipa%20自签客户端-000000?style=flat-square&logo=ios&logoColor=white)](https://zhouyou.online/download-mobile.html) |
+| **Web PWA（推荐）** | Safari / Chrome / Edge / 系统浏览器 | **「添加到主屏幕 / 添加到桌面」**（全屏离线、自动更新） | [![Open Web PWA](https://img.shields.io/badge/Web%20PWA-推荐体验-ef6351?style=flat-square&logo=safari&logoColor=white)](https://zhouyou.online/) |
+| **Android (安卓 · 备用)** | Android 8.0+ 手机 / 平板 | 官网直下 `.apk` | [![Download Android](https://img.shields.io/badge/Android-.apk%20官网直下-3DDC84?style=flat-square&logo=android&logoColor=white)](https://zhouyou.online/download-mobile.html) |
+| **iOS (苹果手机 · 备用)** | iPhone / iPad | `.ipa` 自签（AltStore / SideStore / TrollStore） | [![Download iOS](https://img.shields.io/badge/iOS-.ipa%20自签客户端-000000?style=flat-square&logo=ios&logoColor=white)](https://zhouyou.online/download-mobile.html) |
 
 <details>
 <summary><b>📖 展开查看各系统安装贴士（Windows / macOS / Linux / Android / iOS）</b></summary>
@@ -175,7 +175,7 @@
   # 或 Ubuntu / Debian：
   sudo apt install ./Zhouyou-Map-*-linux-*.deb
   ```
-- **手机端免弹窗推荐（Android / iPhone）**：用手机自带浏览器或 Safari 打开 [https://zhouyou.online/](https://zhouyou.online/) → 点击菜单/分享按钮 → **「添加到主屏幕 / 添加到桌面」** 即可全屏离线使用，不触发安卓「未实名/风险应用」拦截。
+- **手机端快捷安装（推荐）**：用手机自带浏览器或 Safari 打开 [https://zhouyou.online/](https://zhouyou.online/) → 点击菜单/分享按钮 → **「添加到主屏幕 / 添加到桌面」** 即可全屏离线使用、自动更新。
 - **可选：手机端连接电脑 AI 服务**：在电脑桌面版顶部菜单「应用」勾选「允许局域网手机连接 AI 服务」，并将局域网地址填入手机端「个人中心 → 远程 / 局域网 AI 服务」即可互联。
 
 详细图文说明请参阅 [全平台安装与使用指南 (docs/DOWNLOAD.md)](docs/DOWNLOAD.md)。

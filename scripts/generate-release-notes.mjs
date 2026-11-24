@@ -51,15 +51,15 @@ if (kind === 'desktop') {
 - **Linux**：AppImage 需赋予执行权限：\`chmod +x Zhouyou-Map-*.AppImage && ./Zhouyou-Map-*.AppImage\`；Debian/Ubuntu 可执行 \`sudo apt install ./Zhouyou-Map-*.deb\`。`;
 } else if (kind === 'mobile') {
   heading = `## 📱 周游地图 手机移动版 v${version}`;
-  intro = '手机移动版独立安装包已自动构建完成，支持 **PWA 添加到主屏幕（推荐 · 无风险弹窗）**、**Android (`.apk`)** 与 **iOS (`.ipa`)**，离线记录中国足迹地图、旅行手账、照片/语音与每日账本。';
-  tips = `> ✨ **最推荐（Android / iOS 免风险弹窗）**：用手机浏览器（Safari / Chrome / Edge / 系统浏览器）打开 [https://zhouyou.online/](https://zhouyou.online/) → 点击菜单「添加到主屏幕 / 添加到桌面」，全屏离线使用、自动更新！
-> 🌐 **手机版官网下载页（推荐 · 支持 APK / IPA 直下）**：[https://zhouyou.online/download.html#mobile](https://zhouyou.online/download.html#mobile)
+  intro = '手机移动版已自动构建完成，推荐优先使用 **PWA「添加到主屏幕」**，同时提供 **Android (`.apk`)** 与 **iOS (`.ipa`)** 独立安装包作为备用，离线记录中国足迹地图、旅行手账、照片/语音与每日账本。';
+  tips = `> ✨ **手机端快捷安装（推荐）**：用手机浏览器（Safari / Chrome / Edge / 系统浏览器）打开 [https://zhouyou.online/](https://zhouyou.online/) → 点击菜单「添加到主屏幕 / 添加到桌面」，全屏离线使用、自动更新！
+> 🌐 **手机版官网下载页（推荐 · 含 APK / IPA 备用）**：[https://zhouyou.online/download.html#mobile](https://zhouyou.online/download.html#mobile)
 > 💻 需要电脑版？请前往 [电脑版官网下载区](https://zhouyou.online/download.html#desktop)
 
 ### 🛠️ 手机端安装提示
-- **PWA 添加到主屏幕（推荐）**：不触发安卓「未实名/风险应用」拦截，也不用每次更新重新下 APK。
-- **Android (安卓独立包)**：下载 \`.apk\` 后直接点击安装（若系统提示未知来源应用，允许安装即可）。
-- **iOS (苹果独立包)**：通过 AltStore / SideStore / TrollStore / Sideloadly 安装 \`.ipa\`，或使用上方 Safari PWA 一键添加到主屏幕。`;
+- **PWA 添加到主屏幕（推荐）**：桌面独立图标，全屏离线运行，自动更新。
+- **Android (安卓 · 备用)**：下载 \`.apk\` 后直接点击安装。
+- **iOS (苹果 · 备用)**：通过 AltStore / SideStore / TrollStore / Sideloadly 安装 \`.ipa\`，或使用上方 Safari PWA 一键添加到主屏幕。`;
 } else {
   tips = `> 🌐 **官网下载中心（推荐）**：[电脑版下载](https://zhouyou.online/download.html#desktop) · [手机版下载](https://zhouyou.online/download.html#mobile) · [在线 PWA](https://zhouyou.online/)`;
 }
