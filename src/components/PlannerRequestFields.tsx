@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { PlannerLuggageMode, PlannerRequest } from '../planner-types';
 import { PLANNER_LOCAL_TRANSPORT_OPTIONS, plannerLocalTransport, plannerPartyText, updatePlannerDates } from '../planner-domain';
 import { useI18n } from '../i18n';
@@ -37,6 +38,55 @@ export default function PlannerRequestFields({
     const next = { ...value, ...patch };
     onChange({ ...next, travelersText: plannerPartyText(next) });
   };
+  type PartyCountKey = 'people' | 'students' | 'seniors' | 'children';
+  const [partyDrafts, setPartyDrafts] = useState<Record<PartyCountKey, string>>({
+    people: String(value.people ?? 1),
+    students: String(value.students ?? 0),
+    seniors: String(value.seniors ?? 0),
+    children: String(value.children ?? 0),
+  });
+  useEffect(() => {
+    setPartyDrafts((prev) => ({
+      people: prev.people === '' ? '' : String(value.people ?? 1),
+      students: prev.students === '' ? '' : String(value.students ?? 0),
+      seniors: prev.seniors === '' ? '' : String(value.seniors ?? 0),
+      children: prev.children === '' ? '' : String(value.children ?? 0),
+    }));
+  }, [value.people, value.students, value.seniors, value.children]);
+
+  const handlePartyInput = (key: PartyCountKey, raw: string) => {
+    const digitsOnly = raw.replace(/[^\d]/g, '');
+    if (digitsOnly === '') {
+      setPartyDrafts((prev) => ({ ...prev, [key]: '' }));
+      if (key !== 'people') updateParty({ [key]: 0 });
+      return;
+    }
+    // 去掉前导 0，避免从 0 开始输入时变成 01 / 02
+    const normalized = digitsOnly.replace(/^0+(?=\d)/, '');
+    const parsed = Number.parseInt(normalized, 10);
+    const clamped = key === 'people'
+      ? Math.max(1, parsed)
+      : Math.max(0, Math.min(Math.max(1, value.people), parsed));
+    setPartyDrafts((prev) => ({ ...prev, [key]: String(clamped) }));
+    updateParty({ [key]: clamped });
+  };
+
+  const handlePartyBlur = (key: PartyCountKey) => {
+    const fallback = key === 'people' ? 1 : 0;
+    const raw = partyDrafts[key].trim();
+    if (raw === '') {
+      setPartyDrafts((prev) => ({ ...prev, [key]: String(fallback) }));
+      updateParty({ [key]: fallback });
+      return;
+    }
+    const parsed = Number.parseInt(raw, 10);
+    const clamped = Number.isFinite(parsed)
+      ? (key === 'people' ? Math.max(1, parsed) : Math.max(0, Math.min(Math.max(1, value.people), parsed)))
+      : fallback;
+    setPartyDrafts((prev) => ({ ...prev, [key]: String(clamped) }));
+    updateParty({ [key]: clamped });
+  };
+
   const groups = [
     ['students', t('学生', 'Students')],
     ['seniors', t('老人', 'Seniors')],
@@ -58,12 +108,13 @@ export default function PlannerRequestFields({
           <label>
             {t('旅行人群（总人数）', 'Travelers (total)')}
             <input
-              type="number"
-              min="1"
-              step="1"
-              value={value.people}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={partyDrafts.people}
               placeholder={t('例如：4', 'e.g. 4')}
-              onChange={(event) => updateParty({ people: Number(event.target.value) })}
+              onChange={(event) => handlePartyInput('people', event.target.value)}
+              onBlur={() => handlePartyBlur('people')}
             />
           </label>
           {/* 学生、老人、儿童默认收起，不填为 0；其余按成人计价。 */}
@@ -74,12 +125,13 @@ export default function PlannerRequestFields({
                 <label key={key}>
                   {t(`${label}人数`, label)}
                   <input
-                    type="number"
-                    min="0"
-                    max={value.people}
-                    step="1"
-                    value={value[key] ?? 0}
-                    onChange={(event) => updateParty({ [key]: Math.max(0, Number(event.target.value) || 0) })}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={partyDrafts[key]}
+                    placeholder="0"
+                    onChange={(event) => handlePartyInput(key, event.target.value)}
+                    onBlur={() => handlePartyBlur(key)}
                   />
                 </label>
               ))}

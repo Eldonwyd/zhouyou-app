@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import type { AppSnapshot, LocalProfile } from '../types';
 import { exportBackup, importBackup } from '../backup';
 import { getPlannerApiOrigin, setPlannerApiOrigin } from '../api-base';
-import { APPEARANCE_STYLES, useAppearanceStyle, useThemeMode } from '../theme';
 import { applyLanguage, useI18n, type AppLanguage } from '../i18n';
 import { TravelIcon } from './TravelArt';
 import { AVATAR_PRESETS, CuteSticker, TravelAvatar, getTravelerLevel } from './CuteArt';
@@ -56,8 +55,6 @@ export default function ProfileView({
   onNotice,
 }: ProfileViewProps) {
   const { lang, isEn, locale, t } = useI18n();
-  const appearanceId = useAppearanceStyle();
-  const themeMode = useThemeMode();
 
   const savedProfile = snapshot.profile[0];
   const defaultNickname = t('旅行者', 'Traveler');
@@ -163,9 +160,6 @@ export default function ProfileView({
   const backupHealthy = Boolean(lastBackup && (Date.now() - Date.parse(lastBackup)) < 30 * 86_400_000);
   const storagePct = storageEstimate?.quota ? Math.min(100, Math.max(3, (storageEstimate.usage / storageEstimate.quota) * 100)) : 0;
 
-  const activeStyleMeta = APPEARANCE_STYLES.find((item) => item.id === appearanceId) ?? APPEARANCE_STYLES[0];
-  const themeModeLabel = themeMode === 'light' ? t('浅色', 'Light') : themeMode === 'dark' ? t('深色', 'Dark') : t('跟随系统', 'System');
-
   async function saveMyProfile(): Promise<void> {
     try {
       await onSaveProfile({
@@ -245,7 +239,6 @@ export default function ProfileView({
   if (settingsOpen) {
     const quickNavItems = [
       { id: 'settings-language', label: t('语言', 'Language') },
-      { id: 'settings-appearance', label: t('页面外观', 'Appearance') },
       { id: 'travel-data-backup', label: t('数据导出与导入', 'Backup & Export') },
       { id: 'settings-offline-maps', label: t('离线地图', 'Offline Maps') },
       { id: 'app-update-card', label: t('应用更新', 'Updates') },
@@ -266,8 +259,8 @@ export default function ProfileView({
             >
               <span aria-hidden="true">←</span> {t('返回个人中心', 'Back to Profile')}
             </button>
-            <h1>{t('设置', 'Settings')}</h1>
-            <p>{t('切换界面语言、调整页面风格与明暗模式、导出导入备份及管理离线地图与服务。', 'Switch language, customize appearance & theme, export or import backups, and manage offline maps & services.')}</p>
+            <h1>{t('偏好与设置', 'Preferences & Settings')}</h1>
+            <p>{t('切换界面语言、导出导入备份、管理离线地图、检查应用更新与 AI 服务。', 'Switch language, export or import backups, manage offline maps, check updates, and configure AI server.')}</p>
           </div>
         </div>
 
@@ -325,10 +318,7 @@ export default function ProfileView({
           </div>
         </section>
 
-        {/* 2. 页面外观与主题 */}
-        <AppearanceSettings />
-
-        {/* 3. 数据导出与导入 */}
+        {/* 2. 数据导出与导入 */}
         <section id="travel-data-backup" className="card backup-card settings-backup-card" tabIndex={-1} aria-labelledby="travel-data-backup-title">
           <div className="backup-card-top">
             <div className="warm-backup-art">
@@ -449,12 +439,8 @@ export default function ProfileView({
       <div className="section-heading">
         <div>
           <h1>{t('个人中心', 'Personal Center')}</h1>
-          <p>{t('装扮你的旅人小护照，珍藏所有回忆；语言、页面风格与数据备份均已收纳在设置中。', 'Customize your traveler passport and memories. Language, appearance, and backups live inside Settings.')}</p>
+          <p>{t('装扮你的旅人小护照，随时切换页面风格；语言、备份与离线地图等均收纳在下方设置中。', 'Customize your traveler passport and page style; language, backups, and offline maps live inside Settings below.')}</p>
         </div>
-        <button type="button" className="secondary profile-settings-trigger" onClick={() => openSettings()}>
-          <TravelIcon name="settings" />
-          <span>{t('设置', 'Settings')}</span>
-        </button>
       </div>
 
       {/* 旅人护照横幅 + 内联装扮面板 */}
@@ -577,85 +563,22 @@ export default function ProfileView({
         )}
       </section>
 
-      {/* 设置中心快捷卡片：收拢语言、外观、导出备份、离线地图与更多设置 */}
-      <section className="card profile-settings-entry-card" aria-labelledby="profile-settings-entry-title">
-        <div className="card-heading">
-          <div>
-            <h2 id="profile-settings-entry-title">{t('偏好与设置', 'Preferences & Settings')}</h2>
-            <p className="muted">{t('语言切换、页面外观、数据备份、离线地图与 AI 服务都在这里。', 'Language, appearance themes, data backup, offline maps, and AI server settings.')}</p>
-          </div>
-          <button type="button" className="text-button" onClick={() => openSettings()}>
-            {t('全部设置 →', 'All Settings →')}
-          </button>
-        </div>
+      {/* 页面风格与明暗直接放在个人中心外面，方便随时换肤 */}
+      <AppearanceSettings />
 
-        <div className="settings-entry-list">
-          <button type="button" className="settings-entry-row" onClick={() => openSettings('settings-language')}>
-            <span className="settings-entry-icon is-lang"><TravelIcon name="globe" /></span>
-            <span className="settings-entry-copy">
-              <strong>{t('语言 / Language', 'Language')}</strong>
-              <small>{t('切换简体中文或英文界面', 'Switch between English and Simplified Chinese')}</small>
-            </span>
-            <span className="settings-entry-value">{lang === 'en' ? 'English' : '简体中文'}</span>
-            <span className="settings-entry-chevron" aria-hidden="true">›</span>
-          </button>
-
-          <button type="button" className="settings-entry-row" onClick={() => openSettings('settings-appearance')}>
-            <span className="settings-entry-icon is-theme"><TravelIcon name="palette" /></span>
-            <span className="settings-entry-copy">
-              <strong>{t('页面风格与明暗', 'Appearance & Theme')}</strong>
-              <small>{t('5 套外观主题与浅色 / 深色模式', '5 visual themes and light / dark mode')}</small>
-            </span>
-            <span className="settings-entry-value">{isEn ? activeStyleMeta.nameEn : activeStyleMeta.name} · {themeModeLabel}</span>
-            <span className="settings-entry-chevron" aria-hidden="true">›</span>
-          </button>
-
-          <button type="button" className="settings-entry-row" onClick={() => openSettings('travel-data-backup')}>
-            <span className="settings-entry-icon is-backup"><TravelIcon name="backup" /></span>
-            <span className="settings-entry-copy">
-              <strong>{t('数据导出与导入', 'Data Export & Import')}</strong>
-              <small>{t('导出或恢复完整 ZIP 旅行备份', 'Export or restore full ZIP travel backups')}</small>
-            </span>
-            <span className={`settings-entry-value ${backupHealthy ? 'is-safe' : ''}`}>
-              {backupHealthy ? t('已备份 ✓', 'Backed up ✓') : t('去备份', 'Backup')}
-            </span>
-            <span className="settings-entry-chevron" aria-hidden="true">›</span>
-          </button>
-
-          <button type="button" className="settings-entry-row" onClick={() => openSettings('settings-offline-maps')}>
-            <span className="settings-entry-icon is-map"><TravelIcon name="map" /></span>
-            <span className="settings-entry-copy">
-              <strong>{t('离线地图', 'Offline Maps')}</strong>
-              <small>{t('按省缓存市级地图，断网可看', 'Cache city-level province maps for offline use')}</small>
-            </span>
-            <span className="settings-entry-value">{t('管理缓存', 'Manage')}</span>
-            <span className="settings-entry-chevron" aria-hidden="true">›</span>
-          </button>
-
-          <button type="button" className="settings-entry-row" onClick={() => openSettings('app-update-card')}>
-            <span className="settings-entry-icon is-backup"><TravelIcon name="settings" /></span>
-            <span className="settings-entry-copy">
-              <strong>{t('检查应用更新', 'App Updates')}</strong>
-              <small>{t('手机端与电脑端一键检查并更新到最新版本', 'Check and install the latest mobile or desktop version')}</small>
-            </span>
-            <span className={`settings-entry-value ${availableUpdate ? 'is-safe' : ''}`}>
-              {availableUpdate ? t(`新版本 v${availableUpdate.latestVersion}`, `v${availableUpdate.latestVersion} Ready`) : t('检查更新', 'Check')}
-            </span>
-            <span className="settings-entry-chevron" aria-hidden="true">›</span>
-          </button>
-
-          <button type="button" className="settings-entry-row" onClick={() => openSettings('settings-more')}>
-            <span className="settings-entry-icon is-server"><TravelIcon name="server" /></span>
-            <span className="settings-entry-copy">
-              <strong>{t('演示模式与 AI 服务', 'Demo Mode & AI Server')}</strong>
-              <small>{t('示例数据体验、局域网 / 远程 AI 地址配置', 'Sample workspace and remote/LAN AI endpoint')}</small>
-            </span>
-            <span className="settings-entry-value">
-              {demoMode ? t('演示中', 'Demo On') : apiOrigin ? t('远程 AI', 'Remote AI') : t('默认本机', 'Local')}
-            </span>
-            <span className="settings-entry-chevron" aria-hidden="true">›</span>
-          </button>
-        </div>
+      {/* 偏好与设置：收拢为一个简洁入口，点开进入设置页 */}
+      <section className="card profile-settings-entry-card profile-settings-compact-card" aria-label={t('偏好与设置', 'Preferences & Settings')}>
+        <button type="button" className="settings-entry-row" onClick={() => openSettings()}>
+          <span className="settings-entry-icon is-server"><TravelIcon name="settings" /></span>
+          <span className="settings-entry-copy">
+            <strong>{t('偏好与设置', 'Preferences & Settings')}</strong>
+            <small>{t('语言切换、数据备份、离线地图、应用更新与 AI 服务', 'Language, data backup, offline maps, updates & AI server')}</small>
+          </span>
+          <span className={`settings-entry-value ${availableUpdate ? 'is-safe' : ''}`}>
+            {availableUpdate ? t(`新版本 v${availableUpdate.latestVersion}`, `v${availableUpdate.latestVersion}`) : t('打开设置', 'Open')}
+          </span>
+          <span className="settings-entry-chevron" aria-hidden="true">›</span>
+        </button>
       </section>
 
       {/* 双栏 Bento：回忆收藏 + 存储空间 */}

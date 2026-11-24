@@ -10,6 +10,7 @@ interface TravelCityBrowserProps {
   selectedCityCode: string | null;
   onSelectCity: (city: JourneyCity) => void;
   onShowAll: () => void;
+  onOpenMap?: () => void;
   onError: (message: string) => void;
 }
 
@@ -17,7 +18,7 @@ interface TravelCityBrowserProps {
  * Browse the full administrative catalogue one province at a time. Loading a
  * province only after selection keeps the first visit as light as the map home.
  */
-export default function TravelCityBrowser({ trips, places, marks, selectedCityCode, onSelectCity, onShowAll, onError }: TravelCityBrowserProps) {
+export default function TravelCityBrowser({ trips, places, marks, selectedCityCode, onSelectCity, onShowAll, onOpenMap, onError }: TravelCityBrowserProps) {
   const { lang, t } = useI18n();
   const [provinces, setProvinces] = useState<AdministrativeFeature[]>([]);
   const [provinceCode, setProvinceCode] = useState(selectedCityCode ? `${selectedCityCode.slice(0, 2)}0000` : '');
@@ -63,7 +64,10 @@ export default function TravelCityBrowser({ trips, places, marks, selectedCityCo
         <h2>{t('按省份找城市', 'Browse by Province')}</h2>
         <p>{t('选一座城市查看旅行与独立保存的地点记录。', 'Choose a city to view its trips and saved places.')}</p>
       </div>
-      <button className={!selectedCityCode ? 'primary' : 'secondary'} onClick={onShowAll}>{t('全部旅行', 'All Trips')}</button>
+      <div className="heading-actions travel-browser-actions">
+        {onOpenMap && <button type="button" className="secondary" onClick={onOpenMap}>{t('去地图选择城市', 'Pick on Map')}</button>}
+        <button type="button" className={!selectedCityCode ? 'primary' : 'secondary'} onClick={onShowAll}>{t('全部旅行', 'All Trips')}</button>
+      </div>
     </div>
     <div className="province-choice-grid">{provinces.map((province) => {
       const code = String(province.properties.adcode);

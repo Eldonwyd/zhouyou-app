@@ -652,7 +652,7 @@ div.mobile-disclosure-body,
   .warm-profile-banner { margin-bottom: 14px; }
   .warm-profile .profile-grid { gap: 14px; }
   .warm-profile .profile-grid > .card { padding: 15px 14px; }
-  .warm-badges .badge-card { padding: 28px 10px 12px; }
+  .warm-badges .badge-card { padding: 24px 8px 10px; }
   .warm-record-filter { margin-bottom: 12px; }
   .finance-page .finance-journeys { padding: 14px; }
   /* 手机可直接从底部导航进入手账，预算页留给行程选择与记账。 */
@@ -673,6 +673,9 @@ div.mobile-disclosure-body,
     min-height: 40px;
     padding: 8px 10px;
     font-size: 12.5px;
+  }
+  .journal-page > .section-heading .heading-actions > .primary {
+    grid-column: 1 / -1;
   }
   .journal-page .compact-journal-hero { gap: 12px; margin-bottom: 14px; }
   .journal-page .warm-featured.compact-postcard {

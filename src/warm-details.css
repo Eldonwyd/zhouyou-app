@@ -3192,12 +3192,13 @@ input, select, textarea { border-radius: 10px; }
   padding: 12px 14px;
   margin-bottom: 14px;
   border-radius: 14px;
-  background: var(--app-sage);
-  color: var(--app-sage-ink);
+  background: color-mix(in srgb, var(--surface-2) 72%, var(--app-peach));
+  border: 1px solid color-mix(in srgb, var(--line) 70%, var(--warm-green));
+  color: var(--ink-2);
   display: grid;
   gap: 8px;
 }
-.planner-workspace .xhs-ref-label { font-size: 14px; color: var(--ink); }
+.planner-workspace .xhs-ref-label { font-size: 14px; color: var(--ink); font-weight: 700; }
 .planner-workspace .xhs-ref-banner > textarea { min-height: 62px; background: var(--surface); }
 .xhs-ref-banner-top {
   display: flex;
@@ -3206,7 +3207,7 @@ input, select, textarea { border-radius: 10px; }
   justify-content: space-between;
   gap: 10px;
 }
-.xhs-ref-banner-top p { margin: 2px 0 0; font-size: 12.5px; }
+.xhs-ref-banner-top p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
 .xhs-ref-banner-modes {
   display: flex;
   flex-wrap: wrap;

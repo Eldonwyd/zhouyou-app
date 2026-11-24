@@ -119,7 +119,7 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
   const [retryAttempt, setRetryAttempt] = useState(0);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<'loading-map' | 'loading-province' | 'ready-province' | 'ready-national' | 'offline-province' | string>('loading-map');
-  const [provinceFilter, setProvinceFilter] = useState<'all' | 'visited' | 'unvisited'>('all');
+  const [provinceFilter, setProvinceFilter] = useState<'all' | 'visited' | 'unvisited'>('visited');
   const hoveredRegionRef = useRef<string | null>(null);
   // 手机端无鼠标悬浮提示，全国和省内市级地图均直接显示名称，重叠交给 ECharts hideOverlap 自动避让。
   const [compactMap, setCompactMap] = useState(() => window.matchMedia('(max-width: 560px)').matches);
@@ -610,11 +610,11 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
               <div className="side-stat-bar" aria-hidden="true"><span style={{ width: `${provinceExplorePct}%` }} /></div>
             </div>
             <div className="map-province-filter" role="tablist" aria-label={t('筛选省份', 'Filter provinces')}>
-              <button type="button" role="tab" aria-selected={provinceFilter === 'all'} className={provinceFilter === 'all' ? 'active' : ''} onClick={() => setProvinceFilter('all')}>
-                {t('全部', 'All')} <span>{totalProvinces}</span>
-              </button>
               <button type="button" role="tab" aria-selected={provinceFilter === 'visited'} className={provinceFilter === 'visited' ? 'active' : ''} onClick={() => setProvinceFilter('visited')}>
                 {t('已点亮', 'Visited')} <span>{visitedProvincesCount}</span>
+              </button>
+              <button type="button" role="tab" aria-selected={provinceFilter === 'all'} className={provinceFilter === 'all' ? 'active' : ''} onClick={() => setProvinceFilter('all')}>
+                {t('全部', 'All')} <span>{totalProvinces}</span>
               </button>
               <button type="button" role="tab" aria-selected={provinceFilter === 'unvisited'} className={provinceFilter === 'unvisited' ? 'active' : ''} onClick={() => setProvinceFilter('unvisited')}>
                 {t('待探索', 'To Go')} <span>{Math.max(0, totalProvinces - visitedProvincesCount)}</span>
