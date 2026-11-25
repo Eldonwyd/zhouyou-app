@@ -2179,6 +2179,19 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
     }))
     .filter((item) => Boolean(item.title));
 
+  const rawUnvisited = Array.isArray(raw.unvisitedHighlights) ? raw.unvisitedHighlights : [];
+  const unvisitedHighlights = rawUnvisited
+    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+    .map((item) => ({
+      title: String(item.title ?? item.name ?? '').trim(),
+      city: String(item.city ?? primaryCity).trim() || primaryCity,
+      grade: typeof item.grade === 'string' ? item.grade.trim() : '',
+      feature: String(item.feature ?? item.reason ?? item.description ?? '').trim(),
+      location: String(item.location ?? item.address ?? item.title ?? '').trim(),
+    }))
+    .filter((item) => Boolean(item.title))
+    .slice(0, 8);
+
   const toStringList = (v: unknown): string[] =>
     Array.isArray(v) ? v.map((item) => String(item ?? '').trim()).filter(Boolean) : [];
 
@@ -2191,6 +2204,7 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
     warnings: toStringList(raw.warnings ?? raw.tips),
     days,
     alternatives,
+    ...(unvisitedHighlights.length ? { unvisitedHighlights } : {}),
     sources: [],
   };
 
@@ -2424,9 +2438,14 @@ async function searchMobilePlacePhoto(
   title: string,
 ): Promise<{ url: string; sourceUrl: string; attribution: string } | null> {
   const cleanTitle = title.replace(/[·•｜|].*$/, '').replace(/（.*?）|\(.*?\)/g, '').trim();
+  const shortTitle = cleanTitle
+    .replace(/(?:文化旅游区|风景名胜区|旅游度假区|历史文化街区|生态旅游区|森林公园|地质公园|旅游区|风景区|景区)$/g, '')
+    .trim();
   const cleanCity = city.replace(/市$/, '').trim();
   const queries = [...new Set([
     cleanTitle,
+    shortTitle && shortTitle.length >= 2 ? shortTitle : '',
+    cleanCity && shortTitle && !shortTitle.includes(cleanCity) ? `${cleanCity} ${shortTitle}` : '',
     cleanCity && cleanTitle && !cleanTitle.includes(cleanCity) ? `${cleanCity} ${cleanTitle}` : '',
     cleanCity,
   ].filter(Boolean))];
@@ -2669,7 +2688,8 @@ async function locateSingleMobilePlace(place: { key: string; name: string; city?
     const sys = [
       '你是周游地图专业中文旅行规划师。请严格返回紧凑合法 JSON 对象，不要输出任何额外说明或注释。',
       `必须严格按以下结构返回，共 ${expectedDays} 天（从 ${req.startDate} 起连续每一天，每天 3~5 个核心活动，简洁实用勿冗长）：`,
-      '{"title":"行程标题","summary":"行程亮点概要","cities":[{"name":"城市名"}],"constraints":["约束说明"],"warnings":["实用提醒"],"days":[{"date":"YYYY-MM-DD","title":"当天主题","weather":"当季天气参考","activities":[{"id":"d1-a1","kind":"sight|food|transport|rest","period":"morning|noon|afternoon|evening","startTime":"09:00","endTime":"11:30","title":"活动名","city":"城市","location":"具体地点","description":"简明游玩建议","transportMode":"","meal":null,"costs":[{"id":"c1","label":"门票","category":"tickets","unit":"ticket","unitPriceCents":6000,"quantity":1,"occurrences":1}]}],"lodging":{"city":"城市","area":"推荐住宿片区","searchKeyword":"酒店搜索词","reason":"选址理由","costs":[{"id":"l1","label":"住宿","category":"lodging","unit":"room","unitPriceCents":35000,"quantity":1,"occurrences":1}]}}],"alternatives":[{"title":"备选景点","city":"城市","reason":"推荐理由","rainyDay":true}]}',
+      '{"title":"行程标题","summary":"行程亮点概要","cities":[{"name":"城市名"}],"constraints":["约束说明"],"warnings":["实用提醒"],"days":[{"date":"YYYY-MM-DD","title":"当天主题","weather":"当季天气参考","activities":[{"id":"d1-a1","kind":"sight|food|transport|rest","period":"morning|noon|afternoon|evening","startTime":"09:00","endTime":"11:30","title":"活动名","city":"城市","location":"具体地点","description":"国家5A级景区 · 简明点出核心特色（如民国时期建筑群），25~50字","transportMode":"","meal":null,"costs":[{"id":"c1","label":"门票","category":"tickets","unit":"ticket","unitPriceCents":6000,"quantity":1,"occurrences":1}]}],"lodging":{"city":"城市","area":"推荐住宿片区","searchKeyword":"酒店搜索词","reason":"选址理由","costs":[{"id":"l1","label":"住宿","category":"lodging","unit":"room","unitPriceCents":35000,"quantity":1,"occurrences":1}]}}],"alternatives":[{"title":"备选景点","city":"城市","reason":"推荐理由","rainyDay":true}],"unvisitedHighlights":[{"title":"未排入的热门景点名","city":"城市","grade":"5A或4A或空串","feature":"15字内一句话特色","location":"所在区或地址"}]}',
+      '景点简介要求：每个 sight 活动的 description 必须简明写出特色（如历史年代/建筑/自然看点），若是国家4A或5A级景区须写明（如“国家5A级景区 · ...”），不要太长；unvisitedHighlights 列出 4~6 个目的地热门但本次未去的景点。',
       transitRule,
       '注意：非交通卡省略 distanceKm 与 transferOptions；最后一天 lodging 必须为 null；所有金额为人民币整数分（如 60 元填 6000）；kind 仅取 sight/food/transport/rest；period 仅取 morning/noon/afternoon/evening。',
     ].join('\n');
@@ -2773,7 +2793,7 @@ async function locateSingleMobilePlace(place: { key: string; name: string; city?
     if (!sights.length) {
       return { signature: '', checkedAt: new Date().toISOString(), networkAvailable: false, items: [] } as unknown as T;
     }
-    const sys = '你是旅行预约助手。请严格返回 JSON：{"items":[{"activityId":"原活动ID","bookingRequired":true,"saleDate":"","saleTime":"","difficulty":"待核实","platform":"官方公众号/小程序","note":"预约提示与注意事项"}]}。';
+    const sys = '你是旅行预约助手。请严格返回 JSON：{"items":[{"activityId":"原活动ID","bookingRequired":false,"saleDate":"","saleTime":"","difficulty":"易","platform":"官方公众号/小程序","note":"预约提示"}]}。注意：免费开放街区、公园、广场、桥梁、外观地标等无需抢票的景点务必设 bookingRequired:false；仅确需提前购票或限流预约的收费/热门场馆设 bookingRequired:true。';
     const res = await callMobileModel(sys, `景点列表：${JSON.stringify(sights)}`, { maxTokens: 2500 });
     const raw = extractJsonObject<Record<string, unknown>>(res.text);
     return normalizeMobileTickets(raw, plan) as unknown as T;

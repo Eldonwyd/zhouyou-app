@@ -431,9 +431,15 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
       </div>
     </div>
     {open && <>
-      <div className="planner-map-actions">
-        <label>查看日期 <select aria-label="地图日期" value={date} onChange={(event) => setDate(event.target.value)}><option value="">全部日期</option>{content.days.map((day) => <option key={day.date} value={day.date}>{day.date}</option>)}</select></label>
-        <button className="secondary" disabled={Boolean(stage)} onClick={() => setRetry(retry + 1)}>重试定位与地图</button>
+      <div className="planner-map-toolbar">
+        <label className="planner-map-date-field">
+          <span>查看日期</span>
+          <select aria-label="地图日期" value={date} onChange={(event) => setDate(event.target.value)}>
+            <option value="">全部日期</option>
+            {content.days.map((day) => <option key={day.date} value={day.date}>{day.date}</option>)}
+          </select>
+        </label>
+        <button className="secondary planner-map-retry-btn" disabled={Boolean(stage)} onClick={() => setRetry(retry + 1)}>重试定位与地图</button>
       </div>
       {stage && <p role="status">{stage}</p>}
       {/* 直接展示覆盖率，避免地图上的少数点被误认为整份行程只有这些景点。 */}

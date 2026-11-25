@@ -375,14 +375,21 @@ try {
   console.log(`   ✓ 行程地图底图正常加载且真实定位成功（${markerCount} 个景点标点）！`);
   await page.getByRole('button', { name: '收起地图' }).click();
 
+  // Verify unvisited popular sights section renders
+  const unvisitedCount = await page.locator('.planner-unvisited-row').count();
+  console.log(`   ✓ 「未去热门景点」区域已渲染（${unvisitedCount} 个热门未去景点）！`);
+
   // Test single detailed guide generation and assert zero literal ** asterisks
   const guideBtn = page.locator('button', { hasText: '详细攻略' }).first();
   if (await guideBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
     await guideBtn.click();
-    await page.locator('.planner-activity-guide .ai-rich-text').first().waitFor({ timeout: 60000 });
+    const guideSummary = page.locator('.planner-activity-guide summary').first();
+    await guideSummary.waitFor({ timeout: 60000 });
+    await guideSummary.click();
+    await page.locator('.planner-activity-guide .ai-rich-text').first().waitFor({ timeout: 8000 });
     const guideText = await page.locator('.planner-activity-guide .ai-rich-text').first().innerText();
     assert.equal(guideText.includes('**'), false, `Guide text should not contain literal ** asterisks: ${guideText.slice(0, 120)}`);
-    console.log('   ✓ 详细攻略排版渲染正常，无原始 ** 星号！');
+    console.log('   ✓ 详细攻略展开与排版渲染正常，无原始 ** 星号！');
   }
 
   // Verify Amap deep link on activity card

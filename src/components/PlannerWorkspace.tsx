@@ -94,7 +94,6 @@ import { PLANNER_API_ORIGIN_EVENT, plannerApiUrl } from '../api-base';
 import { buildMobileAiStatus, isMobileNativeAiActive } from '../mobile-ai-runtime';
 import { plannerApi } from '../planner-api';
 import { ticketPlanSignature } from '../planner-ticket-signature';
-import { needsTicketPreparation } from '../planner-ticket-display';
 import { BUDGET_LABELS, type TripPlan } from '../types';
 import { createLocalId, currency, downloadBlob } from '../utils';
 import { useI18n } from '../i18n';
@@ -1047,7 +1046,6 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
   const [ticketStatus, setTicketStatus] = useState({ key: '', stage: '', error: '' });
   const ticketPlanId = activePlan?.id;
   const savedTicketSignature = activePlan?.ticketPlan?.signature;
-  const visibleTicketItems = activePlan?.ticketPlan?.items.filter(needsTicketPreparation) ?? [];
   /** 行程先显示，抢票资料后台补全。改日期/增删活动/AI修改/恢复历史都走同一更新路径。
    * 独立取消请求，避免后台抢票查询阻塞用户继续编辑；旧行程的结果不会覆盖新行程。 */
   useEffect(() => {
@@ -1473,17 +1471,27 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
         message: `请仅提供「${activity.city}·${activity.title}」的详细实用攻略，不修改行程，不提出行程修改方案。结合当前日期、活动时间、同行人群和偏好，分段说明推荐游览顺序与时间分配、必看亮点、入口与交通、预约与费用、拍照建议、餐饮休息、天气及避坑事项；餐饮/交通/休息模块请给对应的实用指南。${activity.kind === 'food' ? '餐饮攻略重点推荐附近3至5家真实、评价有依据的具体店铺，列出店名及分店、地址或所在片区、招牌菜、人均预估、推荐理由与评价来源、排队或预约建议。兼顾距离和同行忌口；火锅须推荐对应锅底与点菜组合。没有真实评分、评论证据不得声称高分或好评，不编造店铺；证据不足可以少推荐并简短注明。' : ''}区分已核实资料与经验建议，不编造营业时间或票价。直接给实用内容，不复述用户要求或用长篇资料边界开场。使用中文短标题和段落。`,
       }, signal, setStage);
       if (result.action !== 'answer' || !result.answer?.trim()) throw new Error('未获取到详细攻略，请重试');
-      // 保存前读取最新版本，避免覆盖请求期间其他页面保存的内容。
-      const current = plansRef.current.find((plan) => plan.id === original.id);
-      if (!current || current.version !== original.version) throw new Error('行程已更新，请重新获取攻略');
+      // 合并保存：允许与后台地图定位/抢票/交通写入并发时自动重试最新版本，不丢失已生成攻略。
       const now = new Date().toISOString();
-      await props.onSaveAi({
-        ...current,
-        version: current.version + 1,
-        contentVersion: current.contentVersion ?? current.version,
-        updatedAt: now,
-        activityGuides: { ...current.activityGuides, [activity.id]: { text: result.answer, createdAt: now } },
-      }, current.version);
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const current = plansRef.current.find((plan) => plan.id === original.id);
+        if (!current || (current.contentVersion ?? current.version) !== (original.contentVersion ?? original.version)) {
+          throw new Error('行程已更新，请重新获取攻略');
+        }
+        try {
+          await props.onSaveAi({
+            ...current,
+            version: current.version + 1,
+            contentVersion: current.contentVersion ?? current.version,
+            updatedAt: now,
+            activityGuides: { ...current.activityGuides, [activity.id]: { text: result.answer, createdAt: now } },
+          }, current.version);
+          break;
+        } catch (err) {
+          if (attempt === 2) throw err;
+          await new Promise((r) => window.setTimeout(r, 120));
+        }
+      }
     }, () => generateActivityGuide(activity));
   }
 
@@ -1517,16 +1525,24 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
         }, signal, () => {});
         if (signal.aborted) return;
         if (result.action !== 'answer' || !result.answer?.trim()) continue;
-        const current = plansRef.current.find((plan) => plan.id === planId);
-        if (!current) return;
         const now = new Date().toISOString();
-        await props.onSaveAi({
-          ...current,
-          version: current.version + 1,
-          contentVersion: current.contentVersion ?? current.version,
-          updatedAt: now,
-          activityGuides: { ...current.activityGuides, [activity.id]: { text: result.answer, createdAt: now } },
-        }, current.version);
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          const current = plansRef.current.find((plan) => plan.id === planId);
+          if (!current) return;
+          try {
+            await props.onSaveAi({
+              ...current,
+              version: current.version + 1,
+              contentVersion: current.contentVersion ?? current.version,
+              updatedAt: now,
+              activityGuides: { ...current.activityGuides, [activity.id]: { text: result.answer, createdAt: now } },
+            }, current.version);
+            break;
+          } catch (err) {
+            if (attempt === 2) throw err;
+            await new Promise((r) => window.setTimeout(r, 120));
+          }
+        }
       }
     }, generateAllActivityGuides);
   }
@@ -2704,17 +2720,35 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                 {ticketStatus.key === `${activePlan.id}:${ticketSignature}` && ticketStatus.stage && <p role="status">{ticketStatus.stage}</p>}
                 {ticketStatus.key === `${activePlan.id}:${ticketSignature}` && ticketStatus.error && <p role="alert">抢票计划自动生成失败：{ticketStatus.error}</p>}
                 {!activePlan.ticketPlan && <p>抢票计划将自动生成，行程修改后自动更新。</p>}
-                {activePlan.ticketPlan && <>
-                  {activePlan.ticketPlan.signature !== ticketSignature && <p role="status">行程已变化，正在自动更新；以下为上次查询结果。</p>}
-                  {!activePlan.ticketPlan.networkAvailable && <p>本次未联网核对，景点开售时间与难度待核实。</p>}
-                  {visibleTicketItems.length === 0 && <p>当前没有需要提前购票或预约的项目。</p>}
-                  {visibleTicketItems.map((item) => <article className="planner-ticket-item" key={item.activityId}>
-                    <strong>{item.saleDate || '开售日期待核实'} · {item.saleTime || '起售时刻待核实'}</strong>
-                    <h4>{plannerDisplayText(item.title)} {item.difficulty === '难' && <mark>难抢 · 优先准备</mark>}</h4>
-                    <p>使用日期：{item.travelDate} · 难度：{item.difficulty} · {item.platform}</p>
-                    <p>{plannerDisplayText(item.note, activePlan.content)}</p>
-                  </article>)}
-                </>}
+                {activePlan.ticketPlan && (() => {
+                  const allTicketItems = activePlan.ticketPlan.items ?? [];
+                  const isFreeOrNoBooking = (item: (typeof allTicketItems)[number]) => {
+                    if (item.bookingRequired === false) return true;
+                    if (item.activityId.startsWith('train-') || item.saleDate || item.saleTime) return false;
+                    if (['难', '中', '易'].includes(item.difficulty)) return false;
+                    // 未查到收费/抢票规则且难度为待核实的普通景点，默认视为免费开放或现场入园，不单列占位
+                    return item.difficulty === '待核实' && (!item.platform || item.platform.includes('待核实'));
+                  };
+                  const needBookingItems = allTicketItems.filter((item) => !isFreeOrNoBooking(item));
+                  const freeItems = allTicketItems.filter((item) => isFreeOrNoBooking(item));
+                  return <>
+                    {activePlan.ticketPlan.signature !== ticketSignature && <p role="status">行程已变化，正在自动更新；以下为上次查询结果。</p>}
+                    {needBookingItems.length === 0 && <p>当前行程暂无需要提前抢票的收费或限流项目。</p>}
+                    {needBookingItems.map((item) => <article className="planner-ticket-item" key={item.activityId}>
+                      <strong>{item.saleDate || '提前预约'} {item.saleTime ? `· ${item.saleTime}` : ''}</strong>
+                      <h4>{plannerDisplayText(item.title)} {item.difficulty === '难' && <mark>难抢 · 优先准备</mark>}</h4>
+                      <p>使用日期：{item.travelDate}{item.difficulty && item.difficulty !== '待核实' ? ` · 难度：${item.difficulty}` : ''}{item.platform && !item.platform.includes('待核实') ? ` · ${item.platform}` : ''}</p>
+                      <p>{plannerDisplayText(item.note, activePlan.content)}</p>
+                    </article>)}
+                    {freeItems.length > 0 && (
+                      <div className="planner-ticket-free-summary">
+                        <strong>免费 / 无需提前抢票：</strong>
+                        <span>{freeItems.map((item) => plannerDisplayText(item.title)).join('、')}</span>
+                        <small>（免费开放或现场直接入园，具体以现场公告为准）</small>
+                      </div>
+                    )}
+                  </>;
+                })()}
               </details>
               <PlannerPackingList
                 plan={activePlan}
@@ -3335,6 +3369,54 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                           </button>
                         </div>
                       ))}
+                    </section>
+                  )}
+                  {(activePlan.content.unvisitedHighlights?.length ?? 0) > 0 && (
+                    <section className="card planner-unvisited" aria-label="未去热门景点">
+                      <h3>未去热门景点</h3>
+                      <div className="planner-unvisited-list">
+                        {activePlan.content.unvisitedHighlights!.map((item, index) => (
+                          <div className="planner-unvisited-row" key={`${item.title}-${index}`}>
+                            <div className="planner-unvisited-head">
+                              <strong>{plannerDisplayText(item.title, activePlan.content)}</strong>
+                              {item.grade && <span className="planner-unvisited-grade">{item.grade}</span>}
+                            </div>
+                            {item.feature && (
+                              <p className="planner-unvisited-feature">{plannerDisplayText(item.feature, activePlan.content)}</p>
+                            )}
+                            <div className="planner-unvisited-actions">
+                              <a
+                                className="text-button"
+                                href={mapPlaceLinks({ city: item.city, name: item.location || item.title }).webUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  openMapAppPlace({ city: item.city, name: item.location || item.title });
+                                }}
+                              >
+                                📍 {item.location || item.title}（{mapAppLabel()}）
+                              </a>
+                              <button
+                                className="text-button"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => {
+                                  setScopeId(null);
+                                  void sendChat(
+                                    `请把未去热门景点「${item.city} ${item.title}」（${item.grade ? `${item.grade}，` : ''}${item.feature}）合理安排到当前行程合适的日期中，并重新检查路线衔接与时间。`,
+                                    'edit',
+                                    undefined,
+                                    null,
+                                  );
+                                }}
+                              >
+                                ＋ 安排到行程
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </section>
                   )}
                   <details className="card planner-all-sources">

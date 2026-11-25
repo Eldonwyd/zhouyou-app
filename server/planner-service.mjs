@@ -685,38 +685,100 @@ export function createPlannerService({
       photo = await indexedPhoto(city, placeName, '', key, signal, onDiagnostic);
     }
     if (!photo) {
-    try {
-      const url = new URL('https://zh.wikipedia.org/w/api.php');
-      url.search = new URLSearchParams({
-        action: 'query',
-        titles: placeName,
-        prop: 'pageimages',
-        piprop: 'thumbnail',
-        pithumbsize: '640',
-        redirects: '1',
-        format: 'json',
-      }).toString();
-      const result = await requestJson(
-        url,
-        { headers: { 'User-Agent': 'TravelFootprints/1.0 (personal local planner)' } },
-        signal,
-        6500,
-      );
-      const page = Object.values(result.query?.pages ?? {}).find(
-        (item) => item.thumbnail?.source && item.pageid > 0,
-      );
-      if (page && isPublicWebUrl(page.thumbnail.source) && plannerPhotoMatches(page.title, city, placeName))
-        photo = await saveMatchedPhoto(key, {
-          url: page.thumbnail.source,
-          sourceUrl: `https://zh.wikipedia.org/?curid=${page.pageid}`,
-          attribution: `维基百科：${page.title}（作者与许可见原文）`,
-        }, signal, onDiagnostic);
-      if (!photo) onDiagnostic('百科未提供对应地点照片');
-    } catch (error) {
-      if (signal.aborted) throw error;
-      onDiagnostic('百科图片服务暂时无法访问');
-      /* Try indexed public pages if Wikimedia is unreachable. */
-    }
+      progress('正在检索维基百科与公开实景图');
+      const shortPlace = placeName
+        .replace(/（[^）]*）|\([^)]*\)/g, '')
+        .replace(/(?:文化旅游区|风景名胜区|旅游度假区|历史文化街区|生态旅游区|森林公园|地质公园|旅游区|风景区|景区)$/g, '')
+        .trim();
+      const shortCity = String(city || '').replace(/(?:市|自治州|地区)$/, '').trim();
+      const wikiQueries = [...new Set([
+        shortPlace && shortPlace.length >= 2 ? shortPlace : '',
+        placeName,
+        shortCity && shortPlace && !shortPlace.includes(shortCity) ? `${shortCity} ${shortPlace}` : '',
+        shortCity && !placeName.includes(shortCity) ? `${shortCity} ${placeName}` : '',
+        shortCity,
+      ].filter(Boolean))];
+      const isBadWikiImg = (u) =>
+        /\.(svg|pdf|tif|tiff|ogv|webm)(?:$|\?)/i.test(u) ||
+        /map|locator|flag|coat_of_arms|logo|icon|symbol|emblem|blank/i.test(u);
+
+      // 1) 中文维基百科模糊搜索（可自动命中“五大道文化旅游区”->“五大道”）
+      for (const q of wikiQueries) {
+        if (photo || signal.aborted) break;
+        try {
+          const url = new URL('https://zh.wikipedia.org/w/api.php');
+          url.search = new URLSearchParams({
+            action: 'query',
+            generator: 'search',
+            gsrsearch: q,
+            gsrlimit: '5',
+            prop: 'pageimages|info',
+            piprop: 'thumbnail|original',
+            pithumbsize: '960',
+            inprop: 'url',
+            format: 'json',
+          }).toString();
+          const result = await requestJson(
+            url,
+            { headers: { 'User-Agent': 'ZhouyouMap/1.0 (https://zhouyou.online)' } },
+            signal,
+            10000,
+          );
+          const pages = Object.values(result.query?.pages ?? {}).sort((a, b) => (a.index ?? 99) - (b.index ?? 99));
+          for (const page of pages) {
+            const img = page.thumbnail?.source || page.original?.source || '';
+            if (!img || !isPublicWebUrl(img) || isBadWikiImg(img)) continue;
+            if (page.thumbnail?.width && page.thumbnail.width < 220) continue;
+            photo = await saveMatchedPhoto(key, {
+              url: img,
+              sourceUrl: page.fullurl || `https://zh.wikipedia.org/?curid=${page.pageid}`,
+              attribution: `维基百科：${page.title}（作者与许可见原文）`,
+            }, signal, onDiagnostic);
+            if (photo) break;
+          }
+        } catch (error) {
+          if (signal.aborted) throw error;
+        }
+      }
+
+      // 2) Wikimedia Commons 实景图兜底（支持中文/拼音地名实景照）
+      for (const q of wikiQueries.slice(0, 3)) {
+        if (photo || signal.aborted) break;
+        try {
+          const url = new URL('https://commons.wikimedia.org/w/api.php');
+          url.search = new URLSearchParams({
+            action: 'query',
+            generator: 'search',
+            gsrnamespace: '6',
+            gsrsearch: q,
+            gsrlimit: '6',
+            prop: 'imageinfo',
+            iiprop: 'url',
+            iiurlwidth: '960',
+            format: 'json',
+          }).toString();
+          const result = await requestJson(
+            url,
+            { headers: { 'User-Agent': 'ZhouyouMap/1.0 (https://zhouyou.online)' } },
+            signal,
+            10000,
+          );
+          for (const page of Object.values(result.query?.pages ?? {})) {
+            const info = page.imageinfo?.[0];
+            const img = info?.thumburl || info?.url || '';
+            if (!img || !isPublicWebUrl(img) || isBadWikiImg(img)) continue;
+            photo = await saveMatchedPhoto(key, {
+              url: img,
+              sourceUrl: info?.descriptionurl || img,
+              attribution: 'Wikimedia Commons 实景参考',
+            }, signal, onDiagnostic);
+            if (photo) break;
+          }
+        } catch (error) {
+          if (signal.aborted) throw error;
+        }
+      }
+      if (!photo) onDiagnostic('百科与公共图库未提供对应地点照片');
     }
     if (!photo && web.available && !signal.aborted) {
       try {
@@ -888,7 +950,7 @@ export function createPlannerService({
     const messages = [
       {
         role: 'user',
-        content: `生成完整行程。用户原始输入（全部纳入提示词，原文保留）：${JSON.stringify(request)}${xhsPrompt}\n开始/结束日期、天数保持一致，只安排目的地内部行程，不含去程返程。人数、学生数、预算、房间数请根据同行情况和补充要求解析到request。\n${luggagePlanningRule(request.luggageMode)}\n资料：${JSON.stringify(evidence)}\n返回完整json行程，结构参考（扩展所有日期，最后一日不住宿）：${CONTENT_CONTRACT}\nsources由应用填入；引用用户提供的小红书参考时可填对应sourceId。费用缺失信息可留空，不编造。`,
+        content: `生成完整行程。用户原始输入（全部纳入提示词，原文保留）：${JSON.stringify(request)}${xhsPrompt}\n开始/结束日期、天数保持一致，只安排目的地内部行程，不含去程返程。人数、学生数、预算、房间数请根据同行情况和补充要求解析到request。\n${luggagePlanningRule(request.luggageMode)}\n景点简介要求：每个 sight 活动的 description 必须简明点出核心特色（如民国时期各国风情小洋楼建筑群、明清古镇水乡等），若属于国家4A或5A级景区须注明（如“国家5A级景区 · ...”），控制在 25~55 字内不冗长。\n同时请在返回 JSON 中增加 unvisitedHighlights 数组（4~6 个目的地热门但本次未排入行程的景点，字段为 {"title":"景点名","city":"城市","grade":"5A/4A或空串","feature":"15字内一句话特色","location":"所在区或具体地址"}）。\n资料：${JSON.stringify(evidence)}\n返回完整json行程，结构参考（扩展所有日期，最后一日不住宿）：${CONTENT_CONTRACT}\nsources由应用填入；引用用户提供的小红书参考时可填对应sourceId。费用缺失信息可留空，不编造。`,
       },
     ];
     let content;
@@ -900,6 +962,18 @@ export function createPlannerService({
       uncertain = takeUncertain(raw);
       clearModelLuggageNotes(raw);
       content = normalizePlannerOutput(raw, request, mergedSources);
+      if (Array.isArray(raw?.unvisitedHighlights)) {
+        content.unvisitedHighlights = raw.unvisitedHighlights
+          .filter((item) => item && typeof item === 'object' && typeof item.title === 'string' && item.title.trim())
+          .slice(0, 8)
+          .map((item) => ({
+            title: String(item.title).trim(),
+            city: String(item.city || content.cities?.[0]?.name || '').trim(),
+            grade: typeof item.grade === 'string' ? item.grade.trim() : '',
+            feature: String(item.feature || item.reason || '').trim(),
+            location: String(item.location || item.title).trim(),
+          }));
+      }
       // The end date does not create an extra overnight stay.
       if (Array.isArray(content.days) && content.days.length) content.days.at(-1).lodging = null;
       try {
@@ -1282,7 +1356,7 @@ export function createPlannerService({
     progress('正在整理抢票时间与难度');
     const result = await model([{ role: 'user', content: `为以下行程整理抢票计划。铁路项目：${JSON.stringify(railway)}。景点：${JSON.stringify(sights)}。检索资料：${JSON.stringify(evidence)}。
 仅返回json {"items":[{"activityId":"原活动编号","bookingRequired":true,"saleDate":"YYYY-MM-DD或空串","saleTime":"HH:mm或空串","difficulty":"难/中/易/待核实","platform":"官方预约渠道","note":"放票规则、预约要求与难度判断依据","sourceIds":["资料编号"]}]}。
-bookingRequired表示是否需要提前购票或预约；明确无需预约、无需抢票的自由活动填false，需要预约填true，无法确认则省略，不得把免费等同于无需预约。
+bookingRequired表示是否需要提前购票或预约；免费开放街区、公园、广场、桥梁、外观地标或无需提前抢票的免费景点填false，确需提前购票/限流预约的收费或热门场馆填true，不要把免费开放街区标为需要抢票。
 每个景点都列出，免费景点也可能需要预约；确认无需预约时注明无需抢票。铁路可评估难度，但不要编造车次与余票。精确开售日期/时间必须有适用于游玩日期的官方规则证据，按规则计算，否则留空；无资料时难度待核实。难度是估计，不能假称有实时余票数据。不得把搜索文章发布时间当放票时间。` }], signal);
     const rows = Array.isArray(result.items) ? result.items : [];
     const items = [...railway, ...sights.map((sight) => ({ ...sight, saleDate: '', saleTime: '', difficulty: '待核实', platform: '', note: '', sources: [] }))].map((item) => {

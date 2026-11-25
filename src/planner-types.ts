@@ -195,6 +195,14 @@ export interface PlannerDay {
   lodging: PlannerLodging | null;
 }
 
+export interface UnvisitedPopularSight {
+  title: string;
+  city: string;
+  grade?: string;
+  feature: string;
+  location: string;
+}
+
 export interface PlannerContent {
   title: string;
   summary: string;
@@ -204,6 +212,8 @@ export interface PlannerContent {
   warnings: string[];
   days: PlannerDay[];
   alternatives: Array<{ title: string; city: string; reason: string; rainyDay: boolean }>;
+  /** 目的地内尚未排入本次行程的热门景点（精简展示，支持一键排入行程）。 */
+  unvisitedHighlights?: UnvisitedPopularSight[];
   sources: PlannerSource[];
 }
 

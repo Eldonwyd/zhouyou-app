@@ -385,6 +385,19 @@
 .planner-map-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
 .planner-map-canvas { height: 420px; border-radius: 16px; margin: 14px 0; z-index: 0; background: #f3efe6; }
 .planner-map-canvas.leaflet-container { background: #f3efe6; }
+.planner-map-toolbar { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin: 10px 0 8px; }
+.planner-map-date-field { display: flex; flex-direction: column; gap: 5px; margin: 0; min-width: 140px; }
+.planner-map-date-field span { font-size: 13px; font-weight: 600; color: var(--ink); line-height: 1.2; }
+.planner-map-date-field select { height: 42px; padding: 0 14px; border-radius: 999px; margin: 0; box-sizing: border-box; }
+.planner-map-retry-btn { height: 42px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; margin: 0; box-sizing: border-box; }
+.planner-ticket-free-summary { margin-top: 12px; padding: 10px 14px; border-radius: 12px; background: rgba(74, 124, 89, 0.08); font-size: 13px; line-height: 1.6; color: var(--ink); }
+.planner-ticket-free-summary small { color: var(--muted); }
+.planner-unvisited-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.planner-unvisited-row { padding: 10px 12px; border-radius: 12px; background: rgba(43, 36, 29, 0.03); border: 1px solid rgba(43, 36, 29, 0.07); display: flex; flex-direction: column; gap: 6px; }
+.planner-unvisited-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.planner-unvisited-grade { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: rgba(214, 85, 59, 0.12); color: #b8422b; }
+.planner-unvisited-feature { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.45; }
+.planner-unvisited-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; }
 .ai-rich-text { display: flex; flex-direction: column; gap: 8px; line-height: 1.75; font-size: 14px; color: var(--ink); }
 .ai-rich-heading { margin: 8px 0 2px; font-size: 15px; font-weight: 700; color: var(--ink); padding-left: 8px; border-left: 3px solid var(--accent, #d6553b); line-height: 1.4; }
 .ai-rich-para { margin: 0; }
