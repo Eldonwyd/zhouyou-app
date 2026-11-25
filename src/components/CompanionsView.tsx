@@ -86,6 +86,7 @@ export default function CompanionsView({
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupMembers, setNewGroupMembers] = useState<string[]>([]);
   const [newGroupPlanId, setNewGroupPlanId] = useState('');
+  const [groupActionTab, setGroupActionTab] = useState<'create' | 'join'>('create');
   const [f2fPin, setF2fPin] = useState('');
   const [f2fName, setF2fName] = useState('');
   const [joinCode, setJoinCode] = useState('');
@@ -434,7 +435,7 @@ export default function CompanionsView({
           好友与亲密关系 ({overview?.friends.length || 0})
         </button>
         <button type="button" role="tab" aria-selected={tab === 'groups'} className={tab === 'groups' ? 'active' : ''} onClick={() => setTab('groups')}>
-          行程群与 AA 记账 ({groups.length})
+          行程群 ({groups.length})
         </button>
         <button type="button" role="tab" aria-selected={tab === 'shares'} className={tab === 'shares' ? 'active' : ''} onClick={() => setTab('shares')}>
           收到的攻略 & 口令 ({overview?.receivedShares.length || 0})
@@ -453,7 +454,7 @@ export default function CompanionsView({
             <div className="companions-search-row">
               <input
                 type="text"
-                placeholder="输入对方唯一昵称或好友码（如 ZY-48291）"
+                placeholder="输入昵称或好友码"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') void handleSearch(); }}
@@ -589,85 +590,132 @@ export default function CompanionsView({
         </div>
       )}
 
-      {/* ===== TAB 2: 行程群与 AA 记账 ===== */}
+      {/* ===== TAB 2: 行程群 ===== */}
       {tab === 'groups' && (
         <div className="companions-panel">
           <div className="companions-grid-2">
             {/* 面对面建群 */}
-            <div className="companions-card">
-              <h3>🤝 面对面建群（4 位数字口令）</h3>
-              <p className="auth-hint">30 分钟内和身边同伴输入相同的 4 位数字，秒建群并自动互加好友！</p>
-              <div className="auth-row-2">
-                <input
-                  type="text"
-                  maxLength={4}
-                  inputMode="numeric"
-                  placeholder="输入 4 位数字（如 8866）"
-                  value={f2fPin}
-                  onChange={(e) => setF2fPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                />
-                <input
-                  type="text"
-                  maxLength={30}
-                  placeholder="群名称（可选，首次建群生效）"
-                  value={f2fName}
-                  onChange={(e) => setF2fName(e.target.value)}
-                />
+            <div className="companions-card group-entry-card">
+              <h3>面对面建群</h3>
+              <p className="group-card-desc">30 分钟内与身边同伴输入相同 4 位数字，即可快速成群并互加好友。</p>
+              <div className="group-form-stack">
+                <label className="auth-field">
+                  <span>4 位数字口令</span>
+                  <input
+                    type="text"
+                    className="f2f-pin-input"
+                    maxLength={4}
+                    inputMode="numeric"
+                    placeholder="0 0 0 0"
+                    value={f2fPin}
+                    onChange={(e) => setF2fPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  />
+                </label>
+                <label className="auth-field">
+                  <span>群名称（选填）</span>
+                  <input
+                    type="text"
+                    maxLength={30}
+                    placeholder="例如：周末出游小队"
+                    value={f2fName}
+                    onChange={(e) => setF2fName(e.target.value)}
+                  />
+                </label>
+                <button type="button" className="primary group-card-submit" onClick={() => void handleFaceToFace()}>
+                  进入面对面群
+                </button>
               </div>
-              <button type="button" className="primary" style={{ marginTop: 10 }} onClick={() => void handleFaceToFace()}>进入面对面行程群</button>
             </div>
 
-            {/* 新建行程群 / 邀请码入群 */}
-            <div className="companions-card">
-              <h3>➕ 新建行程群 / 邀请码入群</h3>
-              <div className="companions-search-row">
-                <input
-                  type="text"
-                  maxLength={36}
-                  placeholder="新建群名（如：家人群 / 五一京都小队）"
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                />
-                <button type="button" className="primary" onClick={() => void handleCreateGroup()}>创建</button>
+            {/* 行程群（新建 / 邀请码加入） */}
+            <div className="companions-card group-entry-card">
+              <div className="group-card-head-row">
+                <h3>行程群</h3>
+                <div className="auth-account-switch group-mini-switch" role="tablist" aria-label="行程群操作">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={groupActionTab === 'create'}
+                    className={groupActionTab === 'create' ? 'active' : ''}
+                    onClick={() => setGroupActionTab('create')}
+                  >
+                    新建群
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={groupActionTab === 'join'}
+                    className={groupActionTab === 'join' ? 'active' : ''}
+                    onClick={() => setGroupActionTab('join')}
+                  >
+                    邀请码加入
+                  </button>
+                </div>
               </div>
-              {(overview?.friends.length || 0) > 0 && (
-                <div className="group-friend-picker">
-                  <small>顺便拉好友进群：</small>
-                  <div className="compare-city-chips">
-                    {overview!.friends.map((f) => {
-                      const checked = newGroupMembers.includes(f.user.id);
-                      return (
-                        <button
-                          key={f.user.id}
-                          type="button"
-                          className={`chip-toggle ${checked ? 'active' : ''}`}
-                          onClick={() => setNewGroupMembers((prev) => checked ? prev.filter((id) => id !== f.user.id) : [...prev, f.user.id])}
-                        >
-                          {checked ? '✓ ' : '+ '}{f.user.nickname}
-                        </button>
-                      );
-                    })}
-                  </div>
+
+              {groupActionTab === 'create' ? (
+                <div className="group-form-stack">
+                  <label className="auth-field">
+                    <span>群名称</span>
+                    <input
+                      type="text"
+                      maxLength={36}
+                      placeholder="例如：家人群"
+                      value={newGroupName}
+                      onChange={(e) => setNewGroupName(e.target.value)}
+                    />
+                  </label>
+                  {(overview?.friends.length || 0) > 0 && (
+                    <div className="group-friend-picker">
+                      <small>顺便拉好友进群：</small>
+                      <div className="compare-city-chips">
+                        {overview!.friends.map((f) => {
+                          const checked = newGroupMembers.includes(f.user.id);
+                          return (
+                            <button
+                              key={f.user.id}
+                              type="button"
+                              className={`chip-toggle ${checked ? 'active' : ''}`}
+                              onClick={() => setNewGroupMembers((prev) => checked ? prev.filter((id) => id !== f.user.id) : [...prev, f.user.id])}
+                            >
+                              {checked ? '✓ ' : '+ '}{f.user.nickname}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {aiPlans.length > 0 && (
+                    <label className="auth-field">
+                      <span>关联已有攻略（选填）</span>
+                      <select value={newGroupPlanId} onChange={(e) => setNewGroupPlanId(e.target.value)}>
+                        <option value="">暂不关联</option>
+                        {aiPlans.map((p) => <option key={p.id} value={p.id}>{p.content.title || p.content.request.destination || '未命名攻略'}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  <button type="button" className="primary group-card-submit" onClick={() => void handleCreateGroup()}>
+                    创建行程群
+                  </button>
+                </div>
+              ) : (
+                <div className="group-form-stack">
+                  <p className="group-card-desc">输入好友发来的群邀请码，立即加入对应的行程群。</p>
+                  <label className="auth-field">
+                    <span>群邀请码</span>
+                    <input
+                      type="text"
+                      maxLength={12}
+                      placeholder="输入 8 位邀请码"
+                      value={joinCode}
+                      onChange={(e) => setJoinCode(e.target.value)}
+                    />
+                  </label>
+                  <button type="button" className="primary group-card-submit" onClick={() => void handleJoinByCode()}>
+                    加入行程群
+                  </button>
                 </div>
               )}
-              {aiPlans.length > 0 && (
-                <label className="auth-field" style={{ marginTop: 8 }}>
-                  <span>同时关联一份已有攻略（可选）</span>
-                  <select value={newGroupPlanId} onChange={(e) => setNewGroupPlanId(e.target.value)}>
-                    <option value="">暂不关联，建好群再选</option>
-                    {aiPlans.map((p) => <option key={p.id} value={p.id}>{p.content.title || p.content.request.destination || '未命名攻略'}</option>)}
-                  </select>
-                </label>
-              )}
-              <div className="companions-search-row" style={{ marginTop: 12 }}>
-                <input
-                  type="text"
-                  placeholder="已有群邀请码？输入后直接加入"
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value)}
-                />
-                <button type="button" className="secondary" onClick={() => void handleJoinByCode()}>加入群</button>
-              </div>
             </div>
           </div>
 

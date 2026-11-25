@@ -848,6 +848,56 @@
 }
 
 /* 行程群与 AA 分账 */
+.group-entry-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.group-card-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.group-card-head-row h3 {
+  margin: 0;
+}
+
+.group-mini-switch {
+  min-width: 170px;
+}
+
+.group-card-desc {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted, #877b74);
+}
+
+.group-form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.f2f-pin-input {
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 20px !important;
+  font-weight: 700;
+  letter-spacing: 0.45em;
+}
+
+.group-card-submit {
+  width: 100%;
+  margin-top: auto;
+  padding: 10px 14px;
+  border-radius: 10px;
+}
+
 .group-list-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
