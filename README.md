@@ -77,8 +77,8 @@
 - **1 分钟出完整图文路书**：输入目的地、日期/天数、同行人群（成人/学生/老人/儿童独立票价）与预算，AI 一键规划每日顺路行程，自带景点详细介绍、4A/5A 景区等级、实景配图（严格地名校验与质检过滤）、站间交通接驳、住宿建议与费用拆解。
 - **自带备用计划，遇变化不抓瞎**：行程贴心预留「备用玩法」与「未去热门景点」，旅途中遇下雨、睡懒觉或临时改主意，轻点即可把备选景点安排进当天日程。
 - **全程随时调整更改**：支持针对全局或单个景点随时对话微调，满意的站点一键锁定防误改，每次修改均支持撤销与历史版本回退。
-- **行前省心闭环 & 多端同步**：自动汇总需预约景点与未购车次/航班进入「抢票计划」（开售前准点提醒 + 红点预警）；本地离线 PP-OCRv5 识别高铁/机票/酒店截图入账；内置出发日历、AI 行李清单与单文件离线 HTML 路书；登录周游账号即可在电脑、手机与网页多端之间准实时同步，电脑做攻略、手机直接用。
-- **零门槛 + 全方式 AI 接入**：登录即享每日 / 每月免费 AI 额度开箱即用；支持自由配置主流模型 API 密钥与 AI 订阅账号；更支持一键导出提示词，借用任意外部免费 AI 生成攻略并自动解析导入。
+- **行前省心闭环 & 多端同步**：自动汇总需预约景点与未购车次/航班进入「抢票计划」（开售前准点提醒 + 红点预警）；本地离线 PP-OCRv5 识别高铁/机票/酒店截图入账；内置出发日历、AI 行李清单与单文件离线 HTML 路书；登录周游账号即可在 Windows、macOS、Linux、安卓、苹果与网页多端通用并准实时同步，电脑做攻略、手机直接用。
+- **零门槛 + 全方式 AI 接入**：登录即享每日 / 每月免费 AI 额度开箱即用；支持配置主流模型 API，也可直接导入 ChatGPT、Claude、Gemini 等 AI 订阅账号；更支持一键导出提示词，借用任意外部免费 AI 生成攻略并自动解析导入。
 
 ### 🔗 2. 顺滑切换常用旅行应用 —— 主流地图导航 × 小红书一键直连
 - **一键唤起主流地图导航**：行程里的每一处景点、餐厅、住宿和未去热门景点，轻点即可直接唤起你偏好的主流地图 App（支持多地图自由切换），告别反复复制粘贴地名。
@@ -159,12 +159,12 @@
 | :--- | :--- | :--- | :---: |
 | **Android (安卓 · 推荐)** | Android 8.0+ 手机 / 平板 | 官网直下 `.apk`（原生唤起地图/小红书 & 免电脑直登 AI 订阅） | [![Download Android](https://img.shields.io/badge/Android-.apk%20官网直下-3DDC84?style=flat-square&logo=android&logoColor=white)](https://zhouyou.online/download-mobile.html) |
 | **iOS (苹果手机)** | iPhone / iPad | `.ipa` 自签（AltStore / SideStore / TrollStore） | [![Download iOS](https://img.shields.io/badge/iOS-.ipa%20自签客户端-000000?style=flat-square&logo=ios&logoColor=white)](https://zhouyou.online/download-mobile.html) |
-| **Web PWA** | Safari / Chrome / Edge / 系统浏览器 | **「添加到主屏幕」**（打开快、免安装、支持账号同步） | [![Open Web PWA](https://img.shields.io/badge/Web%20PWA-在线打开-866041?style=flat-square&logo=safari&logoColor=white)](https://zhouyou.online/) |
+| **Web PWA** | Safari / Chrome / Edge / 系统浏览器 | 「添加到主屏幕」（打开快、免安装、支持账号同步） | [![Open Web PWA](https://img.shields.io/badge/Web%20PWA-在线打开-866041?style=flat-square&logo=safari&logoColor=white)](https://zhouyou.online/) |
 
 <details>
 <summary><b>📖 展开查看各系统安装贴士（Windows / macOS / Linux / Android / iOS）</b></summary>
 
-- **Windows SmartScreen 提示**：点击 **「更多信息」→「仍要运行」** 即可。
+- **Windows SmartScreen 提示**：点击「更多信息」→「仍要运行」即可。
 - **macOS 提示“已损坏”或“无法验证开发者”**：拖入应用程序文件夹后，在终端执行：
   ```bash
   xattr -cr "/Applications/Zhouyou Map.app"
@@ -175,7 +175,7 @@
   # 或 Ubuntu / Debian：
   sudo apt install ./Zhouyou-Map-*-linux-*.deb
   ```
-- **手机端快捷安装**：用手机浏览器或 Safari 打开 [https://zhouyou.online/](https://zhouyou.online/) → 点击菜单/分享按钮 → **「添加到主屏幕 / 添加到桌面」** 即可全屏使用、自动更新。
+- **手机端快捷安装**：用手机浏览器或 Safari 打开 [https://zhouyou.online/](https://zhouyou.online/) → 点击菜单/分享按钮 →「添加到主屏幕 / 添加到桌面」即可全屏使用、自动更新。
 - **可选：手机端连接电脑 AI 服务**：在电脑桌面版顶部菜单「应用」勾选「允许局域网手机连接 AI 服务」，并将局域网地址填入手机端「个人中心 → 远程 / 局域网 AI 服务」即可互联。
 
 详细图文说明请参阅 [全平台安装与使用指南 (docs/DOWNLOAD.md)](docs/DOWNLOAD.md)。
