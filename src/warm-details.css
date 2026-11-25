@@ -3669,3 +3669,155 @@ input, select, textarea { border-radius: 10px; }
     margin-bottom: 14px;
   }
 }
+
+/* ---------- 行程详情右侧费用概览下移对齐 + 行前 4 项工具折叠条克制提亮 ---------- */
+@media (min-width: 961px) {
+  .planner-workbench {
+    margin-top: 22px;
+  }
+  .planner-workbench .planner-sidebar {
+    margin-top: 96px;
+  }
+}
+.planner-day-heading {
+  padding-left: 2px;
+}
+
+.planner-utility-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 18px 0 22px;
+}
+.planner-utility-stack > .planner-notes {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--line) 82%, var(--warm-green) 18%);
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(34, 48, 42, 0.045);
+  color: var(--ink);
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.planner-utility-stack > .planner-notes::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3.5px;
+  border-radius: 0 4px 4px 0;
+  background: color-mix(in srgb, #c99a4b 78%, transparent);
+}
+.planner-utility-stack > .planner-ticket-plan::before {
+  background: color-mix(in srgb, var(--warm-green, #3a7d5c) 78%, transparent);
+}
+.planner-utility-stack > .planner-ticket-plan.is-urgent {
+  border-color: color-mix(in srgb, #e04f44 38%, var(--line));
+}
+.planner-utility-stack > .planner-ticket-plan.is-urgent::before {
+  background: #e04f44;
+}
+.planner-utility-stack > .planner-packing-list::before {
+  background: color-mix(in srgb, #4f8f7b 75%, transparent);
+}
+.planner-utility-stack > .planner-bookings-panel::before {
+  background: color-mix(in srgb, #5a82a1 75%, transparent);
+}
+.planner-utility-stack > .planner-notes:hover {
+  border-color: color-mix(in srgb, var(--warm-green, #3a7d5c) 40%, var(--line));
+  box-shadow: 0 4px 12px rgba(34, 48, 42, 0.07);
+}
+.planner-utility-stack > .planner-notes > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 18px 13px 20px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.planner-utility-stack > .planner-notes > summary::-webkit-details-marker {
+  display: none;
+}
+.planner-utility-stack > .planner-notes > summary::after {
+  content: "";
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin-left: 4px;
+  border-right: 1.8px solid var(--muted);
+  border-bottom: 1.8px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform .18s ease, border-color .18s ease;
+}
+.planner-utility-stack > .planner-notes[open] > summary {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+.planner-utility-stack > .planner-notes[open] > summary::after {
+  transform: rotate(45deg);
+  border-color: var(--ink);
+}
+.planner-utility-stack > .planner-notes > :not(summary) {
+  margin-left: 20px;
+  margin-right: 18px;
+}
+.planner-utility-stack > .planner-notes > :last-child:not(summary) {
+  margin-bottom: 16px;
+}
+.planner-notes-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.planner-notes-badges {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+.planner-notes-badges .packing-badge {
+  margin-left: 0;
+}
+.planner-ticket-red-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e53e3e;
+  box-shadow: 0 0 0 2.5px color-mix(in srgb, #e53e3e 20%, transparent);
+  flex-shrink: 0;
+}
+.packing-badge.is-urgent {
+  background: color-mix(in srgb, #e53e3e 12%, var(--surface));
+  color: #c53030;
+  border: 1px solid color-mix(in srgb, #e53e3e 26%, transparent);
+}
+.packing-badge.is-muted {
+  background: var(--surface-2);
+  color: var(--muted);
+  font-weight: 500;
+}
+@media (max-width: 600px) {
+  .planner-utility-stack {
+    gap: 8px;
+    margin: 12px 0 16px;
+  }
+  .planner-utility-stack > .planner-notes > summary {
+    padding: 11px 14px 11px 16px;
+    font-size: 13.5px;
+  }
+  .planner-utility-stack > .planner-notes > :not(summary) {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+}

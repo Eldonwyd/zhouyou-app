@@ -26,6 +26,7 @@ interface PlannerPackingListProps {
   disabled?: boolean;
   onSavePacking: (packingList: PackingList) => Promise<void>;
   onSavePreferences: (preferences: PlannerPreferences) => Promise<void>;
+  onSharePacking?: () => void;
   onNotice: (message: string) => void;
   onError: (message: string) => void;
 }
@@ -36,6 +37,7 @@ export default function PlannerPackingList({
   disabled = false,
   onSavePacking,
   onSavePreferences,
+  onSharePacking,
   onNotice,
   onError,
 }: PlannerPackingListProps) {
@@ -195,14 +197,28 @@ export default function PlannerPackingList({
   return (
     <details className="planner-notes planner-packing-list" aria-label="行前准备清单">
       <summary>
-        行前准备清单
-        {items.length > 0 && <span className="packing-badge">{checkedCount}/{items.length} 已准备</span>}
+        <span className="planner-notes-title">行前准备清单</span>
+        <span className="planner-notes-badges">
+          {items.length > 0
+            ? <span className="packing-badge">{checkedCount}/{items.length} 已准备</span>
+            : <span className="packing-badge is-muted">点击生成</span>}
+        </span>
       </summary>
 
       <div className="packing-toolbar">
         <button type="button" className="primary" disabled={busy || disabled} onClick={() => void generateByAi()}>
           {busy ? '生成中…' : items.length ? 'AI 重新生成清单' : 'AI 生成行前清单'}
         </button>
+        {items.length > 0 && onSharePacking && (
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy || disabled}
+            onClick={onSharePacking}
+          >
+            📤 发到群里 / 个人
+          </button>
+        )}
         {items.length > 0 && (
           <button
             type="button"

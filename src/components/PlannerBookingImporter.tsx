@@ -79,6 +79,7 @@ export function PlannerBookingDialog({ plan, defaultDate = plan?.content.days[0]
 
   const draft = drafts[activeIndex] ?? drafts[0];
   const transport = isTransportBooking(draft);
+  const isUnpurchased = transport && draft.purchaseStatus === 'unpurchased';
   const timing = bookingTransportTiming(draft);
 
   const updateDraft = (patch: Partial<BookingRecord>) => {
@@ -365,6 +366,38 @@ export function PlannerBookingDialog({ plan, defaultDate = plan?.content.days[0]
           ))}
         </div>
 
+        {transport && (
+          <div className="booking-purchase-status" role="group" aria-label="购票状态">
+            <span className="booking-purchase-label">购票状态</span>
+            <div className="booking-purchase-pills">
+              <button
+                type="button"
+                className={!isUnpurchased ? 'primary' : 'secondary'}
+                aria-pressed={!isUnpurchased}
+                onClick={() => updateDraft({ purchaseStatus: 'purchased' })}
+              >
+                已购买
+              </button>
+              <button
+                type="button"
+                className={isUnpurchased ? 'primary' : 'secondary'}
+                aria-pressed={isUnpurchased}
+                onClick={() => {
+                  updateDraft({ purchaseStatus: 'unpurchased' });
+                  setUpdateLedger(false);
+                }}
+              >
+                未购买（加入抢票计划）
+              </button>
+            </div>
+            {isUnpurchased && (
+              <small className="booking-purchase-hint">
+                未购买的{draft.kind === 'flight' ? '航班' : '车次'}将同步写入行程时间轴并加入「抢票计划」，方便开启放票提醒。
+              </small>
+            )}
+          </div>
+        )}
+
         <div className="booking-form-grid">
           {draft.kind === 'hotel' ? (
             <>
@@ -452,12 +485,12 @@ export function PlannerBookingDialog({ plan, defaultDate = plan?.content.days[0]
                 </label>
               )}
               <label>
-                订单金额（元，可选）
+                {isUnpurchased ? '参考票价（元，可选）' : '订单金额（元，可选）'}
                 <input
                   type="number"
                   min="0"
                   step="0.01"
-                  placeholder="实付金额"
+                  placeholder={isUnpurchased ? '预估/参考价，未付款可留空' : '实付金额'}
                   value={draft.amountYuan ?? ''}
                   onChange={(event) => updateDraft({ amountYuan: event.target.value === '' ? null : Number(event.target.value) })}
                 />
@@ -621,9 +654,12 @@ export function PlannerBookingsSummary({
   return (
     <details className="planner-notes planner-bookings-panel" aria-label="车次、航班与酒店预订">
       <summary>
-        车次 / 航班 / 酒店预订
-        {bookings.length > 0 && <span className="packing-badge">{bookings.length} 条</span>}
-        {pending.length > 0 && <span className="packing-badge">{pending.length} 段待填票</span>}
+        <span className="planner-notes-title">车次 / 航班 / 酒店预订</span>
+        <span className="planner-notes-badges">
+          {bookings.length > 0 && <span className="packing-badge">{bookings.length} 条</span>}
+          {pending.length > 0 && <span className="packing-badge">{pending.length} 段待填票</span>}
+          {bookings.length === 0 && pending.length === 0 && <span className="packing-badge is-muted">可录入</span>}
+        </span>
       </summary>
       <div className="packing-toolbar">
         <button type="button" className="secondary" disabled={disabled} onClick={onOpenImporter}>
@@ -654,6 +690,9 @@ export function PlannerBookingsSummary({
               <article className="booking-saved-card" key={item.id}>
                 <div className="booking-saved-head">
                   <span className="booking-kind-tag">{BOOKING_KIND_LABELS[item.kind]}</span>
+                  {item.purchaseStatus === 'unpurchased' && (
+                    <span className="booking-unpurchased-tag">未购买 · 已入抢票计划</span>
+                  )}
                   {item.amountYuan != null && <strong>{currency(item.amountYuan)}</strong>}
                   {(isTransportBooking(item) || item.kind === 'hotel') && <button type="button" className="text-button" disabled={disabled}
                     aria-label={`编辑 ${item.title}`} onClick={() => onEditBooking(item)}>编辑</button>}

@@ -20,12 +20,19 @@ import {
   NOTIFICATION_PREFS_EVENT,
   fireSystemNotification,
   playNotificationChime,
+  readFiredTicketReminderKeys,
   readNotificationPrefs,
   readSeenNotificationIds,
   shouldNotifyForType,
+  writeFiredTicketReminderKeys,
   writeSeenNotificationIds,
   type NotificationPrefs,
 } from './notification-prefs';
+import {
+  countAllUpcomingUrgentTickets,
+  mergeTicketPlanItems,
+  resolveTicketReminderSchedule,
+} from './planner-ticket-display';
 import {
   checkCloudSyncNeeded,
   extractZhouyouActionFromUrl,
@@ -363,8 +370,13 @@ export default function App() {
     if (prefs.sound) {
       playNotificationChime();
     }
-    if (prefs.systemPopup && (forcePreview || document.visibilityState === 'hidden')) {
-      fireSystemNotification(item.title, item.body, () => handleNotificationAction(item));
+    if (prefs.systemPopup && (forcePreview || document.visibilityState === 'hidden' || item.type === 'ticket_reminder')) {
+      fireSystemNotification(
+        item.title,
+        item.body,
+        () => handleNotificationAction(item),
+        item.type === 'ticket_reminder' ? `zhouyou-ticket-${item.id}` : 'zhouyou-social-notif',
+      );
     }
   }, [handleNotificationAction]);
 
@@ -398,6 +410,68 @@ export default function App() {
     }, 30000);
     return () => window.clearInterval(interval);
   }, [cloudUser, notifPrefs.enabled, notifPrefs.systemPopup, refreshSocialBadges]);
+
+  const [urgentTicketCount, setUrgentTicketCount] = useState(0);
+
+  // 本地抢票倒计时提醒调度：无论是否登录，只要在抢票计划开启了通知，到点即触发应用内/系统弹窗与提示音
+  useEffect(() => {
+    const refreshUrgency = () => {
+      setUrgentTicketCount(countAllUpcomingUrgentTickets(snapshot.aiPlans));
+    };
+    refreshUrgency();
+    const urgencyTimer = window.setInterval(refreshUrgency, 60000);
+    return () => window.clearInterval(urgencyTimer);
+  }, [snapshot.aiPlans]);
+
+  // 本地抢票倒计时提醒调度（触发通知弹窗）
+  useEffect(() => {
+    if (!notifPrefs.enabled || !notifPrefs.types.ticketReminders) return;
+    const checkTicketReminders = () => {
+      const now = Date.now();
+      const fired = readFiredTicketReminderKeys();
+      let changed = false;
+      for (const plan of snapshot.aiPlans) {
+        const reminders = plan.ticketReminders;
+        if (!reminders) continue;
+        const items = mergeTicketPlanItems(plan);
+        for (const item of items) {
+          const setting = reminders[item.activityId];
+          if (!setting?.enabled) continue;
+          const schedule = resolveTicketReminderSchedule(item, setting);
+          if (schedule.triggerMs == null || schedule.saleMs == null) continue;
+          if (now >= schedule.triggerMs && now <= schedule.saleMs + 30 * 60_000) {
+            const key = `${plan.id}:${item.activityId}:${schedule.triggerMs}`;
+            if (fired.has(key)) continue;
+            fired.add(key);
+            changed = true;
+            const remainMin = Math.max(0, Math.round((schedule.saleMs - now) / 60_000));
+            const title = remainMin > 0
+              ? `⏰ 抢票提醒：${item.title} 还有 ${remainMin} 分钟开售`
+              : `⏰ 抢票时间到：${item.title}`;
+            const body = `开售时间：${schedule.dateStr} ${schedule.timeStr}${item.platform ? ` · ${item.platform}` : ''}（行程：${plan.content.title}）`;
+            triggerNotificationPopup({
+              id: `ticket-${key}`,
+              type: 'ticket_reminder',
+              title,
+              body,
+              targetRef: { planId: plan.id },
+            }, false);
+          }
+        }
+      }
+      if (changed) writeFiredTicketReminderKeys(fired);
+    };
+    checkTicketReminders();
+    const interval = window.setInterval(checkTicketReminders, 20000);
+    const onWake = () => {
+      if (document.visibilityState === 'visible') checkTicketReminders();
+    };
+    document.addEventListener('visibilitychange', onWake);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onWake);
+    };
+  }, [snapshot.aiPlans, notifPrefs.enabled, notifPrefs.types.ticketReminders, triggerNotificationPopup]);
 
   const openAuthModal = useCallback((mode: 'login' | 'register' = 'login') => {
     setAuthModalMode(mode);
@@ -713,6 +787,9 @@ export default function App() {
           >
             <span className="nav-icon">
               <TravelIcon name={item.id} />
+              {item.id === 'plan' && urgentTicketCount > 0 && (
+                <i className="nav-update-dot" aria-label={t(`有 ${urgentTicketCount} 项即将开抢`, `${urgentTicketCount} tickets opening soon`)} />
+              )}
               {item.id === 'profile' && availableUpdate && (
                 <i className="nav-update-dot" aria-label={t('有新版本可更新', 'Update available')} />
               )}
