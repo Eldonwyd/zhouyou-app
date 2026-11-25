@@ -793,6 +793,21 @@ export default function App() {
                 openPage('plan');
               }}
               onOpenShareCode={(code) => setPendingShareCode(code)}
+              onSaveShareToMyPlans={async (code) => {
+                try {
+                  const res = await cloudApi.acceptShare(code);
+                  await saveAiPlanRecord(res.plan, null);
+                  await reload();
+                  showNotice(
+                    res.mode === 'collab'
+                      ? `已加入协作并保存「${res.plan.content.title}」到「行程规划 · 我的行程」`
+                      : `已保存「${res.plan.content.title}」到「行程规划 · 我的行程」`,
+                  );
+                } catch (err) {
+                  showError(err instanceof Error ? err.message : '保存到我的行程失败');
+                  throw err;
+                }
+              }}
               onUnreadChange={setUnreadCount}
               onIntimacyLoaded={setIntimacyBonds}
               onSyncNow={() => runCloudSync(true)}
@@ -929,7 +944,7 @@ export default function App() {
         await reload();
         setTargetPlanId(plan.id);
         openPage('plan');
-        showNotice(mode === 'collab' ? '已加入行程群并打开共享攻略' : '攻略已保存到「行程规划」');
+        showNotice(mode === 'collab' ? '已加入行程群并保存到「行程规划 · 我的行程」' : '攻略已保存到「行程规划 · 我的行程」');
         void runCloudSync(true);
       }}
       onClose={() => setPendingShareCode(null)}

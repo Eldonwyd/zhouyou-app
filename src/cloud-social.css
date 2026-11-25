@@ -2847,6 +2847,22 @@
 .im-rich-card.is-poll {
   border-left: 4px solid #4a7fb5;
 }
+.im-rich-card.is-intimacy {
+  border-left: 4px solid #e5637a;
+  background: linear-gradient(135deg, #fff5f7 0%, var(--surface, #fff) 100%);
+}
+:root[data-theme="dark"] .im-rich-card.is-intimacy {
+  background: linear-gradient(135deg, rgba(229, 99, 122, 0.14) 0%, var(--surface, #1f1c1a) 100%);
+}
+.im-intimacy-foot {
+  gap: 8px;
+}
+.share-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
 .im-rich-card-badge {
   font-size: 11px;
   font-weight: 700;

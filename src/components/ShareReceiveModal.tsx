@@ -109,8 +109,8 @@ export default function ShareReceiveModal({
                   : accepting
                     ? '正在接收…'
                     : preview.mode === 'collab'
-                      ? '加入行程群并打开攻略'
-                      : '保存到我的攻略'}
+                      ? '加入行程群并保存到我的行程'
+                      : '保存到我的行程'}
               </button>
               <button type="button" className="text-button" onClick={onClose}>暂不接收</button>
             </div>

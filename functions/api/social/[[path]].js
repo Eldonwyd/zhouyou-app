@@ -339,15 +339,16 @@ export const onRequest = withApiHandler(async (context) => {
     const now = nowIso();
 
     const existing = await db.prepare('SELECT * FROM intimacy_bonds WHERE user_a_id = ? AND user_b_id = ?').bind(a, b).first();
+    const bondId = existing ? existing.id : createId('int');
     if (existing) {
       await db
         .prepare('UPDATE intimacy_bonds SET requester_id = ?, relation_type = ?, status = \'pending\', custom_label = ?, anniversary_date = ?, updated_at = ? WHERE id = ?')
-        .bind(userId, relationType, customLabel, anniversaryDate, now, existing.id)
+        .bind(userId, relationType, customLabel, anniversaryDate, now, bondId)
         .run();
     } else {
       await db
         .prepare('INSERT INTO intimacy_bonds (id, user_a_id, user_b_id, requester_id, relation_type, status, custom_label, anniversary_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, \'pending\', ?, ?, ?, ?)')
-        .bind(createId('int'), a, b, userId, relationType, customLabel, anniversaryDate, now, now)
+        .bind(bondId, a, b, userId, relationType, customLabel, anniversaryDate, now, now)
         .run();
     }
 
@@ -358,9 +359,9 @@ export const onRequest = withApiHandler(async (context) => {
       actorNickname: auth.user.nickname,
       title: `${auth.user.nickname} 邀请你绑定「${RELATION_LABELS[relationType]}」亲密关系`,
       body: customLabel ? `专属备注：${customLabel}` : '绑定后可解锁专属亲密卡片与同行旅途成就',
-      targetRef: { userId, relationType },
+      targetRef: { userId, relationType, bondId },
     });
-    return jsonResponse(request, 201, { ok: true, message: '亲密关系邀请已发送' });
+    return jsonResponse(request, 201, { ok: true, bondId, message: '亲密关系邀请已发送' });
   }
 
   // POST /api/social/intimacy/respond

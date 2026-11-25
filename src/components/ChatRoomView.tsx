@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   cloudApi,
+  RELATION_META,
   type ChatMessage,
   type CloudSelfUser,
+  type IntimacyBond,
+  type RelationType,
   type TravelGroupSummary,
 } from '../cloud-api';
 import type { AiTravelPlan } from '../planner-types';
@@ -18,11 +21,13 @@ interface ChatRoomViewProps {
   cloudUser: CloudSelfUser;
   aiPlans: AiTravelPlan[];
   groups: TravelGroupSummary[];
+  intimacyBonds?: IntimacyBond[];
   /** 是否在独立视图顶部显示返回栏（群内 Tab 嵌入时可隐藏顶部栏） */
   showHeader?: boolean;
   onBack?: () => void;
   onOpenPlan: (planId: string) => void;
   onOpenShareCode: (code: string) => void;
+  onRespondIntimacy?: (bondId: string, decision: 'accept' | 'reject') => Promise<void>;
   onJoinedGroup?: (groupId: string) => void;
   onNotice: (message: string) => void;
   onError: (message: string) => void;
@@ -93,10 +98,12 @@ export default function ChatRoomView({
   cloudUser,
   aiPlans,
   groups,
+  intimacyBonds = [],
   showHeader = true,
   onBack,
   onOpenPlan,
   onOpenShareCode,
+  onRespondIntimacy,
   onJoinedGroup,
   onNotice,
   onError,
@@ -218,6 +225,7 @@ export default function ChatRoomView({
           planId: plan.id,
           shareCode: share.code,
           title: plan.content.title,
+          destination: plan.content.request?.destination || '',
           daysCount: plan.content.days?.length || 0,
           mode: planMode,
         },
@@ -408,6 +416,7 @@ export default function ChatRoomView({
                         <div className="im-rich-card-badge">✈️ 旅行攻略</div>
                         <strong>{String(m.payload?.title || '旅行计划')}</strong>
                         <small>
+                          {m.payload?.destination ? `${String(m.payload.destination)} · ` : ''}
                           {m.payload?.daysCount ? `${Number(m.payload.daysCount)} 天行程 · ` : ''}
                           {m.payload?.mode === 'collab' ? '邀请同游共编' : '独立攻略副本'}
                         </small>
@@ -423,11 +432,61 @@ export default function ChatRoomView({
                               }
                             }}
                           >
-                            查看 / 导入攻略
+                            {isMine ? '查看攻略' : '查看 / 保存到我的行程'}
                           </button>
                         </div>
                       </div>
                     )}
+
+                    {/* 亲密关系申请卡片 */}
+                    {m.msgType === 'intimacy' && (() => {
+                      const rt = String(m.payload?.relationType || 'couple') as RelationType;
+                      const meta = RELATION_META[rt] || RELATION_META.couple;
+                      const emoji = String(m.payload?.emoji || meta.emoji);
+                      const label = String(m.payload?.customLabel || m.payload?.label || meta.label);
+                      const anniversary = String(m.payload?.anniversaryDate || '');
+                      const payloadBondId = String(m.payload?.bondId || '');
+                      const matchedBond = intimacyBonds.find((b) =>
+                        (payloadBondId && b.id === payloadBondId)
+                        || (roomType === 'dm' && b.peer.id === targetId),
+                      );
+                      const isActive = matchedBond?.status === 'active';
+                      const canRespond = Boolean(!isMine && matchedBond && matchedBond.status === 'pending' && matchedBond.incoming && onRespondIntimacy);
+                      return (
+                        <div className="im-rich-card is-intimacy">
+                          <div className="im-rich-card-badge">💞 亲密关系申请</div>
+                          <strong>{emoji} 邀请绑定「{label}」</strong>
+                          <small>
+                            {anniversary ? `纪念日：${anniversary} · ` : ''}
+                            {isActive
+                              ? '已成功绑定亲密关系'
+                              : canRespond
+                                ? '点击下方即可确认绑定'
+                                : isMine
+                                  ? '等待对方确认中…'
+                                  : '该邀请已处理或已失效'}
+                          </small>
+                          {canRespond && matchedBond && (
+                            <div className="im-rich-card-foot im-intimacy-foot">
+                              <button
+                                type="button"
+                                className="primary im-card-btn"
+                                onClick={() => void onRespondIntimacy?.(matchedBond.id, 'accept')}
+                              >
+                                同意绑定
+                              </button>
+                              <button
+                                type="button"
+                                className="secondary im-card-btn"
+                                onClick={() => void onRespondIntimacy?.(matchedBond.id, 'reject')}
+                              >
+                                拒绝
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* 邀请卡片 */}
                     {m.msgType === 'invite' && (

@@ -167,7 +167,7 @@ export const onRequest = withApiHandler(async (context) => {
     }
     // 允许压缩后的图片（base64 最大约 360KB）
     const body = await readJsonBody(request, 420 * 1024);
-    const msgType = ['text', 'image', 'plan', 'invite', 'poll'].includes(String(body.msgType || ''))
+    const msgType = ['text', 'image', 'plan', 'invite', 'poll', 'intimacy'].includes(String(body.msgType || ''))
       ? String(body.msgType)
       : 'text';
     const textContent = String(body.textContent || '').trim().slice(0, 2000);

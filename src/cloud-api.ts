@@ -66,7 +66,7 @@ export interface ChatPollVote {
   createdAt: string;
 }
 
-export type ChatMessageType = 'text' | 'image' | 'plan' | 'invite' | 'poll';
+export type ChatMessageType = 'text' | 'image' | 'plan' | 'invite' | 'poll' | 'intimacy';
 
 export interface ChatMessage {
   id: string;
@@ -532,7 +532,7 @@ export const cloudApi = {
     return cloudRequest<{ ok: true } & FriendFootprintCompare>(`/api/social/friends/${encodeURIComponent(userId)}/footprints`);
   },
   requestIntimacy(targetUserId: string, relationType: RelationType, customLabel = '', anniversaryDate = '') {
-    return cloudRequest<{ ok: true; message: string }>('/api/social/intimacy/request', {
+    return cloudRequest<{ ok: true; bondId?: string; message: string }>('/api/social/intimacy/request', {
       method: 'POST',
       body: { targetUserId, relationType, customLabel, anniversaryDate },
     });

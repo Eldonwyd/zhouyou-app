@@ -28,6 +28,7 @@ interface CompanionsViewProps {
   onOpenAuth: (mode: 'login' | 'register') => void;
   onOpenPlan: (planId: string) => void;
   onOpenShareCode: (code: string) => void;
+  onSaveShareToMyPlans?: (code: string) => Promise<void>;
   onUnreadChange: (count: number) => void;
   onIntimacyLoaded?: (bonds: IntimacyBond[]) => void;
   onSyncNow: () => Promise<void>;
@@ -81,6 +82,7 @@ export default function CompanionsView({
   onOpenAuth,
   onOpenPlan,
   onOpenShareCode,
+  onSaveShareToMyPlans,
   onUnreadChange,
   onIntimacyLoaded,
   onSyncNow,
@@ -120,6 +122,8 @@ export default function CompanionsView({
   const [sendPlanFriend, setSendPlanFriend] = useState<CloudPublicUser | null>(null);
   const [sendPlanId, setSendPlanId] = useState('');
   const [sendPlanMode, setSendPlanMode] = useState<'copy' | 'collab'>('copy');
+  const [savingShareCode, setSavingShareCode] = useState<string | null>(null);
+  const [savedShareCodes, setSavedShareCodes] = useState<Record<string, boolean>>({});
 
   // 建群 / 面对面建群 / 邀请码入群
   const [newGroupName, setNewGroupName] = useState('');
@@ -283,9 +287,29 @@ export default function CompanionsView({
 
   async function handleSubmitIntimacy() {
     if (!intimacyTarget) return;
+    const target = intimacyTarget;
+    const rt = intimacyType;
+    const custom = intimacyLabel.trim();
+    const dateStr = intimacyDate.trim();
+    const meta = RELATION_META[rt];
     try {
-      const res = await cloudApi.requestIntimacy(intimacyTarget.id, intimacyType, intimacyLabel, intimacyDate);
-      onNotice(res.message);
+      const res = await cloudApi.requestIntimacy(target.id, rt, custom, dateStr);
+      // 同步发一张亲密关系申请卡片到与该好友的私聊窗口，方便双方在聊天内直接看到与处理
+      await cloudApi
+        .sendChatMessage('dm', target.id, {
+          msgType: 'intimacy',
+          textContent: `申请与你绑定「${custom || meta.label}」亲密关系`,
+          payload: {
+            bondId: res.bondId || '',
+            relationType: rt,
+            emoji: meta.emoji,
+            label: meta.label,
+            customLabel: custom,
+            anniversaryDate: dateStr,
+          },
+        })
+        .catch(() => undefined);
+      onNotice(`${res.message}，已同步展示在聊天中`);
       setIntimacyTarget(null);
       setIntimacyLabel('');
       setIntimacyDate('');
@@ -307,21 +331,51 @@ export default function CompanionsView({
 
   async function handleSendPlanToFriend() {
     if (!sendPlanFriend || !sendPlanId) return;
+    const target = sendPlanFriend;
     const plan = aiPlans.find((p) => p.id === sendPlanId);
     try {
-      await cloudApi.createShare({
+      const share = await cloudApi.createShare({
         planId: sendPlanId,
         mode: sendPlanMode,
-        recipientUserId: sendPlanFriend.id,
+        recipientUserId: target.id,
         planPayload: plan,
       });
+      // 同步发一张攻略卡片到与该好友的私聊中，聊天与「同行旅伴 → 攻略」两边都能看到
+      await cloudApi
+        .sendChatMessage('dm', target.id, {
+          msgType: 'plan',
+          textContent: `分享了攻略「${plan?.content.title || '旅行计划'}」`,
+          payload: {
+            planId: sendPlanId,
+            shareCode: share.code,
+            title: plan?.content.title || '旅行计划',
+            destination: plan?.content.request?.destination || '',
+            daysCount: plan?.content.days?.length || 0,
+            mode: sendPlanMode,
+          },
+        })
+        .catch(() => undefined);
       onNotice(sendPlanMode === 'collab'
-        ? `已邀请 ${sendPlanFriend.nickname} 加入同行协作！`
-        : `已将攻略副本发给 ${sendPlanFriend.nickname}`);
+        ? `已邀请 ${target.nickname} 加入同行协作，并同步发送到聊天`
+        : `已将攻略发给 ${target.nickname}，聊天与攻略页均可查看`);
       setSendPlanFriend(null);
       await refreshAll();
     } catch (err) {
       onError(err instanceof Error ? err.message : '发送攻略失败');
+    }
+  }
+
+  async function handleQuickSaveShare(code: string) {
+    if (!onSaveShareToMyPlans) {
+      onOpenShareCode(code);
+      return;
+    }
+    setSavingShareCode(code);
+    try {
+      await onSaveShareToMyPlans(code);
+      setSavedShareCodes((prev) => ({ ...prev, [code]: true }));
+    } finally {
+      setSavingShareCode(null);
     }
   }
 
@@ -670,9 +724,11 @@ export default function CompanionsView({
           cloudUser={cloudUser}
           aiPlans={aiPlans}
           groups={groups}
+          intimacyBonds={overview?.intimacyBonds || []}
           onBack={() => setActiveChatFriend(null)}
           onOpenPlan={onOpenPlan}
           onOpenShareCode={onOpenShareCode}
+          onRespondIntimacy={(bondId, decision) => handleIntimacyDecision(bondId, decision)}
           onJoinedGroup={(gid) => {
             setActiveChatFriend(null);
             setTab('groups');
@@ -1208,7 +1264,21 @@ export default function CompanionsView({
                     <strong>{s.title}</strong>
                     <small>来自 {s.senderNickname} · {s.mode === 'collab' ? '邀请同游共编' : '独立副本'}{s.daysCount ? ` · ${s.daysCount}天` : ''}</small>
                   </div>
-                  <button type="button" className="primary chat-mini-btn" onClick={() => onOpenShareCode(s.code)}>查看</button>
+                  <div className="chat-row-end share-row-actions">
+                    <button type="button" className="chat-action-pill" onClick={() => onOpenShareCode(s.code)}>预览</button>
+                    <button
+                      type="button"
+                      className="chat-action-pill is-primary"
+                      disabled={savingShareCode === s.code}
+                      onClick={() => void handleQuickSaveShare(s.code)}
+                    >
+                      {savingShareCode === s.code
+                        ? '保存中…'
+                        : savedShareCodes[s.code]
+                          ? '已保存 ✓'
+                          : '保存到我的行程'}
+                    </button>
+                  </div>
                 </div>
               ))
             )}
