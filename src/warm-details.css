@@ -1119,23 +1119,105 @@ input, select, textarea { border-radius: 10px; }
 }
 .city-guide-action:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 
-/* 工具栏按 DOM 顺序换行，窄屏上的阅读和键盘顺序保持一致。 */
+/* 行程总览操作区：主操作 + 紧凑快捷工具栏（桌面与手机分别适配） */
 .planner-overview-actions {
   flex: none;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.planner-actions-primary {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
 }
-.planner-overview-actions > button {
-  min-height: 38px;
-  padding: 8px 14px;
-  font-size: 12.5px;
+.planner-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-size: calc(13px * var(--font-scale, 1));
+  font-weight: 600;
   white-space: nowrap;
+  cursor: pointer;
+  transition: transform .15s ease, background-color .15s ease, box-shadow .15s ease, opacity .15s ease;
 }
-.planner-overview-actions > .primary { padding: 8px 16px; }
-.planner-overview-actions > .text-button { padding: 6px 8px; }
+.planner-cta-btn.is-primary {
+  background: var(--style-solid, var(--warm-dark, #e5634f));
+  color: #fff;
+  box-shadow: 0 2px 8px -3px color-mix(in srgb, var(--style-solid, #e5634f) 45%, transparent);
+}
+.planner-cta-btn.is-primary:hover:not(:disabled) {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+.planner-cta-btn.is-accent {
+  background: color-mix(in srgb, var(--style-accent, var(--warm-green, #387a52)) 12%, var(--surface));
+  color: var(--style-accent, var(--warm-green, #387a52));
+  border-color: color-mix(in srgb, var(--style-accent, var(--warm-green, #387a52)) 28%, var(--line));
+}
+.planner-cta-btn.is-accent:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--style-accent, var(--warm-green, #387a52)) 18%, var(--surface));
+  transform: translateY(-1px);
+}
+.planner-cta-btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+.planner-cta-ic {
+  font-size: 12px;
+  line-height: 1;
+  opacity: .9;
+}
+
+.planner-actions-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.planner-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-2) 55%, var(--surface));
+  color: var(--ink);
+  font-size: calc(12px * var(--font-scale, 1));
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color .14s ease, border-color .14s ease, color .14s ease;
+}
+.planner-tool-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: color-mix(in srgb, var(--ink) 20%, var(--line));
+}
+.planner-tool-btn.is-active {
+  background: color-mix(in srgb, var(--warm-green, #387a52) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--warm-green, #387a52) 38%, var(--line));
+  color: var(--warm-green, #387a52);
+  font-weight: 600;
+}
+.planner-tool-btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+.planner-tool-ic {
+  font-size: 12px;
+  line-height: 1;
+  opacity: .76;
+}
 
 /* ==========================================================================
  * 旅程登机牌时间轴 + 可撕式出发提醒副券（适配 5 套风格 × 明暗 × 桌面/手机）

@@ -238,19 +238,58 @@ export default function PlanCollabBar({
   return (
     <div className="plan-collab-bar">
       <div className="plan-collab-strip">
-        <span className="plan-collab-status">
-          {planMeta?.groupId
-            ? `👥 已关联行程群「${planMeta.groupName || '同行群'}」· v${planMeta.version}`
-            : cloudUser
-              ? '☁️ 已开启云端自动同步'
-              : '☁️ 登录后可同步到手机并邀请好友同行'}
-        </span>
-        <div className="plan-collab-actions">
-          <button type="button" className="primary" onClick={() => void openPanel('invite')}>🤝 邀请好友进入</button>
-          <button type="button" className="secondary" onClick={() => void openPanel('share')}>✈️ 分享攻略 / 口令</button>
-          <button type="button" className="secondary" onClick={() => void openPanel('group')}>👥 绑定行程群</button>
-          <button type="button" className="secondary" onClick={() => void openPanel('collab')}>🗳️ 投票与批注</button>
-          <button type="button" className="secondary" onClick={() => void openPanel('history')}>🕘 修改动态与回退</button>
+        <div className="plan-collab-head">
+          <span className="plan-collab-status">
+            <i className={`plan-collab-dot${planMeta?.groupId ? ' is-group' : cloudUser ? ' is-cloud' : ''}`} aria-hidden="true" />
+            <span className="plan-collab-status-text">
+              {planMeta?.groupId
+                ? `已关联「${planMeta.groupName || '同行群'}」· v${planMeta.version}`
+                : cloudUser
+                  ? '云端自动同步已开启'
+                  : '登录后可云端同步与好友同游'}
+            </span>
+          </span>
+          <button
+            type="button"
+            className={`plan-collab-invite-btn${panel === 'invite' ? ' is-active' : ''}`}
+            onClick={() => void openPanel('invite')}
+          >
+            ＋ 邀请好友
+          </button>
+        </div>
+        <div className="plan-collab-actions" role="group" aria-label="协作工具">
+          <button
+            type="button"
+            className={`plan-collab-chip${panel === 'share' ? ' is-active' : ''}`}
+            onClick={() => void openPanel('share')}
+          >
+            <span className="plan-collab-chip-ic" aria-hidden="true">↗</span>
+            <span>分享口令</span>
+          </button>
+          <button
+            type="button"
+            className={`plan-collab-chip${panel === 'group' ? ' is-active' : ''}`}
+            onClick={() => void openPanel('group')}
+          >
+            <span className="plan-collab-chip-ic" aria-hidden="true">◎</span>
+            <span>行程群</span>
+          </button>
+          <button
+            type="button"
+            className={`plan-collab-chip${panel === 'collab' ? ' is-active' : ''}`}
+            onClick={() => void openPanel('collab')}
+          >
+            <span className="plan-collab-chip-ic" aria-hidden="true">☑</span>
+            <span>投票批注</span>
+          </button>
+          <button
+            type="button"
+            className={`plan-collab-chip${panel === 'history' ? ' is-active' : ''}`}
+            onClick={() => void openPanel('history')}
+          >
+            <span className="plan-collab-chip-ic" aria-hidden="true">↺</span>
+            <span>修改动态</span>
+          </button>
         </div>
       </div>
 

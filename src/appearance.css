@@ -351,33 +351,33 @@
 }
 
 :root[data-appearance="candy"] .primary {
-  border-radius: 999px;
-  border: 2px solid var(--candy-btn-shadow);
-  box-shadow: 0 4px 0 var(--candy-btn-shadow);
-  transition: transform .18s cubic-bezier(.34, 1.56, .64, 1), box-shadow .18s ease;
+  border-radius: 12px;
+  border: 1.5px solid var(--candy-btn-shadow);
+  box-shadow: 0 2px 0 var(--candy-btn-shadow);
+  transition: transform .16s cubic-bezier(.34, 1.56, .64, 1), box-shadow .16s ease;
 }
 :root[data-appearance="candy"] .primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 0 var(--candy-btn-shadow);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 0 var(--candy-btn-shadow);
 }
 :root[data-appearance="candy"] .primary:active:not(:disabled) {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 var(--candy-btn-shadow);
+  transform: translateY(1px);
+  box-shadow: 0 0 0 var(--candy-btn-shadow);
 }
 
 :root[data-appearance="candy"] .secondary {
-  border-radius: 999px;
-  border: 2px solid var(--candy-border);
-  box-shadow: 0 3px 0 var(--candy-offset);
-  transition: transform .18s cubic-bezier(.34, 1.56, .64, 1), box-shadow .18s ease;
+  border-radius: 12px;
+  border: 1.5px solid var(--candy-border);
+  box-shadow: 0 1.5px 0 var(--candy-offset);
+  transition: transform .16s cubic-bezier(.34, 1.56, .64, 1), box-shadow .16s ease;
 }
 :root[data-appearance="candy"] .secondary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 0 var(--candy-offset);
+  transform: translateY(-1px);
+  box-shadow: 0 2.5px 0 var(--candy-offset);
 }
 :root[data-appearance="candy"] .secondary:active:not(:disabled) {
   transform: translateY(1px);
-  box-shadow: 0 1px 0 var(--candy-offset);
+  box-shadow: 0 0 0 var(--candy-offset);
 }
 
 :root[data-appearance="candy"] .saved-city-card {
@@ -1273,5 +1273,110 @@
   }
   :root[data-appearance="warm"] .nav-item.active .nav-icon {
     border-radius: 12px;
+  }
+}
+
+/* ==========================================================================
+ * 字体大小调节系统（小号紧凑 / 标准 / 大号舒适）
+ * 手机端默认自动精简字号，让信息密度更接近成熟出行与社交 App，并可在设置里随时微调。
+ * ========================================================================== */
+:root {
+  --font-scale: 1;
+}
+:root[data-font-scale="compact"] {
+  --font-scale: 0.92;
+}
+:root[data-font-scale="standard"] {
+  --font-scale: 1;
+}
+:root[data-font-scale="large"] {
+  --font-scale: 1.09;
+}
+
+.appearance-font-mode {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+/* 桌面端在非标准档位时按比例缩放全局字号 */
+:root[data-font-scale="compact"] body,
+:root[data-font-scale="large"] body {
+  font-size: calc(14px * var(--font-scale));
+}
+:root[data-font-scale="compact"] :is(.card p, .muted, .planner-activity p, .im-bubble, .chat-row-body strong),
+:root[data-font-scale="large"] :is(.card p, .muted, .planner-activity p, .im-bubble, .chat-row-body strong) {
+  font-size: calc(13.5px * var(--font-scale));
+}
+:root[data-font-scale="compact"] :is(button, input, select, textarea),
+:root[data-font-scale="large"] :is(button, input, select, textarea) {
+  font-size: calc(13px * var(--font-scale));
+}
+:root[data-font-scale="compact"] .section-heading h1,
+:root[data-font-scale="large"] .section-heading h1 {
+  font-size: calc(24px * var(--font-scale));
+}
+:root[data-font-scale="compact"] .planner-overview-heading h2,
+:root[data-font-scale="large"] .planner-overview-heading h2 {
+  font-size: calc(20px * var(--font-scale));
+}
+
+/* 手机端默认字号更精致紧凑，并随设置中的三档字号实时缩放 */
+@media (max-width: 850px) {
+  :root {
+    --font-scale: 0.9;
+  }
+  :root[data-font-scale="compact"] {
+    --font-scale: 0.83;
+  }
+  :root[data-font-scale="standard"] {
+    --font-scale: 0.9;
+  }
+  :root[data-font-scale="large"] {
+    --font-scale: 1.02;
+  }
+
+  body {
+    font-size: calc(14px * var(--font-scale));
+  }
+  .section-heading h1,
+  .map-page > .map-heading h1 {
+    font-size: calc(21px * var(--font-scale));
+  }
+  .section-heading p,
+  .map-page > .map-heading p {
+    font-size: calc(12.5px * var(--font-scale));
+  }
+  .planner-overview-heading h2 {
+    font-size: calc(18px * var(--font-scale));
+  }
+  .planner-day-head h3,
+  .planner-trip-status h3 {
+    font-size: calc(15.5px * var(--font-scale));
+  }
+  .planner-activity h4,
+  .card h2,
+  .card h3 {
+    font-size: calc(15px * var(--font-scale));
+  }
+  .planner-activity p,
+  .card p,
+  .muted {
+    font-size: calc(13px * var(--font-scale));
+  }
+  .primary,
+  .secondary {
+    min-height: 34px;
+    padding: 6px 12px;
+    font-size: calc(13px * var(--font-scale));
+  }
+  .text-button {
+    font-size: calc(12.5px * var(--font-scale));
+  }
+  .topbar .topbar-mobile-brand .topbar-brand-text b {
+    font-size: calc(15.5px * var(--font-scale));
+  }
+  .app-shell .sidebar .nav-item span {
+    font-size: calc(11px * var(--font-scale));
   }
 }

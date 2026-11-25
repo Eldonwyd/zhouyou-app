@@ -132,9 +132,10 @@ export default function ChatRoomView({
     if (!silent) setLoading(true);
     try {
       const res = await cloudApi.getChatMessages(roomType, targetId);
-      setMessages(res.messages);
-      if (res.messages.length > prevCountRef.current) {
-        prevCountRef.current = res.messages.length;
+      const nextMessages = Array.isArray(res?.messages) ? res.messages : [];
+      setMessages(nextMessages);
+      if (nextMessages.length > prevCountRef.current) {
+        prevCountRef.current = nextMessages.length;
         setTimeout(() => scrollToBottom(silent), 40);
       }
     } catch (err) {

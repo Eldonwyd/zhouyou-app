@@ -1,17 +1,32 @@
 import type { CSSProperties } from 'react';
-import { APPEARANCE_STYLES, applyAppearanceStyle, applyThemeMode, useAppearanceStyle, useThemeMode } from '../theme';
+import {
+  APPEARANCE_STYLES,
+  applyAppearanceStyle,
+  applyFontScale,
+  applyThemeMode,
+  useAppearanceStyle,
+  useFontScale,
+  useThemeMode,
+} from '../theme';
 import { useI18n } from '../i18n';
 
 /** 风格工坊：每张样卡真实还原对应风格的底纹、描边、圆角、阴影与装饰气质。 */
 export default function AppearanceSettings() {
   const selected = useAppearanceStyle();
   const mode = useThemeMode();
+  const fontScale = useFontScale();
   const { isEn, t } = useI18n();
 
   const modes = [
     ['system', t('跟随系统', 'System')],
     ['light', t('浅色', 'Light')],
     ['dark', t('深色', 'Dark')],
+  ] as const;
+
+  const fontScales = [
+    ['compact', t('小号紧凑', 'Compact')],
+    ['standard', t('标准', 'Standard')],
+    ['large', t('大号舒适', 'Large')],
   ] as const;
 
   return (
@@ -85,6 +100,20 @@ export default function AppearanceSettings() {
         <div role="group" aria-label={t('明暗模式', 'Color mode')}>
           {modes.map(([value, label]) => (
             <button type="button" key={value} aria-pressed={mode === value} onClick={() => applyThemeMode(value)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="appearance-mode appearance-font-mode">
+        <div>
+          <strong>{t('字体大小', 'Font Size')}</strong>
+          <small>{t('手机端已默认精简字号，可按阅读习惯随时微调', 'Compact by default on mobile; adjust anytime for comfort')}</small>
+        </div>
+        <div role="group" aria-label={t('字体大小', 'Font size')}>
+          {fontScales.map(([value, label]) => (
+            <button type="button" key={value} aria-pressed={fontScale === value} onClick={() => applyFontScale(value)}>
               {label}
             </button>
           ))}

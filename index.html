@@ -4,11 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#102c3b" />
-    <meta name="description" content="在地图上记录去过和计划前往的中国城市，整理旅程与花费，支持多模型 AI 智能规划。" />
+    <meta name="description" content="在地图上记录去过和计划前往的中国城市，支持多模型 AI 智能规划、周游账号三端云同步、好友足迹对比与行程群共编聊天。" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="周游地图" />
-    <meta property="og:title" content="周游地图 · 中国旅行足迹地图、手账与 AI 行程规划" />
-    <meta property="og:description" content="在地图上点亮去过的中国城市，记录照片手账与每日预算，内置多模型 AI 智能行程规划。" />
+    <meta property="og:title" content="周游地图 · 中国旅行足迹地图、同行旅伴、手账与 AI 行程规划" />
+    <meta property="og:description" content="点亮去过的中国城市，记录照片手账与每日预算，内置多模型 AI 智能规划、账号三端云同步、好友足迹对比与行程群共编聊天。" />
     <meta property="og:url" content="https://zhouyou.online/" />
     <meta property="og:image" content="https://zhouyou.online/icons/apple-touch-icon.png" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -30,6 +30,13 @@
         document.documentElement.dataset.appearance = ['candy', 'white', 'journal', 'coast', 'warm'].includes(a) ? a : 'candy';
       } catch (e) {
         document.documentElement.dataset.appearance = 'candy';
+      }
+      // 字号在首帧前恢复，避免页面加载时字号跳动。
+      try {
+        var fs = localStorage.getItem('travel-font-scale');
+        document.documentElement.dataset.fontScale = (fs === 'compact' || fs === 'standard' || fs === 'large') ? fs : 'standard';
+      } catch (e) {
+        document.documentElement.dataset.fontScale = 'standard';
       }
       // 语言也在首帧前恢复，避免标题和语言属性闪烁。
       try {

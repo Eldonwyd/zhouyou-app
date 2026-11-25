@@ -790,11 +790,11 @@ export default function CompanionsView({
                       <small>{f.user.motto || `好友码：${f.user.friendCode}`}</small>
                     </div>
                     <div className="chat-row-end" onClick={(e) => e.stopPropagation()}>
-                      <button type="button" className="primary chat-mini-btn" onClick={() => setActiveChatFriend(f.user)}>💬 聊天</button>
-                      <button type="button" className="secondary chat-mini-btn" onClick={() => setCompareUserId(f.user.id)}>足迹</button>
+                      <button type="button" className="chat-action-pill is-primary" onClick={() => setActiveChatFriend(f.user)}>聊天</button>
+                      <button type="button" className="chat-action-pill chat-desktop-only" onClick={() => setCompareUserId(f.user.id)}>足迹</button>
                       <button
                         type="button"
-                        className="secondary chat-mini-btn"
+                        className="chat-action-pill chat-desktop-only"
                         onClick={() => {
                           setSendPlanFriend(f.user);
                           setSendPlanId(aiPlans[0]?.id || '');
@@ -814,6 +814,21 @@ export default function CompanionsView({
                         </button>
                         {menuOpen && (
                           <div className="chat-row-popover" role="menu">
+                            <button type="button" role="menuitem" onClick={() => { setOpenFriendMenuId(null); setCompareUserId(f.user.id); }}>
+                              🗺️ 对比足迹地图
+                            </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                setOpenFriendMenuId(null);
+                                setSendPlanFriend(f.user);
+                                setSendPlanId(aiPlans[0]?.id || '');
+                                setSendPlanMode('copy');
+                              }}
+                            >
+                              ✈️ 发送旅行攻略
+                            </button>
                             <button type="button" role="menuitem" onClick={() => { setOpenFriendMenuId(null); setIntimacyTarget(f.user); }}>
                               💞 绑定亲密关系
                             </button>

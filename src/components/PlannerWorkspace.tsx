@@ -48,6 +48,7 @@ import type {
   PlannerPhoto,
   PlannerPreferences,
   PlannerRequest,
+  UnvisitedPopularSight,
   PlannerSource,
   PlannerMessage,
   PlannerTransferModeKind,
@@ -1169,6 +1170,122 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
       if (started) triedTransferSigsRef.current.delete(missingTransferSig);
     };
   }, [ticketPlanId, missingTransferSig, busy, bookingDialog, aiStatus?.configured]);
+
+  const [unvisitedLoadingId, setUnvisitedLoadingId] = useState('');
+  const [unvisitedError, setUnvisitedError] = useState('');
+  const triedUnvisitedPlansRef = useRef(new Set<string>());
+
+  /** 过滤掉已在行程中安排过的景点，避免安排后仍滞留在「未去热门景点」中。 */
+  const visibleUnvisitedHighlights = useMemo<UnvisitedPopularSight[]>(() => {
+    const raw = activePlan?.content.unvisitedHighlights;
+    if (!activePlan || !Array.isArray(raw) || !raw.length) return [];
+    const norm = (value: string) =>
+      value
+        .toLowerCase()
+        .replace(/[\s·\-—_()（）【】「」《》,，.。]/g, '')
+        .replace(/(?:国家)?[45]a级?(?:旅游)?(?:景区|景点)?/gi, '')
+        .replace(/(?:风景区|旅游区|景区|公园|博物馆|遗址|故居|古镇|古城)$/g, '');
+    const scheduled = activePlan.content.days
+      .flatMap((day) => day.activities)
+      .map((act) => norm(act.title))
+      .filter((t) => t.length >= 2);
+    return raw.filter((item) => {
+      const key = norm(item.title);
+      if (!key) return false;
+      return !scheduled.some(
+        (s) => s === key || (s.length >= 3 && key.length >= 3 && (s.includes(key) || key.includes(s))),
+      );
+    });
+  }, [activePlan]);
+
+  async function fetchUnvisitedHighlights(planId: string, manual = false, externalSignal?: AbortSignal): Promise<void> {
+    const original = plansRef.current.find((plan) => plan.id === planId);
+    if (!original) return;
+    if (webTourMode) {
+      if (manual) props.onRequireClient?.('ai');
+      return;
+    }
+    const abort = externalSignal ? null : new AbortController();
+    const signal = externalSignal ?? abort!.signal;
+    setUnvisitedLoadingId(planId);
+    if (manual) setUnvisitedError('');
+    try {
+      const result = await plannerApi<{ items?: UnvisitedPopularSight[] }>(
+        'unvisited',
+        { plan: { ...original, history: [], messages: [] } },
+        signal,
+        () => {},
+      );
+      if (signal.aborted) return;
+      const items = Array.isArray(result?.items) ? result.items : [];
+      if (!items.length) {
+        if (manual) setUnvisitedError('暂未识别到更多未去热门景点，可稍后重试');
+        return;
+      }
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const current = plansRef.current.find((plan) => plan.id === planId);
+        if (!current) return;
+        try {
+          await props.onSaveAi(
+            {
+              ...current,
+              version: current.version + 1,
+              contentVersion: current.contentVersion ?? current.version,
+              updatedAt: new Date().toISOString(),
+              content: {
+                ...current.content,
+                unvisitedHighlights: items,
+              },
+            },
+            current.version,
+          );
+          if (!signal.aborted) setUnvisitedError('');
+          break;
+        } catch {
+          if (attempt === 1) break;
+          await new Promise((resolve) => window.setTimeout(resolve, 180));
+        }
+      }
+    } catch (failure) {
+      if (!signal.aborted && manual) {
+        setUnvisitedError(failure instanceof Error ? failure.message : '生成未去热门景点失败，请重试');
+      }
+    } finally {
+      if (!signal.aborted) {
+        setUnvisitedLoadingId((prev) => (prev === planId ? '' : prev));
+      }
+    }
+  }
+
+  /** 旧行程缺少未去热门景点时，打开后自动在后台补齐一次（每个计划仅自动尝试一次）。 */
+  const missingUnvisitedPlanId =
+    activePlan && (!activePlan.content.unvisitedHighlights || activePlan.content.unvisitedHighlights.length === 0)
+      ? activePlan.id
+      : '';
+  useEffect(() => {
+    if (
+      webTourMode
+      || !missingUnvisitedPlanId
+      || busy
+      || bookingDialog
+      || aiStatus?.configured !== true
+      || triedUnvisitedPlansRef.current.has(missingUnvisitedPlanId)
+    ) {
+      return;
+    }
+    const abort = new AbortController();
+    let started = false;
+    const timer = window.setTimeout(() => {
+      started = true;
+      triedUnvisitedPlansRef.current.add(missingUnvisitedPlanId);
+      void fetchUnvisitedHighlights(missingUnvisitedPlanId, false, abort.signal);
+    }, 600);
+    return () => {
+      window.clearTimeout(timer);
+      abort.abort();
+      if (started) triedUnvisitedPlansRef.current.delete(missingUnvisitedPlanId);
+    };
+  }, [missingUnvisitedPlanId, busy, bookingDialog, aiStatus?.configured]);
 
   /** 记住用户在某段交通中点选的方案下标（选中后其余方案折叠，刷新页面保持选中）。 */
   async function selectTransferOption(selectionKey: string, index: number): Promise<boolean> {
@@ -2663,114 +2780,161 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                     onSave={props.onSaveAi} onError={props.onError} />
                 </div>
                 <div className="planner-overview-actions" role="group" aria-label="行程操作">
-                  {/* 按旅途中查看与调整的频率排列，键盘顺序和视觉顺序一致。 */}
-                  <button className="primary" onClick={() => {
-                    setFinanceKey(activePlan.linkedTripId ? `journey:${activePlan.linkedTripId}` : `ai:${activePlan.id}`);
-                    setTab('finance');
-                  }}>预算与账本</button>
-                  <button
-                    className="secondary"
-                    disabled={busy}
-                    onClick={() => openXhsDialog({ mode: 'plan', initialTab: 'add-places' })}
-                  >
-                    ✦ 小红书加景点 / 改计划
-                  </button>
-                  <button className="secondary" disabled={busy} onClick={() => {
-                    if (webTourMode) {
-                      props.onRequireClient?.('ai');
-                      return;
-                    }
-                    setBookingDialog({});
-                  }}>
-                    ＋ 导入车次 / 酒店
-                  </button>
-                  {(() => {
-                    const sightList = activePlan.content.days.flatMap((d) =>
-                      plannerActivitiesByTime(d.activities).filter((a) => a.kind === 'sight' && !a.bookingId),
-                    );
-                    if (!sightList.length) return null;
-                    const missingCount = sightList.filter((a) => !activePlan.activityGuides?.[a.id]).length;
-                    return (
-                      <button
-                        className="primary"
-                        type="button"
-                        disabled={busy}
-                        onClick={() => {
-                          if (webTourMode) {
-                            props.onRequireClient?.('ai');
-                            return;
-                          }
-                          void generateAllActivityGuides();
-                        }}
-                      >
-                        {missingCount > 0 ? `✦ 一键生成全部攻略 (${missingCount})` : '✦ 重生成全部攻略'}
-                      </button>
-                    );
-                  })()}
-                  <button
-                    className="secondary"
-                    disabled={busy}
-                    onClick={() => {
-                      setSettings(structuredClone(activePlan.content.request));
-                      setScopeId(null);
-                    }}
-                  >
-                    修改日期与出行条件
-                  </button>
-                  <button className="secondary" disabled={busy} onClick={() => void publish()}>
-                    {activePlan.linkedTripId ? '同步到旅行手账' : '加入旅行手账'}
-                  </button>
-                  <button className="secondary" disabled={busy || exportingHtml} onClick={() => void handleExportHtmlRoadbook()}>
-                    {exportingHtml ? '打包路书中…' : '导出离线 HTML 路书'}
-                  </button>
-                  <button
-                    className="text-button"
-                    onClick={() => {
-                      const text = [
-                        activePlan.content.title,
-                        activePlan.content.summary,
-                        ...activePlan.content.days.flatMap((day) => [
-                          `\n${day.date} ${day.title}`,
-                          day.weather,
-                          ...plannerActivitiesByTime(day.activities).map((activity) => {
-                            const transfer = plannerTransferDisplay(activity, activitiesById);
-                            const options = activity.kind === 'transport'
-                              ? plannerTransferOptions(activity, activePlan.content.request)
-                              : [];
-                            return [
-                              `${activity.startTime}—${activity.endTime} ${transfer?.route || activity.title}${activity.location ? ` · ${activity.location}` : ''}`,
-                              ...(options.length
-                                ? options.map((opt) => formatTransferOption(opt).summaryText)
-                                : [transfer?.details]),
-                              activity.description,
-                              activePlan.content.request.luggageMode !== 'backpack' && plannerLuggageNoteText(activity),
-                            ].filter(Boolean).join('\n');
-                          }),
-                          ...(day.lodging
-                            ? [`住宿搜索：${day.lodging.searchKeyword}（${day.lodging.reason}）`]
-                            : []),
-                        ]),
-                        `\n预算：${priceText(budget.totalCents)}；人均 ${priceText(Math.round(budget.totalCents / activePlan.content.request.people))}`,
-                        ...budget.items.map(
-                          (item) => `${item.label}：${priceText(item.totalCents)}`,
-                        ),
-                      ].join('\n');
-                      downloadBlob(
-                        new Blob([plannerExportText(text, activePlan.content)], { type: 'text/plain;charset=utf-8' }),
-                        `${activePlan.content.title}.txt`,
+                  {/* 主操作区：高频核心动作（预算账本 + 一键攻略） */}
+                  <div className="planner-actions-primary">
+                    <button
+                      type="button"
+                      className="planner-cta-btn is-primary"
+                      onClick={() => {
+                        setFinanceKey(activePlan.linkedTripId ? `journey:${activePlan.linkedTripId}` : `ai:${activePlan.id}`);
+                        setTab('finance');
+                      }}
+                    >
+                      <span className="planner-cta-ic" aria-hidden="true">¥</span>
+                      <span>预算与账本</span>
+                    </button>
+                    {(() => {
+                      const sightList = activePlan.content.days.flatMap((d) =>
+                        plannerActivitiesByTime(d.activities).filter((a) => a.kind === 'sight' && !a.bookingId),
                       );
-                    }}
-                  >
-                    导出文字行程
-                  </button>
-                  <button
-                    className="text-button"
-                    disabled={busy}
-                    aria-expanded={showHistory}
-                    onClick={() => setShowHistory(!showHistory)}
-                  >
-                    历史版本 / 撤销
-                  </button>
+                      if (!sightList.length) return null;
+                      const missingCount = sightList.filter((a) => !activePlan.activityGuides?.[a.id]).length;
+                      return (
+                        <button
+                          className="planner-cta-btn is-accent"
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            if (webTourMode) {
+                              props.onRequireClient?.('ai');
+                              return;
+                            }
+                            void generateAllActivityGuides();
+                          }}
+                        >
+                          <span className="planner-cta-ic" aria-hidden="true">✦</span>
+                          <span>{missingCount > 0 ? `生成攻略 (${missingCount})` : '重生成攻略'}</span>
+                        </button>
+                      );
+                    })()}
+                  </div>
+
+                  {/* 快捷工具坞：紧凑图标+短标签，桌面单行/手机四列，零截断 */}
+                  <div className="planner-actions-tools">
+                    <button
+                      type="button"
+                      className="planner-tool-btn"
+                      title="小红书加景点 / 改计划"
+                      disabled={busy}
+                      onClick={() => openXhsDialog({ mode: 'plan', initialTab: 'add-places' })}
+                    >
+                      <span className="planner-tool-ic" aria-hidden="true">✦</span>
+                      <span>小红书加点</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="planner-tool-btn"
+                      title="导入车次 / 酒店"
+                      disabled={busy}
+                      onClick={() => {
+                        if (webTourMode) {
+                          props.onRequireClient?.('ai');
+                          return;
+                        }
+                        setBookingDialog({});
+                      }}
+                    >
+                      <span className="planner-tool-ic" aria-hidden="true">＋</span>
+                      <span>车次酒店</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="planner-tool-btn"
+                      title="修改日期与出行条件"
+                      disabled={busy}
+                      onClick={() => {
+                        setSettings(structuredClone(activePlan.content.request));
+                        setScopeId(null);
+                      }}
+                    >
+                      <span className="planner-tool-ic" aria-hidden="true">⚙</span>
+                      <span>出行条件</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="planner-tool-btn"
+                      title={activePlan.linkedTripId ? '同步到旅行手账' : '加入旅行手账'}
+                      disabled={busy}
+                      onClick={() => void publish()}
+                    >
+                      <span className="planner-tool-ic" aria-hidden="true">▤</span>
+                      <span>{activePlan.linkedTripId ? '同步手账' : '加入手账'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="planner-tool-btn"
+                      title="导出离线 HTML 路书"
+                      disabled={busy || exportingHtml}
+                      onClick={() => void handleExportHtmlRoadbook()}
+                    >
+                      <span className="planner-tool-ic" aria-hidden="true">↓</span>
+                      <span>{exportingHtml ? '打包中…' : '离线HTML'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="planner-tool-btn"
+                      title="导出文字行程"
+                      onClick={() => {
+                        const text = [
+                          activePlan.content.title,
+                          activePlan.content.summary,
+                          ...activePlan.content.days.flatMap((day) => [
+                            `\n${day.date} ${day.title}`,
+                            day.weather,
+                            ...plannerActivitiesByTime(day.activities).map((activity) => {
+                              const transfer = plannerTransferDisplay(activity, activitiesById);
+                              const options = activity.kind === 'transport'
+                                ? plannerTransferOptions(activity, activePlan.content.request)
+                                : [];
+                              return [
+                                `${activity.startTime}—${activity.endTime} ${transfer?.route || activity.title}${activity.location ? ` · ${activity.location}` : ''}`,
+                                ...(options.length
+                                  ? options.map((opt) => formatTransferOption(opt).summaryText)
+                                  : [transfer?.details]),
+                                activity.description,
+                                activePlan.content.request.luggageMode !== 'backpack' && plannerLuggageNoteText(activity),
+                              ].filter(Boolean).join('\n');
+                            }),
+                            ...(day.lodging
+                              ? [`住宿搜索：${day.lodging.searchKeyword}（${day.lodging.reason}）`]
+                              : []),
+                          ]),
+                          `\n预算：${priceText(budget.totalCents)}；人均 ${priceText(Math.round(budget.totalCents / activePlan.content.request.people))}`,
+                          ...budget.items.map(
+                            (item) => `${item.label}：${priceText(item.totalCents)}`,
+                          ),
+                        ].join('\n');
+                        downloadBlob(
+                          new Blob([plannerExportText(text, activePlan.content)], { type: 'text/plain;charset=utf-8' }),
+                          `${activePlan.content.title}.txt`,
+                        );
+                      }}
+                    >
+                      <span className="planner-tool-ic" aria-hidden="true">≡</span>
+                      <span>文字行程</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`planner-tool-btn${showHistory ? ' is-active' : ''}`}
+                      title="历史版本 / 撤销"
+                      disabled={busy}
+                      aria-expanded={showHistory}
+                      onClick={() => setShowHistory(!showHistory)}
+                    >
+                      <span className="planner-tool-ic" aria-hidden="true">↺</span>
+                      <span>历史撤销</span>
+                    </button>
+                  </div>
                 </div>
               </section>
               <PlannerConversation
@@ -3506,11 +3670,25 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                       ))}
                     </section>
                   )}
-                  {(activePlan.content.unvisitedHighlights?.length ?? 0) > 0 && (
-                    <section className="card planner-unvisited" aria-label="未去热门景点">
+                  <section className="card planner-unvisited" aria-label="未去热门景点">
+                    <div className="planner-unvisited-header">
                       <h3>未去热门景点</h3>
+                      <button
+                        type="button"
+                        className="text-button"
+                        disabled={busy || unvisitedLoadingId === activePlan.id}
+                        onClick={() => void fetchUnvisitedHighlights(activePlan.id, true)}
+                      >
+                        {unvisitedLoadingId === activePlan.id
+                          ? '整理中…'
+                          : visibleUnvisitedHighlights.length > 0
+                            ? '↻ 刷新'
+                            : '✦ 生成清单'}
+                      </button>
+                    </div>
+                    {visibleUnvisitedHighlights.length > 0 ? (
                       <div className="planner-unvisited-list">
-                        {activePlan.content.unvisitedHighlights!.map((item, index) => (
+                        {visibleUnvisitedHighlights.map((item, index) => (
                           <div className="planner-unvisited-row" key={`${item.title}-${index}`}>
                             <div className="planner-unvisited-head">
                               <strong>{plannerDisplayText(item.title, activePlan.content)}</strong>
@@ -3521,25 +3699,30 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                             )}
                             <div className="planner-unvisited-actions">
                               <a
-                                className="text-button"
+                                className="planner-unvisited-loc"
                                 href={mapPlaceLinks({ city: item.city, name: item.location || item.title }).webUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                title={`在${mapAppLabel()}中打开位置`}
                                 onClick={(event) => {
                                   event.preventDefault();
                                   openMapAppPlace({ city: item.city, name: item.location || item.title });
                                 }}
                               >
-                                📍 {item.location || item.title}（{mapAppLabel()}）
+                                📍 {item.location || item.title} · {mapAppLabel()}
                               </a>
                               <button
-                                className="text-button"
+                                className="planner-unvisited-add-btn"
                                 type="button"
                                 disabled={busy}
                                 onClick={() => {
+                                  if (webTourMode) {
+                                    props.onRequireClient?.('ai');
+                                    return;
+                                  }
                                   setScopeId(null);
                                   void sendChat(
-                                    `请把未去热门景点「${item.city} ${item.title}」（${item.grade ? `${item.grade}，` : ''}${item.feature}）合理安排到当前行程合适的日期中，并重新检查路线衔接与时间。`,
+                                    `请把未去热门景点「${item.city} ${item.title}」（${item.grade ? `${item.grade}，` : ''}${item.feature}，位置：${item.location || item.title}）合理安排到当前行程合适的日期中，并重新检查路线衔接与时间。`,
                                     'edit',
                                     undefined,
                                     null,
@@ -3552,8 +3735,14 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                           </div>
                         ))}
                       </div>
-                    </section>
-                  )}
+                    ) : (
+                      <p className="planner-unvisited-empty">
+                        {unvisitedLoadingId === activePlan.id
+                          ? '正在整理该目的地未去的热门景点（仅展示名称、景区级别、特色与高德位置）…'
+                          : unvisitedError || '暂无未去热门景点，点击右上角「✦ 生成清单」即可列出目的地未去的热门景点并一键安排到行程。'}
+                      </p>
+                    )}
+                  </section>
                   <details className="card planner-all-sources">
                     <summary>全部联网参考资料</summary>
                     <Sources

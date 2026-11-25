@@ -280,39 +280,71 @@ div.mobile-disclosure-body,
   .planner-workspace > .content-page { padding-top: 12px; padding-bottom: 56px; }
   .planner-itinerary-heading { margin-bottom: 12px !important; align-items: center !important; }
   .planner-itinerary-heading > .primary { padding: 8px 14px; min-height: 38px; font-size: 12.5px; }
-  /* 行程总览操作区改为规整双列栅格，消除右侧参差留白；折叠态 AI 助手与行程地图收紧纵向空隙。 */
-  .planner-overview { padding: 15px 14px; gap: 12px; margin-bottom: 14px; }
+  /* 行程总览操作区：手机端采用「双主按钮 + 4列快捷工具坞」，紧凑不截断、按钮不臃肿。 */
+  .planner-overview { padding: 13px 12px; gap: 10px; margin-bottom: 12px; }
+  .city-guide-row { gap: 5px; }
+  .city-guide-city { padding: 3px 8px; font-size: calc(11.5px * var(--font-scale, 0.9)); }
+  .city-guide-action { height: 26px; padding: 0 9px; font-size: calc(11.5px * var(--font-scale, 0.9)); }
   .planner-overview-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+  .planner-actions-primary {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     width: 100%;
   }
-  .planner-overview-actions > button {
-    width: 100%;
-    min-height: 38px;
-    padding: 7px 8px;
-    font-size: 12px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    justify-content: center;
+  .planner-actions-primary > :only-child {
+    grid-column: 1 / -1;
   }
-  .planner-overview-actions > .text-button {
-    min-height: 32px;
-    padding: 4px 6px;
+  .planner-cta-btn {
+    width: 100%;
+    height: 35px;
+    padding: 0 10px;
+    border-radius: 10px;
+    font-size: calc(12.5px * var(--font-scale, 0.9));
+  }
+  .planner-actions-tools {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
+  }
+  .planner-tool-btn {
+    flex-direction: column;
+    height: auto;
+    min-height: 50px;
+    padding: 7px 3px 6px;
+    gap: 4px;
+    border-radius: 11px;
+    font-size: calc(11.2px * var(--font-scale, 0.9));
+    line-height: 1.15;
     text-align: center;
   }
-  .planner-chat-top { padding: 12px 14px; margin-bottom: 14px; }
-  .planner-chat-heading { gap: 8px 10px; }
-  .planner-chat-heading h2 { font-size: 16px; }
-  .planner-map { padding: 14px; margin: 12px 0 16px; }
-  .planner-map-heading { gap: 10px; }
-  .planner-map-heading h2 { font-size: 17px; margin: 0 0 3px; }
-  .planner-map-heading p { margin: 0; line-height: 1.5; }
+  .planner-tool-ic {
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--surface) 88%, var(--surface-2));
+    border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+    display: inline-grid;
+    place-items: center;
+    font-size: 11.5px;
+    opacity: .9;
+  }
+  .planner-chat-top { padding: 10px 12px; margin-bottom: 12px; }
+  .planner-chat-heading { gap: 6px 8px; }
+  .planner-chat-heading h2 { font-size: calc(15px * var(--font-scale, 0.9)); }
+  .planner-map { padding: 12px; margin: 10px 0 14px; }
+  .planner-map-heading { gap: 8px; }
+  .planner-map-heading h2 { font-size: calc(16px * var(--font-scale, 0.9)); margin: 0 0 2px; }
+  .planner-map-heading p { margin: 0; line-height: 1.45; }
   .planner-map-heading .planner-map-actions { margin: 0; width: 100%; }
-  .planner-map-heading .planner-map-actions > button { min-height: 38px; padding: 7px 16px; font-size: 12.5px; }
-  .planner-ai-launcher { bottom: 82px; right: 12px; padding: 9px 14px; font-size: 12px; }
+  .planner-map-heading .planner-map-actions > button { min-height: 34px; padding: 6px 12px; font-size: calc(12px * var(--font-scale, 0.9)); }
+  .planner-ai-launcher { bottom: 80px; right: 12px; padding: 7px 12px; font-size: calc(12px * var(--font-scale, 0.9)); }
   .planner-create .mobile-disclosure-toggle[aria-expanded="true"] { margin-bottom: 8px; }
 
   /* 1. 移动端竖版旅程登机牌 + 底部可撕式出发提醒副券 */
@@ -433,30 +465,35 @@ div.mobile-disclosure-body,
   .planner-calendar-stub-title { font-size: 11px; }
   .planner-calendar-controls {
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     justify-content: space-between;
-    gap: 7px;
+    gap: 6px;
   }
   .planner-calendar-export label {
-    padding: 3px 5px 3px 9px;
-    font-size: 11.5px;
-    gap: 5px;
+    padding: 2px 4px 2px 8px;
+    font-size: calc(11.5px * var(--font-scale, 0.9));
+    gap: 4px;
     flex: 0 0 auto;
+    border-radius: 9px;
   }
   .planner-calendar-export select {
-    height: 26px;
-    min-width: 52px;
-    padding: 1px 6px;
-    font-size: 11.5px;
+    height: 24px;
+    min-width: 48px;
+    padding: 0 4px;
+    font-size: calc(11.5px * var(--font-scale, 0.9));
   }
   .planner-calendar-export button.planner-calendar-btn {
-    min-height: 34px;
-    height: 34px;
-    padding: 4px 12px;
-    font-size: 11.5px;
-    gap: 5px;
-    flex: 1 1 132px;
+    min-height: 30px;
+    height: 30px;
+    padding: 0 10px;
+    font-size: calc(11.5px * var(--font-scale, 0.9));
+    gap: 4px;
+    flex: 1 1 auto;
+    min-width: 0;
+    border-radius: 9px;
+    border-width: 1px;
+    box-shadow: none;
   }
   .planner-calendar-export button .travel-icon { width: 13px; height: 13px; flex-basis: 13px; }
   .planner-calendar-hint { font-size: 10.5px; line-height: 1.35; text-align: left; }

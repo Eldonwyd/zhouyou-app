@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react';
 /** 主题：跟随系统 / 浅色 / 深色。选择只存在本机浏览器，读写失败时退回跟随系统。 */
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type AppearanceStyle = 'candy' | 'white' | 'journal' | 'coast' | 'warm';
+export type FontScaleMode = 'compact' | 'standard' | 'large';
 export interface AppearanceStyleMeta {
   id: AppearanceStyle;
   name: string;
@@ -22,9 +23,36 @@ export const APPEARANCE_STYLES: AppearanceStyleMeta[] = [
 ];
 const STORAGE_KEY = 'travel-theme';
 const STYLE_KEY = 'travel-appearance';
+const FONT_SCALE_KEY = 'travel-font-scale';
 const EVENT = 'travel-themechange';
 const DEFAULT_STYLE: AppearanceStyle = 'candy';
+const DEFAULT_FONT_SCALE: FontScaleMode = 'standard';
 const media = () => window.matchMedia('(prefers-color-scheme: dark)');
+
+function normalizeFontScale(value: string | null | undefined): FontScaleMode {
+  return value === 'compact' || value === 'large' || value === 'standard' ? value : DEFAULT_FONT_SCALE;
+}
+
+export function readFontScale(): FontScaleMode {
+  const current = document.documentElement.dataset.fontScale;
+  if (current) return normalizeFontScale(current);
+  try {
+    return normalizeFontScale(localStorage.getItem(FONT_SCALE_KEY));
+  } catch {
+    return DEFAULT_FONT_SCALE;
+  }
+}
+
+export function applyFontScale(scale: FontScaleMode): void {
+  const normalized = normalizeFontScale(scale);
+  document.documentElement.dataset.fontScale = normalized;
+  try { localStorage.setItem(FONT_SCALE_KEY, normalized); } catch { /* 存储不可用时仍允许本次会话生效 */ }
+  window.dispatchEvent(new Event(EVENT));
+}
+
+export function useFontScale(): FontScaleMode {
+  return useSyncExternalStore(subscribe, readFontScale, () => DEFAULT_FONT_SCALE);
+}
 
 function normalizeAppearanceStyle(value: string | null | undefined): AppearanceStyle {
   if (value === 'peach') return 'candy';
@@ -125,7 +153,11 @@ function subscribe(callback: () => void) {
       if (value === 'light' || value === 'dark') document.documentElement.dataset.theme = value;
       else delete document.documentElement.dataset.theme;
     }
-    if (event.key === STYLE_KEY || event.key === STORAGE_KEY || event.key === null) { syncThemeColor(); callback(); }
+    if (event.key === FONT_SCALE_KEY || event.key === null) {
+      const value = event.key === null ? null : event.newValue;
+      document.documentElement.dataset.fontScale = normalizeFontScale(value);
+    }
+    if (event.key === STYLE_KEY || event.key === STORAGE_KEY || event.key === FONT_SCALE_KEY || event.key === null) { syncThemeColor(); callback(); }
   };
   window.addEventListener('storage', onStorage);
   query.addEventListener('change', onSystem);
