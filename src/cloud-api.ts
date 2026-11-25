@@ -29,6 +29,7 @@ export const SECURITY_QUESTIONS = [
 export interface CloudPublicUser {
   id: string;
   nickname: string;
+  remark?: string;
   friendCode: string;
   avatar: string;
   motto: string;
@@ -128,6 +129,7 @@ export interface IntimacyBond {
   requesterId: string;
   incoming: boolean;
   customLabel: string;
+  peerCustomLabel?: string;
   anniversaryDate: string;
   sharedVisitedCount: number;
   createdAt: string;
@@ -545,6 +547,12 @@ export const cloudApi = {
     return cloudRequest<{ ok: true; status: string }>('/api/social/friends/respond', {
       method: 'POST',
       body: { friendshipId, decision },
+    });
+  },
+  setFriendRemark(peerUserId: string, remark: string) {
+    return cloudRequest<{ ok: true; remark: string }>('/api/social/friends/remark', {
+      method: 'POST',
+      body: { peerUserId, remark },
     });
   },
   getFriendFootprints(userId: string) {

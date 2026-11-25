@@ -1278,7 +1278,8 @@
 
 /* ==========================================================================
  * 字体大小调节系统（小号紧凑 / 标准 / 大号舒适）
- * 手机端默认自动精简字号，让信息密度更接近成熟出行与社交 App，并可在设置里随时微调。
+ * 统一以紧凑精致排版为基准，三档字号仅通过 --font-scale 平滑缩放文字大小，
+ * 不改变卡片、按钮、工具栏与行内控件的图形排版结构。
  * ========================================================================== */
 :root {
   --font-scale: 1;
@@ -1290,7 +1291,7 @@
   --font-scale: 1;
 }
 :root[data-font-scale="large"] {
-  --font-scale: 1.09;
+  --font-scale: 1.08;
 }
 
 .appearance-font-mode {
@@ -1299,41 +1300,59 @@
   border-top: 1px dashed var(--line);
 }
 
-/* 桌面端在非标准档位时按比例缩放全局字号 */
-:root[data-font-scale="compact"] body,
-:root[data-font-scale="large"] body {
+/* 全局三档统一按 --font-scale 平滑缩放，避免高权重选择器覆盖按钮或标题层级 */
+body {
   font-size: calc(14px * var(--font-scale));
 }
-:root[data-font-scale="compact"] :is(.card p, .muted, .planner-activity p, .im-bubble, .chat-row-body strong),
-:root[data-font-scale="large"] :is(.card p, .muted, .planner-activity p, .im-bubble, .chat-row-body strong) {
-  font-size: calc(13.5px * var(--font-scale));
-}
-:root[data-font-scale="compact"] :is(button, input, select, textarea),
-:root[data-font-scale="large"] :is(button, input, select, textarea) {
-  font-size: calc(13px * var(--font-scale));
-}
-:root[data-font-scale="compact"] .section-heading h1,
-:root[data-font-scale="large"] .section-heading h1 {
+.section-heading h1 {
   font-size: calc(24px * var(--font-scale));
 }
-:root[data-font-scale="compact"] .planner-overview-heading h2,
-:root[data-font-scale="large"] .planner-overview-heading h2 {
+.planner-overview-heading h2 {
   font-size: calc(20px * var(--font-scale));
 }
+.card.planner-activity h3 {
+  font-size: calc(21px * var(--font-scale));
+  font-weight: 800;
+  line-height: 1.32;
+}
+.card.planner-activity h3 .planner-title-button {
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+}
+.planner-activity-meta {
+  font-size: calc(12px * var(--font-scale));
+}
+.planner-activity p,
+.planner-activity-desc {
+  font-size: calc(14px * var(--font-scale));
+}
+.planner-activity .muted {
+  font-size: calc(12.5px * var(--font-scale));
+}
+.planner-price {
+  font-size: calc(12.5px * var(--font-scale));
+}
+.planner-price strong {
+  font-size: calc(13.5px * var(--font-scale));
+}
+.planner-price small {
+  font-size: calc(11.5px * var(--font-scale));
+}
 
-/* 手机端默认字号更精致紧凑（参考微信等成熟 App 密度），并随设置中的三档字号实时缩放 */
+/* 手机端统一沿用小号紧凑的图形排版结构，三档仅温和放大/缩小字号不撑破布局 */
 @media (max-width: 850px) {
   :root {
-    --font-scale: 0.84;
+    --font-scale: 0.86;
   }
   :root[data-font-scale="compact"] {
-    --font-scale: 0.76;
+    --font-scale: 0.78;
   }
   :root[data-font-scale="standard"] {
-    --font-scale: 0.84;
+    --font-scale: 0.86;
   }
   :root[data-font-scale="large"] {
-    --font-scale: 0.98;
+    --font-scale: 0.94;
   }
 
   body {
@@ -1348,16 +1367,30 @@
     font-size: calc(12.5px * var(--font-scale));
   }
   .planner-overview-heading h2 {
-    font-size: calc(17.5px * var(--font-scale));
+    font-size: calc(18px * var(--font-scale));
   }
   .planner-day-head h3,
   .planner-trip-status h3 {
-    font-size: calc(15px * var(--font-scale));
+    font-size: calc(17px * var(--font-scale));
   }
   .planner-activity h4,
   .card h2,
   .card h3 {
-    font-size: calc(14.5px * var(--font-scale));
+    font-size: calc(15px * var(--font-scale));
+  }
+  /* 景区/行程卡片主标题：保持鲜明大号黑字层级，即便在小号紧凑模式下也有清晰区分度 */
+  .card.planner-activity h3 {
+    font-size: calc(19.5px * var(--font-scale));
+    font-weight: 800;
+    line-height: 1.32;
+  }
+  .card.planner-activity h3 .planner-title-button {
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+  }
+  .planner-activity-meta {
+    font-size: calc(12px * var(--font-scale));
   }
   .planner-activity p,
   .planner-activity-desc,
@@ -1368,6 +1401,18 @@
   select,
   textarea {
     font-size: calc(13.5px * var(--font-scale));
+  }
+  .planner-activity .muted {
+    font-size: calc(12.5px * var(--font-scale));
+  }
+  .planner-price {
+    font-size: calc(12.5px * var(--font-scale));
+  }
+  .planner-price strong {
+    font-size: calc(13.5px * var(--font-scale));
+  }
+  .planner-price small {
+    font-size: calc(11.5px * var(--font-scale));
   }
   .im-bubble {
     font-size: calc(14.5px * var(--font-scale));

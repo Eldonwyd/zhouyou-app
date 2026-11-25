@@ -40,6 +40,39 @@ type CompanionsTab = 'friends' | 'groups' | 'shares' | 'notifications';
 type GroupModalMode = 'create' | 'f2f' | 'join' | null;
 type GroupRoomTab = 'chat' | 'plans' | 'aa';
 
+interface CompanionsCachePayload {
+  overview: SocialOverview | null;
+  groups: TravelGroupSummary[];
+  notifications: CloudNotification[];
+}
+
+const COMPANIONS_CACHE_PREFIX = 'zhouyou-companions-cache:';
+
+function readCompanionsCache(userId: string | undefined): CompanionsCachePayload {
+  if (!userId) return { overview: null, groups: [], notifications: [] };
+  try {
+    const raw = localStorage.getItem(`${COMPANIONS_CACHE_PREFIX}${userId}`);
+    if (!raw) return { overview: null, groups: [], notifications: [] };
+    const parsed = JSON.parse(raw) as Partial<CompanionsCachePayload>;
+    return {
+      overview: parsed.overview && typeof parsed.overview === 'object' ? parsed.overview : null,
+      groups: Array.isArray(parsed.groups) ? parsed.groups : [],
+      notifications: Array.isArray(parsed.notifications) ? parsed.notifications : [],
+    };
+  } catch {
+    return { overview: null, groups: [], notifications: [] };
+  }
+}
+
+function writeCompanionsCache(userId: string | undefined, payload: CompanionsCachePayload) {
+  if (!userId) return;
+  try {
+    localStorage.setItem(`${COMPANIONS_CACHE_PREFIX}${userId}`, JSON.stringify(payload));
+  } catch {
+    // 忽略隐私模式或配额限制
+  }
+}
+
 const GROUP_AVATAR_COLORS = ['#2e8b6e', '#e07a5f', '#4a7fb5', '#9c6bb8', '#d99038', '#4d9b8f'];
 
 function pickGroupColor(seed: string): string {
@@ -89,15 +122,16 @@ export default function CompanionsView({
   onNotice,
   onError,
 }: CompanionsViewProps) {
+  const initialCache = useMemo(() => readCompanionsCache(cloudUser?.id), [cloudUser?.id]);
   const [tab, setTab] = useState<CompanionsTab>('friends');
-  const [overview, setOverview] = useState<SocialOverview | null>(null);
-  const [groups, setGroups] = useState<TravelGroupSummary[]>([]);
+  const [overview, setOverview] = useState<SocialOverview | null>(() => initialCache.overview);
+  const [groups, setGroups] = useState<TravelGroupSummary[]>(() => initialCache.groups);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [activeGroup, setActiveGroup] = useState<TravelGroupDetail | null>(null);
   const [groupRoomTab, setGroupRoomTab] = useState<GroupRoomTab>('chat');
   const [activeChatFriend, setActiveChatFriend] = useState<CloudPublicUser | null>(null);
-  const [notifications, setNotifications] = useState<CloudNotification[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [notifications, setNotifications] = useState<CloudNotification[]>(() => initialCache.notifications);
+  const [loading, setLoading] = useState<boolean>(() => Boolean(cloudUser && !initialCache.overview));
 
   // 顶栏「+」快捷菜单、名片二维码弹窗、好友更多菜单
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
@@ -112,11 +146,20 @@ export default function CompanionsView({
   const [searching, setSearching] = useState(false);
   const [compareUserId, setCompareUserId] = useState<string | null>(null);
 
-  // 亲密关系弹窗
+  // 亲密关系弹窗（发起 / 接受时设置我的称呼 / 修改称呼与纪念日）
   const [intimacyTarget, setIntimacyTarget] = useState<CloudPublicUser | null>(null);
   const [intimacyType, setIntimacyType] = useState<RelationType>('couple');
   const [intimacyLabel, setIntimacyLabel] = useState('');
   const [intimacyDate, setIntimacyDate] = useState('');
+  const [acceptBondTarget, setAcceptBondTarget] = useState<IntimacyBond | null>(null);
+  const [acceptBondLabel, setAcceptBondLabel] = useState('');
+  const [editBondTarget, setEditBondTarget] = useState<IntimacyBond | null>(null);
+  const [editBondLabel, setEditBondLabel] = useState('');
+  const [editBondDate, setEditBondDate] = useState('');
+
+  // 好友备注弹窗（所有旅伴均可单独设置备注）
+  const [remarkTarget, setRemarkTarget] = useState<CloudPublicUser | null>(null);
+  const [remarkDraft, setRemarkDraft] = useState('');
 
   // 发攻略给好友弹窗
   const [sendPlanFriend, setSendPlanFriend] = useState<CloudPublicUser | null>(null);
@@ -159,6 +202,11 @@ export default function CompanionsView({
       setOverview(ov);
       setGroups(grpRes.groups);
       setNotifications(ntfRes.notifications);
+      writeCompanionsCache(cloudUser.id, {
+        overview: ov,
+        groups: grpRes.groups,
+        notifications: ntfRes.notifications,
+      });
       onUnreadChange(ov.unreadCount);
       onIntimacyLoaded?.(ov.intimacyBonds);
       if (activeGroupId && !grpRes.groups.some((g) => g.id === activeGroupId)) {
@@ -173,7 +221,15 @@ export default function CompanionsView({
   }, [cloudUser, activeGroupId, onUnreadChange, onIntimacyLoaded, onError]);
 
   useEffect(() => {
-    if (cloudUser) void refreshAll();
+    if (!cloudUser) return;
+    const cached = readCompanionsCache(cloudUser.id);
+    if (cached.overview) {
+      setOverview(cached.overview);
+      setGroups(cached.groups);
+      setNotifications(cached.notifications);
+      onIntimacyLoaded?.(cached.overview.intimacyBonds);
+    }
+    void refreshAll();
   }, [cloudUser?.id]);
 
   const loadGroupDetail = useCallback(async (groupId: string) => {
@@ -244,7 +300,6 @@ export default function CompanionsView({
   const activeBonds = (overview?.intimacyBonds || []).filter((b) => b.status === 'active');
   const pendingBonds = (overview?.intimacyBonds || []).filter((b) => b.status === 'pending' && b.incoming);
   const pendingCount = (overview?.pendingFriendRequests.length || 0) + pendingBonds.length;
-  const bondByPeerId = new Map(activeBonds.map((b) => [b.peer.id, b]));
   const myQrUrl = `${getCloudOrigin()}/?addFriend=${encodeURIComponent(cloudUser.friendCode)}`;
 
   async function handleSearch() {
@@ -319,7 +374,67 @@ export default function CompanionsView({
     }
   }
 
+  function friendDisplayName(user: CloudPublicUser): string {
+    return (user.remark || '').trim() || user.nickname;
+  }
+
+  function openAcceptBondModal(bond: IntimacyBond) {
+    setAcceptBondTarget(bond);
+    setAcceptBondLabel('');
+  }
+
+  async function handleConfirmAcceptBond() {
+    if (!acceptBondTarget) return;
+    try {
+      await cloudApi.respondIntimacy(acceptBondTarget.id, 'accept', { customLabel: acceptBondLabel.trim() });
+      onNotice('亲密关系绑定成功！已解锁专属卡片与旅途成就');
+      setAcceptBondTarget(null);
+      setAcceptBondLabel('');
+      await refreshAll();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : '操作失败');
+    }
+  }
+
+  async function handleSaveEditBond() {
+    if (!editBondTarget) return;
+    try {
+      await cloudApi.respondIntimacy(editBondTarget.id, 'update', {
+        customLabel: editBondLabel.trim(),
+        anniversaryDate: editBondDate.trim(),
+      });
+      onNotice('亲密称呼已更新');
+      setEditBondTarget(null);
+      await refreshAll();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : '更新亲密称呼失败');
+    }
+  }
+
+  async function handleSaveRemark() {
+    if (!remarkTarget) return;
+    const nextRemark = remarkDraft.trim();
+    try {
+      await cloudApi.setFriendRemark(remarkTarget.id, nextRemark);
+      onNotice(nextRemark ? '备注已保存' : '已清除备注');
+      if (activeChatFriend && activeChatFriend.id === remarkTarget.id) {
+        setActiveChatFriend({ ...activeChatFriend, remark: nextRemark });
+      }
+      setRemarkTarget(null);
+      await refreshAll();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : '保存备注失败');
+    }
+  }
+
   async function handleIntimacyDecision(bondId: string, decision: 'accept' | 'reject' | 'remove') {
+    if (decision === 'accept') {
+      const targetBond = (overview?.intimacyBonds || []).find((b) => b.id === bondId);
+      if (targetBond) {
+        openAcceptBondModal(targetBond);
+        return;
+      }
+    }
     try {
       await cloudApi.respondIntimacy(bondId, decision);
       onNotice(decision === 'accept' ? '亲密关系绑定成功！已解锁专属卡片与旅途成就' : '已解除/拒绝该亲密关系');
@@ -718,8 +833,12 @@ export default function CompanionsView({
         <ChatRoomView
           roomType="dm"
           targetId={activeChatFriend.id}
-          title={activeChatFriend.nickname}
-          subtitle={activeChatFriend.motto || `好友码：${activeChatFriend.friendCode}`}
+          title={friendDisplayName(activeChatFriend)}
+          subtitle={
+            activeChatFriend.remark
+              ? `昵称：${activeChatFriend.nickname}${activeChatFriend.motto ? ` · ${activeChatFriend.motto}` : ''}`
+              : (activeChatFriend.motto || `好友码：${activeChatFriend.friendCode}`)
+          }
           avatarId={activeChatFriend.avatar}
           cloudUser={cloudUser}
           aiPlans={aiPlans}
@@ -765,11 +884,14 @@ export default function CompanionsView({
                 <div key={bond.id} className="chat-list-row">
                   <TravelAvatar avatarId={bond.peer.avatar} nickname={bond.peer.nickname} className="chat-row-avatar" />
                   <div className="chat-row-body">
-                    <strong>{bond.peer.nickname}</strong>
-                    <small>邀请绑定「{RELATION_META[bond.relationType].emoji} {RELATION_META[bond.relationType].label}」{bond.customLabel ? ` · ${bond.customLabel}` : ''}</small>
+                    <strong>{friendDisplayName(bond.peer)}</strong>
+                    <small>
+                      邀请绑定「{RELATION_META[bond.relationType].emoji} {RELATION_META[bond.relationType].label}」
+                      {bond.peerCustomLabel ? ` · 对方称呼你「${bond.peerCustomLabel}」` : ''}
+                    </small>
                   </div>
                   <div className="chat-row-end">
-                    <button type="button" className="primary chat-mini-btn" onClick={() => void handleIntimacyDecision(bond.id, 'accept')}>同意</button>
+                    <button type="button" className="primary chat-mini-btn" onClick={() => openAcceptBondModal(bond)}>同意</button>
                     <button type="button" className="text-button chat-mini-text" onClick={() => void handleIntimacyDecision(bond.id, 'reject')}>拒绝</button>
                   </div>
                 </div>
@@ -777,91 +899,46 @@ export default function CompanionsView({
             </div>
           )}
 
-          {/* 亲密关系置顶条 */}
+          {/* 亲密旅伴（与普通旅伴好友保持同等紧凑行高，已绑定者仅在此展示，不在下方重复出现） */}
           {activeBonds.length > 0 && (
-            <div className="chat-intimacy-strip">
-              <div className="chat-section-caption">亲密旅伴</div>
-              <div className="intimacy-cards-grid">
-                {activeBonds.map((bond) => {
-                  const meta = RELATION_META[bond.relationType];
-                  const days = daysSince(bond.anniversaryDate);
-                  return (
-                    <div key={bond.id} className={`intimacy-card type-${bond.relationType}`}>
-                      <div className="intimacy-card-top">
-                        <span className="intimacy-badge">{meta.emoji} {bond.customLabel || meta.label}</span>
-                        {days && <span className="intimacy-days-pill">相伴第 {days} 天</span>}
-                      </div>
-                      <div className="intimacy-card-main">
-                        <div className="intimacy-card-peer">
-                          <TravelAvatar avatarId={bond.peer.avatar} nickname={bond.peer.nickname} className="intimacy-peer-avatar" />
-                          <div className="intimacy-peer-meta">
-                            <strong>{bond.peer.nickname}</strong>
-                            <small>共同点亮 {bond.sharedVisitedCount} 座城市</small>
-                          </div>
-                        </div>
-                        <div className="intimacy-card-actions">
-                          <button type="button" className="chat-action-pill is-primary intimacy-act-btn" onClick={() => setActiveChatFriend(bond.peer)}>💬 聊天</button>
-                          <button type="button" className="chat-action-pill intimacy-act-btn" onClick={() => setCompareUserId(bond.peer.id)}>🗺️ 足迹</button>
-                          <button type="button" className="chat-action-pill is-danger-ghost intimacy-unbind-btn" onClick={() => void handleIntimacyDecision(bond.id, 'remove')}>解除</button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+            <div className="chat-list-group chat-intimacy-group">
+              <div className="chat-group-label">
+                <span>亲密旅伴 ({activeBonds.length})</span>
               </div>
-            </div>
-          )}
-
-          {/* 好友列表（主流聊天软件通讯录样式） */}
-          <div className="chat-list-group">
-            <div className="chat-group-label">
-              <span>全部旅伴好友 ({overview?.friends.length || 0})</span>
-            </div>
-            {!(overview?.friends.length) ? (
-              <div className="chat-empty-state">
-                <div className="chat-empty-icon" aria-hidden="true">💬</div>
-                <strong>还没有旅伴好友</strong>
-                <p>在上方搜索好友昵称或好友码，或出示你的名片二维码面对面扫码添加。</p>
-                <div className="chat-empty-actions">
-                  <button type="button" className="primary chat-mini-btn" onClick={() => setShowMyQr(true)}>出示名片二维码</button>
-                  <button
-                    type="button"
-                    className="secondary chat-mini-btn"
-                    onClick={() => navigator.clipboard?.writeText(`加我周游地图好友！昵称：${cloudUser.nickname}，好友码：${cloudUser.friendCode}`).then(() => onNotice('已复制好友码，快发给朋友吧')).catch(() => undefined)}
-                  >
-                    复制我的好友码
-                  </button>
-                </div>
-              </div>
-            ) : (
-              overview.friends.map((f) => {
-                const bond = bondByPeerId.get(f.user.id);
-                const menuOpen = openFriendMenuId === f.friendshipId;
+              {activeBonds.map((bond) => {
+                const meta = RELATION_META[bond.relationType];
+                const days = daysSince(bond.anniversaryDate);
+                const friendEntry = overview?.friends.find((f) => f.user.id === bond.peer.id);
+                const menuKey = `bond-${bond.id}`;
+                const menuOpen = openFriendMenuId === menuKey;
                 return (
                   <div
-                    key={f.friendshipId}
-                    className="chat-list-row is-clickable"
-                    onClick={() => setActiveChatFriend(f.user)}
+                    key={bond.id}
+                    className={`chat-list-row is-clickable is-intimate type-${bond.relationType}`}
+                    onClick={() => setActiveChatFriend(bond.peer)}
                   >
                     <div className="chat-avatar-wrap">
-                      <TravelAvatar avatarId={f.user.avatar} nickname={f.user.nickname} className="chat-row-avatar" />
-                      {bond && <span className="chat-avatar-badge" title={RELATION_META[bond.relationType].label}>{RELATION_META[bond.relationType].emoji}</span>}
+                      <TravelAvatar avatarId={bond.peer.avatar} nickname={bond.peer.nickname} className="chat-row-avatar" />
+                      <span className="chat-avatar-badge" title={meta.label}>{meta.emoji}</span>
                     </div>
                     <div className="chat-row-body">
                       <div className="chat-row-title-line">
-                        <strong>{f.user.nickname}</strong>
-                        {bond && <span className="chat-mini-tag">{bond.customLabel || RELATION_META[bond.relationType].label}</span>}
+                        <strong>{friendDisplayName(bond.peer)}</strong>
+                        <span className="chat-mini-tag is-intimate-tag">{meta.emoji} {bond.customLabel || meta.label}</span>
                       </div>
-                      <small>{f.user.motto || `好友码：${f.user.friendCode}`}</small>
+                      <small>
+                        {bond.peer.remark ? `${bond.peer.nickname} · ` : ''}
+                        共同点亮 {bond.sharedVisitedCount} 座城市{days ? ` · 相伴第 ${days} 天` : ''}
+                      </small>
                     </div>
                     <div className="chat-row-end" onClick={(e) => e.stopPropagation()}>
-                      <button type="button" className="chat-action-pill is-primary" onClick={() => setActiveChatFriend(f.user)}>聊天</button>
-                      <button type="button" className="chat-action-pill chat-desktop-only" onClick={() => setCompareUserId(f.user.id)}>足迹</button>
+                      <button type="button" className="chat-action-pill is-primary" onClick={() => setActiveChatFriend(bond.peer)}>聊天</button>
+                      <button type="button" className="chat-action-pill chat-desktop-only" onClick={() => setCompareUserId(bond.peer.id)}>足迹</button>
                       <button
                         type="button"
                         className="chat-action-pill chat-desktop-only"
                         onClick={() => {
-                          setSendPlanFriend(f.user);
+                          setSendPlanFriend(bond.peer);
                           setSendPlanId(aiPlans[0]?.id || '');
                           setSendPlanMode('copy');
                         }}
@@ -873,13 +950,36 @@ export default function CompanionsView({
                           type="button"
                           className="chat-more-btn"
                           aria-label="更多"
-                          onClick={() => setOpenFriendMenuId(menuOpen ? null : f.friendshipId)}
+                          onClick={() => setOpenFriendMenuId(menuOpen ? null : menuKey)}
                         >
                           ···
                         </button>
                         {menuOpen && (
                           <div className="chat-row-popover" role="menu">
-                            <button type="button" role="menuitem" onClick={() => { setOpenFriendMenuId(null); setCompareUserId(f.user.id); }}>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                setOpenFriendMenuId(null);
+                                setEditBondTarget(bond);
+                                setEditBondLabel(bond.customLabel || '');
+                                setEditBondDate(bond.anniversaryDate || '');
+                              }}
+                            >
+                              ✏️ 修改亲密称呼
+                            </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                setOpenFriendMenuId(null);
+                                setRemarkTarget(bond.peer);
+                                setRemarkDraft(bond.peer.remark || '');
+                              }}
+                            >
+                              🏷️ 设置备注
+                            </button>
+                            <button type="button" role="menuitem" onClick={() => { setOpenFriendMenuId(null); setCompareUserId(bond.peer.id); }}>
                               🗺️ 对比足迹地图
                             </button>
                             <button
@@ -887,28 +987,151 @@ export default function CompanionsView({
                               role="menuitem"
                               onClick={() => {
                                 setOpenFriendMenuId(null);
-                                setSendPlanFriend(f.user);
+                                setSendPlanFriend(bond.peer);
                                 setSendPlanId(aiPlans[0]?.id || '');
                                 setSendPlanMode('copy');
                               }}
                             >
                               ✈️ 发送旅行攻略
                             </button>
-                            <button type="button" role="menuitem" onClick={() => { setOpenFriendMenuId(null); setIntimacyTarget(f.user); }}>
-                              💞 绑定亲密关系
+                            <button type="button" role="menuitem" className="danger-text" onClick={() => { setOpenFriendMenuId(null); void handleIntimacyDecision(bond.id, 'remove'); }}>
+                              💔 解除亲密关系
                             </button>
-                            <button type="button" role="menuitem" className="danger-text" onClick={() => void handleFriendDecision(f.friendshipId, 'remove')}>
-                              🗑️ 删除好友
-                            </button>
+                            {friendEntry && (
+                              <button type="button" role="menuitem" className="danger-text" onClick={() => { setOpenFriendMenuId(null); void handleFriendDecision(friendEntry.friendshipId, 'remove'); }}>
+                                🗑️ 删除好友
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
                     </div>
                   </div>
                 );
-              })
-            )}
-          </div>
+              })}
+            </div>
+          )}
+
+          {/* 好友列表（主流聊天软件通讯录样式；已归入上方亲密旅伴的好友不再重复显示） */}
+          {(() => {
+            const activeBondPeerIds = new Set(activeBonds.map((b) => b.peer.id));
+            const allFriends = overview?.friends || [];
+            const regularFriends = allFriends.filter((f) => !activeBondPeerIds.has(f.user.id));
+            if (allFriends.length > 0 && regularFriends.length === 0) return null;
+            return (
+              <div className="chat-list-group">
+                <div className="chat-group-label">
+                  <span>{activeBonds.length > 0 ? `其他旅伴好友 (${regularFriends.length})` : `全部旅伴好友 (${regularFriends.length})`}</span>
+                </div>
+                {!overview && loading ? (
+                  <div className="chat-empty-state" style={{ padding: '24px 16px' }}>
+                    <strong>正在同步旅伴列表…</strong>
+                  </div>
+                ) : !allFriends.length ? (
+                  <div className="chat-empty-state">
+                    <div className="chat-empty-icon" aria-hidden="true">💬</div>
+                    <strong>还没有旅伴好友</strong>
+                    <p>在上方搜索好友昵称或好友码，或出示你的名片二维码面对面扫码添加。</p>
+                    <div className="chat-empty-actions">
+                      <button type="button" className="primary chat-mini-btn" onClick={() => setShowMyQr(true)}>出示名片二维码</button>
+                      <button
+                        type="button"
+                        className="secondary chat-mini-btn"
+                        onClick={() => navigator.clipboard?.writeText(`加我周游地图好友！昵称：${cloudUser.nickname}，好友码：${cloudUser.friendCode}`).then(() => onNotice('已复制好友码，快发给朋友吧')).catch(() => undefined)}
+                      >
+                        复制我的好友码
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  regularFriends.map((f) => {
+                    const menuOpen = openFriendMenuId === f.friendshipId;
+                    return (
+                      <div
+                        key={f.friendshipId}
+                        className="chat-list-row is-clickable"
+                        onClick={() => setActiveChatFriend(f.user)}
+                      >
+                        <div className="chat-avatar-wrap">
+                          <TravelAvatar avatarId={f.user.avatar} nickname={f.user.nickname} className="chat-row-avatar" />
+                        </div>
+                        <div className="chat-row-body">
+                          <div className="chat-row-title-line">
+                            <strong>{friendDisplayName(f.user)}</strong>
+                          </div>
+                          <small>
+                            {f.user.remark ? `${f.user.nickname} · ` : ''}
+                            {f.user.motto || `好友码：${f.user.friendCode}`}
+                          </small>
+                        </div>
+                        <div className="chat-row-end" onClick={(e) => e.stopPropagation()}>
+                          <button type="button" className="chat-action-pill is-primary" onClick={() => setActiveChatFriend(f.user)}>聊天</button>
+                          <button type="button" className="chat-action-pill chat-desktop-only" onClick={() => setCompareUserId(f.user.id)}>足迹</button>
+                          <button
+                            type="button"
+                            className="chat-action-pill chat-desktop-only"
+                            onClick={() => {
+                              setSendPlanFriend(f.user);
+                              setSendPlanId(aiPlans[0]?.id || '');
+                              setSendPlanMode('copy');
+                            }}
+                          >
+                            发攻略
+                          </button>
+                          <div className="chat-more-wrap">
+                            <button
+                              type="button"
+                              className="chat-more-btn"
+                              aria-label="更多"
+                              onClick={() => setOpenFriendMenuId(menuOpen ? null : f.friendshipId)}
+                            >
+                              ···
+                            </button>
+                            {menuOpen && (
+                              <div className="chat-row-popover" role="menu">
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  onClick={() => {
+                                    setOpenFriendMenuId(null);
+                                    setRemarkTarget(f.user);
+                                    setRemarkDraft(f.user.remark || '');
+                                  }}
+                                >
+                                  🏷️ 设置备注
+                                </button>
+                                <button type="button" role="menuitem" onClick={() => { setOpenFriendMenuId(null); setCompareUserId(f.user.id); }}>
+                                  🗺️ 对比足迹地图
+                                </button>
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  onClick={() => {
+                                    setOpenFriendMenuId(null);
+                                    setSendPlanFriend(f.user);
+                                    setSendPlanId(aiPlans[0]?.id || '');
+                                    setSendPlanMode('copy');
+                                  }}
+                                >
+                                  ✈️ 发送旅行攻略
+                                </button>
+                                <button type="button" role="menuitem" onClick={() => { setOpenFriendMenuId(null); setIntimacyTarget(f.user); }}>
+                                  💞 绑定亲密关系
+                                </button>
+                                <button type="button" role="menuitem" className="danger-text" onClick={() => void handleFriendDecision(f.friendshipId, 'remove')}>
+                                  🗑️ 删除好友
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1537,8 +1760,8 @@ export default function CompanionsView({
               ))}
             </div>
             <label className="auth-field" style={{ marginTop: 12 }}>
-              <span>专属称呼 / 备注（可选）</span>
-              <input maxLength={24} placeholder="例如：一起看世界的人" value={intimacyLabel} onChange={(e) => setIntimacyLabel(e.target.value)} />
+              <span>我给 TA 的亲密称呼（可选，后续可随时修改）</span>
+              <input maxLength={24} placeholder="例如：小可爱、哥比、一起看世界的人" value={intimacyLabel} onChange={(e) => setIntimacyLabel(e.target.value)} />
             </label>
             <label className="auth-field" style={{ marginTop: 8 }}>
               <span>纪念日（可选）</span>
@@ -1547,6 +1770,81 @@ export default function CompanionsView({
             <div className="dialog-actions">
               <button type="button" className="primary" onClick={() => void handleSubmitIntimacy()}>发送绑定邀请</button>
               <button type="button" className="text-button" onClick={() => setIntimacyTarget(null)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 同意亲密关系邀请弹窗（可设置自己给对方的亲密称呼） */}
+      {acceptBondTarget && (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setAcceptBondTarget(null); }}>
+          <div className="dialog" role="dialog" aria-modal="true">
+            <h3>同意与 {friendDisplayName(acceptBondTarget.peer)} 绑定亲密关系</h3>
+            <p className="auth-hint" style={{ marginTop: 6 }}>
+              关系类型：{RELATION_META[acceptBondTarget.relationType].emoji} {RELATION_META[acceptBondTarget.relationType].label}
+              {acceptBondTarget.peerCustomLabel ? ` · 对方称呼你「${acceptBondTarget.peerCustomLabel}」` : ''}
+            </p>
+            <label className="auth-field" style={{ marginTop: 10 }}>
+              <span>我给 TA 的亲密称呼（可选，留空显示「{RELATION_META[acceptBondTarget.relationType].label}」）</span>
+              <input
+                maxLength={24}
+                placeholder="例如：小可爱、臭宝、老铁（之后也可随时改）"
+                value={acceptBondLabel}
+                onChange={(e) => setAcceptBondLabel(e.target.value)}
+              />
+            </label>
+            <div className="dialog-actions">
+              <button type="button" className="primary" onClick={() => void handleConfirmAcceptBond()}>确认绑定</button>
+              <button type="button" className="text-button" onClick={() => setAcceptBondTarget(null)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 修改亲密称呼弹窗 */}
+      {editBondTarget && (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setEditBondTarget(null); }}>
+          <div className="dialog" role="dialog" aria-modal="true">
+            <h3>修改对 {friendDisplayName(editBondTarget.peer)} 的亲密称呼</h3>
+            <label className="auth-field" style={{ marginTop: 10 }}>
+              <span>亲密称呼（留空恢复默认「{RELATION_META[editBondTarget.relationType].label}」）</span>
+              <input
+                maxLength={24}
+                placeholder={`例如：${RELATION_META[editBondTarget.relationType].label}、专属爱称`}
+                value={editBondLabel}
+                onChange={(e) => setEditBondLabel(e.target.value)}
+              />
+            </label>
+            <label className="auth-field" style={{ marginTop: 8 }}>
+              <span>纪念日（可选）</span>
+              <input type="date" value={editBondDate} onChange={(e) => setEditBondDate(e.target.value)} />
+            </label>
+            <div className="dialog-actions">
+              <button type="button" className="primary" onClick={() => void handleSaveEditBond()}>保存</button>
+              <button type="button" className="text-button" onClick={() => setEditBondTarget(null)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 旅伴备注设置弹窗 */}
+      {remarkTarget && (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setRemarkTarget(null); }}>
+          <div className="dialog" role="dialog" aria-modal="true">
+            <h3>设置旅伴备注</h3>
+            <p className="auth-hint" style={{ marginTop: 4 }}>原昵称：{remarkTarget.nickname}（好友码：{remarkTarget.friendCode}）</p>
+            <label className="auth-field" style={{ marginTop: 10 }}>
+              <span>备注名（留空则恢复显示原昵称）</span>
+              <input
+                maxLength={24}
+                placeholder="输入你对 TA 的备注名"
+                value={remarkDraft}
+                onChange={(e) => setRemarkDraft(e.target.value)}
+              />
+            </label>
+            <div className="dialog-actions">
+              <button type="button" className="primary" onClick={() => void handleSaveRemark()}>保存备注</button>
+              <button type="button" className="text-button" onClick={() => setRemarkTarget(null)}>取消</button>
             </div>
           </div>
         </div>

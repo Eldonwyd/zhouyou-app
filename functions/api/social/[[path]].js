@@ -22,6 +22,46 @@ const RELATION_LABELS = {
   bestie: '闺蜜',
 };
 
+let friendNotesTableReady = false;
+async function ensureFriendNotesTable(db) {
+  if (friendNotesTableReady) return;
+  await db
+    .prepare(`
+      CREATE TABLE IF NOT EXISTS friend_notes (
+        owner_user_id TEXT NOT NULL,
+        peer_user_id TEXT NOT NULL,
+        remark TEXT NOT NULL DEFAULT '',
+        intimate_label TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (owner_user_id, peer_user_id)
+      )
+    `)
+    .run();
+  friendNotesTableReady = true;
+}
+
+async function upsertFriendNote(db, ownerUserId, peerUserId, patch) {
+  await ensureFriendNotesTable(db);
+  const existing = await db
+    .prepare('SELECT remark, intimate_label FROM friend_notes WHERE owner_user_id = ? AND peer_user_id = ?')
+    .bind(ownerUserId, peerUserId)
+    .first();
+  const remark = patch.remark !== undefined ? patch.remark : (existing?.remark || '');
+  const intimateLabel = patch.intimateLabel !== undefined ? patch.intimateLabel : (existing?.intimate_label || '');
+  const now = nowIso();
+  if (existing) {
+    await db
+      .prepare('UPDATE friend_notes SET remark = ?, intimate_label = ?, updated_at = ? WHERE owner_user_id = ? AND peer_user_id = ?')
+      .bind(remark, intimateLabel, now, ownerUserId, peerUserId)
+      .run();
+  } else {
+    await db
+      .prepare('INSERT INTO friend_notes (owner_user_id, peer_user_id, remark, intimate_label, updated_at) VALUES (?, ?, ?, ?, ?)')
+      .bind(ownerUserId, peerUserId, remark, intimateLabel, now)
+      .run();
+  }
+}
+
 async function loadUserMarks(db, targetUserId) {
   const res = await db
     .prepare('SELECT payload_json FROM user_records WHERE user_id = ? AND store_name = \'marks\' AND deleted_at IS NULL')
@@ -83,6 +123,20 @@ export const onRequest = withApiHandler(async (context) => {
       .bind(userId, nowIso())
       .all();
 
+    // 加载当前用户为各旅伴设置的独立备注与亲密称呼
+    await ensureFriendNotesTable(db);
+    const notesRes = await db
+      .prepare('SELECT peer_user_id, remark, intimate_label FROM friend_notes WHERE owner_user_id = ?')
+      .bind(userId)
+      .all();
+    const notesMap = new Map();
+    for (const n of notesRes.results || []) {
+      notesMap.set(n.peer_user_id, {
+        remark: n.remark || '',
+        intimateLabel: n.intimate_label || '',
+      });
+    }
+
     // 计算当前用户与每位亲密关系好友的共同去过城市数（用于联动旅途成就）
     const myMarks = await loadUserMarks(db, userId);
     const myVisitedSet = new Set(myMarks.filter((m) => m.visited).map((m) => m.id));
@@ -94,19 +148,24 @@ export const onRequest = withApiHandler(async (context) => {
         const peerMarks = await loadUserMarks(db, row.peer_id);
         sharedVisitedCount = peerMarks.filter((m) => m.visited && myVisitedSet.has(m.id)).length;
       }
+      const note = notesMap.get(row.peer_id);
+      const myCustomLabel = note?.intimateLabel || (row.requester_id === userId ? (row.custom_label || '') : '');
+      const peerCustomLabel = row.requester_id !== userId ? (row.custom_label || '') : '';
       intimacyBonds.push({
         id: row.id,
         relationType: row.relation_type,
         status: row.status,
         requesterId: row.requester_id,
         incoming: row.status === 'pending' && row.requester_id !== userId,
-        customLabel: row.custom_label || '',
+        customLabel: myCustomLabel,
+        peerCustomLabel,
         anniversaryDate: row.anniversary_date || '',
         sharedVisitedCount,
         createdAt: row.created_at,
         peer: {
           id: row.peer_id,
           nickname: row.peer_nickname,
+          remark: note?.remark || '',
           friendCode: row.peer_friend_code,
           avatar: row.peer_avatar || 'bear',
           motto: row.peer_motto || '',
@@ -119,6 +178,8 @@ export const onRequest = withApiHandler(async (context) => {
     const pendingFriendRequests = [];
     for (const row of friendsRes.results || []) {
       const userObj = formatPublicUser(row);
+      const note = notesMap.get(userObj.id);
+      if (note?.remark) userObj.remark = note.remark;
       if (row.status === 'accepted') {
         friends.push({ friendshipId: row.friendship_id, since: row.created_at, user: userObj });
       } else if (row.addressee_id === userId) {
@@ -352,16 +413,34 @@ export const onRequest = withApiHandler(async (context) => {
         .run();
     }
 
+    // 同步保存发起方自己给对方设置的亲密称呼（独立存储，互不覆盖）
+    await upsertFriendNote(db, userId, targetUserId, { intimateLabel: customLabel });
+
     await createNotification(db, {
       userId: targetUserId,
       type: 'intimacy_req',
       actorId: userId,
       actorNickname: auth.user.nickname,
       title: `${auth.user.nickname} 邀请你绑定「${RELATION_LABELS[relationType]}」亲密关系`,
-      body: customLabel ? `专属备注：${customLabel}` : '绑定后可解锁专属亲密卡片与同行旅途成就',
+      body: customLabel ? `对方称呼你：${customLabel}` : '绑定后可解锁专属亲密卡片与同行旅途成就',
       targetRef: { userId, relationType, bondId },
     });
     return jsonResponse(request, 201, { ok: true, bondId, message: '亲密关系邀请已发送' });
+  }
+
+  // POST /api/social/friends/remark
+  if (method === 'POST' && segments[0] === 'friends' && segments[1] === 'remark') {
+    const body = await readJsonBody(request, 4096);
+    const peerUserId = String(body.peerUserId || '').trim();
+    if (!peerUserId || peerUserId === userId) {
+      return errorResponse(request, 400, '缺少有效好友信息', 'INVALID_PEER');
+    }
+    if (!(await areFriends(db, userId, peerUserId))) {
+      return errorResponse(request, 403, '仅支持为好友设置备注', 'NOT_FRIENDS');
+    }
+    const remark = String(body.remark || '').trim().slice(0, 24);
+    await upsertFriendNote(db, userId, peerUserId, { remark });
+    return jsonResponse(request, 200, { ok: true, remark });
   }
 
   // POST /api/social/intimacy/respond
@@ -379,6 +458,10 @@ export const onRequest = withApiHandler(async (context) => {
     if (decision === 'accept') {
       if (bond.requester_id === userId) return errorResponse(request, 403, '请等待对方确认', 'FORBIDDEN');
       await db.prepare('UPDATE intimacy_bonds SET status = \'active\', updated_at = ? WHERE id = ?').bind(now, bondId).run();
+      if (body.customLabel !== undefined) {
+        const myLabel = String(body.customLabel || '').trim().slice(0, 30);
+        await upsertFriendNote(db, userId, peerId, { intimateLabel: myLabel });
+      }
       await createNotification(db, {
         userId: peerId,
         type: 'intimacy_accepted',
@@ -391,12 +474,17 @@ export const onRequest = withApiHandler(async (context) => {
       return jsonResponse(request, 200, { ok: true, status: 'active' });
     }
     if (decision === 'update') {
-      const customLabel = body.customLabel !== undefined ? String(body.customLabel).trim().slice(0, 30) : bond.custom_label;
-      const anniversaryDate = body.anniversaryDate !== undefined ? String(body.anniversaryDate).trim().slice(0, 10) : bond.anniversary_date;
-      await db
-        .prepare('UPDATE intimacy_bonds SET custom_label = ?, anniversary_date = ?, updated_at = ? WHERE id = ?')
-        .bind(customLabel, anniversaryDate, now, bondId)
-        .run();
+      if (body.customLabel !== undefined) {
+        const myLabel = String(body.customLabel || '').trim().slice(0, 30);
+        await upsertFriendNote(db, userId, peerId, { intimateLabel: myLabel });
+        if (bond.requester_id === userId) {
+          await db.prepare('UPDATE intimacy_bonds SET custom_label = ?, updated_at = ? WHERE id = ?').bind(myLabel, now, bondId).run();
+        }
+      }
+      if (body.anniversaryDate !== undefined) {
+        const anniversaryDate = String(body.anniversaryDate || '').trim().slice(0, 10);
+        await db.prepare('UPDATE intimacy_bonds SET anniversary_date = ?, updated_at = ? WHERE id = ?').bind(anniversaryDate, now, bondId).run();
+      }
       return jsonResponse(request, 200, { ok: true });
     }
     if (decision === 'reject' || decision === 'remove') {

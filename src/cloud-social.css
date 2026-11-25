@@ -3046,12 +3046,48 @@
  * 同行旅伴与聊天窗口精致化（桌面端 vs 手机端分别适配）
  * ========================================================================== */
 .chat-shell {
-  max-width: 900px;
-  padding: 18px 24px 56px;
+  max-width: 1360px;
+  width: 100%;
+  padding: 16px 28px 56px;
 }
 .chat-shell.is-in-chat {
-  max-width: min(1060px, 94vw);
-  padding: 14px 24px 20px;
+  max-width: 1400px;
+  width: 100%;
+  padding: 14px 28px 20px;
+}
+
+/* 亲密旅伴列表：与普通旅伴好友保持同等紧凑行高，仅用柔和色调轻度区分 */
+.chat-intimacy-group {
+  border-color: color-mix(in srgb, #e6c6b8 65%, var(--line, #eadcd0));
+}
+.chat-list-row.is-intimate.type-couple {
+  background: linear-gradient(90deg, rgba(255, 241, 245, 0.72) 0%, transparent 100%);
+}
+.chat-list-row.is-intimate.type-family {
+  background: linear-gradient(90deg, rgba(240, 250, 244, 0.72) 0%, transparent 100%);
+}
+.chat-list-row.is-intimate.type-bestie {
+  background: linear-gradient(90deg, rgba(249, 241, 255, 0.72) 0%, transparent 100%);
+}
+:root[data-theme="dark"] .chat-list-row.is-intimate {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.045) 0%, transparent 100%);
+}
+.chat-list-row.is-intimate.type-couple .chat-mini-tag.is-intimate-tag {
+  background: rgba(235, 107, 86, 0.13);
+  color: #b54532;
+}
+.chat-list-row.is-intimate.type-family .chat-mini-tag.is-intimate-tag {
+  background: rgba(46, 139, 110, 0.12);
+  color: #216e55;
+}
+.chat-list-row.is-intimate.type-bestie .chat-mini-tag.is-intimate-tag {
+  background: rgba(154, 88, 196, 0.12);
+  color: #7d3fa6;
+}
+.chat-list-row.is-intimate .intimacy-days-pill {
+  padding: 1px 7px;
+  font-size: calc(10.5px * var(--font-scale, 1));
+  flex: none;
 }
 
 .chat-action-pill {
