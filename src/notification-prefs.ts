@@ -7,12 +7,14 @@ export interface NotificationPrefs {
     friendRequests: boolean;
     planShares: boolean;
     groupUpdates: boolean;
+    ticketReminders: boolean;
   };
 }
 
 export const NOTIFICATION_PREFS_KEY = 'zhouyou-notification-prefs';
 export const NOTIFICATION_PREFS_EVENT = 'zhouyou-notification-prefs-change';
 export const SEEN_NOTIFICATIONS_KEY = 'zhouyou-seen-notification-ids';
+export const FIRED_TICKET_REMINDERS_KEY = 'zhouyou-fired-ticket-reminders';
 
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   enabled: true,
@@ -23,6 +25,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
     friendRequests: true,
     planShares: true,
     groupUpdates: true,
+    ticketReminders: true,
   },
 };
 
@@ -40,6 +43,7 @@ export function readNotificationPrefs(): NotificationPrefs {
         friendRequests: parsed.types?.friendRequests ?? DEFAULT_NOTIFICATION_PREFS.types.friendRequests,
         planShares: parsed.types?.planShares ?? DEFAULT_NOTIFICATION_PREFS.types.planShares,
         groupUpdates: parsed.types?.groupUpdates ?? DEFAULT_NOTIFICATION_PREFS.types.groupUpdates,
+        ticketReminders: parsed.types?.ticketReminders ?? DEFAULT_NOTIFICATION_PREFS.types.ticketReminders,
       },
     };
   } catch {
@@ -57,12 +61,31 @@ export function writeNotificationPrefs(next: NotificationPrefs): void {
 export function shouldNotifyForType(prefs: NotificationPrefs, notificationType: string): boolean {
   if (!prefs.enabled) return false;
   const kind = notificationType.toLowerCase();
+  if (kind.includes('ticket') || kind.includes('reminder') || kind.includes('packing')) return prefs.types.ticketReminders;
   if (kind.includes('friend') || kind.includes('intimacy')) return prefs.types.friendRequests;
   if (kind.includes('share') || kind.includes('plan')) return prefs.types.planShares;
   if (kind.includes('group') || kind.includes('expense') || kind.includes('vote') || kind.includes('comment')) {
     return prefs.types.groupUpdates;
   }
   return true;
+}
+
+export function readFiredTicketReminderKeys(): Set<string> {
+  try {
+    const raw = localStorage.getItem(FIRED_TICKET_REMINDERS_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? new Set(arr.filter((x): x is string => typeof x === 'string')) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+export function writeFiredTicketReminderKeys(keys: Set<string>): void {
+  try {
+    const trimmed = [...keys].slice(-200);
+    localStorage.setItem(FIRED_TICKET_REMINDERS_KEY, JSON.stringify(trimmed));
+  } catch { /* ignore */ }
 }
 
 export function readSeenNotificationIds(): Set<string> {
@@ -128,13 +151,13 @@ export async function requestSystemNotificationPermission(): Promise<Notificatio
   }
 }
 
-export function fireSystemNotification(title: string, body?: string, onClick?: () => void): void {
+export function fireSystemNotification(title: string, body?: string, onClick?: () => void, tag = 'zhouyou-social-notif'): void {
   if (!isSystemNotificationSupported() || Notification.permission !== 'granted') return;
   try {
     const n = new Notification(title, {
       body: body || '打开周游地图查看详情',
       icon: '/icons/icon-192.png',
-      tag: 'zhouyou-social-notif',
+      tag,
     });
     if (onClick) {
       n.onclick = () => {

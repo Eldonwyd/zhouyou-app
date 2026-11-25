@@ -167,7 +167,7 @@ export const onRequest = withApiHandler(async (context) => {
     }
     // 允许压缩后的图片（base64 最大约 360KB）
     const body = await readJsonBody(request, 420 * 1024);
-    const msgType = ['text', 'image', 'plan', 'invite', 'poll', 'intimacy'].includes(String(body.msgType || ''))
+    const msgType = ['text', 'image', 'plan', 'invite', 'poll', 'intimacy', 'packing', 'reminder'].includes(String(body.msgType || ''))
       ? String(body.msgType)
       : 'text';
     const textContent = String(body.textContent || '').trim().slice(0, 2000);
@@ -227,15 +227,31 @@ export const onRequest = withApiHandler(async (context) => {
       )
       .run();
 
-    // 私聊发攻略/邀请时顺带写入提醒通知，方便对方在消息页看到
-    if (roomType === 'dm' && targetId !== user.id && (msgType === 'plan' || msgType === 'invite')) {
+    // 私聊发攻略/邀请/行前清单/出行提醒时顺带写入提醒通知，方便对方在消息页与弹窗看到
+    if (
+      roomType === 'dm'
+      && targetId !== user.id
+      && (msgType === 'plan' || msgType === 'invite' || msgType === 'packing' || msgType === 'reminder')
+    ) {
       const title =
         msgType === 'plan'
           ? `${user.nickname} 在聊天中发来攻略「${String(rawPayload.title || '旅行计划')}」`
-          : `${user.nickname} 邀请你加入行程群「${String(rawPayload.groupName || '行程群')}」`;
+          : msgType === 'invite'
+            ? `${user.nickname} 邀请你加入行程群「${String(rawPayload.groupName || '行程群')}」`
+            : msgType === 'packing'
+              ? `${user.nickname} 发来行前准备清单「${String(rawPayload.title || '行前清单')}」`
+              : `${user.nickname} 发来出行提醒「${String(rawPayload.title || '出行提醒')}」`;
+      const notifType =
+        msgType === 'plan'
+          ? 'plan_received'
+          : msgType === 'invite'
+            ? 'group_invite'
+            : msgType === 'packing'
+              ? 'packing_reminder'
+              : 'trip_reminder';
       await createNotification(db, {
         userId: targetId,
-        type: msgType === 'plan' ? 'plan_received' : 'group_invite',
+        type: notifType,
         actorId: user.id,
         actorNickname: user.nickname,
         title,
@@ -246,6 +262,37 @@ export const onRequest = withApiHandler(async (context) => {
           ...(rawPayload.groupId ? { groupId: String(rawPayload.groupId) } : {}),
         },
       }).catch(() => undefined);
+    }
+
+    // 群聊发行前准备清单或出行提醒时，给群内其他成员发送通知提醒
+    if (roomType === 'group' && (msgType === 'packing' || msgType === 'reminder')) {
+      try {
+        const [groupRow, membersRes] = await Promise.all([
+          db.prepare('SELECT name FROM travel_groups WHERE id = ? LIMIT 1').bind(targetId).first(),
+          db.prepare('SELECT user_id FROM travel_group_members WHERE group_id = ? AND user_id != ?').bind(targetId, user.id).all(),
+        ]);
+        const groupName = String(groupRow?.name || '行程群');
+        const label = msgType === 'packing' ? '行前准备清单' : '出行提醒';
+        const notifTitle = `${user.nickname} 在「${groupName}」发来${label}`;
+        const notifBody = textContent || String(rawPayload.title || '点击查看详情');
+        const members = membersRes.results || [];
+        await Promise.all(
+          members.map((m) =>
+            createNotification(db, {
+              userId: String(m.user_id),
+              type: msgType === 'packing' ? 'packing_reminder' : 'trip_reminder',
+              actorId: user.id,
+              actorNickname: user.nickname,
+              title: notifTitle,
+              body: notifBody,
+              targetRef: {
+                groupId: targetId,
+                ...(rawPayload.planId ? { planId: String(rawPayload.planId) } : {}),
+              },
+            }).catch(() => undefined),
+          ),
+        );
+      } catch { /* ignore notification fanout error */ }
     }
 
     return jsonResponse(request, 200, {

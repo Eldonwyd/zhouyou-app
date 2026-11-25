@@ -544,6 +544,23 @@ export default function ProfileView({
                   <span className="ios-switch-track" />
                 </label>
               </div>
+              <div className="notif-toggle-row">
+                <div>
+                  <strong>{t('抢票提醒与行前清单', 'Ticket Alerts & Pre-Trip Reminders')}</strong>
+                  <small>{t('在抢票计划开启的提前开售提醒，以及群里/好友发来的行前清单与出行提醒。', 'Alerts for scheduled ticket releases, packing lists, and travel reminders.')}</small>
+                </div>
+                <label className="ios-switch">
+                  <input
+                    type="checkbox"
+                    checked={notifPrefs.types.ticketReminders}
+                    onChange={(e) => updateNotifPrefs((prev) => ({
+                      ...prev,
+                      types: { ...prev.types, ticketReminders: e.target.checked },
+                    }))}
+                  />
+                  <span className="ios-switch-track" />
+                </label>
+              </div>
             </section>
 
             {onTestNotification && (

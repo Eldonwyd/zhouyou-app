@@ -66,7 +66,7 @@ export interface ChatPollVote {
   createdAt: string;
 }
 
-export type ChatMessageType = 'text' | 'image' | 'plan' | 'invite' | 'poll' | 'intimacy';
+export type ChatMessageType = 'text' | 'image' | 'plan' | 'invite' | 'poll' | 'intimacy' | 'packing' | 'reminder';
 
 export interface ChatMessage {
   id: string;

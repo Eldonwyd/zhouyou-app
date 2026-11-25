@@ -191,7 +191,8 @@ function addBookingWindow(content: PlannerContent, booking: BookingRecord): Book
     id: estimate?.costs[0]?.id ?? `booking-cost-${booking.id}`,
     label: booking.title, category: 'transport' as const, unit: 'group' as const,
     unitPriceCents: Math.round(booking.amountYuan * 100), studentPriceCents: null,
-    quantity: 1, occurrences: 1, status: 'booked' as const, qualification: '', sourceIds: [], includedIn: null,
+    quantity: 1, occurrences: 1, status: booking.purchaseStatus === 'unpurchased' ? 'estimate' as const : 'booked' as const,
+    qualification: booking.purchaseStatus === 'unpurchased' ? '未购买（待抢票）' : '', sourceIds: [], includedIn: null,
   }] : (estimate?.costs ?? []).filter((cost) => cost.sourceIds.every((id) => content.sources.some((source) => source.id === id)));
   const phases = [
     { key: 'access', start: leave, end: depart - lead, title: `前往${booking.fromLocation}`, location: booking.fromLocation, city: fromCity, mode: '市内接驳（预估）', description: `路上预计 ${access} 分钟。请按出发地点、实际交通和进站口调整。` },

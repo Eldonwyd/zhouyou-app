@@ -10,6 +10,7 @@ import {
 } from '../cloud-api';
 import type { AiTravelPlan } from '../planner-types';
 import { TravelAvatar } from './CuteArt';
+import { buildPackingShareData, buildTripReminderShareData } from './TripReminderShareModal';
 
 interface ChatRoomViewProps {
   roomType: 'dm' | 'group';
@@ -115,10 +116,11 @@ export default function ChatRoomView({
   const [tray, setTray] = useState<'none' | 'emoji' | 'more'>('none');
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
-  // 子弹窗：发攻略 / 发群邀请 / 发起投票
-  const [pickerModal, setPickerModal] = useState<'none' | 'plan' | 'invite' | 'poll'>('none');
+  // 子弹窗：发攻略 / 发群邀请 / 发起投票 / 发行前清单 / 发出行提醒
+  const [pickerModal, setPickerModal] = useState<'none' | 'plan' | 'invite' | 'poll' | 'packing' | 'reminder'>('none');
   const [selectedPlanId, setSelectedPlanId] = useState(aiPlans[0]?.id || '');
   const [planMode, setPlanMode] = useState<'copy' | 'collab'>('collab');
+  const [tripNoteText, setTripNoteText] = useState('');
   const [selectedGroupId, setSelectedGroupId] = useState(groups[0]?.id || '');
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
@@ -269,6 +271,42 @@ export default function ChatRoomView({
       onNotice('已发送行程群邀请卡片');
     } catch (err) {
       onError(err instanceof Error ? err.message : '发送邀请失败');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function handleSendTripNote(kind: 'packing' | 'reminder') {
+    const plan = aiPlans.find((p) => p.id === selectedPlanId) || aiPlans[0];
+    if (!plan) {
+      onError('还没有可用的行程攻略');
+      return;
+    }
+    const shareData = kind === 'packing' ? buildPackingShareData(plan) : buildTripReminderShareData(plan);
+    setSending(true);
+    try {
+      const note = tripNoteText.trim();
+      const res = await cloudApi.sendChatMessage(roomType, targetId, {
+        msgType: kind,
+        textContent: note || `${shareData.title}（${shareData.subtitle}）`,
+        payload: {
+          planId: shareData.planId,
+          planTitle: shareData.planTitle,
+          title: shareData.title,
+          subtitle: shareData.subtitle,
+          items: shareData.items.slice(0, 40),
+          note,
+        },
+      });
+      setMessages((prev) => [...prev, res.message]);
+      prevCountRef.current += 1;
+      setTripNoteText('');
+      setPickerModal('none');
+      setTray('none');
+      setTimeout(() => scrollToBottom(true), 30);
+      onNotice(kind === 'packing' ? '已发送行前准备清单并推送通知' : '已发送出行提醒并推送通知');
+    } catch (err) {
+      onError(err instanceof Error ? err.message : '发送失败');
     } finally {
       setSending(false);
     }
@@ -511,6 +549,56 @@ export default function ChatRoomView({
                       </div>
                     )}
 
+                    {/* 行前准备清单 / 出行提醒卡片 */}
+                    {(m.msgType === 'packing' || m.msgType === 'reminder') && (() => {
+                      const isPacking = m.msgType === 'packing';
+                      const items = Array.isArray(m.payload?.items)
+                        ? (m.payload.items as Array<{ text?: string; checked?: boolean; meta?: string }>)
+                        : [];
+                      const note = typeof m.payload?.note === 'string' ? m.payload.note : '';
+                      const planId = typeof m.payload?.planId === 'string' ? m.payload.planId : '';
+                      const hasLocalPlan = Boolean(planId && aiPlans.some((p) => p.id === planId));
+                      return (
+                        <div className={`im-rich-card ${isPacking ? 'is-packing' : 'is-reminder'}`}>
+                          <div className="im-rich-card-badge">
+                            {isPacking ? '🧳 行前准备清单' : '📌 出行提醒'}
+                          </div>
+                          <strong>{String(m.payload?.title || (isPacking ? '行前准备清单' : '出行提醒'))}</strong>
+                          {typeof m.payload?.subtitle === 'string' && m.payload.subtitle && (
+                            <small>{m.payload.subtitle}</small>
+                          )}
+                          {note && <p className="im-trip-note-quote">{note}</p>}
+                          {items.length > 0 && (
+                            <ul className="im-trip-note-list">
+                              {items.slice(0, 8).map((it, idx) => (
+                                <li key={`${it.text || ''}-${idx}`} className={it.checked ? 'is-checked' : ''}>
+                                  <span>{isPacking ? (it.checked ? '☑' : '☐') : '•'}</span>
+                                  <div>
+                                    <span>{String(it.text || '')}</span>
+                                    {it.meta && <small>（{it.meta}）</small>}
+                                  </div>
+                                </li>
+                              ))}
+                              {items.length > 8 && (
+                                <li className="im-trip-note-more">…… 共 {items.length} 项</li>
+                              )}
+                            </ul>
+                          )}
+                          {hasLocalPlan && (
+                            <div className="im-rich-card-foot">
+                              <button
+                                type="button"
+                                className="secondary im-card-btn"
+                                onClick={() => onOpenPlan(planId)}
+                              >
+                                打开对应行程
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     {/* 群投票卡片 */}
                     {m.msgType === 'poll' && (() => {
                       const opts = Array.isArray(m.payload?.options)
@@ -642,6 +730,30 @@ export default function ChatRoomView({
             <span>✈️</span>
             <small>发攻略</small>
           </button>
+          <button
+            type="button"
+            className="im-more-item"
+            onClick={() => {
+              setSelectedPlanId(aiPlans[0]?.id || '');
+              setTripNoteText('');
+              setPickerModal('packing');
+            }}
+          >
+            <span>🧳</span>
+            <small>行前清单</small>
+          </button>
+          <button
+            type="button"
+            className="im-more-item"
+            onClick={() => {
+              setSelectedPlanId(aiPlans[0]?.id || '');
+              setTripNoteText('');
+              setPickerModal('reminder');
+            }}
+          >
+            <span>📌</span>
+            <small>出行提醒</small>
+          </button>
           {roomType === 'dm' && (
             <button
               type="button"
@@ -728,6 +840,53 @@ export default function ChatRoomView({
               {aiPlans.length > 0 && (
                 <button type="button" className="primary" disabled={sending} onClick={() => void handleSendPlanCard()}>
                   {sending ? '发送中…' : '发送攻略卡片'}
+                </button>
+              )}
+              <button type="button" className="secondary" onClick={() => setPickerModal('none')}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 发行前清单 / 出行提醒弹窗 */}
+      {(pickerModal === 'packing' || pickerModal === 'reminder') && (
+        <div className="dialog-backdrop" onClick={() => setPickerModal('none')}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>
+              {pickerModal === 'packing' ? '🧳 发送行前准备清单' : '📌 发送出行提醒'}
+            </h3>
+            {aiPlans.length === 0 ? (
+              <p className="muted">还没有 AI 攻略，请先去「行程规划」生成一份。</p>
+            ) : (
+              <>
+                <select
+                  value={selectedPlanId}
+                  onChange={(e) => setSelectedPlanId(e.target.value)}
+                  style={{ width: '100%', marginBottom: 10 }}
+                >
+                  {aiPlans.map((p) => (
+                    <option key={p.id} value={p.id}>{p.content.title}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  maxLength={120}
+                  placeholder={pickerModal === 'packing' ? '可选附言：出发前一起核对行李清单～' : '可选附言：记得提前抢票与关注天气～'}
+                  value={tripNoteText}
+                  onChange={(e) => setTripNoteText(e.target.value)}
+                  style={{ width: '100%', marginBottom: 12 }}
+                />
+              </>
+            )}
+            <div className="dialog-actions">
+              {aiPlans.length > 0 && (
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={sending}
+                  onClick={() => void handleSendTripNote(pickerModal)}
+                >
+                  {sending ? '发送中…' : pickerModal === 'packing' ? '发送清单卡片' : '发送出行提醒'}
                 </button>
               )}
               <button type="button" className="secondary" onClick={() => setPickerModal('none')}>取消</button>

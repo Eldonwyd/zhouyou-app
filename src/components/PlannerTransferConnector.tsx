@@ -209,7 +209,7 @@ export function TransferOptionRow({
             </span>
           )}
         </span>
-        {formatted.note && (
+        {formatted.mode !== 'walk' && formatted.note && (
           <small className="planner-transfer-note">
             {plannerDisplayText(formatted.note, content)}
           </small>

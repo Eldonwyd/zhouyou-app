@@ -7,7 +7,7 @@ import { formatTransferOption, isIntraCityTransferCard, plannerDisplayText, plan
 import type { PlannerTransferModeKind } from './planner-types.ts';
 import { plannerAmapUrl } from './planner-map.ts';
 import { plannerLuggageNoteText } from './planner-luggage.ts';
-import { needsTicketPreparation } from './planner-ticket-display.ts';
+import { mergeTicketPlanItems, needsTicketPreparation } from './planner-ticket-display.ts';
 import { BOOKING_KIND_LABELS } from './planner-booking.ts';
 import { calculateAaSplit, defaultSplitMembers } from './finance.ts';
 import { downloadBlob } from './utils.ts';
@@ -101,7 +101,7 @@ export function buildOfflineRoadbookHtml(
   const citiesText = content.cities.map((c) => c.name).join(' → ');
   const perPerson = money(Math.round(budget.totalCents / Math.max(1, content.request.people)));
   const photoMap = options.photoDataUrls ?? {};
-  const visibleTickets = (plan.ticketPlan?.items ?? []).filter(needsTicketPreparation);
+  const visibleTickets = mergeTicketPlanItems(plan).filter(needsTicketPreparation);
   const packingItems = plan.packingList?.items ?? [];
   const bookings = plan.bookings ?? [];
 
