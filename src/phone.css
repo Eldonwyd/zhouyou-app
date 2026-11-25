@@ -280,6 +280,53 @@ div.mobile-disclosure-body,
   .planner-workspace > .content-page { padding-top: 12px; padding-bottom: 56px; }
   .planner-itinerary-heading { margin-bottom: 12px !important; align-items: center !important; }
   .planner-itinerary-heading > .primary { padding: 8px 14px; min-height: 38px; font-size: 12.5px; }
+  /* 手机端行程卡：极简紧凑、隐藏占位图区（电脑端保留图片），大幅压缩卡片高度 */
+  .planner-plan-list { gap: 10px; padding: 2px 0 10px; }
+  .planner-plan-list > button.planner-plan-card {
+    border-radius: 14px;
+    grid-template-columns: 1fr;
+  }
+  .planner-card-main { padding: 11px 12px 9px; gap: 5px; }
+  .planner-plan-cities { font-size: calc(11px * var(--font-scale, 0.84)); letter-spacing: .06em; padding-right: 0; }
+  .planner-card-title { font-size: calc(16px * var(--font-scale, 0.84)); line-height: 1.28; }
+  .planner-card-summary {
+    font-size: calc(12.5px * var(--font-scale, 0.84));
+    line-height: 1.42;
+    -webkit-line-clamp: 2;
+  }
+  .planner-plan-meta { gap: 4px; }
+  .planner-plan-meta > span {
+    font-size: calc(11px * var(--font-scale, 0.84));
+    padding: 1.5px 7px;
+  }
+  .planner-card-stats { gap: 3px 10px; font-size: calc(11.5px * var(--font-scale, 0.84)); }
+  .planner-card-stats b { font-size: calc(13.5px * var(--font-scale, 0.84)); margin-right: 2px; }
+  .planner-card-budget { gap: 4px; padding-top: 6px; }
+  .planner-card-price { gap: 3px 8px; }
+  .planner-plan-price { font-size: calc(18px * var(--font-scale, 0.84)); }
+  .planner-card-price small { font-size: calc(11px * var(--font-scale, 0.84)); }
+  .planner-card-bar { height: 4px; }
+  .planner-card-legend { gap: 2px 9px; font-size: calc(11px * var(--font-scale, 0.84)); }
+  .planner-card-legend i { width: 6px; height: 6px; margin-right: 4px; }
+  .planner-card-foot { font-size: calc(11px * var(--font-scale, 0.84)); }
+  .planner-card-side {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    padding: 7px 12px 9px;
+    gap: 0;
+  }
+  .planner-card-photos { display: none !important; }
+  .planner-card-day {
+    grid-template-columns: 26px 36px minmax(0, 1fr);
+    gap: 6px;
+    padding: 3px 0;
+    font-size: calc(12px * var(--font-scale, 0.84));
+  }
+  .planner-card-day b { font-size: calc(11px * var(--font-scale, 0.84)); }
+  .planner-card-day small { font-size: calc(11px * var(--font-scale, 0.84)); }
+  .planner-card-day:nth-of-type(n+4) { display: none; }
+  .planner-card-more { font-size: calc(11px * var(--font-scale, 0.84)); padding-top: 2px; }
+
   /* 行程总览操作区：手机端采用「双主按钮 + 4列快捷工具坞」，紧凑不截断、按钮不臃肿。 */
   .planner-overview { padding: 13px 12px; gap: 10px; margin-bottom: 12px; }
   .city-guide-row { gap: 5px; }

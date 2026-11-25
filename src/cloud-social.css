@@ -3431,10 +3431,10 @@
     height: 20px;
   }
   .im-chat-shell {
-    height: calc(100dvh - 102px - env(safe-area-inset-bottom, 0px));
-    min-height: 420px;
+    height: calc(100dvh - 148px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+    min-height: 360px;
     max-height: none;
-    border-radius: 18px;
+    border-radius: 16px;
   }
   .chat-room-view .im-chat-shell {
     height: calc(100dvh - 230px - env(safe-area-inset-bottom, 0px));
