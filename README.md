@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/icon.png" alt="周游地图 Zhouyou Map Logo" width="124" height="124" />
+<img src="docs/assets/icon.png" alt="周游地图 Zhouyou Map Logo" width="120" height="120" />
 
 # 周游地图 · Zhouyou Map
 
@@ -33,11 +33,11 @@
 <p>
   <img src="https://img.shields.io/badge/Desktop-Windows%20%7C%20macOS%20%7C%20Linux-2c3e50?style=flat-square&logo=electron&logoColor=9feaf9" alt="Desktop Platforms" />
   <img src="https://img.shields.io/badge/Mobile-Android%20%7C%20iOS-0f62fe?style=flat-square&logo=capacitor&logoColor=white" alt="Mobile Platforms" />
-  <img src="https://img.shields.io/badge/Web-PWA%20六端同步-1d6478?style=flat-square&logo=googlechrome&logoColor=white" alt="Web PWA" />
+  <img src="https://img.shields.io/badge/Web-PWA%20多端同步-1d6478?style=flat-square&logo=googlechrome&logoColor=white" alt="Web PWA" />
 </p>
 
 <p>
-  <a href="https://zhouyou.online/?demo=1"><b>🚀 一键在线试玩（含示例数据）</b></a>
+  <a href="https://zhouyou.online/?demo=1"><b>🚀 一键在线试玩</b></a>
   &nbsp;·&nbsp;
   <a href="https://zhouyou.online/download.html"><b>📥 官网下载中心</b></a>
   &nbsp;·&nbsp;
@@ -54,15 +54,13 @@
 
 <table>
   <tr>
-    <td align="center">
-      <img src="docs/screenshots/demo-ai-planner.gif" width="100%" alt="一站式 AI 规划：一键生成图文路书、生态直连、备用计划与 AI 随时调整" />
-      <br /><b>🤖 一站式 AI 行程规划：一键出图文路书 → 行前工具与地图/小红书直连 → 备用计划 → AI 对话随时微调</b>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/demo-ai-planner.gif" width="100%" alt="一站式 AI 规划：图文路书、行前工具、备用方案与随时调整" />
+      <br /><b>🤖 一站式 AI 路书</b> — 图文介绍 · 备用方案 · 随时微调
     </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="docs/screenshots/demo-companions.gif" width="100%" alt="同行旅伴与好友系统：亲密关系、双人足迹对比、行程群 AI 方案投票与旅途记账" />
-      <br /><b>🤝 好友与同行旅伴：亲密卡片 → 双人中国足迹对比 → 行程群聊与 AI 方案投票 → 旅途记账自动分摊</b>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/demo-companions.gif" width="100%" alt="好友与同行旅伴：亲密卡片、足迹对比、行程群投票与旅途记账" />
+      <br /><b>🤝 好友共编与记账</b> — 群聊投票改计划 · 记账自动分摊
     </td>
   </tr>
 </table>
@@ -70,20 +68,6 @@
 <p><sub>💡 第一次打开？直接点 <a href="https://zhouyou.online/?demo=1"><b>在线演示模式（?demo=1）</b></a>，免安装体验复古手账界面、14 座点亮城市、完整大理 AI 路书与照片手账，随时一键清空。</sub></p>
 
 </div>
-
----
-
-## 💡 为什么用周游地图？（一个应用走完旅行全流程）
-
-平时出门旅游，往往要在 **小红书找攻略 → 大模型问路线 → 微信群里来回讨论 → 复制地名切地图导航 → 记着抢票 → 返程拉表算 AA → 相册堆满照片** 之间来回折腾。**周游地图把整条旅行链路无缝集成进同一个应用**：
-
-| 传统切 6+ App 的痛点 | 周游地图的一站式解法 |
-| :--- | :--- |
-| **大厂 AI 只给一段静态纯文本**，改一处全盘乱套、没有退路 | **结构化图文路书**：自带景点介绍、4A/5A 标识、实景配图、预算拆解与**备用计划**，支持单点锁定与随时对话微调 |
-| **看攻略、查导航要反复复制地名切屏** | **顺滑切换外部应用**：一键直接唤起常用主流地图 App 导航与小红书，还能把小红书攻略直接解析进路线灵感池 |
-| **微信群讨论 500 条定不下路线，返程记账算分摊极易出错** | **一起看计划、一起改计划、一起轻松记账**：一键共享最新路书，支持**群聊投票 + AI 自动改计划**，旅途开销随手一记自动理清分摊明细 |
-| **出发前忘抢票、车票订单分散难对账** | **行前省心闭环**：需预约景点与未购车次自动入**抢票计划提前提醒**，本地离线 **PP-OCRv5** 扫票入账，电脑做好手机多端同步 |
-| **单一打卡地图 / 手账 App 低频吃灰** | **工具带动回忆沉淀**：归来顺手点亮全国 370+ 城地图、归档原图与现场语音明信片手账、手作专属徽章导出海报 |
 
 ---
 
@@ -116,20 +100,15 @@
 
 ## 🖼️ 界面精选
 
-<div align="center">
-  <img src="docs/screenshots/desktop-planner.png" alt="AI 一键生成完整图文路书" width="100%" />
-  <p><i><b>🤖 AI 一键生成完整图文路书</b> —— 景点介绍与实景配图、预算拆解、备用计划、生态直连与三端自动云同步</i></p>
-</div>
-
 <table>
   <tr>
     <td align="center" width="50%">
-      <img src="docs/screenshots/desktop-companions-chat.png" alt="行程群聊与 AI 方案投票共改计划" />
-      <br /><b>🤝 行程群聊与 AI 方案投票</b> — 共享最新攻略、发起群投票并一键让 AI 按高票改计划
+      <img src="docs/screenshots/desktop-planner.png" alt="AI 一键生成完整图文路书" />
+      <br /><b>🤖 AI 图文路书</b> — 景点介绍与实景配图、预算拆解与备用计划
     </td>
     <td align="center" width="50%">
-      <img src="docs/screenshots/desktop-companions-aa.png" alt="群内记账与最少转账 AA 结算" />
-      <br /><b>💰 群内记账与自动 AA 结算</b> — 随手记录垫付明细，自动算出谁给谁转多少钱
+      <img src="docs/screenshots/desktop-companions-chat.png" alt="好友行程群聊与 AI 方案投票" />
+      <br /><b>🤝 好友行程群</b> — 共享最新计划、群聊投票与旅途记账
     </td>
   </tr>
   <tr>
@@ -139,19 +118,14 @@
         <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/desktop-map-light.png" />
         <img src="docs/screenshots/desktop-map-light.png" alt="全国 34 省 370+ 城中国足迹地图" />
       </picture>
-      <br /><b>🗺️ 全国 34 省 × 370+ 城足迹地图</b> — 默认复古手账风，省级下钻点亮与离线缓存
+      <br /><b>🗺️ 中国足迹地图</b> — 复古手账风，34 省 × 370+ 城下钻点亮
     </td>
     <td align="center" width="50%">
-      <img src="docs/screenshots/desktop-footprint-compare.png" alt="双人中国足迹对比地图" />
-      <br /><b>✨ 好友双人中国足迹对比</b> — 一目了然查看「共同去过」与「两人都想去」的城市
+      <img src="docs/screenshots/desktop-journal.png" alt="照片手账与专属城市明信片" />
+      <br /><b>📔 照片手账与明信片</b> — 原图、视频、现场语音与手作纪念章
     </td>
   </tr>
 </table>
-
-<div align="center">
-  <img src="docs/screenshots/desktop-journal.png" alt="照片手账与专属城市明信片" width="88%" />
-  <p><i><b>📔 照片手账与专属城市明信片</b> —— 珍藏原图照片、短视频、现场语音评语与手作纪念章</i></p>
-</div>
 
 ---
 
@@ -179,7 +153,7 @@
 > 🔗 **手机版官网下载页（推荐）**：[https://zhouyou.online/download-mobile.html](https://zhouyou.online/download-mobile.html)  
 > 📦 **手机版 GitHub Releases**：[https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile](https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile)
 
-电脑做攻略、手机直接带走，随时唤起高德/百度/谷歌地图与小红书、群聊投票改计划、随手记账算 AA 与记录原图手账：
+电脑做攻略、手机直接带走，随时唤起常用地图与小红书、群聊投票改计划、旅途记账与记录原图手账：
 
 | 平台 | 适用设备 | 安装方式与说明 | 独立下载入口 |
 | :--- | :--- | :--- | :---: |
@@ -230,7 +204,7 @@ zhouyou-app/
 ├── data/places/      # 离线补充地点数据包
 ├── docs/             # 英文文档、更新日志、安装指南与界面预览图
 ├── electron/         # 桌面端主进程、预加载脚本、打包配置与品牌图标资源
-├── functions/        # Cloudflare Pages 云函数（账号登录 / 六端同步 / 好友社交 / 行程群与聊天 / 分享口令）
+├── functions/        # Cloudflare Pages 云函数（账号登录 / 多端同步 / 好友社交 / 行程群与聊天 / 分享）
 ├── migrations/       # Cloudflare D1 数据库迁移脚本
 ├── public/           # 中国省市 GeoJSON 地图、PWA Manifest、离线 SW 与官网下载页
 ├── scripts/          # 构建打包脚本、移动端原生配置脚本与端到端测试
@@ -284,6 +258,20 @@ git tag mobile-v1.0.0  && git push origin mobile-v1.0.0
     <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Eldonwyd/zhouyou-app&type=Date&theme=light" width="100%" />
   </picture>
 </a>
+
+---
+
+## 💡 为什么用周游地图？（一个应用走完旅行全流程）
+
+平时出门旅游，往往要在找攻略、排路线、群里讨论、切地图导航、记抢票、旅途记账和整理照片之间来回切换。**周游地图把整条旅行链路自然集成进同一个应用**：
+
+| 传统切多个 App 的痛点 | 周游地图的一站式解法 |
+| :--- | :--- |
+| **大厂 AI 只给一段静态纯文本**，改一处全盘乱套、没有退路 | **结构化图文路书**：自带景点介绍、4A/5A 标识、实景配图、预算拆解与**备用计划**，支持单点锁定与随时对话微调 |
+| **看攻略、查导航要反复复制地名切屏** | **顺滑切换外部应用**：一键直接唤起常用主流地图 App 导航与小红书，还能把小红书攻略解析进路线灵感池 |
+| **微信群讨论 500 条定不下路线，返程记账分摊极易出错** | **一起看计划、一起改计划、一起轻松记账**：一键共享最新路书，支持**群聊投票 + AI 自动改计划**，旅途开销随手一记自动理清分摊明细 |
+| **出发前忘抢票、车票订单分散难对账** | **行前省心闭环**：需预约景点与未购车次自动入**抢票计划提前提醒**，本地离线 **PP-OCRv5** 扫票入账，电脑做好手机多端同步 |
+| **单一打卡地图 / 手账 App 低频吃灰** | **工具带动回忆沉淀**：归来顺手点亮全国 370+ 城地图、归档原图与现场语音明信片手账、手作专属徽章导出海报 |
 
 ---
 

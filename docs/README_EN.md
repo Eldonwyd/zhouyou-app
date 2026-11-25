@@ -43,15 +43,13 @@
 
 <table>
   <tr>
-    <td align="center">
+    <td align="center" width="50%">
       <img src="screenshots/demo-ai-planner.gif" width="100%" alt="All-in-One AI Trip Planning, App Switching, Backup Plans, and Live Adjustments" />
-      <br /><b>🤖 All-in-One AI Planner: Illustrated Roadbooks → App Switching &amp; Pre-Trip Tools → Backup Plans → Live AI Tweaks</b>
+      <br /><b>🤖 All-in-One AI Roadbooks</b> — Illustrated Plans · Backups · Live Tweaks
     </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="screenshots/demo-companions.gif" width="100%" alt="Travel Companions: Footprint Comparison, Group Chat & AI Polls, and Automatic AA Settlement" />
-      <br /><b>🤝 Travel Companions: Intimate Cards → Dual Footprint Compare → Group Chat &amp; AI Polls → Auto AA Settlement</b>
+    <td align="center" width="50%">
+      <img src="screenshots/demo-companions.gif" width="100%" alt="Travel Companions: Footprint Comparison, Group Chat & AI Polls, and Expense Splitting" />
+      <br /><b>🤝 Friends &amp; Expense Ledger</b> — Group Polls · Auto Bill Split
     </td>
   </tr>
 </table>
@@ -73,20 +71,15 @@
 
 ## 🖼️ Screenshots
 
-<div align="center">
-  <img src="screenshots/desktop-planner.png" alt="One-Click AI Illustrated Trip Planner" width="100%" />
-  <p><i><b>🤖 One-Click AI Illustrated Trip Planner</b> — place introductions, real photos, budget breakdown, backup plans &amp; cloud sync</i></p>
-</div>
-
 <table>
   <tr>
     <td align="center" width="50%">
-      <img src="screenshots/desktop-companions-chat.png" alt="Group Chat and AI Poll Co-Editing" />
-      <br /><b>🤝 Group Chat &amp; AI Polls</b> — view &amp; co-edit itineraries and vote on AI alternatives in-app
+      <img src="screenshots/desktop-planner.png" alt="One-Click AI Illustrated Trip Planner" />
+      <br /><b>🤖 AI Illustrated Roadbook</b> — place intros, real photos, budgets &amp; backup plans
     </td>
     <td align="center" width="50%">
-      <img src="screenshots/desktop-companions-aa.png" alt="Group Expense Ledger and Auto AA Split" />
-      <br /><b>💰 Group Ledger &amp; Auto AA</b> — calculate exact minimum transfers for who owes whom
+      <img src="screenshots/desktop-companions-chat.png" alt="Group Chat and AI Poll Co-Editing" />
+      <br /><b>🤝 Group Chat &amp; Co-Editing</b> — share plans, vote on AI options &amp; split expenses
     </td>
   </tr>
   <tr>
@@ -99,8 +92,8 @@
       <br /><b>🗺️ China Footprint Map</b> — 34 provinces × 370+ cities in Vintage Journal style
     </td>
     <td align="center" width="50%">
-      <img src="screenshots/desktop-footprint-compare.png" alt="Friend Footprint Comparison Map" />
-      <br /><b>✨ Dual Footprint Compare</b> — see cities visited together and mutual wishlist destinations
+      <img src="screenshots/desktop-journal.png" alt="Travel Journal and City Postcards" />
+      <br /><b>📔 Photo Journal &amp; Postcards</b> — original photos, voice memos &amp; custom badges
     </td>
   </tr>
 </table>
