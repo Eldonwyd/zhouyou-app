@@ -99,7 +99,7 @@ async function handleInstall(context) {
     );
   }
 
-  return streamReleaseAsset(context.request, release.tag_name, asset.name);
+  return streamReleaseAsset(context.request, release.tag_name, asset.name, context);
 }
 
 export async function onRequestGet(context) {

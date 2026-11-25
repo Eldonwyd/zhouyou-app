@@ -1,0 +1,40 @@
+name: Admin Daily GitHub Sync & Digest
+
+on:
+  schedule:
+    # 每天北京时间 22:00（UTC 14:00）自动归档 GitHub Traffic/Stars/下载量并推送日报
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync GitHub snapshot to Cloudflare D1
+        env:
+          ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+          ADMIN_GITHUB_TOKEN: ${{ secrets.ADMIN_GITHUB_TOKEN }}
+          ADMIN_API_BASE: ${{ vars.ADMIN_API_BASE || 'https://zhouyou.online' }}
+        run: |
+          if [ -z "$ADMIN_API_KEY" ]; then
+            echo "ADMIN_API_KEY secret not set; skipping sync."
+            exit 0
+          fi
+          curl -fsS -X POST "${ADMIN_API_BASE}/api/admin/github/sync" \
+            -H "Content-Type: application/json" \
+            -H "X-Admin-Key: ${ADMIN_API_KEY}" \
+            -d "{\"githubToken\":\"${ADMIN_GITHUB_TOKEN}\"}" | head -c 500
+          echo ""
+      - name: Send daily webhook digest (if configured in admin settings)
+        env:
+          ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+          ADMIN_API_BASE: ${{ vars.ADMIN_API_BASE || 'https://zhouyou.online' }}
+        run: |
+          if [ -z "$ADMIN_API_KEY" ]; then
+            exit 0
+          fi
+          curl -sS -X POST "${ADMIN_API_BASE}/api/admin/digest/send" \
+            -H "Content-Type: application/json" \
+            -H "X-Admin-Key: ${ADMIN_API_KEY}" \
+            -d '{}' | head -c 300 || true
+          echo ""

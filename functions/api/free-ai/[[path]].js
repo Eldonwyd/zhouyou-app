@@ -9,6 +9,11 @@ import {
   requireAuth,
   withApiHandler,
 } from '../../../cloud-lib/cloud.js';
+import {
+  logFreeAiRequest,
+  readAdminSettingsMap,
+  trackDailyMetric,
+} from '../../../cloud-lib/admin-telemetry.js';
 
 const SITE_BUCKET_ID = '__SITE__';
 const DEFAULT_BASE_URL = 'https://open.bigmodel.cn/api/paas/v4';
@@ -36,22 +41,34 @@ function getBeijingPeriodKeys(now = new Date()) {
   };
 }
 
-function readFreeAiConfig(env) {
+function readFreeAiConfig(env, overrides = {}) {
   const apiKey = String(env?.FREE_AI_API_KEY || '').trim();
-  const baseUrl = String(env?.FREE_AI_BASE_URL || DEFAULT_BASE_URL).trim().replace(/\/+$/, '');
-  const model = String(env?.FREE_AI_MODEL || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
-  const userDailyLimit = parsePositiveInt(env?.FREE_AI_USER_DAILY_TOKENS, DEFAULT_USER_DAILY_TOKENS);
-  const userMonthlyLimit = parsePositiveInt(env?.FREE_AI_USER_MONTHLY_TOKENS, DEFAULT_USER_MONTHLY_TOKENS);
-  const siteDailyLimit = parsePositiveInt(env?.FREE_AI_SITE_DAILY_TOKENS, DEFAULT_SITE_DAILY_TOKENS);
+  const baseUrl = String(overrides.free_ai_base_url || env?.FREE_AI_BASE_URL || DEFAULT_BASE_URL).trim().replace(/\/+$/, '');
+  const model = String(overrides.free_ai_model || env?.FREE_AI_MODEL || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
+  const userDailyLimit = parsePositiveInt(
+    overrides.free_ai_user_daily_tokens || env?.FREE_AI_USER_DAILY_TOKENS,
+    DEFAULT_USER_DAILY_TOKENS,
+  );
+  const userMonthlyLimit = parsePositiveInt(
+    overrides.free_ai_user_monthly_tokens || env?.FREE_AI_USER_MONTHLY_TOKENS,
+    DEFAULT_USER_MONTHLY_TOKENS,
+  );
+  const siteDailyLimit = parsePositiveInt(
+    overrides.free_ai_site_daily_tokens || env?.FREE_AI_SITE_DAILY_TOKENS,
+    DEFAULT_SITE_DAILY_TOKENS,
+  );
+  const enabledOverride = String(overrides.free_ai_enabled || '').trim().toLowerCase();
+  const enabledFlag = enabledOverride === '' ? true : enabledOverride !== 'false' && enabledOverride !== '0';
+  const rawVip = [env?.FREE_AI_VIP_ACCOUNTS || '', overrides.free_ai_vip_accounts || ''].filter(Boolean).join(',');
   const vipSet = new Set(
-    String(env?.FREE_AI_VIP_ACCOUNTS || '')
+    rawVip
       .split(/[,;\s]+/)
       .map((item) => item.trim().toLowerCase())
       .filter(Boolean),
   );
   return {
     apiKey,
-    enabled: Boolean(apiKey),
+    enabled: Boolean(apiKey) && enabledFlag,
     baseUrl,
     model,
     userDailyLimit,
@@ -377,7 +394,8 @@ export const onRequest = withApiHandler(async (context) => {
   const segments = parseRouteSegments(context);
   const db = getDb(context);
   await ensureQuotaTables(db);
-  const config = readFreeAiConfig(env);
+  const dynamicSettings = await readAdminSettingsMap(db);
+  const config = readFreeAiConfig(env, dynamicSettings);
 
   // GET /api/free-ai/quota — 查询当前登录账号的免费体验 Token 额度
   if (method === 'GET' && segments[0] === 'quota' && segments.length === 1) {
@@ -447,12 +465,40 @@ export const onRequest = withApiHandler(async (context) => {
       jsonMode: Boolean(body.jsonMode),
     });
 
-    const result = await callUpstreamWithRetry(config, upstreamPayload);
+    const startedAt = Date.now();
+    let result;
+    try {
+      result = await callUpstreamWithRetry(config, upstreamPayload);
+    } catch (err) {
+      const latencyMs = Date.now() - startedAt;
+      const errStatus = Number(err?.status) || 502;
+      const errCode = String(err?.code || 'UPSTREAM_ERROR');
+      logFreeAiRequest(context, {
+        userId: auth.user.id,
+        model: config.model,
+        status: errStatus,
+        latencyMs,
+        errorCode: errCode,
+      });
+      trackDailyMetric(context, 'free_ai_status', String(errStatus), 1, latencyMs);
+      throw err;
+    }
+    const latencyMs = Date.now() - startedAt;
     const promptTokens = result.promptTokens || Math.ceil(totalChars / 2.2);
     const completionTokens = result.completionTokens || Math.ceil(result.content.length / 2.2);
     const totalTokens = result.totalTokens || (promptTokens + completionTokens);
 
     await recordTokenUsage(db, auth.user.id, totalTokens, beforeQuota.dayKey, beforeQuota.monthKey);
+    logFreeAiRequest(context, {
+      userId: auth.user.id,
+      model: config.model,
+      status: 200,
+      latencyMs,
+      promptTokens,
+      completionTokens,
+      totalTokens,
+    });
+    trackDailyMetric(context, 'free_ai_status', '200', 1, latencyMs);
     const afterQuota = await readQuotaSnapshot(db, auth.user, config);
 
     return jsonResponse(request, 200, {

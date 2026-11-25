@@ -1,4 +1,5 @@
 import { getDb } from '../../cloud-lib/cloud.js';
+import { trackDailyMetric } from '../../cloud-lib/admin-telemetry.js';
 
 function escapeHtml(raw) {
   return String(raw || '')
@@ -30,6 +31,7 @@ export async function onRequestGet(context) {
       errorText = '这份行程分享链接已过期，请让好友重新发送一份。';
     } else {
       share = row;
+      trackDailyMetric(context, 'share_view', row.mode || 'copy', 1, 0);
     }
   } catch (err) {
     errorText = err instanceof Error ? err.message : '服务暂不可用，请稍后重试。';

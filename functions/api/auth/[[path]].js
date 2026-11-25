@@ -24,6 +24,7 @@ import {
   verifySecret,
   withApiHandler,
 } from '../../../cloud-lib/cloud.js';
+import { trackDailyMetric } from '../../../cloud-lib/admin-telemetry.js';
 
 async function allocateFriendCode(db) {
   for (let i = 0; i < 12; i += 1) {
@@ -195,7 +196,9 @@ export const onRequest = withApiHandler(async (context) => {
     if (!valid) {
       return errorResponse(request, 401, '账号或密码不正确', 'INVALID_CREDENTIALS');
     }
-    const session = await createSession(db, userRow.id, body.deviceName || '', body.platform || 'web');
+    const platform = String(body.platform || 'web').toLowerCase();
+    const session = await createSession(db, userRow.id, body.deviceName || '', platform);
+    trackDailyMetric(context, 'auth_login', platform, 1, 0);
     return jsonResponse(request, 200, {
       ok: true,
       token: session.token,

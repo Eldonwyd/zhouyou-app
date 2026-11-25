@@ -7,6 +7,8 @@
  * - 完全无状态，不记录日志、不缓存、不保存用户的任何 Token 或对话内容。
  */
 
+import { trackDailyMetric } from '../../cloud-lib/admin-telemetry.js';
+
 const ALLOWED_HOSTS = new Set([
   'auth.openai.com',
   'chatgpt.com',
@@ -160,6 +162,8 @@ export async function onRequestPost(context) {
   const body = method === 'POST' && typeof payload?.body === 'string' ? payload.body : undefined;
   const timeoutMs = Math.min(120_000, Math.max(5_000, Number(payload?.timeoutMs) || 90_000));
 
+  const startedAt = Date.now();
+  const targetHost = parsedUrl.hostname.toLowerCase();
   try {
     const upstream = await fetch(parsedUrl.toString(), {
       method,
@@ -170,12 +174,19 @@ export async function onRequestPost(context) {
     });
     const responseBody = await upstream.text();
     const contentType = upstream.headers.get('content-type') || '';
+    const latencyMs = Date.now() - startedAt;
+    const statusBucket = upstream.ok ? '2xx' : upstream.status === 429 ? '429' : upstream.status >= 500 ? '5xx' : '4xx';
+    trackDailyMetric(context, 'ai_proxy_host', targetHost, 1, latencyMs);
+    trackDailyMetric(context, 'ai_proxy_status', statusBucket, 1, 0);
     return jsonResponse(request, 200, {
       status: upstream.status,
       body: responseBody,
       headers: contentType ? { 'content-type': contentType } : {},
     });
   } catch (err) {
+    const latencyMs = Date.now() - startedAt;
+    trackDailyMetric(context, 'ai_proxy_host', targetHost, 1, latencyMs);
+    trackDailyMetric(context, 'ai_proxy_status', 'network_error', 1, 0);
     const message = err instanceof Error ? err.message : 'Upstream fetch failed';
     return jsonResponse(request, 502, { error: message });
   }
