@@ -236,13 +236,17 @@ export function formatTransferOption(option: PlannerTransferOption): FormattedTr
   const time = formatTransferMinutes(option.durationMinutes);
   const unit = option.costUnit ?? (mode === 'subway' || mode === 'bus' || mode === 'train' || mode === 'flight' ? 'person' : 'vehicle');
   const price = mode === 'walk' || mode === 'drive' ? '' : formatTransferPrice(option.costCents, unit);
-  const stations = option.fromStation && option.toStation
-    ? `${option.fromStation} → ${option.toStation}`
-    : (option.fromStation || option.toStation || '');
+  const stations = mode === 'walk'
+    ? ''
+    : option.fromStation && option.toStation
+      ? `${option.fromStation} → ${option.toStation}`
+      : (option.fromStation || option.toStation || '');
   const carpool = mode === 'taxi' && option.carpoolCostCents != null && option.carpoolCostCents > 0
     ? `顺风车约 ¥${yuanNumber.format(option.carpoolCostCents / 100)}`
     : '';
-  const noteParts = [option.transferNote?.trim(), mode === 'taxi' ? option.carpoolNote?.trim() : ''].filter(Boolean);
+  const noteParts = mode === 'walk'
+    ? []
+    : [option.transferNote?.trim(), mode === 'taxi' ? option.carpoolNote?.trim() : ''].filter(Boolean);
   const note = noteParts.join(' · ');
 
   let title = option.line?.trim() || MODE_LABELS[mode];
@@ -515,4 +519,71 @@ export function splitAnswerLinks(text: string): { body: string; links: PlannerAn
     return before;
   });
   return { body: body.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim(), links };
+}
+
+/** 常见 5A / 4A 景区级别速查表，用于为行程中的景点卡片自动补齐景区级别标签。 */
+const KNOWN_SCENIC_GRADES: ReadonlyArray<readonly [string, '5A' | '4A']> = [
+  // 天津
+  ['五大道', '4A'], ['古文化街', '5A'], ['盘山', '5A'], ['天津之眼', '4A'],
+  ['意大利风情', '4A'], ['意式风情', '4A'], ['瓷房子', '4A'], ['天津鼓楼', '4A'],
+  ['静园', '4A'], ['张学良故居', '4A'], ['津湾广场', '4A'], ['国家海洋博物馆', '4A'],
+  ['泰达航母', '4A'], ['水上公园', '4A'], ['南开大学', '4A'], ['杨柳青', '4A'],
+  ['黄崖关长城', '4A'], ['海河外滩', '4A'], ['天津博物馆', '4A'], ['周恩来邓颖超纪念馆', '4A'],
+  // 北京
+  ['故宫', '5A'], ['天坛', '5A'], ['颐和园', '5A'], ['八达岭', '5A'], ['慕田峪', '5A'],
+  ['圆明园', '5A'], ['恭王府', '5A'], ['奥林匹克公园', '5A'], ['明十三陵', '5A'],
+  ['什刹海', '4A'], ['北海公园', '4A'], ['景山公园', '4A'], ['雍和宫', '4A'], ['南锣鼓巷', '4A'], ['天安门', '5A'],
+  // 上海 / 江浙
+  ['东方明珠', '5A'], ['上海野生动物园', '5A'], ['上海科技馆', '5A'], ['豫园', '4A'], ['外滩', '4A'], ['朱家角', '4A'], ['上海迪士尼', '4A'],
+  ['西湖', '5A'], ['西溪湿地', '5A'], ['千岛湖', '5A'], ['灵隐寺', '5A'], ['乌镇', '5A'], ['西塘', '5A'], ['普陀山', '5A'], ['雁荡山', '5A'],
+  ['夫子庙', '5A'], ['中山陵', '5A'], ['拙政园', '5A'], ['周庄', '5A'], ['同里', '5A'], ['虎丘', '5A'], ['金鸡湖', '5A'], ['瘦西湖', '5A'], ['玄武湖', '4A'],
+  // 云南 / 川渝 / 陕西
+  ['丽江古城', '5A'], ['玉龙雪山', '5A'], ['普达措', '5A'], ['崇圣寺三塔', '5A'], ['石林', '5A'], ['洱海', '4A'], ['大理古城', '4A'], ['双廊', '4A'], ['蝴蝶泉', '4A'], ['滇池', '4A'], ['泸沽湖', '4A'],
+  ['九寨沟', '5A'], ['峨眉山', '5A'], ['乐山大佛', '5A'], ['都江堰', '5A'], ['青城山', '5A'], ['稻城亚丁', '5A'], ['三星堆', '4A'], ['宽窄巷子', '4A'], ['锦里', '4A'], ['武侯祠', '4A'], ['杜甫草堂', '4A'], ['熊猫基地', '4A'],
+  ['大足石刻', '5A'], ['武隆', '5A'], ['洪崖洞', '4A'], ['磁器口', '4A'], ['长江索道', '4A'], ['解放碑', '4A'],
+  ['兵马俑', '5A'], ['华清宫', '5A'], ['大雁塔', '5A'], ['大唐芙蓉园', '5A'], ['西安城墙', '5A'], ['华山', '5A'], ['回民街', '4A'], ['大唐不夜城', '4A'], ['陕西历史博物馆', '4A'],
+  // 广东 / 福建 / 海南 / 广西 / 湖南 / 湖北 / 山东 / 安徽 / 山西 / 河南 / 东北 / 西北
+  ['白云山', '5A'], ['长隆', '5A'], ['广州塔', '4A'], ['陈家祠', '4A'], ['沙面', '4A'], ['世界之窗', '5A'],
+  ['鼓浪屿', '5A'], ['武夷山', '5A'], ['福建土楼', '5A'], ['三坊七巷', '5A'], ['清源山', '5A'],
+  ['蜈支洲岛', '5A'], ['南山文化旅游区', '5A'], ['呀诺达', '5A'], ['分界洲岛', '5A'], ['亚龙湾', '4A'], ['天涯海角', '4A'],
+  ['漓江', '5A'], ['象鼻山', '5A'], ['独秀峰', '5A'], ['德天瀑布', '5A'], ['涠洲岛', '5A'],
+  ['张家界', '5A'], ['天门山', '5A'], ['岳麓山', '5A'], ['橘子洲', '5A'], ['南岳衡山', '5A'], ['凤凰古城', '4A'],
+  ['黄鹤楼', '5A'], ['东湖', '5A'], ['武当山', '5A'], ['神农架', '5A'], ['恩施大峡谷', '5A'],
+  ['泰山', '5A'], ['崂山', '5A'], ['蓬莱阁', '5A'], ['趵突泉', '5A'], ['曲阜三孔', '5A'], ['栈桥', '4A'], ['八大关', '4A'],
+  ['黄山', '5A'], ['宏村', '5A'], ['西递', '5A'], ['九华山', '5A'], ['天柱山', '5A'],
+  ['平遥古城', '5A'], ['云冈石窟', '5A'], ['五台山', '5A'], ['壶口瀑布', '5A'], ['乔家大院', '5A'],
+  ['龙门石窟', '5A'], ['少林寺', '5A'], ['老君山', '5A'], ['清明上河园', '5A'], ['云台山', '5A'],
+  ['长白山', '5A'], ['太阳岛', '5A'], ['冰雪大世界', '4A'], ['中央大街', '4A'], ['沈阳故宫', '4A'], ['星海广场', '4A'],
+  ['布达拉宫', '5A'], ['大昭寺', '5A'], ['纳木错', '4A'], ['莫高窟', '5A'], ['鸣沙山', '5A'], ['月牙泉', '5A'], ['七彩丹霞', '5A'],
+  ['青海湖', '5A'], ['塔尔寺', '5A'], ['茶卡盐湖', '4A'], ['喀纳斯', '5A'], ['天山天池', '5A'], ['那拉提', '5A'], ['赛里木湖', '5A'], ['喀什古城', '5A'],
+];
+
+/** 解析景点活动的景区级别（如 5A / 4A / 3A）；仅对 sight 类活动返回，避免餐饮/交通误标。 */
+export function plannerActivityScenicGrade(
+  activity: PlannerActivity,
+  unvisitedHighlights?: ReadonlyArray<{ title: string; grade?: string }>,
+): string {
+  if (activity.kind !== 'sight') return '';
+  const direct = String(activity.grade ?? '').trim().toUpperCase();
+  const directMatch = direct.match(/([345]A)/);
+  if (directMatch) return directMatch[1];
+
+  const text = `${activity.title} ${activity.location} ${activity.description}`.toUpperCase();
+  const textMatch = text.match(/([345]A)\s*(?:级|景区|旅游区|风景区)?/);
+  if (textMatch) return textMatch[1];
+
+  const title = activity.title.trim();
+  if (unvisitedHighlights?.length) {
+    const matched = unvisitedHighlights.find((item) => {
+      const t = item.title.trim();
+      return t && (title.includes(t) || t.includes(title)) && item.grade;
+    });
+    const m = matched?.grade?.toUpperCase().match(/([345]A)/);
+    if (m) return m[1];
+  }
+
+  for (const [keyword, grade] of KNOWN_SCENIC_GRADES) {
+    if (title.includes(keyword)) return grade;
+  }
+  return '';
 }

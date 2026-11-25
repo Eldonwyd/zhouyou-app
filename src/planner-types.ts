@@ -141,6 +141,8 @@ export interface PlannerTransferOption {
 export interface PlannerActivity {
   id: string;
   kind: 'sight' | 'food' | 'transport' | 'rest';
+  /** 景区级别标注（如 5A / 4A / 3A），可选。 */
+  grade?: string;
   period: PlannerPeriod;
   startTime: string;
   endTime: string;
@@ -290,6 +292,8 @@ export interface BookingRecord {
   amountYuan: number | null;
   seatOrRoom: string;
   note: string;
+  /** 车次/航班购票状态：未填或 'purchased' 表示已购买；'unpurchased' 表示计划乘坐但尚未购票，同步纳入抢票计划。 */
+  purchaseStatus?: 'purchased' | 'unpurchased';
   backfilledToPlan?: boolean;
   backfilledToLedger?: boolean;
   internationalFlight?: boolean;
@@ -308,6 +312,15 @@ export interface PlannerJournalVisit {
   tripId: string;
   placeId: string;
   completedAt: string;
+}
+
+export interface TicketReminderSetting {
+  enabled: boolean;
+  /** 提前多少分钟提醒（默认 20）。 */
+  leadMinutes: number;
+  /** 开售日期或时刻为空/需自定义时，可手动覆盖（YYYY-MM-DD / HH:mm）。 */
+  customSaleDate?: string;
+  customSaleTime?: string;
 }
 
 export interface AiTravelPlan {
@@ -336,6 +349,8 @@ export interface AiTravelPlan {
       sources: Array<{ title: string; url: string }>;
     }>;
   };
+  /** 抢票计划每一项的本地提醒设置，按 activityId 持久化。 */
+  ticketReminders?: Record<string, TicketReminderSetting>;
   id: string;
   version: number;
   contentVersion?: number; // Questions do not invalidate an unchanged itinerary.
