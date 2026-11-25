@@ -1,17 +1,39 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-let appVersion = '';
+let runtimeInfo = {
+  version: '',
+  shellVersion: '',
+  nativeCompat: '',
+  hotUpdateVersion: '',
+};
 try {
-  appVersion = ipcRenderer.sendSync('zhouyou:get-app-version') || '';
+  const fetched = ipcRenderer.sendSync('zhouyou:get-runtime-info');
+  if (fetched && typeof fetched === 'object') {
+    runtimeInfo = {
+      version: String(fetched.version || ''),
+      shellVersion: String(fetched.shellVersion || ''),
+      nativeCompat: String(fetched.nativeCompat || ''),
+      hotUpdateVersion: String(fetched.hotUpdateVersion || ''),
+    };
+  }
 } catch {
-  appVersion = '';
+  try {
+    runtimeInfo.version = String(ipcRenderer.sendSync('zhouyou:get-app-version') || '');
+  } catch {
+    runtimeInfo.version = '';
+  }
 }
 
 contextBridge.exposeInMainWorld('zhouyouDesktop', {
   isDesktop: true,
   platform: process.platform,
   arch: process.arch,
-  version: appVersion,
+  version: runtimeInfo.version,
+  shellVersion: runtimeInfo.shellVersion,
+  nativeCompat: runtimeInfo.nativeCompat,
+  hotUpdateVersion: runtimeInfo.hotUpdateVersion,
+  getRuntimeInfo: () => ipcRenderer.invoke('zhouyou:get-runtime-info-async'),
+  applyHotUpdate: (payload) => ipcRenderer.invoke('zhouyou:apply-hot-update', payload),
   downloadAndInstallUpdate: (payload) => ipcRenderer.invoke('zhouyou:download-update', payload),
   cancelUpdateDownload: () => ipcRenderer.invoke('zhouyou:cancel-update'),
   onUpdateProgress: (listener) => {

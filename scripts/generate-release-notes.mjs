@@ -6,7 +6,9 @@ const filesDir = process.argv[3] || 'release-files';
 const outFile = process.argv[4] || 'release-notes.md';
 const kind = process.argv[5] || 'all'; // 'desktop' | 'mobile' | 'all'
 
-const entries = (await readdir(filesDir)).filter((name) => name !== 'SHA256SUMS.txt').sort();
+const entries = (await readdir(filesDir))
+  .filter((name) => name !== 'SHA256SUMS.txt' && name !== 'hot-update-manifest.json' && !/-hot-update\.zip$/i.test(name))
+  .sort();
 
 function formatSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;

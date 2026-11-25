@@ -1,6 +1,6 @@
 const REPO = 'Eldonwyd/zhouyou-app';
 const SAFE_TAG = /^[a-zA-Z0-9._-]{1,64}$/;
-const SAFE_FILE = /^[a-zA-Z0-9._-]{1,180}\.(apk|ipa|exe|dmg|AppImage|deb|txt)$/i;
+const SAFE_FILE = /^[a-zA-Z0-9._-]{1,180}\.(apk|ipa|exe|dmg|AppImage|deb|txt|zip|json)$/i;
 
 /**
  * 流式转发本仓库 GitHub Release 安装包，仅允许下载 Eldonwyd/zhouyou-app 的合法安装包文件。

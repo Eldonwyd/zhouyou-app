@@ -120,6 +120,7 @@ jobs:
 
           "${BUILD_TOOLS_DIR}/apksigner" verify "${SIGNED_APK}"
           rm -f dist-artifacts/*.idsig
+          node scripts/build-hot-update.mjs --mobile-only --out-dir=dist-artifacts
           ls -lh dist-artifacts
       - uses: actions/upload-artifact@v4
         with:

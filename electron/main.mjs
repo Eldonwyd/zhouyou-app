@@ -1,10 +1,16 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, session, shell } from 'electron';
 import { spawn } from 'node:child_process';
-import { createWriteStream } from 'node:fs';
-import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  applyHotUpdate,
+  downloadFullInstaller,
+  isTrustedUpdateUrl,
+  readRuntimeMeta,
+  resolveActiveDist,
+} from './hot-update.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -17,22 +23,32 @@ let server = null;
 let activePort = DEFAULT_PORT;
 let lanSharing = false;
 let activeUpdateController = null;
+let runtimeState = {
+  distDir: path.join(projectRoot, 'dist'),
+  effectiveVersion: app.getVersion(),
+  shellVersion: app.getVersion(),
+  hotUpdateVersion: '',
+  nativeCompat: '',
+};
 
-function isTrustedUpdateUrl(rawUrl) {
-  try {
-    const u = new URL(String(rawUrl || ''));
-    if (u.protocol !== 'https:') return false;
-    const host = u.hostname.toLowerCase();
-    if (host === 'github.com') return u.pathname.toLowerCase().startsWith('/eldonwyd/zhouyou-app/');
-    if (host === 'zhouyou.online' || host === 'www.zhouyou.online') return true;
-    return (
-      host === 'objects.githubusercontent.com' ||
-      host === 'release-assets.githubusercontent.com' ||
-      host === 'github-releases.githubusercontent.com'
-    );
-  } catch {
-    return false;
-  }
+async function initRuntimeState() {
+  const defaultDistDir = path.join(projectRoot, 'dist');
+  const meta = await readRuntimeMeta(projectRoot, app.getVersion());
+  runtimeState = await resolveActiveDist({
+    userDataDir: app.getPath('userData'),
+    defaultDistDir,
+    shellVersion: app.getVersion() || meta.shellVersion,
+    nativeCompat: meta.nativeCompat,
+  });
+}
+
+function getPublicRuntimeInfo() {
+  return {
+    version: runtimeState.effectiveVersion,
+    shellVersion: runtimeState.shellVersion,
+    nativeCompat: runtimeState.nativeCompat,
+    hotUpdateVersion: runtimeState.hotUpdateVersion,
+  };
 }
 
 function sendUpdateProgress(payload) {
@@ -41,24 +57,140 @@ function sendUpdateProgress(payload) {
   }
 }
 
+function collectTrustedUrls(primaryUrl, fallbackUrls) {
+  const list = [primaryUrl, ...(Array.isArray(fallbackUrls) ? fallbackUrls : [])]
+    .map((u) => String(u || '').trim())
+    .filter((u) => u && isTrustedUpdateUrl(u));
+  return [...new Set(list)];
+}
+
 function setupUpdateIpc() {
   ipcMain.on('zhouyou:get-app-version', (event) => {
-    event.returnValue = app.getVersion();
+    event.returnValue = runtimeState.effectiveVersion;
   });
+
+  ipcMain.on('zhouyou:get-runtime-info', (event) => {
+    event.returnValue = getPublicRuntimeInfo();
+  });
+
+  ipcMain.handle('zhouyou:get-runtime-info-async', () => getPublicRuntimeInfo());
 
   ipcMain.handle('zhouyou:cancel-update', () => {
     activeUpdateController?.abort();
     activeUpdateController = null;
   });
 
+  // 方案 B：应用内极速热更新（仅下载几 MB 前端资源包，SHA-256 校验通过后无缝切换 dist 目录并重载窗口）
+  ipcMain.handle('zhouyou:apply-hot-update', async (_event, payload) => {
+    const urls = collectTrustedUrls(payload?.url, payload?.fallbackUrls);
+    if (!urls.length) {
+      return { ok: false, error: '无效的热更新包下载地址' };
+    }
+    const targetCompat = String(payload?.nativeCompat || '').trim();
+    if (!runtimeState.nativeCompat || targetCompat !== runtimeState.nativeCompat) {
+      return { ok: false, error: '当前版本包含底层升级，需下载完整安装包更新' };
+    }
+
+    activeUpdateController?.abort();
+    const controller = new AbortController();
+    activeUpdateController = controller;
+
+    try {
+      const result = await applyHotUpdate({
+        userDataDir: app.getPath('userData'),
+        urls,
+        version: payload?.version,
+        nativeCompat: runtimeState.nativeCompat,
+        expectedSha256: payload?.sha256,
+        signal: controller.signal,
+        onProgress: (p) => sendUpdateProgress(p),
+      });
+
+      runtimeState = {
+        ...runtimeState,
+        distDir: result.distDir,
+        effectiveVersion: result.version,
+        hotUpdateVersion: result.version,
+      };
+      process.env.ZHOUYOU_DIST_DIR = runtimeState.distDir;
+
+      await session.defaultSession.clearCache().catch(() => {});
+      setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          void mainWindow.loadURL(`http://127.0.0.1:${activePort}`);
+        }
+      }, 280);
+
+      return { ok: true, mode: 'hot', version: result.version };
+    } catch (error) {
+      if (error?.name === 'AbortError' || controller.signal.aborted) {
+        return { ok: false, cancelled: true };
+      }
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    } finally {
+      if (activeUpdateController === controller) activeUpdateController = null;
+    }
+  });
+
+  // 方案 A：底层大改动时应用内直接下载完整安装包（不经过 Edge 浏览器，带 SHA-256 校验并拉起安装）
   ipcMain.handle('zhouyou:download-update', async (_event, payload) => {
-    const url = String(payload?.url || '');
-    if (!isTrustedUpdateUrl(url)) {
+    const urls = collectTrustedUrls(payload?.url, payload?.fallbackUrls);
+    if (!urls.length) {
       return { ok: false, error: '无效的更新包下载地址' };
     }
-    // 统一交由系统默认浏览器安全下载新版安装包，避免桌面端自下载执行 .exe 触发杀毒软件误报。
-    await shell.openExternal(url);
-    return { ok: true, fallbackOpened: true };
+    if (payload?.openInBrowser) {
+      await shell.openExternal(urls[0]);
+      return { ok: true, fallbackOpened: true };
+    }
+
+    const sha256Urls = collectTrustedUrls(payload?.sha256Url, payload?.sha256FallbackUrls);
+    activeUpdateController?.abort();
+    const controller = new AbortController();
+    activeUpdateController = controller;
+
+    try {
+      const result = await downloadFullInstaller({
+        tempDir: os.tmpdir(),
+        urls,
+        fileName: payload?.fileName || 'Zhouyou-Map-setup.exe',
+        sha256Urls,
+        signal: controller.signal,
+        onProgress: (p) => sendUpdateProgress(p),
+      });
+
+      sendUpdateProgress({
+        state: 'installing',
+        percent: 100,
+        receivedBytes: result.receivedBytes,
+        totalBytes: result.totalBytes,
+        filePath: result.filePath,
+      });
+
+      if (process.platform === 'win32' && /\.exe$/i.test(result.filePath)) {
+        const child = spawn(result.filePath, [], {
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: false,
+        });
+        child.unref();
+        setTimeout(() => app.quit(), 600);
+      } else if (process.platform === 'linux' && /\.AppImage$/i.test(result.filePath)) {
+        await chmod(result.filePath, 0o755).catch(() => {});
+        shell.showItemInFolder(result.filePath);
+      } else {
+        const openErr = await shell.openPath(result.filePath);
+        if (openErr) shell.showItemInFolder(result.filePath);
+      }
+
+      return { ok: true, mode: 'full', filePath: result.filePath, verified: result.verified };
+    } catch (error) {
+      if (error?.name === 'AbortError' || controller.signal.aborted) {
+        return { ok: false, cancelled: true };
+      }
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    } finally {
+      if (activeUpdateController === controller) activeUpdateController = null;
+    }
   });
 }
 
@@ -112,7 +244,7 @@ function listenServer(httpServer, port, host) {
 
 async function startEmbeddedServer() {
   const userDataDir = app.getPath('userData');
-  const distDir = path.join(projectRoot, 'dist');
+  const distDir = runtimeState.distDir;
   const appRoot = app.isPackaged ? process.resourcesPath : projectRoot;
 
   process.env.ZHOUYOU_DATA_DIR = userDataDir;
@@ -120,7 +252,8 @@ async function startEmbeddedServer() {
   process.env.ZHOUYOU_APP_ROOT = appRoot;
 
   const { createPlannerServer } = await import('../dist-electron/server.mjs');
-  const httpServer = await createPlannerServer({ production: true, distRoot: distDir });
+  // 不传入写死的 distRoot，由 server 动态读取 process.env.ZHOUYOU_DIST_DIR，从而支持热更新毫秒级无缝切换前端目录。
+  const httpServer = await createPlannerServer({ production: true });
   const host = lanSharing ? '0.0.0.0' : '127.0.0.1';
 
   // 优先使用固定端口 14173，确保 IndexedDB 在应用重启/升级后保持同一 origin 不丢失数据。
@@ -328,6 +461,7 @@ if (!singleLock) {
 
   app.whenReady().then(async () => {
     app.setName('周游地图');
+    await initRuntimeState();
     setupUpdateIpc();
     await loadPrefs();
     await startEmbeddedServer();

@@ -11,12 +11,38 @@ interface ZhouyouDesktopUpdateProgress {
   error?: string;
 }
 
+interface ZhouyouDesktopRuntimeInfo {
+  version: string;
+  shellVersion: string;
+  nativeCompat: string;
+  hotUpdateVersion: string;
+}
+
 interface ZhouyouDesktopBridge {
   isDesktop: boolean;
   platform: string;
   arch?: string;
   version?: string;
-  downloadAndInstallUpdate?: (payload: { url: string; fileName: string; version: string }) => Promise<{ ok: boolean; filePath?: string; error?: string; cancelled?: boolean }>;
+  shellVersion?: string;
+  nativeCompat?: string;
+  hotUpdateVersion?: string;
+  getRuntimeInfo?: () => Promise<ZhouyouDesktopRuntimeInfo>;
+  applyHotUpdate?: (payload: {
+    url: string;
+    fallbackUrls?: string[];
+    version: string;
+    nativeCompat: string;
+    sha256: string;
+  }) => Promise<{ ok: boolean; mode?: 'hot'; version?: string; error?: string; cancelled?: boolean }>;
+  downloadAndInstallUpdate?: (payload: {
+    url: string;
+    fallbackUrls?: string[];
+    fileName: string;
+    version: string;
+    sha256Url?: string;
+    sha256FallbackUrls?: string[];
+    openInBrowser?: boolean;
+  }) => Promise<{ ok: boolean; mode?: 'full'; filePath?: string; verified?: boolean; fallbackOpened?: boolean; error?: string; cancelled?: boolean }>;
   cancelUpdateDownload?: () => Promise<void>;
   onUpdateProgress?: (listener: (progress: ZhouyouDesktopUpdateProgress) => void) => () => void;
   onCheckUpdateRequest?: (listener: () => void) => () => void;

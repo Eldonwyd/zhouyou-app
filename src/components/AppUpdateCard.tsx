@@ -102,8 +102,9 @@ export default function AppUpdateCard({
     if (!info) return;
     setErrorText('');
     setStatusNote('');
-    if (info.canInAppInstall) {
-      setProgress({ state: 'downloading', percent: 0, receivedBytes: 0, totalBytes: info.assetSize });
+    const displaySize = info.updateMode === 'hot' ? (info.hotUpdate?.size || 0) : info.assetSize;
+    if (info.canInAppInstall && info.updateMode !== 'web') {
+      setProgress({ state: 'downloading', percent: 0, receivedBytes: 0, totalBytes: displaySize });
     }
     const result = await installAppUpdate(info, (next) => {
       setProgress(next);
@@ -124,6 +125,16 @@ export default function AppUpdateCard({
       onError?.(msg);
       return;
     }
+    if (result.mode === 'hot') {
+      setProgress({ state: 'installing', percent: 100, receivedBytes: displaySize, totalBytes: displaySize });
+      const hotHint = t(
+        `已完成极速热更新至 v${info.latestVersion}，正在刷新界面（本地数据与手账已保留）…`,
+        `Hot-updated to v${info.latestVersion}. Reloading interface…`,
+      );
+      setStatusNote(hotHint);
+      onNotice?.(hotHint);
+      return;
+    }
     if (result.fallbackOpened) {
       setProgress(null);
       const hint = info.platform === 'ios'
@@ -133,9 +144,9 @@ export default function AppUpdateCard({
       onNotice?.(hint);
       return;
     }
-    setProgress({ state: 'installing', percent: 100, receivedBytes: info.assetSize, totalBytes: info.assetSize });
+    setProgress({ state: 'installing', percent: 100, receivedBytes: displaySize, totalBytes: displaySize });
     const doneHint = info.platform.startsWith('desktop-')
-      ? t('新版安装程序已启动，请按提示完成覆盖安装（数据与手账会自动保留）。', 'Installer launched. Follow prompts to update (your local data is preserved).')
+      ? t('新版安装程序已校验并启动，请按提示完成覆盖安装（数据与手账会自动保留）。', 'Verified installer launched. Follow prompts to update (your local data is preserved).')
       : t('新版 APK 已下载完成，请在系统安装界面确认升级（数据与手账会自动保留）。', 'APK downloaded. Confirm the update in the system installer (your local data is preserved).');
     setStatusNote(doneHint);
     onNotice?.(doneHint);
@@ -158,13 +169,23 @@ export default function AppUpdateCard({
   const installing = progress?.state === 'installing';
   const hasUpdate = Boolean(info?.hasUpdate);
   const publishedDate = info?.publishedAt ? info.publishedAt.slice(0, 10) : '';
+  const isHotMode = info?.updateMode === 'hot';
+  const isDesktopFullInApp = info?.updateMode === 'full-in-app';
+  const effectiveSize = isHotMode ? (info?.hotUpdate?.size || 0) : (info?.assetSize || 0);
+  const modeLabel = isHotMode
+    ? t('极速热更新 · 免重装', 'Instant Hot Update')
+    : isDesktopFullInApp
+      ? t('包含底层升级 · 应用内整包更新', 'Core Upgrade · In-App Installer')
+      : info?.requiresFullUpgrade
+        ? t('包含底层升级 · 需下载完整安装包', 'Core Upgrade · Full Package Required')
+        : '';
 
   return (
     <section id="app-update-card" className="card app-update-card" tabIndex={-1} aria-labelledby="app-update-card-title">
       <div className="card-heading app-update-head">
         <div>
           <h2 id="app-update-card-title">{t('检查应用更新', 'Check for Updates')}</h2>
-          <p className="muted">{t('手机端与电脑端均可一键检查并更新到最新版本，升级保留全部本地旅行数据。', 'Check and install the latest release on mobile or desktop while keeping all local travel data intact.')}</p>
+          <p className="muted">{t('日常更新支持应用内几秒无感热更新，遇底层大改动时自动切换完整安装包升级，保留全部本地旅行数据。', 'Routine updates apply in seconds via in-app hot update; core upgrades switch to full installer while preserving all local travel data.')}</p>
         </div>
         <span className="app-update-ver-pill">
           {platformLabel(platform, isEn)} · v{currentVersion}
@@ -176,7 +197,7 @@ export default function AppUpdateCard({
           <div className="app-update-banner-top">
             <strong>{t(`发现新版本 v${info.latestVersion}`, `New version available: v${info.latestVersion}`)}</strong>
             <span className="app-update-meta">
-              {[publishedDate, formatBytes(info.assetSize)].filter(Boolean).join(' · ')}
+              {[modeLabel, publishedDate, formatBytes(effectiveSize)].filter(Boolean).join(' · ')}
             </span>
           </div>
           {info.releaseNotes && (
@@ -197,7 +218,11 @@ export default function AppUpdateCard({
       {downloading && progress && (
         <div className="app-update-progress" role="status" aria-live="polite">
           <div className="app-update-progress-head">
-            <span>{t('正在下载最新版安装包…', 'Downloading latest installer…')}</span>
+            <span>
+              {isHotMode
+                ? t('正在下载极速热更新包…', 'Downloading hot update bundle…')
+                : t('正在应用内下载最新版安装包…', 'Downloading latest installer…')}
+            </span>
             <strong>
               {progress.percent > 0 ? `${progress.percent}%` : t('连接中…', 'Connecting…')}
               {progress.totalBytes > 0
@@ -225,9 +250,11 @@ export default function AppUpdateCard({
           <button type="button" className="primary" disabled={checking} onClick={() => void handleInstall()}>
             {installing
               ? t('重新下载更新', 'Download Again')
-              : info?.canInAppInstall
-                ? t(`立即更新到 v${info.latestVersion}`, `Update to v${info.latestVersion}`)
-                : t(`下载新版本 v${info?.latestVersion ?? ''}`, `Download v${info?.latestVersion ?? ''}`)}
+              : isHotMode
+                ? t(`极速热更新到 v${info.latestVersion}`, `Hot Update to v${info.latestVersion}`)
+                : info?.canInAppInstall
+                  ? t(`应用内更新到 v${info.latestVersion}`, `Update to v${info.latestVersion}`)
+                  : t(`下载新版本 v${info?.latestVersion ?? ''}`, `Download v${info?.latestVersion ?? ''}`)}
           </button>
         ) : null}
 

@@ -19,6 +19,17 @@ export interface ReleaseEntry {
   assets?: ReleaseAsset[];
 }
 
+export type AppUpdateMode = 'hot' | 'full-in-app' | 'full-browser' | 'web';
+
+export interface HotUpdatePayload {
+  url: string;
+  fallbackUrls: string[];
+  fileName: string;
+  sha256: string;
+  size: number;
+  compat: string;
+}
+
 export interface AppUpdateInfo {
   platform: AppPlatform;
   platformLabel: string;
@@ -26,13 +37,19 @@ export interface AppUpdateInfo {
   latestVersion: string;
   hasUpdate: boolean;
   canInAppInstall: boolean;
+  updateMode: AppUpdateMode;
+  requiresFullUpgrade: boolean;
   releaseName: string;
   releaseNotes: string;
   releaseUrl: string;
   publishedAt: string;
   downloadUrl: string;
+  fallbackDownloadUrls: string[];
+  sha256Url?: string;
+  sha256FallbackUrls?: string[];
   assetName: string;
   assetSize: number;
+  hotUpdate?: HotUpdatePayload | null;
 }
 
 export interface AppUpdateProgress {
@@ -44,7 +61,20 @@ export interface AppUpdateProgress {
 }
 
 interface NativeAppUpdaterPlugin {
-  getVersionInfo?: () => Promise<{ versionName?: string; versionCode?: number }>;
+  getVersionInfo?: () => Promise<{
+    versionName?: string;
+    versionCode?: number;
+    shellVersion?: string;
+    mobileCompat?: string;
+    hotUpdateVersion?: string;
+  }>;
+  applyHotUpdate?: (opts: {
+    url: string;
+    fallbackUrls?: string[];
+    version: string;
+    mobileCompat: string;
+    sha256: string;
+  }) => Promise<{ ok?: boolean; mode?: 'hot'; version?: string; cancelled?: boolean; error?: string }>;
   downloadAndInstall?: (opts: { url: string }) => Promise<{ ok?: boolean; cancelled?: boolean }>;
   openDownloadedApk?: () => Promise<{ ok?: boolean }>;
   cancelDownload?: () => Promise<void>;
@@ -113,8 +143,9 @@ export function isNativeAppPlatform(): boolean {
 }
 
 export function hasNativeInAppInstaller(): boolean {
-  // 手机端与电脑桌面端均不执行应用内下载安装（避免触发 REQUEST_INSTALL_PACKAGES / 杀毒误报），统一由系统浏览器安全下载更新。
-  return false;
+  if (window.zhouyouDesktop?.isDesktop) return true;
+  const cap = getCapacitor();
+  return Boolean(cap?.isNativePlatform?.() && cap.getPlatform?.() === 'android' && cap.Plugins?.AppUpdater);
 }
 
 /** 从 tag（如 desktop-v1.0.2 / mobile-v1.1.0 / v1.0.0）提取标准版本号。 */
@@ -143,20 +174,68 @@ export function compareSemver(a: string, b: string): number {
   return va.pre.localeCompare(vb.pre);
 }
 
-export async function getCurrentAppVersion(): Promise<string> {
+interface LocalRuntimeInfo {
+  version: string;
+  shellVersion: string;
+  nativeCompat: string;
+  mobileCompat: string;
+  hotUpdateVersion: string;
+}
+
+async function getLocalRuntimeInfo(): Promise<LocalRuntimeInfo> {
+  const fallbackVer = extractVersionFromTag(typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.0.0');
   const cap = getCapacitor();
   if (cap?.isNativePlatform?.() && cap.Plugins?.AppUpdater?.getVersionInfo) {
     try {
       const info = await cap.Plugins.AppUpdater.getVersionInfo();
-      if (info?.versionName) return extractVersionFromTag(info.versionName);
+      const version = info?.versionName ? extractVersionFromTag(info.versionName) : fallbackVer;
+      return {
+        version,
+        shellVersion: info?.shellVersion ? extractVersionFromTag(info.shellVersion) : version,
+        nativeCompat: '',
+        mobileCompat: String(info?.mobileCompat || '').trim(),
+        hotUpdateVersion: String(info?.hotUpdateVersion || '').trim(),
+      };
     } catch {
       /* 回退到打包时注入的版本号 */
     }
   }
-  if (window.zhouyouDesktop?.version) {
-    return extractVersionFromTag(window.zhouyouDesktop.version);
+  if (window.zhouyouDesktop?.isDesktop) {
+    try {
+      const info = window.zhouyouDesktop.getRuntimeInfo
+        ? await window.zhouyouDesktop.getRuntimeInfo()
+        : null;
+      const version = extractVersionFromTag(info?.version || window.zhouyouDesktop.version || fallbackVer);
+      return {
+        version,
+        shellVersion: extractVersionFromTag(info?.shellVersion || window.zhouyouDesktop.shellVersion || version),
+        nativeCompat: String(info?.nativeCompat || window.zhouyouDesktop.nativeCompat || '').trim(),
+        mobileCompat: '',
+        hotUpdateVersion: String(info?.hotUpdateVersion || window.zhouyouDesktop.hotUpdateVersion || '').trim(),
+      };
+    } catch {
+      const version = extractVersionFromTag(window.zhouyouDesktop.version || fallbackVer);
+      return {
+        version,
+        shellVersion: extractVersionFromTag(window.zhouyouDesktop.shellVersion || version),
+        nativeCompat: String(window.zhouyouDesktop.nativeCompat || '').trim(),
+        mobileCompat: '',
+        hotUpdateVersion: String(window.zhouyouDesktop.hotUpdateVersion || '').trim(),
+      };
+    }
   }
-  return extractVersionFromTag(typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.0.0');
+  return {
+    version: fallbackVer,
+    shellVersion: fallbackVer,
+    nativeCompat: '',
+    mobileCompat: '',
+    hotUpdateVersion: '',
+  };
+}
+
+export async function getCurrentAppVersion(): Promise<string> {
+  const runtime = await getLocalRuntimeInfo();
+  return runtime.version;
 }
 
 function pickAssetForPlatform(assets: ReleaseAsset[], platform: AppPlatform): ReleaseAsset | null {
@@ -319,13 +398,66 @@ export function summarizeNotes(rawBody: string): string {
   return kept.map((item) => item.text).join('\n');
 }
 
-/** 检查当前平台是否有可更新的新版本。 */
+interface RemoteHotManifest {
+  version?: string;
+  nativeCompat?: string;
+  mobileCompat?: string;
+  bundleFile?: string;
+  bundleSha256?: string;
+  bundleSize?: number;
+}
+
+function buildEdgeDownloadUrl(tag: string, fileName: string): string {
+  if (!tag || !fileName) return '';
+  return `https://zhouyou.online/api/download?tag=${encodeURIComponent(tag)}&file=${encodeURIComponent(fileName)}`;
+}
+
+async function fetchHotUpdateManifest(
+  latest: ReleaseEntry,
+  signal?: AbortSignal,
+): Promise<{ manifest: RemoteHotManifest; zipAsset: ReleaseAsset } | null> {
+  const assets = latest.assets ?? [];
+  const manifestAsset = assets.find((a) => a.name === 'hot-update-manifest.json');
+  if (!manifestAsset) return null;
+
+  const urls = [
+    buildEdgeDownloadUrl(latest.tag_name, manifestAsset.name),
+    manifestAsset.browser_download_url,
+  ].filter(Boolean);
+
+  for (const url of urls) {
+    try {
+      const combined = signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(8000)])
+        : AbortSignal.timeout(8000);
+      const res = await fetch(url, {
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+        signal: combined,
+      });
+      if (!res.ok) continue;
+      const manifest = (await res.json()) as RemoteHotManifest;
+      const zipAsset = assets.find(
+        (a) => (manifest.bundleFile && a.name === manifest.bundleFile) || /-hot-update\.zip$/i.test(a.name),
+      );
+      if (zipAsset && manifest.bundleSha256) {
+        return { manifest, zipAsset };
+      }
+    } catch {
+      /* 尝试下一个清单地址 */
+    }
+  }
+  return null;
+}
+
+/** 检查当前平台是否有可更新的新版本，并自动判定走「极速热更新（方案 B）」还是「底层整包更新（方案 A）」。 */
 export async function checkForAppUpdate(signal?: AbortSignal): Promise<AppUpdateInfo> {
   const platform = detectAppPlatform();
-  const [currentVersion, releases] = await Promise.all([
-    getCurrentAppVersion(),
+  const [runtime, releases] = await Promise.all([
+    getLocalRuntimeInfo(),
     fetchReleasesList(signal),
   ]);
+  const currentVersion = runtime.version;
 
   const latest = selectLatestRelease(releases, platform);
   if (!latest) {
@@ -335,24 +467,78 @@ export async function checkForAppUpdate(signal?: AbortSignal): Promise<AppUpdate
       currentVersion,
       latestVersion: currentVersion,
       hasUpdate: false,
-      canInAppInstall: hasNativeInAppInstaller(),
+      canInAppInstall: false,
+      updateMode: platform === 'web' ? 'web' : 'full-browser',
+      requiresFullUpgrade: false,
       releaseName: `v${currentVersion}`,
       releaseNotes: '',
       releaseUrl: DOWNLOAD_PORTAL_URL,
       publishedAt: '',
       downloadUrl: '',
+      fallbackDownloadUrls: [],
       assetName: '',
       assetSize: 0,
+      hotUpdate: null,
     };
   }
 
   const latestVersion = extractVersionFromTag(latest.tag_name);
-  const asset = pickAssetForPlatform(latest.assets ?? [], platform);
+  const assets = latest.assets ?? [];
+  const asset = pickAssetForPlatform(assets, platform);
+  const shaSumsAsset = assets.find((a) => a.name === 'SHA256SUMS.txt');
   const hasUpdate = compareSemver(latestVersion, currentVersion) > 0;
 
-  const edgeDownloadUrl = latest.tag_name && asset?.name
-    ? `https://zhouyou.online/api/download?tag=${encodeURIComponent(latest.tag_name)}&file=${encodeURIComponent(asset.name)}`
-    : '';
+  const edgeDownloadUrl = asset?.name ? buildEdgeDownloadUrl(latest.tag_name, asset.name) : '';
+  const directDownloadUrl = asset?.browser_download_url || '';
+  const primaryDownloadUrl = edgeDownloadUrl || directDownloadUrl || latest.html_url || DOWNLOAD_PORTAL_URL;
+  const fallbackDownloadUrls = [directDownloadUrl].filter((u) => Boolean(u) && u !== primaryDownloadUrl);
+
+  const sha256Url = shaSumsAsset?.name ? buildEdgeDownloadUrl(latest.tag_name, shaSumsAsset.name) : '';
+  const sha256FallbackUrls = shaSumsAsset?.browser_download_url ? [shaSumsAsset.browser_download_url] : [];
+
+  const isDesktop = platform.startsWith('desktop-');
+  const isAndroidNative = platform === 'android' && Boolean(getCapacitor()?.isNativePlatform?.());
+
+  let hotUpdate: HotUpdatePayload | null = null;
+  let updateMode: AppUpdateMode = platform === 'web'
+    ? 'web'
+    : isDesktop && asset
+      ? 'full-in-app'
+      : 'full-browser';
+  let requiresFullUpgrade = false;
+
+  if (hasUpdate && (isDesktop || isAndroidNative)) {
+    const localCompat = isDesktop ? runtime.nativeCompat : runtime.mobileCompat;
+    const remoteHot = localCompat ? await fetchHotUpdateManifest(latest, signal) : null;
+    if (remoteHot) {
+      const remoteCompat = isDesktop
+        ? String(remoteHot.manifest.nativeCompat || '').trim()
+        : String(remoteHot.manifest.mobileCompat || '').trim();
+      if (localCompat && remoteCompat && localCompat === remoteCompat) {
+        const hotEdgeUrl = buildEdgeDownloadUrl(latest.tag_name, remoteHot.zipAsset.name);
+        const hotDirectUrl = remoteHot.zipAsset.browser_download_url || '';
+        const hotPrimaryUrl = hotEdgeUrl || hotDirectUrl;
+        if (hotPrimaryUrl) {
+          hotUpdate = {
+            url: hotPrimaryUrl,
+            fallbackUrls: [hotDirectUrl].filter((u) => Boolean(u) && u !== hotPrimaryUrl),
+            fileName: remoteHot.zipAsset.name,
+            sha256: String(remoteHot.manifest.bundleSha256 || '').trim().toLowerCase(),
+            size: Number(remoteHot.manifest.bundleSize || remoteHot.zipAsset.size || 0),
+            compat: remoteCompat,
+          };
+          updateMode = 'hot';
+        }
+      } else {
+        // 远端和本机的底层兼容指纹不一致，说明包含底层大改动，必须装一次整包
+        requiresFullUpgrade = true;
+      }
+    } else if (localCompat) {
+      requiresFullUpgrade = true;
+    }
+  }
+
+  const canInAppInstall = updateMode === 'hot' || updateMode === 'full-in-app' || updateMode === 'web';
 
   return {
     platform,
@@ -360,24 +546,36 @@ export async function checkForAppUpdate(signal?: AbortSignal): Promise<AppUpdate
     currentVersion,
     latestVersion,
     hasUpdate,
-    canInAppInstall: hasNativeInAppInstaller() && Boolean(asset?.browser_download_url),
+    canInAppInstall,
+    updateMode,
+    requiresFullUpgrade,
     releaseName: latest.name || latest.tag_name,
     releaseNotes: summarizeNotes(latest.body || ''),
     releaseUrl: latest.html_url || DOWNLOAD_PORTAL_URL,
     publishedAt: latest.published_at || '',
-    downloadUrl: edgeDownloadUrl || asset?.browser_download_url || latest.html_url || DOWNLOAD_PORTAL_URL,
+    downloadUrl: primaryDownloadUrl,
+    fallbackDownloadUrls,
+    sha256Url: sha256Url || undefined,
+    sha256FallbackUrls,
     assetName: asset?.name || '',
     assetSize: asset?.size || 0,
+    hotUpdate,
   };
 }
 
-/** 触发更新：网页 PWA 直接刷新 Service Worker 缓存重载；手机端与桌面端统一由系统浏览器安全下载新版安装包。 */
+/**
+ * 触发更新：
+ * - 方案 B（hot）：电脑桌面端与 Android 手机端直接应用内下载几 MB 前端包 → SHA-256 校验 → 无感重载；
+ * - 方案 A（full-in-app）：电脑桌面端遇到底层大改动时，应用内直接流式下载安装包 + SHA-256 校验并拉起安装（不经过 Edge 浏览器）；
+ * - 浏览器兜底（full-browser）：Android 底层大改动下载新版 APK、iOS 下载 IPA；
+ * - 网页 PWA（web）：刷新 Service Worker 缓存并重载。
+ */
 export async function installAppUpdate(
   info: AppUpdateInfo,
-  _onProgress: (progress: AppUpdateProgress) => void,
-): Promise<{ ok: boolean; cancelled?: boolean; fallbackOpened?: boolean; error?: string }> {
-  // 1. 网页 PWA：主动刷新 Service Worker、清理旧页面壳缓存并重载到最新版本
-  if (info.platform === 'web') {
+  onProgress: (progress: AppUpdateProgress) => void,
+): Promise<{ ok: boolean; mode?: AppUpdateMode; cancelled?: boolean; fallbackOpened?: boolean; error?: string }> {
+  // 1. 网页 PWA
+  if (info.platform === 'web' || info.updateMode === 'web') {
     try {
       if ('serviceWorker' in navigator) {
         const regs = await navigator.serviceWorker.getRegistrations();
@@ -391,20 +589,114 @@ export async function installAppUpdate(
       /* 忽略 SW 清理异常 */
     }
     window.location.reload();
-    return { ok: true };
+    return { ok: true, mode: 'web' };
   }
 
-  // 2. 电脑桌面版与手机端：统一交由系统默认浏览器安全下载新版安装包，避免安全软件误报
+  // 2. 方案 B：应用内极速热更新（桌面端 + Android 手机端）
+  if (info.updateMode === 'hot' && info.hotUpdate) {
+    if (window.zhouyouDesktop?.applyHotUpdate) {
+      const dispose = window.zhouyouDesktop.onUpdateProgress?.((p) => {
+        onProgress({
+          state: p.state,
+          percent: p.percent ?? 0,
+          receivedBytes: p.receivedBytes ?? 0,
+          totalBytes: p.totalBytes ?? info.hotUpdate?.size ?? 0,
+          error: p.error,
+        });
+      });
+      try {
+        const res = await window.zhouyouDesktop.applyHotUpdate({
+          url: info.hotUpdate.url,
+          fallbackUrls: info.hotUpdate.fallbackUrls,
+          version: info.latestVersion,
+          nativeCompat: info.hotUpdate.compat,
+          sha256: info.hotUpdate.sha256,
+        });
+        if (res?.cancelled) return { ok: false, cancelled: true };
+        if (res?.ok) return { ok: true, mode: 'hot' };
+        return { ok: false, error: res?.error || '热更新失败' };
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : String(error) };
+      } finally {
+        dispose?.();
+      }
+    }
+
+    const cap = getCapacitor();
+    if (cap?.isNativePlatform?.() && cap.Plugins?.AppUpdater?.applyHotUpdate) {
+      let handle: { remove: () => Promise<void> } | null = null;
+      if (cap.Plugins.AppUpdater.addListener) {
+        handle = await cap.Plugins.AppUpdater.addListener('updateProgress', (p) => {
+          onProgress({
+            state: (p.state as AppUpdateProgress['state']) || 'downloading',
+            percent: p.percent ?? 0,
+            receivedBytes: p.receivedBytes ?? 0,
+            totalBytes: p.totalBytes ?? info.hotUpdate?.size ?? 0,
+            error: p.error,
+          });
+        });
+      }
+      try {
+        const res = await cap.Plugins.AppUpdater.applyHotUpdate({
+          url: info.hotUpdate.url,
+          fallbackUrls: info.hotUpdate.fallbackUrls,
+          version: info.latestVersion,
+          mobileCompat: info.hotUpdate.compat,
+          sha256: info.hotUpdate.sha256,
+        });
+        if (res?.cancelled) return { ok: false, cancelled: true };
+        if (res?.ok) return { ok: true, mode: 'hot' };
+        return { ok: false, error: res?.error || '热更新失败' };
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : String(error) };
+      } finally {
+        await handle?.remove().catch(() => {});
+      }
+    }
+  }
+
+  // 3. 方案 A：桌面端底层大改动，应用内直接流式下载安装包 + SHA-256 校验并启动安装（不经过浏览器）
   const targetUrl = info.downloadUrl || info.releaseUrl || DOWNLOAD_PORTAL_URL;
+  if (info.updateMode === 'full-in-app' && window.zhouyouDesktop?.downloadAndInstallUpdate) {
+    const dispose = window.zhouyouDesktop.onUpdateProgress?.((p) => {
+      onProgress({
+        state: p.state,
+        percent: p.percent ?? 0,
+        receivedBytes: p.receivedBytes ?? 0,
+        totalBytes: p.totalBytes ?? info.assetSize ?? 0,
+        error: p.error,
+      });
+    });
+    try {
+      const res = await window.zhouyouDesktop.downloadAndInstallUpdate({
+        url: targetUrl,
+        fallbackUrls: info.fallbackDownloadUrls,
+        fileName: info.assetName || 'Zhouyou-Map-update.exe',
+        version: info.latestVersion,
+        sha256Url: info.sha256Url,
+        sha256FallbackUrls: info.sha256FallbackUrls,
+      });
+      if (res?.cancelled) return { ok: false, cancelled: true };
+      if (res?.ok) return { ok: true, mode: 'full-in-app', fallbackOpened: Boolean(res.fallbackOpened) };
+      return { ok: false, error: res?.error || '下载安装包失败' };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    } finally {
+      dispose?.();
+    }
+  }
+
+  // 4. 浏览器下载兜底（Android 底层大改动安装新版 APK / iOS IPA / 旧版桌面端）
   if (window.zhouyouDesktop?.downloadAndInstallUpdate) {
     try {
       const res = await window.zhouyouDesktop.downloadAndInstallUpdate({
         url: targetUrl,
         fileName: info.assetName || 'zhouyou-update',
         version: info.latestVersion,
+        openInBrowser: true,
       });
       if (!res || res.ok !== false) {
-        return { ok: true, fallbackOpened: true };
+        return { ok: true, mode: 'full-browser', fallbackOpened: true };
       }
     } catch {
       /* 回退到 window.open */
@@ -413,13 +705,13 @@ export async function installAppUpdate(
   if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('NativeAiBridge')) {
     try {
       await NativeAiBridgeForBrowser.openExternalUrl({ url: targetUrl });
-      return { ok: true, fallbackOpened: true };
+      return { ok: true, mode: 'full-browser', fallbackOpened: true };
     } catch {
       /* 回退到 window.open */
     }
   }
   window.open(targetUrl, '_blank', 'noopener,noreferrer');
-  return { ok: true, fallbackOpened: true };
+  return { ok: true, mode: 'full-browser', fallbackOpened: true };
 }
 
 export async function cancelAppUpdateDownload(): Promise<void> {

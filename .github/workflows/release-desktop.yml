@@ -113,9 +113,31 @@ jobs:
           name: desktop-linux
           path: dist-artifacts/*
 
+  build-hot-update:
+    name: Desktop · Hot Update Bundle
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
+      - run: npm run build:hot-update
+      - run: |
+          mkdir -p dist-artifacts
+          cp release/hot-update-manifest.json release/*-hot-update.zip dist-artifacts/
+          ls -lh dist-artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-hot-update
+          path: dist-artifacts/*
+
   publish-desktop-release:
     name: Publish Desktop GitHub Release
-    needs: [prepare, build-windows, build-macos, build-linux]
+    needs: [prepare, build-windows, build-macos, build-linux, build-hot-update]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
