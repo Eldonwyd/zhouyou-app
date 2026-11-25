@@ -101,7 +101,11 @@ export const onRequest = withApiHandler(async (context) => {
       return errorResponse(request, 400, '密码长度需在 6 到 72 位之间', 'INVALID_PASSWORD');
     }
 
-    const nicknameParsed = normalizeNickname(body.nickname);
+    const friendCode = await allocateFriendCode(db);
+    const rawNickname = String(body.nickname || '').trim();
+    const nicknameParsed = rawNickname
+      ? normalizeNickname(rawNickname)
+      : normalizeNickname(`旅人${friendCode.replace(/^ZY-/i, '')}`);
     if (!nicknameParsed) {
       return errorResponse(request, 400, '请设置 2-18 位有效昵称（不含特殊引号或斜杠）', 'INVALID_NICKNAME');
     }
@@ -129,7 +133,6 @@ export const onRequest = withApiHandler(async (context) => {
     }
 
     const userId = createId('usr');
-    const friendCode = await allocateFriendCode(db);
     const pwd = await hashSecret(password);
     const sec = await hashSecret(securityAnswerNorm);
     const now = nowIso();
