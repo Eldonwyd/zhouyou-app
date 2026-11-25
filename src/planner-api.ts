@@ -2,7 +2,14 @@ import { plannerApiUrl } from './api-base';
 import { cachePlannerResponsePhotos } from './planner-photo-cache';
 import { readLanguage } from './i18n';
 import { isWebTourMode } from './web-tour';
-import { handleMobilePlannerApi, isMobileNativeAiActive, recordAiUsage } from './mobile-ai-runtime';
+import {
+  FREE_TRIAL_PROVIDER_ID,
+  handleMobilePlannerApi,
+  isDesktopFreeTrialEnabled,
+  isMobileNativeAiActive,
+  recordAiUsage,
+  setDesktopFreeTrialEnabled,
+} from './mobile-ai-runtime';
 
 const USAGE_TRACKED_ENDPOINTS = new Set(['generate', 'chat', 'recommendations', 'duration', 'tickets', 'packing', 'transfers']);
 
@@ -19,6 +26,23 @@ export async function plannerApi<T>(
       : '在线体验模式暂不支持 AI 调用，请下载电脑桌面版或手机客户端解锁完整 AI 规划与离线 OCR。');
   }
   if (isMobileNativeAiActive()) {
+    return handleMobilePlannerApi<T>(endpoint, body, signal, onProgress);
+  }
+  // 桌面端切换使用「周游免费体验 AI」时，走云端免费通道；切回本地其他模型时关闭免费标记
+  if (endpoint === 'ai-switch' && body && typeof body === 'object') {
+    const prov = String((body as Record<string, unknown>).provider || '');
+    if (prov === FREE_TRIAL_PROVIDER_ID) {
+      setDesktopFreeTrialEnabled(true);
+      return handleMobilePlannerApi<T>(endpoint, body, signal, onProgress);
+    }
+    setDesktopFreeTrialEnabled(false);
+  } else if (endpoint === 'ai-settings') {
+    setDesktopFreeTrialEnabled(false);
+  }
+  if (
+    isDesktopFreeTrialEnabled()
+    && (USAGE_TRACKED_ENDPOINTS.has(endpoint) || endpoint === 'ai-test' || endpoint === 'health')
+  ) {
     return handleMobilePlannerApi<T>(endpoint, body, signal, onProgress);
   }
   const url = plannerApiUrl(endpoint);

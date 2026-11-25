@@ -2,6 +2,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import sha256 from 'fast-sha256';
 import { jsonrepair } from 'jsonrepair';
 import { getPlannerApiOrigin } from './api-base';
+import { cloudApi, getCloudOrigin, getCloudToken, type FreeAiQuotaSnapshot } from './cloud-api';
 import {
   addPlannerDays,
   freshPlannerRequest,
@@ -213,11 +214,75 @@ async function transportHttpRequest(options: {
  * ========================================================================== */
 const USAGE_STORAGE_KEY = 'zhouyou-ai-usage-stats-v1';
 export const AI_USAGE_UPDATED_EVENT = 'zhouyou-ai-usage-updated';
+export const FREE_TRIAL_PROVIDER_ID = 'free-trial';
+export const FREE_AI_QUOTA_EVENT = 'zhouyou-free-ai-quota-change';
+const FREE_AI_QUOTA_CACHE_KEY = 'zhouyou-free-ai-quota-cache-v1';
+const DESKTOP_FREE_TRIAL_KEY = 'zhouyou-desktop-free-trial';
+
+let memoryFreeAiQuota: FreeAiQuotaSnapshot | null = null;
+
+export function getCachedFreeAiQuota(): FreeAiQuotaSnapshot | null {
+  if (memoryFreeAiQuota) return memoryFreeAiQuota;
+  try {
+    const raw = localStorage.getItem(FREE_AI_QUOTA_CACHE_KEY);
+    if (!raw) return null;
+    memoryFreeAiQuota = JSON.parse(raw) as FreeAiQuotaSnapshot;
+    return memoryFreeAiQuota;
+  } catch {
+    return null;
+  }
+}
+
+export function setCachedFreeAiQuota(quota: FreeAiQuotaSnapshot | null): void {
+  memoryFreeAiQuota = quota;
+  try {
+    if (quota) localStorage.setItem(FREE_AI_QUOTA_CACHE_KEY, JSON.stringify(quota));
+    else localStorage.removeItem(FREE_AI_QUOTA_CACHE_KEY);
+  } catch {
+    // ignore storage errors
+  }
+  try {
+    window.dispatchEvent(new CustomEvent(FREE_AI_QUOTA_EVENT, { detail: quota }));
+  } catch {
+    // ignore
+  }
+}
+
+export async function refreshFreeAiQuota(): Promise<FreeAiQuotaSnapshot | null> {
+  if (!getCloudToken()) {
+    setCachedFreeAiQuota(null);
+    return null;
+  }
+  try {
+    const res = await cloudApi.getFreeAiQuota();
+    setCachedFreeAiQuota(res.quota);
+    return res.quota;
+  } catch {
+    return getCachedFreeAiQuota();
+  }
+}
+
+export function isDesktopFreeTrialEnabled(): boolean {
+  try {
+    return localStorage.getItem(DESKTOP_FREE_TRIAL_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setDesktopFreeTrialEnabled(enabled: boolean): void {
+  try {
+    if (enabled) localStorage.setItem(DESKTOP_FREE_TRIAL_KEY, '1');
+    else localStorage.removeItem(DESKTOP_FREE_TRIAL_KEY);
+  } catch {
+    // ignore
+  }
+}
 
 export interface ProviderUsageEntry {
   provider: string;
   label: string;
-  authMode: 'api' | 'subscription';
+  authMode: 'api' | 'subscription' | 'free';
   requests: number;
   inputTokens: number;
   outputTokens: number;
@@ -267,7 +332,7 @@ export function readAiUsageStats(): AiUsageStats {
 export function recordAiUsage(entry: {
   provider: string;
   label?: string;
-  authMode?: 'api' | 'subscription';
+  authMode?: 'api' | 'subscription' | 'free';
   model?: string;
   inputTokens?: number;
   outputTokens?: number;
@@ -1342,36 +1407,55 @@ export function buildMobileAiStatus(): MobileAiState {
     });
   }
 
+  const cachedFreeQuota = getCachedFreeAiQuota();
+  const freeModelId = cachedFreeQuota?.model || 'glm-5.3-flash';
+  const freeTrialItem: SavedAiProfile = {
+    id: FREE_TRIAL_PROVIDER_ID,
+    label: '周游免费体验 AI',
+    model: freeModelId,
+    thinking: 'off',
+    thinkingLevels: ['off'],
+    vision: false,
+    search: 'none',
+    authMode: 'free',
+  };
+  saved.push(freeTrialItem);
+
   let activeProvider = store.activeProvider;
   if (!saved.some((item) => item.id === activeProvider)) {
-    activeProvider = saved[0]?.id || 'deepseek';
+    activeProvider = saved[0]?.id || FREE_TRIAL_PROVIDER_ID;
   }
   const activeItem = saved.find((item) => item.id === activeProvider);
   const configured = Boolean(activeItem);
+  const isFreeTrial = activeProvider === FREE_TRIAL_PROVIDER_ID;
   const isSub = activeProvider.startsWith('sub:');
   const activeSub = isSub ? subscriptions.find((s) => s.id === activeProvider) : undefined;
-  const activeApiCfg = !isSub ? store.apiConfigs[activeProvider] : undefined;
-  const activeApiMeta = !isSub ? API_PROVIDERS.find((p) => p.id === activeProvider) : undefined;
-  const activeModel = normalizeModelId(
-    activeProvider,
-    activeSub?.model || activeApiCfg?.model || activeApiMeta?.model || 'deepseek-flash',
-  );
-  const activeModelsList: ModelCatalogItem[] = activeSub?.models || activeApiMeta?.models || [];
+  const activeApiCfg = !isSub && !isFreeTrial ? store.apiConfigs[activeProvider] : undefined;
+  const activeApiMeta = !isSub && !isFreeTrial ? API_PROVIDERS.find((p) => p.id === activeProvider) : undefined;
+  const activeModel = isFreeTrial
+    ? freeModelId
+    : normalizeModelId(
+        activeProvider,
+        activeSub?.model || activeApiCfg?.model || activeApiMeta?.model || 'deepseek-flash',
+      );
+  const activeModelsList: ModelCatalogItem[] = isFreeTrial
+    ? [{ id: freeModelId, name: `${freeModelId}（免费体验）`, vision: false, thinkingLevels: ['off'], latest: true }]
+    : (activeSub?.models || activeApiMeta?.models || []);
   const activeModelMeta = activeModelsList.find((m: ModelCatalogItem) => m.id === activeModel);
 
   return {
     configured,
     provider: activeProvider,
-    authMode: isSub ? 'subscription' : 'api',
+    authMode: isFreeTrial ? 'free' : (isSub ? 'subscription' : 'api'),
     label: activeItem?.label || activeApiMeta?.label || '',
     model: activeModel,
     modelId: activeModel,
     models: activeModelsList,
     baseUrl: activeApiCfg?.baseUrl || activeApiMeta?.baseUrl || '',
-    keyConfigured: Boolean(activeApiCfg?.apiKey),
-    thinking: activeSub?.thinking || activeApiCfg?.thinking || 'low',
-    thinkingLevels: activeModelMeta?.thinkingLevels ?? ['off', 'low', 'medium', 'high'],
-    vision: activeModelMeta?.vision ?? true,
+    keyConfigured: isFreeTrial ? true : Boolean(activeApiCfg?.apiKey),
+    thinking: isFreeTrial ? 'off' : (activeSub?.thinking || activeApiCfg?.thinking || 'low'),
+    thinkingLevels: isFreeTrial ? ['off'] : (activeModelMeta?.thinkingLevels ?? ['off', 'low', 'medium', 'high']),
+    vision: isFreeTrial ? false : (activeModelMeta?.vision ?? true),
     searchAvailable: activeProvider === 'sub:chatgpt',
     searchLabel: activeProvider === 'sub:chatgpt' ? 'ChatGPT 内置联网' : '',
     saved,
@@ -1432,14 +1516,17 @@ async function callMobileModel(
   const status = buildMobileAiStatus();
   const store = loadStore();
   const provider = (override?.provider || '').trim() || status.provider;
+  const isFreeTrial = provider === FREE_TRIAL_PROVIDER_ID;
   const isSub = provider.startsWith('sub:');
   const subKey = isSub ? provider.slice(4) : '';
-  const apiMeta = !isSub ? API_PROVIDERS.find((p) => p.id === provider) : undefined;
+  const apiMeta = !isSub && !isFreeTrial ? API_PROVIDERS.find((p) => p.id === provider) : undefined;
   const subMeta = isSub ? SUB_CATALOG[subKey] : undefined;
-  const savedApiCfg = !isSub ? store.apiConfigs[provider] : undefined;
-  const hasCred = isSub
-    ? Boolean(store.subCreds[subKey]?.access)
-    : Boolean((override?.apiKey || '').trim() || savedApiCfg?.apiKey);
+  const savedApiCfg = !isSub && !isFreeTrial ? store.apiConfigs[provider] : undefined;
+  const hasCred = isFreeTrial
+    ? true
+    : isSub
+      ? Boolean(store.subCreds[subKey]?.access)
+      : Boolean((override?.apiKey || '').trim() || savedApiCfg?.apiKey);
   if (!override && !status.configured) throw new Error('请先在 AI 设置中登录订阅账号或填入 API Key');
   if (!hasCred) {
     throw new Error(
@@ -1449,17 +1536,21 @@ async function callMobileModel(
     );
   }
 
-  const rawModel =
-    (override?.model || '').trim() ||
-    (isSub ? store.subModels[subKey] : savedApiCfg?.model) ||
-    (provider === status.provider ? status.modelId || status.model : '');
-  const modelId = normalizeModelId(provider, rawModel);
-  const thinkingUsed =
-    (override?.thinking || '').trim() ||
-    (isSub ? store.subThinking[subKey] : savedApiCfg?.thinking) ||
-    status.thinking ||
-    'low';
-  const providerLabel = isSub ? `${subMeta?.name ?? subKey} 订阅` : (apiMeta?.label || provider);
+  const rawModel = isFreeTrial
+    ? (getCachedFreeAiQuota()?.model || 'glm-5.3-flash')
+    : (override?.model || '').trim() ||
+      (isSub ? store.subModels[subKey] : savedApiCfg?.model) ||
+      (provider === status.provider ? status.modelId || status.model : '');
+  const modelId = isFreeTrial ? rawModel : normalizeModelId(provider, rawModel);
+  const thinkingUsed = isFreeTrial
+    ? 'off'
+    : (override?.thinking || '').trim() ||
+      (isSub ? store.subThinking[subKey] : savedApiCfg?.thinking) ||
+      status.thinking ||
+      'low';
+  const providerLabel = isFreeTrial
+    ? '周游免费体验 AI'
+    : (isSub ? `${subMeta?.name ?? subKey} 订阅` : (apiMeta?.label || provider));
   const displayLabel = modelId ? `${providerLabel} · ${modelId}` : providerLabel;
   const startedAt = Date.now();
 
@@ -1467,7 +1558,54 @@ async function callMobileModel(
   let inputTokens = 0;
   let outputTokens = 0;
 
-  if (provider === 'sub:chatgpt') {
+  if (isFreeTrial) {
+    const cloudToken = getCloudToken();
+    if (!cloudToken) {
+      throw new Error('请先登录周游账号即可使用免费体验 AI（每日 5 万 / 每月 12 万 tokens），或点击「借用外部免费 AI 导入」零门槛生成');
+    }
+    const cloudOrigin = getCloudOrigin();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let resp: Response;
+    try {
+      resp = await fetch(`${cloudOrigin}/api/free-ai/chat`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${cloudToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          maxTokens,
+        }),
+        signal: controller.signal,
+      });
+    } catch {
+      throw new Error('连接周游免费体验通道超时，请检查网络后重试，或点击「借用外部免费 AI 导入」');
+    } finally {
+      clearTimeout(timer);
+    }
+    const data = (await resp.json().catch(() => ({}))) as {
+      ok?: boolean;
+      content?: string;
+      error?: string;
+      model?: string;
+      usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
+      quota?: FreeAiQuotaSnapshot;
+    };
+    if (data.quota) {
+      setCachedFreeAiQuota(data.quota);
+    }
+    if (!resp.ok || !data.ok) {
+      throw new Error(data.error || `免费体验 AI 请求失败（HTTP ${resp.status}）`);
+    }
+    text = String(data.content || '');
+    inputTokens = Number(data.usage?.promptTokens) || 0;
+    outputTokens = Number(data.usage?.completionTokens) || 0;
+  } else if (provider === 'sub:chatgpt') {
     const cred = await ensureFreshSubCred('chatgpt');
     const headers: Record<string, string> = {
       Authorization: `Bearer ${cred.access}`,
@@ -1611,7 +1749,7 @@ async function callMobileModel(
   recordAiUsage({
     provider,
     label: providerLabel,
-    authMode: isSub ? 'subscription' : 'api',
+    authMode: isFreeTrial ? 'free' : (isSub ? 'subscription' : 'api'),
     model: modelId,
     inputTokens,
     outputTokens,
@@ -1627,7 +1765,7 @@ async function callMobileModel(
   };
 }
 
-function extractJsonObject<T>(raw: string): T {
+export function extractJsonObject<T>(raw: string): T {
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const candidate = (fenced ? fenced[1] : raw).trim();
   const start = candidate.indexOf('{');
@@ -1649,6 +1787,11 @@ export async function handleMobilePlannerApi<T>(
 
   if (endpoint === 'health') {
     return buildMobileAiStatus() as unknown as T;
+  }
+
+  if (endpoint === 'normalize-external') {
+    const raw = (payload.raw && typeof payload.raw === 'object' ? payload.raw : {}) as Record<string, unknown>;
+    return normalizeMobilePlanContent(raw, payload.request) as unknown as T;
   }
 
   if (endpoint === 'ai-settings') {
@@ -1681,7 +1824,10 @@ export async function handleMobilePlannerApi<T>(
   if (endpoint === 'ai-switch') {
     const store = loadStore();
     const prov = String(payload.provider || '');
-    if (prov.startsWith('sub:')) {
+    if (prov === FREE_TRIAL_PROVIDER_ID) {
+      store.activeProvider = FREE_TRIAL_PROVIDER_ID;
+      saveStore(store);
+    } else if (prov.startsWith('sub:')) {
       const key = prov.slice(4);
       if (store.subCreds[key]?.access) {
         store.activeProvider = prov;

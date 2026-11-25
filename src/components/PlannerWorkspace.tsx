@@ -17,6 +17,7 @@ import { applyBookingToPlan, bookingArrivalDate, bookingConnectionTimes, emptyBo
 import { TravelIcon } from './TravelArt';
 import { CuteTransportIcon, DirectTransferBridge, GapTransferConnector, TransferBridgeCard, TransferOptionRow } from './PlannerTransferConnector';
 import PlannerXhsImporter, { type XhsParseResponse } from './PlannerXhsImporter';
+import PlannerExternalAiImporter from './PlannerExternalAiImporter';
 import CityGuideLinks from './CityGuideLinks';
 import { exportOfflineRoadbook } from '../planner-html-export';
 import {
@@ -1027,6 +1028,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
   const [aiBackendOffline, setAiBackendOffline] = useState(false);
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
+  const [externalAiOpen, setExternalAiOpen] = useState(false);
   const [editing, setEditing] = useState<{
     dayIndex: number;
     activity: PlannerActivity;
@@ -1781,6 +1783,65 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
   function editActivity(activity: PlannerActivity, dayIndex: number) {
     setEditing({ dayIndex, activity, isNew: false });
   }
+  async function moveActivity(dayIndex: number, activityId: string, direction: -1 | 1) {
+    if (!activePlan || busy) return;
+    const content = structuredClone(activePlan.content);
+    const day = content.days[dayIndex];
+    if (!day) return;
+    const idx = day.activities.findIndex((item) => item.id === activityId);
+    const targetIdx = idx + direction;
+    if (idx < 0 || targetIdx < 0 || targetIdx >= day.activities.length) return;
+    const current = day.activities[idx];
+    const neighbor = day.activities[targetIdx];
+    if (current.locked || neighbor.locked) return;
+    // 交换时间段与顺序，使按时间排序后顺序稳定生效
+    const prevStart = current.startTime;
+    const prevEnd = current.endTime;
+    const prevPeriod = current.period;
+    current.startTime = neighbor.startTime;
+    current.endTime = neighbor.endTime;
+    current.period = neighbor.period;
+    neighbor.startTime = prevStart;
+    neighbor.endTime = prevEnd;
+    neighbor.period = prevPeriod;
+    day.activities[idx] = neighbor;
+    day.activities[targetIdx] = current;
+    try {
+      validatePlannerContent(content);
+      await commit(content, direction < 0 ? '手动上移活动顺序' : '手动下移活动顺序');
+    } catch (failure) {
+      report(failure);
+    }
+  }
+  async function handleExternalAiImported(result: { content: PlannerContent }) {
+    validatePlannerContent(result.content);
+    const now = new Date().toISOString();
+    let plan: AiTravelPlan = {
+      id: createLocalId(),
+      version: 1,
+      contentVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+      linkedTripId: null,
+      linkedSnapshot: null,
+      content: result.content,
+      messages: [],
+      history: [],
+    };
+    for (const booking of draftBookings) plan = applyBookingToPlan(plan, booking, { updatePlan: true });
+    if (draftBookings.length) {
+      plan = { ...plan, version: 1, contentVersion: 1, history: [] };
+      validatePlannerContent(plan.content);
+    }
+    await props.onSaveAi(plan, null);
+    setDraftBookings([]);
+    setActiveId(plan.id);
+    setCreating(false);
+    setDurations([]);
+    setError('');
+    setTab('itineraries');
+    props.onNotice('已通过外部免费 AI 导入行程！现在可自由手动编辑、拉群协作、投票与记 AA 账。');
+  }
   async function saveActivity(activity: PlannerActivity) {
     if (!editing || !activePlan) return;
     const content = structuredClone(activePlan.content);
@@ -2135,6 +2196,14 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
         />,
         document.body,
       )}
+      {externalAiOpen && createPortal(
+        <PlannerExternalAiImporter
+          request={request}
+          onClose={() => setExternalAiOpen(false)}
+          onImported={handleExternalAiImported}
+        />,
+        document.body,
+      )}
       {busy && createPortal(
         <div className="planner-status" role="status">
           <span className="planner-spinner" />
@@ -2161,6 +2230,11 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
           {lastTask && !busy && (
             <button className="text-button" onClick={() => void lastTask()}>
               重试上次 AI 请求
+            </button>
+          )}
+          {!busy && /额度|免费体验|API|登录/.test(error) && (
+            <button className="text-button" onClick={() => setExternalAiOpen(true)}>
+              借用外部免费 AI 导入
             </button>
           )}
         </div>
@@ -2502,15 +2576,28 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                       </details>
                     }
                   />
-                  <button className="primary" type="submit">
-                    {xhsDraft.trim()
-                      ? '读取小红书并规划'
-                      : !request.destination.trim()
-                        ? '让 AI 推荐目的地'
-                        : request.days || request.endDate
-                          ? (aiStatus?.searchAvailable === false ? 'AI 生成旅行计划' : '联网生成旅行计划')
-                          : '先让 AI 建议玩几天'}
-                  </button>
+                  <div className="heading-actions" style={{ flexWrap: 'wrap', gap: 10 }}>
+                    <button className="primary" type="submit">
+                      {xhsDraft.trim()
+                        ? '读取小红书并规划'
+                        : !request.destination.trim()
+                          ? '让 AI 推荐目的地'
+                          : request.days || request.endDate
+                            ? (aiStatus?.searchAvailable === false ? 'AI 生成旅行计划' : '联网生成旅行计划')
+                            : '先让 AI 建议玩几天'}
+                    </button>
+                    {!webTourMode && (
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={busy}
+                        onClick={() => setExternalAiOpen(true)}
+                        title="复制提示词去豆包 / DeepSeek / Kimi / 腾讯元宝免费生成，再粘贴一键导入"
+                      >
+                        ✨ 借用外部免费 AI 生成（0 成本）
+                      </button>
+                    )}
+                  </div>
                 </fieldset>
               </form>
               {durations.length > 0 && (
@@ -2988,6 +3075,28 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                                     >
                                       {booking ? '编辑预订' : '编辑'}
                                     </button>
+                                    {!booking && !activity.locked && (
+                                      <>
+                                        <button
+                                          className="text-button"
+                                          disabled={busy || day.activities.findIndex((item) => item.id === activity.id) <= 0}
+                                          title="手动上移顺序（无需 AI）"
+                                          aria-label="上移顺序"
+                                          onClick={() => void moveActivity(dayIndex, activity.id, -1)}
+                                        >
+                                          ↑
+                                        </button>
+                                        <button
+                                          className="text-button"
+                                          disabled={busy || day.activities.findIndex((item) => item.id === activity.id) >= day.activities.length - 1}
+                                          title="手动下移顺序（无需 AI）"
+                                          aria-label="下移顺序"
+                                          onClick={() => void moveActivity(dayIndex, activity.id, 1)}
+                                        >
+                                          ↓
+                                        </button>
+                                      </>
+                                    )}
                                     <button
                                       className="text-button"
                                       disabled={busy || activity.locked || Boolean(booking)}

@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getPlannerApiOrigin, setPlannerApiOrigin } from '../api-base';
+import { CLOUD_AUTH_EVENT, getCloudToken, type FreeAiQuotaSnapshot } from '../cloud-api';
+import {
+  FREE_AI_QUOTA_EVENT,
+  FREE_TRIAL_PROVIDER_ID,
+  getCachedFreeAiQuota,
+  refreshFreeAiQuota,
+} from '../mobile-ai-runtime';
 import { plannerApi } from '../planner-api';
 
 export interface ModelCatalogItem {
@@ -65,14 +72,14 @@ export interface SavedAiProfile {
   thinkingLevels?: string[];
   vision?: boolean;
   search: 'direct' | 'citation' | 'none';
-  authMode?: 'subscription' | 'api';
+  authMode?: 'subscription' | 'api' | 'free';
 }
 
 /** 页面外部显示用的 AI 状态（来自 health 或保存/切换的返回）。 */
 export interface AiStatus {
   configured: boolean;
   provider: string;
-  authMode?: 'subscription' | 'api';
+  authMode?: 'subscription' | 'api' | 'free';
   label?: string;
   model?: string;
   modelId?: string;
@@ -633,6 +640,58 @@ function ThinkingLevelSelector({
 }
 
 /** 页面顶部的 AI 控制坞：清爽呈现当前服务与状态，并支持直接切换模型、调节思考强度。 */
+function formatTokenAmount(tokens: number): string {
+  const n = Math.max(0, Math.round(Number(tokens) || 0));
+  if (n >= 10000) {
+    const wan = n / 10000;
+    return Number.isInteger(wan) ? `${wan}万` : `${wan.toFixed(1)}万`;
+  }
+  return n.toLocaleString('zh-CN');
+}
+
+function useFreeAiQuota(autoFetch = true) {
+  const [quota, setQuota] = useState<FreeAiQuotaSnapshot | null>(() => getCachedFreeAiQuota());
+  const [loggedIn, setLoggedIn] = useState<boolean>(() => Boolean(getCloudToken()));
+  const [loading, setLoading] = useState(false);
+
+  const reload = useCallback(async () => {
+    const hasToken = Boolean(getCloudToken());
+    setLoggedIn(hasToken);
+    if (!hasToken) {
+      setQuota(null);
+      return;
+    }
+    setLoading(true);
+    try {
+      const next = await refreshFreeAiQuota();
+      setQuota(next);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const onQuota = (evt: Event) => {
+      const detail = (evt as CustomEvent<FreeAiQuotaSnapshot | null>).detail;
+      setQuota(detail ?? getCachedFreeAiQuota());
+    };
+    const onAuth = () => {
+      void reload();
+    };
+    window.addEventListener(FREE_AI_QUOTA_EVENT, onQuota);
+    window.addEventListener(CLOUD_AUTH_EVENT, onAuth);
+    if (autoFetch && getCloudToken()) {
+      void reload();
+    }
+    return () => {
+      window.removeEventListener(FREE_AI_QUOTA_EVENT, onQuota);
+      window.removeEventListener(CLOUD_AUTH_EVENT, onAuth);
+    };
+  }, [autoFetch, reload]);
+
+  return { quota, loggedIn, loading, reload };
+}
+
 export function PlannerAiStatusBar({
   status,
   offline = false,
@@ -652,6 +711,8 @@ export function PlannerAiStatusBar({
   const [fallbackCatalog, setFallbackCatalog] = useState<Record<string, ModelCatalogItem[]>>({});
   const [error, setError] = useState('');
   const barRef = useRef<HTMLDivElement | null>(null);
+  const isFreeStatus = status?.provider === FREE_TRIAL_PROVIDER_ID || status?.authMode === 'free';
+  const freeQuotaState = useFreeAiQuota(Boolean(isFreeStatus));
 
   useEffect(() => {
     if (!openMenu) return;
@@ -732,6 +793,7 @@ export function PlannerAiStatusBar({
   const parts = (status.label ?? status.model ?? '').split(' · ');
   const providerName = parts[0] || status.provider;
   const activeModelId = pendingModel ?? (status.modelId || parts[1] || '');
+  const isFreeTrial = status.provider === FREE_TRIAL_PROVIDER_ID || status.authMode === 'free';
   const isSubscription = status.authMode === 'subscription' || status.provider.startsWith('sub:');
   const activeSub = status.subscriptions?.find((item) => item.id === status.provider);
   const thinkingLevels = status.thinkingLevels ?? ['off'];
@@ -884,7 +946,9 @@ export function PlannerAiStatusBar({
                                 {item.model && <span className="ai-dock-option-sub">{item.model}</span>}
                               </span>
                               <span className="ai-dock-option-end">
-                                <span className="ai-dock-mini-tag">{item.authMode === 'subscription' ? '订阅' : 'API'}</span>
+                                <span className="ai-dock-mini-tag">
+                                  {item.authMode === 'free' ? '免费' : item.authMode === 'subscription' ? '订阅' : 'API'}
+                                </span>
                                 {active && <span className="ai-dock-option-check"><CheckSmallIcon /></span>}
                               </span>
                             </button>
@@ -910,26 +974,40 @@ export function PlannerAiStatusBar({
                 <strong>{providerName}</strong>
               )}
               <span className={isSubscription ? 'ai-dock-auth-tag is-sub' : 'ai-dock-auth-tag'}>
-                {isSubscription ? '订阅' : 'API'}
+                {isFreeTrial ? '免费体验' : isSubscription ? '订阅' : 'API'}
               </span>
             </div>
             <div className="ai-dock-subline">
-              <span className={status.searchAvailable ? 'ai-dock-net is-on' : 'ai-dock-net'}>
-                <i className="ai-dock-net-dot" aria-hidden="true" />
-                {status.searchAvailable ? status.searchLabel : '未联网'}
-              </span>
-              {status.vision === false && (
+              {isFreeTrial ? (
+                <span className="ai-dock-meta-item">
+                  {!freeQuotaState.loggedIn
+                    ? '登录周游账号即可免费体验'
+                    : freeQuotaState.quota?.vip
+                      ? 'VIP 无限畅享'
+                      : freeQuotaState.quota
+                        ? `今日余 ${formatTokenAmount(freeQuotaState.quota.daily.remaining)}/${formatTokenAmount(freeQuotaState.quota.daily.limit)} · 本月余 ${formatTokenAmount(freeQuotaState.quota.monthly.remaining)}/${formatTokenAmount(freeQuotaState.quota.monthly.limit)}`
+                        : '每日 5万 / 每月 12万 tokens'}
+                </span>
+              ) : (
                 <>
-                  <span className="ai-dock-sep" aria-hidden="true">·</span>
-                  <span className="ai-dock-meta-item" title="纯文本模型，上传截图时自动使用本机离线 OCR 或借用多模态模型">
-                    OCR 识图
+                  <span className={status.searchAvailable ? 'ai-dock-net is-on' : 'ai-dock-net'}>
+                    <i className="ai-dock-net-dot" aria-hidden="true" />
+                    {status.searchAvailable ? status.searchLabel : '未联网'}
                   </span>
-                </>
-              )}
-              {activeSub?.quota?.status === 'ok' && typeof activeSub.quota.remainingPercent === 'number' && (
-                <>
-                  <span className="ai-dock-sep" aria-hidden="true">·</span>
-                  <span className="ai-dock-meta-item">7天余 {activeSub.quota.remainingPercent}%</span>
+                  {status.vision === false && (
+                    <>
+                      <span className="ai-dock-sep" aria-hidden="true">·</span>
+                      <span className="ai-dock-meta-item" title="纯文本模型，上传截图时自动使用本机离线 OCR 或借用多模态模型">
+                        OCR 识图
+                      </span>
+                    </>
+                  )}
+                  {activeSub?.quota?.status === 'ok' && typeof activeSub.quota.remainingPercent === 'number' && (
+                    <>
+                      <span className="ai-dock-sep" aria-hidden="true">·</span>
+                      <span className="ai-dock-meta-item">7天余 {activeSub.quota.remainingPercent}%</span>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -1108,6 +1186,7 @@ export default function PlannerAiSettings({
   const [cardNotice, setCardNotice] = useState<Record<string, { ok: boolean; text: string }>>({});
   const [speedResults, setSpeedResults] = useState<Record<string, SpeedResult>>({});
   const [busyKey, setBusyKey] = useState('');
+  const freeQuota = useFreeAiQuota(true);
 
   // API 面板表单状态
   const [apiProvider, setApiProvider] = useState('deepseek');
@@ -1772,6 +1851,93 @@ export default function PlannerAiSettings({
         ) : null}
 
         <div className="neo-provider-stack">
+          {/* 平台免费体验 AI 卡片 */}
+          <article
+            className={`neo-provider-card${state?.provider === FREE_TRIAL_PROVIDER_ID ? ' is-active is-connected' : ''}`}
+            style={{ padding: '14px 16px' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <strong>✨ 周游免费体验 AI</strong>
+                  <span className="neo-status-text">
+                    {freeQuota.quota?.model || 'glm-5.3-flash'}
+                  </span>
+                  {freeQuota.quota?.vip && <span className="neo-cap-pill is-ok">VIP 无限畅享</span>}
+                </div>
+                <p className="muted" style={{ margin: '4px 0 0', fontSize: 12 }}>
+                  无需自备 API Key，登录周游账号即可直接生成与修改旅行攻略（按实际 Token 扣减，报错不扣）。
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {freeQuota.loggedIn && (
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={freeQuota.loading}
+                    onClick={() => void freeQuota.reload()}
+                  >
+                    {freeQuota.loading ? '刷新中…' : '↻ 刷新额度'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={state?.provider === FREE_TRIAL_PROVIDER_ID ? 'secondary' : 'primary'}
+                  disabled={Boolean(busyKey) || state?.provider === FREE_TRIAL_PROVIDER_ID}
+                  onClick={() => {
+                    setBusyKey('switch:free-trial');
+                    void switchAiProvider(FREE_TRIAL_PROVIDER_ID)
+                      .then((next) => {
+                        setState((prev) => (prev ? { ...prev, ...next } : prev));
+                        onSaved(next);
+                      })
+                      .catch((err) => setGlobalError(err instanceof Error ? err.message : '切换失败'))
+                      .finally(() => setBusyKey(''));
+                  }}
+                >
+                  {state?.provider === FREE_TRIAL_PROVIDER_ID ? '当前正在使用 ✓' : '使用免费体验 AI'}
+                </button>
+              </div>
+            </div>
+            <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+              {(() => {
+                const dailyLimit = freeQuota.quota?.daily.limit ?? 50000;
+                const dailyRem = freeQuota.quota?.daily.remaining ?? dailyLimit;
+                const monthlyLimit = freeQuota.quota?.monthly.limit ?? 120000;
+                const monthlyRem = freeQuota.quota?.monthly.remaining ?? monthlyLimit;
+                const dailyPct = Math.max(0, Math.min(100, Math.round((dailyRem / Math.max(1, dailyLimit)) * 100)));
+                const monthlyPct = Math.max(0, Math.min(100, Math.round((monthlyRem / Math.max(1, monthlyLimit)) * 100)));
+                return (
+                  <>
+                    <div style={{ fontSize: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span>今日剩余额度（0 点刷新）</span>
+                        <strong>{freeQuota.quota?.vip ? '无限' : `${formatTokenAmount(dailyRem)} / ${formatTokenAmount(dailyLimit)}`}</strong>
+                      </div>
+                      <div style={{ height: 6, borderRadius: 999, background: 'rgba(128,128,128,0.18)', overflow: 'hidden' }}>
+                        <div style={{ width: `${freeQuota.quota?.vip ? 100 : dailyPct}%`, height: '100%', background: 'var(--accent, #2e7d32)' }} />
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span>本月剩余额度（1 日刷新）</span>
+                        <strong>{freeQuota.quota?.vip ? '无限' : `${formatTokenAmount(monthlyRem)} / ${formatTokenAmount(monthlyLimit)}`}</strong>
+                      </div>
+                      <div style={{ height: 6, borderRadius: 999, background: 'rgba(128,128,128,0.18)', overflow: 'hidden' }}>
+                        <div style={{ width: `${freeQuota.quota?.vip ? 100 : monthlyPct}%`, height: '100%', background: 'var(--accent, #2e7d32)' }} />
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+            {!freeQuota.loggedIn && (
+              <p className="muted" style={{ margin: '8px 0 0', fontSize: 12 }}>
+                提示：请先在「个人中心」登录周游账号后即可启用免费额度；未登录也可使用「借用外部免费 AI 导入」零成本生成。
+              </p>
+            )}
+          </article>
+
           {subscriptions.map((sub) => {
             const isExpanded = expandedCard === sub.id;
             const session = sessions[sub.key];

@@ -59,6 +59,33 @@ export interface CloudQuota {
   maxBytes: number;
 }
 
+export interface FreeAiQuotaSnapshot {
+  enabled: boolean;
+  label: string;
+  model: string;
+  vip: boolean;
+  dayKey: string;
+  monthKey: string;
+  daily: {
+    used: number;
+    limit: number;
+    remaining: number;
+    requests: number;
+  };
+  monthly: {
+    used: number;
+    limit: number;
+    remaining: number;
+    requests: number;
+  };
+  site: {
+    used: number;
+    limit: number;
+    remaining: number;
+    exhausted: boolean;
+  };
+}
+
 export interface FriendItem {
   friendshipId: string;
   since: string;
@@ -596,5 +623,10 @@ export const cloudApi = {
       plan: AiTravelPlan;
       message: string;
     }>(`/api/share/${encodeURIComponent(code)}/accept`, { method: 'POST' });
+  },
+
+  // ---- Platform Free Trial AI ----
+  getFreeAiQuota() {
+    return cloudRequest<{ ok: true; quota: FreeAiQuotaSnapshot }>('/api/free-ai/quota');
   },
 };
