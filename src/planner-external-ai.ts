@@ -125,6 +125,7 @@ export function buildExternalAiPrompt(request: PlannerRequest): string {
     '3. 每天安排 4~6 个活动（kind 只能是 "sight" | "meal" | "transfer" | "rest" | "shopping" | "lodging"），时间按先后顺序排列且不重叠。',
     '4. 每个 sight 景点的 description 控制在 25~55 字内，若是国家 4A/5A 景区请注明（如“国家5A级景区 · ...”）。',
     '5. costs 里的 category 只能是 "tickets" | "food" | "transport" | "lodging" | "shopping" | "other"，unit 只能是 "person" | "room" | "vehicle" | "group"。',
+    '6. 请在 unvisitedHighlights 中列出 4~6 个目的地非常热门、但本次行程尚未去到的景点（字段：title、city、grade 如 5A/4A 或空串、feature 15字内一句话特色、location 所在区或具体地址）。',
     '',
     '【JSON 格式示例（请严格按此字段结构输出）】',
     '```json',

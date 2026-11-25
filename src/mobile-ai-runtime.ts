@@ -28,6 +28,7 @@ import type {
   PlannerSource,
   PlannerTransferModeKind,
   PlannerTransferOption,
+  UnvisitedPopularSight,
 } from './planner-types';
 import type { JourneyCity } from './types';
 import type {
@@ -2407,18 +2408,11 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
     }))
     .filter((item) => Boolean(item.title));
 
-  const rawUnvisited = Array.isArray(raw.unvisitedHighlights) ? raw.unvisitedHighlights : [];
-  const unvisitedHighlights = rawUnvisited
-    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
-    .map((item) => ({
-      title: String(item.title ?? item.name ?? '').trim(),
-      city: String(item.city ?? primaryCity).trim() || primaryCity,
-      grade: typeof item.grade === 'string' ? item.grade.trim() : '',
-      feature: String(item.feature ?? item.reason ?? item.description ?? '').trim(),
-      location: String(item.location ?? item.address ?? item.title ?? '').trim(),
-    }))
-    .filter((item) => Boolean(item.title))
-    .slice(0, 8);
+  const unvisitedHighlights = normalizeMobileUnvisitedHighlights(
+    raw.unvisitedHighlights,
+    primaryCity,
+    days,
+  );
 
   const toStringList = (v: unknown): string[] =>
     Array.isArray(v) ? v.map((item) => String(item ?? '').trim()).filter(Boolean) : [];
@@ -2444,6 +2438,58 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
   }
   validatePlannerContent(filled);
   return filled;
+}
+
+function normalizeMobileUnvisitedHighlights(
+  rawList: unknown,
+  fallbackCity: string,
+  days: PlannerDay[] = [],
+): UnvisitedPopularSight[] {
+  if (!Array.isArray(rawList)) return [];
+  const normName = (value: unknown) =>
+    String(value ?? '')
+      .toLowerCase()
+      .replace(/[\s·\-—_()（）【】「」《》,，.。]/g, '')
+      .replace(/(?:国家)?[45]a级?(?:旅游)?(?:景区|景点)?/gi, '')
+      .replace(/(?:风景区|旅游区|景区|公园|博物馆|遗址|故居|古镇|古城)$/g, '');
+  const scheduled = new Set<string>();
+  for (const day of days) {
+    for (const act of Array.isArray(day.activities) ? day.activities : []) {
+      const t = normName(act.title);
+      if (t.length >= 2) scheduled.add(t);
+    }
+  }
+  const seen = new Set<string>();
+  const result: UnvisitedPopularSight[] = [];
+  for (const item of rawList) {
+    if (!item || typeof item !== 'object') continue;
+    const rec = item as Record<string, unknown>;
+    const title = String(rec.title ?? rec.name ?? '').trim();
+    if (!title) continue;
+    const key = normName(title);
+    if (!key || seen.has(key)) continue;
+    let alreadyScheduled = false;
+    for (const s of scheduled) {
+      if (s === key || (s.length >= 3 && key.length >= 3 && (s.includes(key) || key.includes(s)))) {
+        alreadyScheduled = true;
+        break;
+      }
+    }
+    if (alreadyScheduled) continue;
+    seen.add(key);
+    const rawGrade = String(rec.grade ?? rec.level ?? '').trim().toUpperCase();
+    const gradeMatch = rawGrade.match(/([345]A)/);
+    const grade = gradeMatch ? gradeMatch[1] : rawGrade.slice(0, 12);
+    result.push({
+      title,
+      city: String(rec.city ?? fallbackCity).trim() || fallbackCity,
+      grade,
+      feature: String(rec.feature ?? rec.highlight ?? rec.reason ?? rec.description ?? '').trim().slice(0, 60),
+      location: String(rec.location ?? rec.address ?? title).trim().slice(0, 80),
+    });
+    if (result.length >= 8) break;
+  }
+  return result;
 }
 
 function normalizeMobileRecommendations(raw: Record<string, unknown>): {
@@ -2956,6 +3002,14 @@ async function locateSingleMobilePlace(place: { key: string; name: string; city?
       if (parsed.action === 'revision' && parsed.content && plan?.content?.request) {
         try {
           const normalized = normalizeMobilePlanContent(parsed.content, plan.content.request);
+          if (!normalized.unvisitedHighlights?.length && plan.content.unvisitedHighlights?.length) {
+            const carried = normalizeMobileUnvisitedHighlights(
+              plan.content.unvisitedHighlights,
+              normalized.cities?.[0]?.name || plan.content.request.destination || '',
+              normalized.days,
+            );
+            if (carried.length) normalized.unvisitedHighlights = carried;
+          }
           return {
             action: 'revision',
             summary: String(parsed.summary || '已按要求调整行程'),
@@ -3058,6 +3112,34 @@ async function locateSingleMobilePlace(place: { key: string; name: string; city?
     const res = await callMobileModel(sys, `${rule}\n路段：${JSON.stringify(cleanLegs)}`, { maxTokens: 3500 });
     const raw = extractJsonObject<Record<string, unknown>>(res.text);
     return normalizeMobileTransfers(raw, new Set(cleanLegs.map((l) => String(l.key))), selfDrive) as unknown as T;
+  }
+
+  if (endpoint === 'unvisited') {
+    onProgress('整理未去热门景点…');
+    const plan = payload.plan as AiTravelPlan | undefined;
+    const content = plan?.content;
+    if (!content || !Array.isArray(content.days) || !content.days.length) {
+      throw new Error('缺少有效行程内容');
+    }
+    const cities = (Array.isArray(content.cities) ? content.cities : [])
+      .map((item) => item?.name)
+      .filter(Boolean);
+    const destination = cities.join('、') || content.request?.destination || '';
+    const visited = content.days
+      .flatMap((day) => (Array.isArray(day.activities) ? day.activities : []))
+      .filter((act) => act?.kind === 'sight' || act?.kind === 'food')
+      .map((act) => act.title)
+      .filter(Boolean);
+    const alternatives = (Array.isArray(content.alternatives) ? content.alternatives : [])
+      .map((item) => item?.title)
+      .filter(Boolean);
+    const sys = '你是中文旅行规划师。请严格返回合法 JSON 对象：{"items":[{"title":"景点名","city":"所在城市","grade":"5A或4A或空串","feature":"12~20字核心特色","location":"所在区县或具体地址（方便高德地图搜索定位）"}]}。不要输出 Markdown 或其他多余文本。';
+    const userMsg = `目的地：${destination}\n本次行程已安排的活动：${JSON.stringify(visited)}\n备用玩法已列出：${JSON.stringify(alternatives)}\n请列出 5~7 个该目的地非常热门、但本次行程尚未去到的代表性景点（不要与已安排活动重复，优先挑选 5A/4A 景区或知名地标），介绍保持极简。`;
+    const res = await callMobileModel(sys, userMsg, { maxTokens: 1800 });
+    const raw = extractJsonObject<Record<string, unknown>>(res.text);
+    const rawItems = Array.isArray(raw.items) ? raw.items : raw.unvisitedHighlights;
+    const items = normalizeMobileUnvisitedHighlights(rawItems, cities[0] || destination, content.days);
+    return { items } as unknown as T;
   }
 
   if (endpoint === 'photo') {

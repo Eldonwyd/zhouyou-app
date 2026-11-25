@@ -5,7 +5,7 @@ import { isIP } from 'node:net';
 import { jsonrepair } from 'jsonrepair';
 import { createAiClient } from './ai-provider.mjs';
 import { createWebSearch } from './web-search.mjs';
-import { normalizePlannerOutput, normalizeTransferOptions, preparePlannerInput } from './normalize-planner.mjs';
+import { normalizePlannerOutput, normalizeTransferOptions, normalizeUnvisitedHighlights, preparePlannerInput } from './normalize-planner.mjs';
 import { plannerPhotoPlaceName, plannerPhotoCityName, plannerPhotoMonth, plannerPhotoMatches } from '../src/planner-photo.ts';
 import { plannerCaptionImage } from './planner-photo-html.mjs';
 import { createPlannerPhotoStore } from './planner-photo-store.mjs';
@@ -175,6 +175,9 @@ const CONTENT_CONTRACT = JSON.stringify({
     },
   ],
   alternatives: [{ title: '备用景点', city: '城市', reason: '适用场景', rainyDay: true }],
+  unvisitedHighlights: [
+    { title: '未排入的热门景点名', city: '城市', grade: '5A', feature: '15字内一句话特色', location: '所在区或具体地址' },
+  ],
   sources: [],
 });
 const clip = (value, limit = 12000) => String(value ?? '').slice(0, limit);
@@ -962,18 +965,6 @@ export function createPlannerService({
       uncertain = takeUncertain(raw);
       clearModelLuggageNotes(raw);
       content = normalizePlannerOutput(raw, request, mergedSources);
-      if (Array.isArray(raw?.unvisitedHighlights)) {
-        content.unvisitedHighlights = raw.unvisitedHighlights
-          .filter((item) => item && typeof item === 'object' && typeof item.title === 'string' && item.title.trim())
-          .slice(0, 8)
-          .map((item) => ({
-            title: String(item.title).trim(),
-            city: String(item.city || content.cities?.[0]?.name || '').trim(),
-            grade: typeof item.grade === 'string' ? item.grade.trim() : '',
-            feature: String(item.feature || item.reason || '').trim(),
-            location: String(item.location || item.title).trim(),
-          }));
-      }
       // The end date does not create an extra overnight stay.
       if (Array.isArray(content.days) && content.days.length) content.days.at(-1).lodging = null;
       try {
@@ -1006,6 +997,14 @@ export function createPlannerService({
           ], signal);
           clearModelLuggageNotes(revisedRaw);
           const revised = normalizePlannerOutput(revisedRaw, request, [...mergedSources, ...sourcesOnly(extra)]);
+          if (!revised.unvisitedHighlights?.length && content.unvisitedHighlights?.length) {
+            const carried = normalizeUnvisitedHighlights(
+              content.unvisitedHighlights,
+              revised.cities?.[0]?.name || request.destination || '',
+              revised.days,
+            );
+            if (carried.length) revised.unvisitedHighlights = carried;
+          }
           if (Array.isArray(revised.days) && revised.days.length) revised.days.at(-1).lodging = null;
           validatePlannerContent(revised);
           content = revised;
@@ -1305,6 +1304,14 @@ export function createPlannerService({
         );
         // 没变的地方沿用原照片，只有新增或换地点的活动留空，由页面重新查找。
         content = plannerCarryOverPhotos(plan.content, content);
+        if (!content.unvisitedHighlights?.length && plan.content.unvisitedHighlights?.length) {
+          const carried = normalizeUnvisitedHighlights(
+            plan.content.unvisitedHighlights,
+            content.cities?.[0]?.name || content.request?.destination || '',
+            content.days,
+          );
+          if (carried.length) content.unvisitedHighlights = carried;
+        }
         validatePlannerContent(content);
         enforcePlannerScope(plan.content, content, scopeId || null);
         break;
@@ -1981,5 +1988,43 @@ ${[...textSections, ...extraSections].filter(Boolean).join('\n\n')}
     return { legs };
   }
 
-  return { generate, recommendations, duration, chat, tickets, packing, transfers, parseBooking, lookupBooking, parseXhs, photoFor, warmPhotoInspector: inspectorReady };
+  /** 为当前行程补充/刷新目的地「未去热门景点」列表（精简无图：名字、景区级别、简短特色、高德可查位置）。 */
+  async function unvisited(body, signal, progress) {
+    const content = body?.plan?.content;
+    if (!content || !Array.isArray(content.days) || !content.days.length) {
+      throw new Error('缺少有效行程内容');
+    }
+    const cities = (Array.isArray(content.cities) ? content.cities : [])
+      .map((item) => item?.name)
+      .filter(Boolean);
+    const destination = cities.join('、') || content.request?.destination || '';
+    const visited = content.days
+      .flatMap((day) => (Array.isArray(day.activities) ? day.activities : []))
+      .filter((act) => act?.kind === 'sight' || act?.kind === 'food')
+      .map((act) => act.title)
+      .filter(Boolean);
+    const alternatives = (Array.isArray(content.alternatives) ? content.alternatives : [])
+      .map((item) => item?.title)
+      .filter(Boolean);
+    progress('正在整理未去的热门景点');
+    const result = await model(
+      [
+        {
+          role: 'user',
+          content: `目的地：${destination}\n本次行程已安排的活动：${JSON.stringify(visited)}\n备用玩法已列出：${JSON.stringify(alternatives)}\n请列出 5~7 个该目的地非常热门、口碑高，但本次行程尚未去到的代表性景点（不要与已安排活动重复，优先挑选 5A/4A 景区、知名地标或必去博物馆/古镇/自然景观）。\n要求极简，不要长篇介绍，只返回 JSON：{"items":[{"title":"景点名","city":"所在城市","grade":"5A或4A或空串","feature":"12~20字核心特色","location":"所在区县或具体地址（方便高德地图直接搜索定位）"}]}`,
+        },
+      ],
+      signal,
+      { fast: true },
+    );
+    const rawItems = Array.isArray(result?.items)
+      ? result.items
+      : Array.isArray(result?.unvisitedHighlights)
+        ? result.unvisitedHighlights
+        : [];
+    const items = normalizeUnvisitedHighlights(rawItems, cities[0] || destination, content.days);
+    return { items };
+  }
+
+  return { generate, recommendations, duration, chat, tickets, packing, transfers, unvisited, parseBooking, lookupBooking, parseXhs, photoFor, warmPhotoInspector: inspectorReady };
 }

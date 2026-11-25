@@ -500,7 +500,64 @@ export function normalizePlannerOutput(rawContent, input, sources, preserveReque
       cost.qualification += '；套餐包含关系待确认';
     }
   }
+  // 规范化未去热门景点，并剔除已在行程中安排过的景点。
+  if (Array.isArray(content.unvisitedHighlights)) {
+    const fallbackCity = text(content.cities?.[0]?.name || content.request?.destination).trim();
+    const cleaned = normalizeUnvisitedHighlights(content.unvisitedHighlights, fallbackCity, days);
+    if (cleaned.length) content.unvisitedHighlights = cleaned;
+    else delete content.unvisitedHighlights;
+  } else {
+    delete content.unvisitedHighlights;
+  }
   // 住宿与餐饮一律给预估价；局部修改时不动其他活动（页面显示时也会补全）。
   if (preserveRequest || !Array.isArray(content.days) || !content.request) return content;
   try { return plannerFillEstimates(content); } catch { return content; }
+}
+
+/** 规范化「未去热门景点」列表，并自动过滤已在行程中的景点与重复项。 */
+export function normalizeUnvisitedHighlights(rawList, fallbackCity = '', days = []) {
+  if (!Array.isArray(rawList)) return [];
+  const normName = (value) =>
+    text(value)
+      .toLowerCase()
+      .replace(/[\s·\-—_()（）【】「」《》,，.。]/g, '')
+      .replace(/(?:国家)?[45]a级?(?:旅游)?(?:景区|景点)?/gi, '')
+      .replace(/(?:风景区|旅游区|景区|公园|博物馆|遗址|故居|古镇|古城)$/g, '');
+  const scheduled = new Set();
+  for (const day of Array.isArray(days) ? days : []) {
+    for (const act of Array.isArray(day?.activities) ? day.activities : []) {
+      const t = normName(act?.title);
+      if (t.length >= 2) scheduled.add(t);
+    }
+  }
+  const seen = new Set();
+  const result = [];
+  for (const item of rawList) {
+    if (!item || typeof item !== 'object') continue;
+    const title = text(item.title ?? item.name).trim();
+    if (!title) continue;
+    const key = normName(title);
+    if (!key || seen.has(key)) continue;
+    let alreadyScheduled = false;
+    for (const s of scheduled) {
+      if (s === key || (s.length >= 3 && key.length >= 3 && (s.includes(key) || key.includes(s)))) {
+        alreadyScheduled = true;
+        break;
+      }
+    }
+    if (alreadyScheduled) continue;
+    seen.add(key);
+    const rawGrade = text(item.grade ?? item.level).trim().toUpperCase();
+    const gradeMatch = rawGrade.match(/([345]A)/);
+    const grade = gradeMatch ? gradeMatch[1] : rawGrade.slice(0, 12);
+    result.push({
+      title,
+      city: text(item.city || fallbackCity).trim(),
+      grade,
+      feature: text(item.feature ?? item.highlight ?? item.reason ?? item.description).trim().slice(0, 60),
+      location: text(item.location ?? item.address ?? title).trim().slice(0, 80),
+    });
+    if (result.length >= 8) break;
+  }
+  return result;
 }

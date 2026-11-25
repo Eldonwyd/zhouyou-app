@@ -11,7 +11,7 @@ import {
   setDesktopFreeTrialEnabled,
 } from './mobile-ai-runtime';
 
-const USAGE_TRACKED_ENDPOINTS = new Set(['generate', 'chat', 'recommendations', 'duration', 'tickets', 'packing', 'transfers']);
+const USAGE_TRACKED_ENDPOINTS = new Set(['generate', 'chat', 'recommendations', 'duration', 'tickets', 'packing', 'transfers', 'unvisited']);
 
 /** Consume server progress without exposing the provider key to the browser. */
 export async function plannerApi<T>(

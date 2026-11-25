@@ -224,6 +224,12 @@ function buildDemoAiPlan(): AiTravelPlan {
       alternatives: [
         { title: '沙溪古镇一日慢游', city: '大理州剑川县', reason: '如果偏好茶马古道静谧氛围，可把第 3 天留给沙溪玉津桥与先锋书局。', rainyDay: false },
       ],
+      unvisitedHighlights: [
+        { title: '崇圣寺三塔文化旅游区', city: '大理市', grade: '5A', feature: '南诏大理国皇家寺院地标，苍山洱海绝佳取景位', location: '大理市214国道崇圣寺三塔' },
+        { title: '双廊古镇', city: '大理市', grade: '4A', feature: '洱海东北岸渔村风情，杨丽萍太阳宫与玉几岛日落', location: '大理市双廊镇' },
+        { title: '蝴蝶泉公园', city: '大理市', grade: '4A', feature: '五朵金花取景地，苍山云弄峰下清泉古树', location: '大理市喜洲镇周城村北蝴蝶泉' },
+        { title: '理想邦圣托里尼', city: '大理市', grade: '', feature: '洱海东岸白色阶梯建筑群，海景咖啡与拍照打卡', location: '大理市海东镇理想邦旅游度假小镇' },
+      ],
       sources: [],
     },
     messages: [

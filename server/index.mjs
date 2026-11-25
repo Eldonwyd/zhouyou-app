@@ -301,7 +301,7 @@ export async function createPlannerRequestHandler(options = {}) {
         if (!request.headers['content-type']?.startsWith('application/json'))
           return sendJson(415, { error: '请求必须为 JSON' });
         const route = url.pathname.split('/').at(-1);
-        if (!['generate', 'recommendations', 'duration', 'chat', 'tickets', 'packing', 'transfers', 'booking-parse', 'booking-lookup', 'xhs-parse', 'photo', 'map', 'photo-settings', 'xhs-status', 'xhs-qrcode', 'ai-settings', 'ai-switch', 'ai-test', 'ai-models-refresh', 'ai-sub-login', 'ai-sub-status', 'ai-sub-code', 'ai-sub-cancel', 'ai-sub-logout', 'ai-sub-model', 'ai-sub-quota', 'ai-sub-gemini-auth', 'ai-sub-gemini-install'].includes(route))
+        if (!['generate', 'recommendations', 'duration', 'chat', 'tickets', 'packing', 'transfers', 'unvisited', 'booking-parse', 'booking-lookup', 'xhs-parse', 'photo', 'map', 'photo-settings', 'xhs-status', 'xhs-qrcode', 'ai-settings', 'ai-switch', 'ai-test', 'ai-models-refresh', 'ai-sub-login', 'ai-sub-status', 'ai-sub-code', 'ai-sub-cancel', 'ai-sub-logout', 'ai-sub-model', 'ai-sub-quota', 'ai-sub-gemini-auth', 'ai-sub-gemini-install'].includes(route))
           return sendJson(404, { error: '接口不存在' });
         const maxBodyBytes = route === 'xhs-parse' ? 20 * 1024 * 1024 : route === 'booking-parse' ? 8 * 1024 * 1024 : 3 * 1024 * 1024;
         let size = 0;
