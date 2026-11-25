@@ -114,7 +114,7 @@ export default function App() {
   const [cloudUser, setCloudUser] = useState<CloudSelfUser | null>(() => (getCloudToken() ? getCachedCloudUser() : null));
   const [syncingCloud, setSyncingCloud] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('register');
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
   const [unreadCount, setUnreadCount] = useState(0);
   const [intimacyBonds, setIntimacyBonds] = useState<IntimacyBond[]>([]);
   const [pendingShareCode, setPendingShareCode] = useState<string | null>(null);

@@ -19,6 +19,7 @@ import type { CityMark, ExpenseCategory, ExpenseSplitItem } from '../types';
 import { TravelAvatar } from './CuteArt';
 import QrCodeBox from './QrCodeBox';
 import FriendFootprintModal from './FriendFootprintModal';
+import ChatRoomView from './ChatRoomView';
 
 interface CompanionsViewProps {
   cloudUser: CloudSelfUser | null;
@@ -36,7 +37,7 @@ interface CompanionsViewProps {
 
 type CompanionsTab = 'friends' | 'groups' | 'shares' | 'notifications';
 type GroupModalMode = 'create' | 'f2f' | 'join' | null;
-type GroupRoomTab = 'plans' | 'aa';
+type GroupRoomTab = 'chat' | 'plans' | 'aa';
 
 const GROUP_AVATAR_COLORS = ['#2e8b6e', '#e07a5f', '#4a7fb5', '#9c6bb8', '#d99038', '#4d9b8f'];
 
@@ -51,6 +52,15 @@ function daysSince(dateStr: string): number | null {
   const ts = Date.parse(`${dateStr}T00:00:00`);
   if (!Number.isFinite(ts)) return null;
   return Math.max(1, Math.floor((Date.now() - ts) / 86400000) + 1);
+}
+
+/** 好友发来的攻略、行程编辑、行程群邀请或聊天消息需要点进去才算已读；加好友/亲密关系类点到「消息」页即自动已读。 */
+function requiresClickToRead(n: CloudNotification): boolean {
+  if (n.type === 'plan_received' || n.type === 'plan_edited' || n.type === 'group_invite' || n.type === 'chat_message') {
+    return true;
+  }
+  const ref = n.targetRef || {};
+  return Boolean(ref.shareCode || ref.planId || ref.groupId);
 }
 
 function formatShortTime(iso: string): string {
@@ -82,7 +92,8 @@ export default function CompanionsView({
   const [groups, setGroups] = useState<TravelGroupSummary[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [activeGroup, setActiveGroup] = useState<TravelGroupDetail | null>(null);
-  const [groupRoomTab, setGroupRoomTab] = useState<GroupRoomTab>('plans');
+  const [groupRoomTab, setGroupRoomTab] = useState<GroupRoomTab>('chat');
+  const [activeChatFriend, setActiveChatFriend] = useState<CloudPublicUser | null>(null);
   const [notifications, setNotifications] = useState<CloudNotification[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -218,8 +229,8 @@ export default function CompanionsView({
             </div>
           </div>
           <div className="dialog-actions">
-            <button type="button" className="primary" onClick={() => onOpenAuth('register')}>注册周游账号</button>
-            <button type="button" className="secondary" onClick={() => onOpenAuth('login')}>已有账号，去登录</button>
+            <button type="button" className="primary" onClick={() => onOpenAuth('login')}>密码登录</button>
+            <button type="button" className="secondary" onClick={() => onOpenAuth('register')}>注册周游账号</button>
           </div>
         </div>
       </section>
@@ -408,11 +419,43 @@ export default function CompanionsView({
     }
   }
 
+  // 切到「消息」页时，自动把加好友/亲密关系等非攻略类消息标记为已读；攻略/行程邀请类需点进去才算已读
+  useEffect(() => {
+    if (tab !== 'notifications' || !cloudUser) return;
+    const autoIds = notifications
+      .filter((n) => !n.readAt && !requiresClickToRead(n))
+      .map((n) => n.id);
+    if (autoIds.length === 0) return;
+    const now = new Date().toISOString();
+    const idSet = new Set(autoIds);
+    const remainingUnread = notifications.filter((n) => !n.readAt && !idSet.has(n.id)).length;
+    setNotifications((prev) => prev.map((n) => (idSet.has(n.id) ? { ...n, readAt: now } : n)));
+    setOverview((prev) => (prev ? { ...prev, unreadCount: remainingUnread } : prev));
+    onUnreadChange(remainingUnread);
+    void cloudApi.markNotificationsRead(autoIds).catch(() => undefined);
+  }, [tab, cloudUser, notifications, onUnreadChange]);
+
+  async function handleMarkOneRead(notificationId: string) {
+    const target = notifications.find((n) => n.id === notificationId);
+    if (!target || target.readAt) return;
+    const now = new Date().toISOString();
+    const remainingUnread = notifications.filter((n) => !n.readAt && n.id !== notificationId).length;
+    setNotifications((prev) => prev.map((n) => (n.id === notificationId ? { ...n, readAt: now } : n)));
+    setOverview((prev) => (prev ? { ...prev, unreadCount: remainingUnread } : prev));
+    onUnreadChange(remainingUnread);
+    try {
+      await cloudApi.markNotificationsRead(notificationId);
+    } catch { /* ignore */ }
+  }
+
   async function handleMarkAllRead() {
     try {
-      await cloudApi.markNotificationsRead();
+      const now = new Date().toISOString();
+      setNotifications((prev) => prev.map((n) => (n.readAt ? n : { ...n, readAt: now })));
+      setOverview((prev) => (prev ? { ...prev, unreadCount: 0 } : prev));
       onUnreadChange(0);
-      await refreshAll();
+      await cloudApi.markNotificationsRead();
+      onNotice('已将全部消息标记为已读');
     } catch { /* ignore */ }
   }
 
@@ -504,7 +547,7 @@ export default function CompanionsView({
       </header>
 
       {/* 微信/Telegram 风格圆角搜索栏 */}
-      {!activeGroup && (
+      {!activeGroup && !activeChatFriend && (
         <div className="chat-search-wrap">
           <div className="chat-search-box">
             <span className="chat-search-icon" aria-hidden="true">🔍</span>
@@ -563,7 +606,7 @@ export default function CompanionsView({
       )}
 
       {/* 单行等宽分段导航（绝不换行拥挤） */}
-      {!activeGroup && (
+      {!activeGroup && !activeChatFriend && (
         <div className="chat-segment-tabs" role="tablist">
           <button
             type="button"
@@ -609,8 +652,32 @@ export default function CompanionsView({
         </div>
       )}
 
+      {/* ===== 好友私聊窗口 ===== */}
+      {activeChatFriend && !activeGroup && (
+        <ChatRoomView
+          roomType="dm"
+          targetId={activeChatFriend.id}
+          title={activeChatFriend.nickname}
+          subtitle={activeChatFriend.motto || `好友码：${activeChatFriend.friendCode}`}
+          avatarId={activeChatFriend.avatar}
+          cloudUser={cloudUser}
+          aiPlans={aiPlans}
+          groups={groups}
+          onBack={() => setActiveChatFriend(null)}
+          onOpenPlan={onOpenPlan}
+          onOpenShareCode={onOpenShareCode}
+          onJoinedGroup={(gid) => {
+            setActiveChatFriend(null);
+            setTab('groups');
+            void refreshAll().then(() => loadGroupDetail(gid));
+          }}
+          onNotice={onNotice}
+          onError={onError}
+        />
+      )}
+
       {/* ===== TAB 1: 旅伴（通讯录风格） ===== */}
-      {tab === 'friends' && !activeGroup && (
+      {tab === 'friends' && !activeGroup && !activeChatFriend && (
         <div className="chat-panel">
           {/* 新的朋友 / 亲密邀请 */}
           {pendingCount > 0 && (
@@ -669,7 +736,8 @@ export default function CompanionsView({
                         </div>
                       </div>
                       <div className="intimacy-card-actions">
-                        <button type="button" className="secondary chat-mini-btn" onClick={() => setCompareUserId(bond.peer.id)}>🗺️ 足迹对比</button>
+                        <button type="button" className="primary chat-mini-btn" onClick={() => setActiveChatFriend(bond.peer)}>💬 聊天</button>
+                        <button type="button" className="secondary chat-mini-btn" onClick={() => setCompareUserId(bond.peer.id)}>🗺️ 足迹</button>
                         <button type="button" className="text-button chat-mini-text" onClick={() => void handleIntimacyDecision(bond.id, 'remove')}>解除</button>
                       </div>
                     </div>
@@ -705,7 +773,11 @@ export default function CompanionsView({
                 const bond = bondByPeerId.get(f.user.id);
                 const menuOpen = openFriendMenuId === f.friendshipId;
                 return (
-                  <div key={f.friendshipId} className="chat-list-row">
+                  <div
+                    key={f.friendshipId}
+                    className="chat-list-row is-clickable"
+                    onClick={() => setActiveChatFriend(f.user)}
+                  >
                     <div className="chat-avatar-wrap">
                       <TravelAvatar avatarId={f.user.avatar} nickname={f.user.nickname} className="chat-row-avatar" />
                       {bond && <span className="chat-avatar-badge" title={RELATION_META[bond.relationType].label}>{RELATION_META[bond.relationType].emoji}</span>}
@@ -718,6 +790,7 @@ export default function CompanionsView({
                       <small>{f.user.motto || `好友码：${f.user.friendCode}`}</small>
                     </div>
                     <div className="chat-row-end" onClick={(e) => e.stopPropagation()}>
+                      <button type="button" className="primary chat-mini-btn" onClick={() => setActiveChatFriend(f.user)}>💬 聊天</button>
                       <button type="button" className="secondary chat-mini-btn" onClick={() => setCompareUserId(f.user.id)}>足迹</button>
                       <button
                         type="button"
@@ -760,7 +833,7 @@ export default function CompanionsView({
       )}
 
       {/* ===== TAB 2: 行程群列表 ===== */}
-      {tab === 'groups' && !activeGroup && (
+      {tab === 'groups' && !activeGroup && !activeChatFriend && (
         <div className="chat-panel">
           <div className="chat-quick-bar">
             <button type="button" className="chat-quick-pill" onClick={() => setGroupModal('create')}>
@@ -794,7 +867,7 @@ export default function CompanionsView({
                   key={g.id}
                   type="button"
                   className="chat-list-row is-clickable"
-                  onClick={() => { setGroupRoomTab('plans'); void loadGroupDetail(g.id); }}
+                  onClick={() => { setGroupRoomTab('chat'); void loadGroupDetail(g.id); }}
                 >
                   <span className="chat-group-avatar" style={{ background: pickGroupColor(g.id) }} aria-hidden="true">
                     {g.name.slice(0, 1)}
@@ -929,8 +1002,11 @@ export default function CompanionsView({
             )}
           </div>
 
-          {/* 群内双分页：共享攻略 | AA 记账 */}
+          {/* 群内三分页：群聊 | 共享攻略 | AA 记账 */}
           <div className="chat-segment-tabs is-room" role="tablist">
+            <button type="button" role="tab" aria-selected={groupRoomTab === 'chat'} className={groupRoomTab === 'chat' ? 'active' : ''} onClick={() => setGroupRoomTab('chat')}>
+              💬 群聊
+            </button>
             <button type="button" role="tab" aria-selected={groupRoomTab === 'plans'} className={groupRoomTab === 'plans' ? 'active' : ''} onClick={() => setGroupRoomTab('plans')}>
               ✈️ 共享攻略 ({activeGroup.plans.length})
             </button>
@@ -938,6 +1014,23 @@ export default function CompanionsView({
               💰 AA 记账 ({activeGroup.expenses.length})
             </button>
           </div>
+
+          {groupRoomTab === 'chat' && (
+            <ChatRoomView
+              roomType="group"
+              targetId={activeGroup.id}
+              title={activeGroup.name}
+              groupColor={pickGroupColor(activeGroup.id)}
+              cloudUser={cloudUser}
+              aiPlans={aiPlans}
+              groups={groups}
+              showHeader={false}
+              onOpenPlan={onOpenPlan}
+              onOpenShareCode={onOpenShareCode}
+              onNotice={onNotice}
+              onError={onError}
+            />
+          )}
 
           {groupRoomTab === 'plans' && (
             <div className="chat-list-group">
@@ -1060,7 +1153,7 @@ export default function CompanionsView({
       )}
 
       {/* ===== TAB 3: 收到的攻略与周游口令 ===== */}
-      {tab === 'shares' && !activeGroup && (
+      {tab === 'shares' && !activeGroup && !activeChatFriend && (
         <div className="chat-panel">
           <div className="chat-token-bar">
             <input
@@ -1100,13 +1193,20 @@ export default function CompanionsView({
       )}
 
       {/* ===== TAB 4: 消息提醒 ===== */}
-      {tab === 'notifications' && !activeGroup && (
+      {tab === 'notifications' && !activeGroup && !activeChatFriend && (
         <div className="chat-panel">
           <div className="chat-list-group">
             <div className="chat-group-label">
               <span>消息提醒</span>
               {notifications.length > 0 && (
-                <button type="button" className="text-button" onClick={() => void handleMarkAllRead()}>全部已读</button>
+                <button
+                  type="button"
+                  className="text-button chat-mark-all-btn"
+                  disabled={!notifications.some((n) => !n.readAt)}
+                  onClick={() => void handleMarkAllRead()}
+                >
+                  ✓ 一键已读
+                </button>
               )}
             </div>
             {notifications.length === 0 ? (
@@ -1116,27 +1216,66 @@ export default function CompanionsView({
                 <p>好友申请、行程群邀请和攻略分享动态都会在这里提醒你。</p>
               </div>
             ) : (
-              notifications.map((n) => (
-                <div key={n.id} className={`chat-list-row ${!n.readAt ? 'is-unread' : ''}`}>
-                  <span className="chat-msg-icon" aria-hidden="true">
-                    {!n.readAt && <i className="chat-unread-dot" />}
-                    🔔
-                  </span>
-                  <div className="chat-row-body">
-                    <div className="chat-row-title-line">
-                      <strong>{n.title}</strong>
-                      <small className="chat-row-time">{formatShortTime(n.createdAt)}</small>
+              notifications.map((n) => {
+                const isInteractive = requiresClickToRead(n);
+                const handleOpenNotif = () => {
+                  void handleMarkOneRead(n.id);
+                  if (typeof n.targetRef?.shareCode === 'string') {
+                    onOpenShareCode(String(n.targetRef.shareCode));
+                  } else if (typeof n.targetRef?.planId === 'string') {
+                    onOpenPlan(String(n.targetRef.planId));
+                  } else if (typeof n.targetRef?.groupId === 'string') {
+                    setTab('groups');
+                    void loadGroupDetail(String(n.targetRef.groupId));
+                  }
+                };
+                return (
+                  <div
+                    key={n.id}
+                    className={`chat-list-row ${!n.readAt ? 'is-unread' : ''} ${isInteractive ? 'is-clickable' : ''}`}
+                    onClick={isInteractive ? handleOpenNotif : undefined}
+                  >
+                    <span className="chat-msg-icon" aria-hidden="true">
+                      {!n.readAt && <i className="chat-unread-dot" />}
+                      {n.type === 'plan_received' || n.type === 'plan_edited' ? '✈️' : n.type === 'group_invite' ? '👥' : '🔔'}
+                    </span>
+                    <div className="chat-row-body">
+                      <div className="chat-row-title-line">
+                        <strong>{n.title}</strong>
+                        <small className="chat-row-time">{formatShortTime(n.createdAt)}</small>
+                      </div>
+                      {n.body && <small>{n.body}</small>}
                     </div>
-                    {n.body && <small>{n.body}</small>}
+                    {typeof n.targetRef?.shareCode === 'string' && (
+                      <button
+                        type="button"
+                        className="secondary chat-mini-btn"
+                        onClick={(e) => { e.stopPropagation(); handleOpenNotif(); }}
+                      >
+                        查看
+                      </button>
+                    )}
+                    {typeof n.targetRef?.planId === 'string' && !n.targetRef?.shareCode && (
+                      <button
+                        type="button"
+                        className="secondary chat-mini-btn"
+                        onClick={(e) => { e.stopPropagation(); handleOpenNotif(); }}
+                      >
+                        打开
+                      </button>
+                    )}
+                    {typeof n.targetRef?.groupId === 'string' && !n.targetRef?.shareCode && !n.targetRef?.planId && (
+                      <button
+                        type="button"
+                        className="secondary chat-mini-btn"
+                        onClick={(e) => { e.stopPropagation(); handleOpenNotif(); }}
+                      >
+                        进群
+                      </button>
+                    )}
                   </div>
-                  {typeof n.targetRef?.shareCode === 'string' && (
-                    <button type="button" className="secondary chat-mini-btn" onClick={() => onOpenShareCode(String(n.targetRef.shareCode))}>查看</button>
-                  )}
-                  {typeof n.targetRef?.planId === 'string' && !n.targetRef?.shareCode && (
-                    <button type="button" className="secondary chat-mini-btn" onClick={() => onOpenPlan(String(n.targetRef.planId))}>打开</button>
-                  )}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

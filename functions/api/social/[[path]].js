@@ -429,9 +429,21 @@ export const onRequest = withApiHandler(async (context) => {
 
   // POST /api/social/notifications/read
   if (method === 'POST' && segments[0] === 'notifications' && segments[1] === 'read') {
-    const body = await readJsonBody(request, 4096);
+    const body = await readJsonBody(request, 16384);
     const now = nowIso();
-    if (body.notificationId) {
+    if (Array.isArray(body.notificationIds) && body.notificationIds.length > 0) {
+      const ids = body.notificationIds
+        .map((id) => String(id || '').trim())
+        .filter(Boolean)
+        .slice(0, 100);
+      if (ids.length > 0) {
+        const placeholders = ids.map(() => '?').join(', ');
+        await db
+          .prepare(`UPDATE notifications SET read_at = ? WHERE user_id = ? AND read_at IS NULL AND id IN (${placeholders})`)
+          .bind(now, userId, ...ids)
+          .run();
+      }
+    } else if (body.notificationId) {
       await db.prepare('UPDATE notifications SET read_at = ? WHERE id = ? AND user_id = ?').bind(now, String(body.notificationId), userId).run();
     } else {
       await db.prepare('UPDATE notifications SET read_at = ? WHERE user_id = ? AND read_at IS NULL').bind(now, userId).run();

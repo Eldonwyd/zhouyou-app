@@ -36,7 +36,8 @@ export default function PlanCollabBar({
   onNotice,
   onError,
 }: PlanCollabBarProps) {
-  const [panel, setPanel] = useState<'none' | 'share' | 'group' | 'collab' | 'history'>('none');
+  const [panel, setPanel] = useState<'none' | 'invite' | 'share' | 'group' | 'collab' | 'history'>('none');
+  const [invitedFriendIds, setInvitedFriendIds] = useState<Record<string, boolean>>({});
   const [groups, setGroups] = useState<TravelGroupSummary[]>([]);
   const [friends, setFriends] = useState<FriendItem[]>([]);
   const [revisions, setRevisions] = useState<PlanRevision[]>([]);
@@ -78,7 +79,7 @@ export default function PlanCollabBar({
     setShareResult(null);
   }, [plan.id]);
 
-  async function openPanel(next: 'share' | 'group' | 'collab' | 'history') {
+  async function openPanel(next: 'invite' | 'share' | 'group' | 'collab' | 'history') {
     if (!cloudUser) {
       onOpenAuth();
       return;
@@ -89,7 +90,7 @@ export default function PlanCollabBar({
     }
     setPanel(next);
     try {
-      if (next === 'group' || next === 'share') {
+      if (next === 'invite' || next === 'group' || next === 'share') {
         const [gRes, sRes] = await Promise.all([cloudApi.listGroups(), cloudApi.getSocialOverview()]);
         setGroups(gRes.groups);
         setFriends(sRes.friends);
@@ -212,6 +213,28 @@ export default function PlanCollabBar({
     }
   }
 
+  async function handleInviteFriendDirect(friend: FriendItem) {
+    setBusy(true);
+    try {
+      const res = await cloudApi.createShare({
+        planId: plan.id,
+        mode: 'collab',
+        recipientUserId: friend.user.id,
+        planPayload: plan,
+      });
+      if (res.groupId) {
+        updateCloudPlanMeta(plan.id, { groupId: res.groupId });
+        setMetaTick((t) => t + 1);
+      }
+      setInvitedFriendIds((prev) => ({ ...prev, [friend.user.id]: true }));
+      onNotice(`已邀请「${friend.user.nickname}」进入本行程共同规划`);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : '邀请好友失败');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="plan-collab-bar">
       <div className="plan-collab-strip">
@@ -223,12 +246,82 @@ export default function PlanCollabBar({
               : '☁️ 登录后可同步到手机并邀请好友同行'}
         </span>
         <div className="plan-collab-actions">
-          <button type="button" className="secondary" onClick={() => void openPanel('share')}>✈️ 发给好友 / 微信分享</button>
+          <button type="button" className="primary" onClick={() => void openPanel('invite')}>🤝 邀请好友进入</button>
+          <button type="button" className="secondary" onClick={() => void openPanel('share')}>✈️ 分享攻略 / 口令</button>
           <button type="button" className="secondary" onClick={() => void openPanel('group')}>👥 绑定行程群</button>
           <button type="button" className="secondary" onClick={() => void openPanel('collab')}>🗳️ 投票与批注</button>
           <button type="button" className="secondary" onClick={() => void openPanel('history')}>🕘 修改动态与回退</button>
         </div>
       </div>
+
+      {panel === 'invite' && (
+        <div className="plan-collab-drawer">
+          <h4>邀请好友进入本行程（同游共编）</h4>
+          <p className="muted" style={{ margin: '0 0 10px', fontSize: 12.5 }}>
+            点击好友右侧「邀请进入」，对方会收到邀请并自动加入本行程的同游群，可一起修改攻略、投票与记账。
+          </p>
+          {friends.length === 0 ? (
+            <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+              还没有站内好友，先去「同行旅伴」搜索昵称/好友码添加，或点击下方生成微信/QQ 邀请口令。
+            </p>
+          ) : (
+            <div style={{ display: 'grid', gap: 8, marginBottom: 10 }}>
+              {friends.map((f) => {
+                const invited = Boolean(invitedFriendIds[f.user.id]);
+                return (
+                  <div
+                    key={f.user.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 10,
+                      padding: '8px 12px',
+                      borderRadius: 12,
+                      background: 'var(--surface-2, rgba(0,0,0,0.03))',
+                      border: '1px solid var(--line, rgba(0,0,0,0.06))',
+                    }}
+                  >
+                    <div>
+                      <strong style={{ fontSize: 13.5 }}>{f.user.nickname}</strong>
+                      <small className="muted" style={{ display: 'block', fontSize: 11.5 }}>
+                        好友码：{f.user.friendCode}
+                      </small>
+                    </div>
+                    <button
+                      type="button"
+                      className={invited ? 'secondary' : 'primary'}
+                      disabled={busy || invited}
+                      style={{ minHeight: 30, padding: '4px 12px', fontSize: 12 }}
+                      onClick={() => void handleInviteFriendDirect(f)}
+                    >
+                      {invited ? '已邀请 ✓' : '+ 邀请进入'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => {
+                setShareMode('collab');
+                void handleGenerateShare();
+              }}
+            >
+              🔗 生成微信 / QQ 同游邀请口令
+            </button>
+            {shareResult && (
+              <span className="muted" style={{ fontSize: 12, alignSelf: 'center' }}>
+                口令已复制：{shareResult.code}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {panel === 'share' && (
         <div className="plan-collab-drawer">

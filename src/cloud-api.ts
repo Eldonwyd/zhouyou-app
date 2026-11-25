@@ -59,6 +59,29 @@ export interface CloudQuota {
   maxBytes: number;
 }
 
+export interface ChatPollVote {
+  userId: string;
+  userNickname: string;
+  optionId: string;
+  createdAt: string;
+}
+
+export type ChatMessageType = 'text' | 'image' | 'plan' | 'invite' | 'poll';
+
+export interface ChatMessage {
+  id: string;
+  roomType: 'dm' | 'group';
+  roomId: string;
+  senderId: string;
+  senderNickname: string;
+  senderAvatar: string;
+  msgType: ChatMessageType;
+  textContent: string;
+  payload: Record<string, unknown>;
+  pollVotes?: ChatPollVote[];
+  createdAt: string;
+}
+
 export interface FreeAiQuotaSnapshot {
   enabled: boolean;
   label: string;
@@ -523,10 +546,15 @@ export const cloudApi = {
   getNotifications() {
     return cloudRequest<{ ok: true; notifications: CloudNotification[] }>('/api/social/notifications');
   },
-  markNotificationsRead(notificationId?: string) {
+  markNotificationsRead(notificationId?: string | string[]) {
+    const body = Array.isArray(notificationId)
+      ? { notificationIds: notificationId }
+      : notificationId
+        ? { notificationId }
+        : {};
     return cloudRequest<{ ok: true }>('/api/social/notifications/read', {
       method: 'POST',
-      body: notificationId ? { notificationId } : {},
+      body,
     });
   },
 
@@ -628,5 +656,32 @@ export const cloudApi = {
   // ---- Platform Free Trial AI ----
   getFreeAiQuota() {
     return cloudRequest<{ ok: true; quota: FreeAiQuotaSnapshot }>('/api/free-ai/quota');
+  },
+
+  // ---- Chat (DM & Group) ----
+  getChatMessages(roomType: 'dm' | 'group', targetId: string) {
+    return cloudRequest<{ ok: true; messages: ChatMessage[] }>(
+      `/api/chat/${roomType}/${encodeURIComponent(targetId)}`,
+    );
+  },
+  sendChatMessage(
+    roomType: 'dm' | 'group',
+    targetId: string,
+    body: {
+      msgType: ChatMessageType;
+      textContent?: string;
+      payload?: Record<string, unknown>;
+    },
+  ) {
+    return cloudRequest<{ ok: true; message: ChatMessage }>(
+      `/api/chat/${roomType}/${encodeURIComponent(targetId)}`,
+      { method: 'POST', body },
+    );
+  },
+  voteChatPoll(messageId: string, optionId: string) {
+    return cloudRequest<{ ok: true; pollVotes: ChatPollVote[] }>(
+      `/api/chat/poll/${encodeURIComponent(messageId)}/vote`,
+      { method: 'POST', body: { optionId } },
+    );
   },
 };

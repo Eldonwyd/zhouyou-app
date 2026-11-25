@@ -66,7 +66,7 @@ export default function PlannerExternalAiImporter({
 
   return (
     <div
-      className="modal-backdrop"
+      className="dialog-backdrop external-ai-backdrop"
       role="dialog"
       aria-modal="true"
       aria-label="借用外部免费 AI 生成行程"
@@ -74,94 +74,93 @@ export default function PlannerExternalAiImporter({
         if (e.target === e.currentTarget && !busy) onClose();
       }}
     >
-      <div className="modal-card external-ai-modal" style={{ maxWidth: 640, width: '94vw', maxHeight: '88vh', overflowY: 'auto' }}>
-        <div className="card-heading" style={{ marginBottom: 8 }}>
+      <div className="dialog external-ai-modal">
+        <div className="external-ai-head">
           <div>
             <span className="eyebrow">ZERO-COST AI IMPORT</span>
-            <h2 style={{ margin: '2px 0 4px' }}>借用外部免费 AI 生成（0 成本）</h2>
-            <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-              没有 API Key 或免费额度用完？用手机/电脑里免费的豆包、DeepSeek、Kimi、元宝生成，粘贴回来一键变成标准周游行程！
+            <h2>借用外部免费 AI 生成（0 成本）</h2>
+            <p className="muted">
+              支持豆包、DeepSeek、Kimi、元宝、ChatGPT 等任意 AI，复制提示词生成后粘贴回来即可一键导入。
             </p>
           </div>
-          <button type="button" className="text-button" disabled={busy} onClick={onClose}>
-            关闭
+          <button type="button" className="text-button external-ai-close" disabled={busy} onClick={onClose}>
+            ✕ 关闭
           </button>
         </div>
 
-        <div className="external-ai-step" style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--surface-soft, rgba(0,0,0,0.03))', marginBottom: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div className="external-ai-step">
+          <div className="external-ai-step-row">
             <div>
               <strong>第 1 步：复制周游专属提示词</strong>
-              <p className="muted" style={{ margin: '4px 0 0', fontSize: 12 }}>
+              <p className="muted">
                 已自动带入：{request.destination?.trim() || '待 AI 推荐目的地'} · {request.days || 3} 天
                 {request.people ? ` · ${request.people} 人` : ''}
                 {typeof request.budgetCents === 'number' && request.budgetCents > 0 ? ` · 预算 ¥${Math.round(request.budgetCents / 100)}` : ''}
               </p>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="external-ai-step-btns">
               <button type="button" className="primary" onClick={() => void handleCopyPrompt()}>
-                {copied ? '✓ 已复制专属提示词' : '📋 一键复制专属提示词'}
+                {copied ? '✓ 已复制提示词' : '📋 一键复制提示词'}
               </button>
               <button type="button" className="text-button" onClick={() => setShowPreview((v) => !v)}>
-                {showPreview ? '收起预览' : '查看提示词'}
+                {showPreview ? '收起' : '预览'}
               </button>
             </div>
           </div>
           {showPreview && (
             <textarea
               readOnly
-              rows={7}
+              rows={6}
               value={promptText}
-              style={{ width: '100%', marginTop: 10, fontSize: 12, fontFamily: 'monospace' }}
+              className="external-ai-textarea is-mono"
             />
           )}
         </div>
 
-        <div className="external-ai-step" style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--surface-soft, rgba(0,0,0,0.03))', marginBottom: 12 }}>
-          <strong>第 2 步：去任意免费 AI 里粘贴发送</strong>
-          <p className="muted" style={{ margin: '4px 0 8px', fontSize: 12 }}>
-            打开你手机里的 App 或直接点下面网页版，把刚才复制的提示词发给它，等它生成完 JSON 后整段复制回来：
+        <div className="external-ai-step">
+          <strong>第 2 步：去任意免费 AI 粘贴发送</strong>
+          <p className="muted">
+            打开手机 App 或点下方网页版，发给它并复制完整回复回来：
           </p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div className="external-ai-apps">
             {EXTERNAL_FREE_AI_APPS.map((app) => (
               <a
                 key={app.id}
                 href={app.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="secondary"
-                style={{ textDecoration: 'none', padding: '6px 12px', borderRadius: 999, fontSize: 13 }}
+                className="secondary external-ai-app-pill"
               >
-                {app.name} <small style={{ opacity: 0.7 }}>· {app.hint}</small>
+                {app.name} <small>· {app.hint}</small>
               </a>
             ))}
           </div>
         </div>
 
-        <div className="external-ai-step" style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--surface-soft, rgba(0,0,0,0.03))', marginBottom: 12 }}>
-          <label htmlFor="external-ai-reply-input" style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>
+        <div className="external-ai-step">
+          <label htmlFor="external-ai-reply-input" className="external-ai-label">
             第 3 步：粘贴 AI 生成的回复，一键导入周游
           </label>
           <textarea
             id="external-ai-reply-input"
-            rows={7}
+            rows={6}
             disabled={busy}
             value={rawReply}
             onChange={(e) => {
               setRawReply(e.target.value);
               if (error) setError('');
             }}
-            placeholder={'把豆包 / DeepSeek / Kimi / 元宝的完整回复粘贴到这里（包含 ```json ... ``` 即可，前后有多余文字也能自动识别）'}
-            style={{ width: '100%', fontSize: 13 }}
+            placeholder={'把豆包 / DeepSeek / Kimi / 元宝 / ChatGPT 的完整回复粘贴到这里（自动兼容 JSON 与各种字段格式）'}
+            className="external-ai-textarea"
           />
           {error && (
-            <p role="alert" style={{ color: 'var(--danger, #c62828)', fontSize: 13, margin: '8px 0 0' }}>
+            <p role="alert" className="external-ai-error">
               {error}
             </p>
           )}
         </div>
 
-        <div className="heading-actions" style={{ justifyContent: 'flex-end', gap: 8 }}>
+        <div className="external-ai-footer">
           <button type="button" className="secondary" disabled={busy} onClick={onClose}>
             取消
           </button>

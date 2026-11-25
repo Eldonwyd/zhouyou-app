@@ -36,7 +36,13 @@ export async function plannerApi<T>(
       return handleMobilePlannerApi<T>(endpoint, body, signal, onProgress);
     }
     setDesktopFreeTrialEnabled(false);
-  } else if (endpoint === 'ai-settings') {
+  } else if (
+    endpoint === 'ai-settings'
+    && body
+    && typeof body === 'object'
+    && ('provider' in body || 'apiKey' in body)
+  ) {
+    // 仅在真正保存其他服务商 API Key 时关闭免费体验，读取 ai-settings({}) 不应清除状态
     setDesktopFreeTrialEnabled(false);
   }
   if (
@@ -45,6 +51,10 @@ export async function plannerApi<T>(
   ) {
     return handleMobilePlannerApi<T>(endpoint, body, signal, onProgress);
   }
+  const isReadingAiSettingsWithFreeTrial =
+    isDesktopFreeTrialEnabled()
+    && endpoint === 'ai-settings'
+    && (!body || (typeof body === 'object' && !('provider' in body) && !('apiKey' in body)));
   const url = plannerApiUrl(endpoint);
   let response: Response;
   try {
@@ -56,6 +66,9 @@ export async function plannerApi<T>(
     });
   } catch (error) {
     if (signal.aborted) throw error;
+    if (isReadingAiSettingsWithFreeTrial) {
+      return handleMobilePlannerApi<T>('health', {}, signal, onProgress);
+    }
     throw new Error(readLanguage() === 'en'
       ? 'Cannot connect to AI server: on desktop restart the app; on mobile/web configure the server URL in Profile → Settings → Remote / LAN AI Server.'
       : '无法连接 AI 服务：桌面版请直接重启应用，手机版请在「个人中心 → 设置 → 远程 / 局域网 AI 服务」填写电脑/服务器地址');
@@ -66,6 +79,19 @@ export async function plannerApi<T>(
   }
   if (!response.headers.get('content-type')?.includes('ndjson')) {
     const data = await response.json() as T;
+    if (isReadingAiSettingsWithFreeTrial && data && typeof data === 'object') {
+      const freeStatus = await handleMobilePlannerApi<Record<string, unknown>>('health', {}, signal, onProgress);
+      return {
+        ...(data as Record<string, unknown>),
+        configured: freeStatus.configured,
+        provider: FREE_TRIAL_PROVIDER_ID,
+        authMode: 'free',
+        label: freeStatus.label,
+        model: freeStatus.model,
+        modelId: freeStatus.modelId,
+        models: freeStatus.models,
+      } as T;
+    }
     if (USAGE_TRACKED_ENDPOINTS.has(endpoint)) {
       recordAiUsage({ provider: 'server', label: '本地 / 远程 AI 服务', authMode: 'api' });
     }

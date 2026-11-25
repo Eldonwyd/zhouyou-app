@@ -91,8 +91,8 @@ export default function CloudSyncCard({
             <p>开启三端自动云同步（AI 攻略、地图点亮、纯文字手账与花费），并解锁「同行旅伴」加好友、行程群协作与 AA 记账。照片视频继续留在本地走 ZIP 备份。</p>
           </div>
           <div className="cloud-account-actions">
-            <button type="button" className="primary" onClick={() => onOpenAuth('register')}>注册新账号</button>
-            <button type="button" className="secondary" onClick={() => onOpenAuth('login')}>密码登录</button>
+            <button type="button" className="primary" onClick={() => onOpenAuth('login')}>密码登录</button>
+            <button type="button" className="secondary" onClick={() => onOpenAuth('register')}>注册新账号</button>
           </div>
         </div>
       </section>

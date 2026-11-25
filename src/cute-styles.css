@@ -936,78 +936,80 @@
   opacity: .55;
 }
 
-/* 可爱手账空态引导 */
+/* 可爱手账空态引导（紧凑精致版） */
 .journal-empty-card {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 36px 28px 34px !important;
-  gap: 8px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px 20px 18px !important;
+  gap: 5px;
 }
 .empty-float-sparkle {
   position: absolute;
-  top: 18px;
-  right: 22px;
-  width: 34px;
-  height: 34px;
+  top: 12px;
+  right: 14px;
+  width: 24px;
+  height: 24px;
 }
 .empty-scene-svg {
-  width: min(240px, 72vw);
+  width: min(142px, 46vw);
   height: auto;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 .empty-scene-svg.compact {
-  width: 148px;
+  width: 118px;
   flex-shrink: 0;
   margin-bottom: 0;
 }
 .journal-empty-card h2 {
-  margin: 4px 0 2px;
-  font-size: 21px;
+  margin: 2px 0 0;
+  font-size: 17px;
 }
 .journal-empty-card > p {
-  max-width: 560px;
+  max-width: 500px;
   margin: 0;
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--muted);
-  line-height: 1.75;
+  line-height: 1.55;
 }
 .journal-empty-steps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  width: min(720px, 100%);
-  margin: 16px 0 6px;
+  gap: 8px;
+  width: min(600px, 100%);
+  margin: 10px 0 4px;
 }
 .empty-step-chip {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 16px;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
   background: var(--app-sage);
   text-align: left;
 }
 .empty-step-chip:nth-child(2) { background: var(--app-peach); }
 .empty-step-chip:nth-child(3) { background: var(--app-honey); }
 .empty-step-chip > span {
-  width: 28px;
-  height: 28px;
+  width: 23px;
+  height: 23px;
   border-radius: 50%;
   background: var(--surface);
   color: var(--ink);
   font-weight: 800;
-  font-size: 13px;
+  font-size: 12px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, .06);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
 }
 .empty-step-chip strong {
   display: block;
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--ink);
 }
 .empty-step-chip small {

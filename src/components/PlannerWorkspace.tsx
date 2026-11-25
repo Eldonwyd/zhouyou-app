@@ -92,7 +92,7 @@ import { getPlannerPhotoBlob, savePlannerMapPositions, type recordPlannerJournal
 import { plannerJournalActivityKey, plannerJournalCity, plannerJournalVisitFor } from '../planner-journal';
 import { mapAppLabel, mapPlaceLinks, openMapAppPlace, openXiaohongshuSearch } from '../external-app-links';
 import { PLANNER_API_ORIGIN_EVENT, plannerApiUrl } from '../api-base';
-import { buildMobileAiStatus, isMobileNativeAiActive } from '../mobile-ai-runtime';
+import { buildMobileAiStatus, isDesktopFreeTrialEnabled, isMobileNativeAiActive } from '../mobile-ai-runtime';
 import { plannerApi } from '../planner-api';
 import { ticketPlanSignature } from '../planner-ticket-signature';
 import { BUDGET_LABELS, type TripPlan } from '../types';
@@ -1225,7 +1225,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
     let active = true;
     let healthController: AbortController | null = null;
     const probeHealth = () => {
-      if (isMobileNativeAiActive()) {
+      if (isMobileNativeAiActive() || isDesktopFreeTrialEnabled()) {
         setAiStatus(normalizeAiStatus(buildMobileAiStatus()));
         setAiBackendOffline(false);
         return;

@@ -133,36 +133,78 @@ export function buildExternalAiPrompt(request: PlannerRequest): string {
   ].join('\n');
 }
 
-/** 将用户从豆包 / DeepSeek / Kimi / 腾讯元宝复制回来的回复一键解析并标准化为周游行程。 */
+/** 从任意外部 AI 回复中提取最像行程对象的 JSON 结构（兼容数组、嵌套 data/plan、itinerary/schedule 别名等）。 */
+function unwrapExternalPlanObject(raw: unknown): Record<string, unknown> | null {
+  if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === 'object') {
+    return { days: raw };
+  }
+  if (!raw || typeof raw !== 'object') return null;
+  let obj = raw as Record<string, unknown>;
+  // 兼容 { data: { days: [...] } } / { plan: { ... } } / { itinerary: { days: [...] } }
+  for (const wrapperKey of ['data', 'plan', 'result', 'trip', 'itinerary']) {
+    const nested = obj[wrapperKey];
+    if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+      const nObj = nested as Record<string, unknown>;
+      if (Array.isArray(nObj.days) || Array.isArray(nObj.itinerary) || Array.isArray(nObj.schedule) || Array.isArray(nObj.dailyPlans)) {
+        obj = nObj;
+        break;
+      }
+    }
+  }
+  const daysAlias = obj.days ?? obj.itinerary ?? obj.schedule ?? obj.dailyPlans ?? obj.daily_plans ?? obj.daily;
+  if (Array.isArray(daysAlias) && daysAlias.length > 0) {
+    return { ...obj, days: daysAlias };
+  }
+  return obj;
+}
+
+/** 将用户从豆包 / DeepSeek / Kimi / 腾讯元宝 / ChatGPT / Claude 等复制回来的回复一键解析并标准化为周游行程。 */
 export async function parseExternalAiResponse(
   rawText: string,
   request: PlannerRequest,
 ): Promise<{ content: PlannerContent; budget: PlannerBudget; warnings: string[] }> {
   const trimmed = String(rawText || '').trim();
   if (!trimmed) {
-    throw new Error('请先粘贴外部 AI（豆包 / DeepSeek / Kimi / 元宝）生成的完整回复内容');
+    throw new Error('请先粘贴外部 AI（豆包 / DeepSeek / Kimi / 元宝 / ChatGPT 等）生成的完整回复内容');
   }
-  if (!trimmed.includes('{') || !trimmed.includes('}')) {
+  if (!trimmed.includes('{') && !trimmed.includes('[')) {
     throw new Error('未检测到 JSON 行程结构。请确认已把「第 1 步」的完整提示词发给外部 AI，并将它回复的 JSON 内容粘贴到这里');
   }
 
-  let parsed: Record<string, unknown>;
+  let parsedRaw: unknown;
   try {
-    parsed = extractJsonObject<Record<string, unknown>>(trimmed);
+    // 优先尝试所有 ```json ... ``` 代码块，防止 AI 输出多个代码块时取错
+    const fenceMatches = [...trimmed.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)];
+    let best: Record<string, unknown> | null = null;
+    for (const m of fenceMatches) {
+      try {
+        const candidate = unwrapExternalPlanObject(extractJsonObject<unknown>(m[1]));
+        if (candidate && Array.isArray(candidate.days) && candidate.days.length > 0) {
+          best = candidate;
+          break;
+        }
+      } catch {
+        // 尝试下一个代码块
+      }
+    }
+    parsedRaw = best ?? extractJsonObject<unknown>(trimmed);
   } catch {
     throw new Error('粘贴的内容无法解析为有效 JSON，请检查是否复制完整（从 { 到 } 的全部内容）后重试');
   }
 
-  if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.days) || parsed.days.length === 0) {
-    throw new Error('JSON 中缺少有效的 days 每日行程数组，请让外部 AI 严格按示例 JSON 格式重新输出');
+  const parsed = unwrapExternalPlanObject(parsedRaw);
+  if (!parsed || !Array.isArray(parsed.days) || parsed.days.length === 0) {
+    throw new Error('JSON 中缺少有效的每日行程数组（days / itinerary），请让外部 AI 按示例 JSON 格式重新输出');
   }
 
-  const startDate = request.startDate || String((parsed.days[0] as Record<string, unknown>)?.date || new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10));
+  const firstDay = (parsed.days[0] && typeof parsed.days[0] === 'object' ? parsed.days[0] : {}) as Record<string, unknown>;
+  const rawFirstDate = typeof firstDay.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(firstDay.date.trim()) ? firstDay.date.trim() : '';
+  const startDate = request.startDate || rawFirstDate || new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
   const inferredDays = parsed.days.length;
   const inferredDest =
     request.destination?.trim()
     || String((Array.isArray(parsed.cities) && (parsed.cities[0] as Record<string, unknown>)?.name) || '')
-    || String((parsed.days[0] as Record<string, unknown>)?.city || '')
+    || String(firstDay.city || '')
     || String(parsed.title || '旅行计划').replace(/\d+日.*/, '').trim();
 
   const normalizedRequest: PlannerRequest = {

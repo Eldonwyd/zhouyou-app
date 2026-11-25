@@ -1774,6 +1774,31 @@ export function extractJsonObject<T>(raw: string): T {
   return JSON.parse(jsonrepair(slice)) as T;
 }
 
+const MOBILE_CITY_ADCODES: Array<[string, string, string]> = [
+  ['北京', '110100', '110000'], ['天津', '120100', '120000'], ['上海', '310100', '310000'], ['重庆', '500100', '500000'],
+  ['广州', '440100', '440000'], ['深圳', '440300', '440000'], ['珠海', '440400', '440000'], ['佛山', '440600', '440000'],
+  ['潮州', '445100', '440000'], ['汕头', '440500', '440000'], ['杭州', '330100', '330000'], ['宁波', '330200', '330000'],
+  ['绍兴', '330600', '330000'], ['嘉兴', '330400', '330000'], ['舟山', '330900', '330000'], ['南京', '320100', '320000'],
+  ['苏州', '320500', '320000'], ['无锡', '320200', '320000'], ['扬州', '321000', '320000'], ['成都', '510100', '510000'],
+  ['乐山', '511100', '510000'], ['阿坝', '513200', '510000'], ['甘孜', '513300', '510000'], ['西安', '610100', '610000'],
+  ['武汉', '420100', '420000'], ['宜昌', '420500', '420000'], ['恩施', '422800', '420000'], ['长沙', '430100', '430000'],
+  ['张家界', '430800', '430000'], ['湘西', '433100', '430000'], ['青岛', '370200', '370000'], ['济南', '370100', '370000'],
+  ['烟台', '370600', '370000'], ['威海', '371000', '370000'], ['泰安', '370900', '370000'], ['厦门', '350200', '350000'],
+  ['福州', '350100', '350000'], ['泉州', '350500', '350000'], ['三亚', '460200', '460000'], ['海口', '460100', '460000'],
+  ['昆明', '530100', '530000'], ['大理', '532900', '530000'], ['丽江', '530700', '530000'], ['西双版纳', '532800', '530000'],
+  ['迪庆', '533400', '530000'], ['香格里拉', '533400', '530000'], ['贵阳', '520100', '520000'], ['黔东南', '522600', '520000'],
+  ['桂林', '450300', '450000'], ['北海', '450500', '450000'], ['南宁', '450100', '450000'], ['拉萨', '540100', '540000'],
+  ['林芝', '540400', '540000'], ['乌鲁木齐', '650100', '650000'], ['伊犁', '654000', '650000'], ['喀什', '653100', '650000'],
+  ['阿勒泰', '654300', '650000'], ['哈尔滨', '230100', '230000'], ['沈阳', '210100', '210000'], ['大连', '210200', '210000'],
+  ['长春', '220100', '220000'], ['延边', '222400', '220000'], ['郑州', '410100', '410000'], ['洛阳', '410300', '410000'],
+  ['开封', '410200', '410000'], ['合肥', '340100', '340000'], ['黄山', '341000', '340000'], ['南昌', '360100', '360000'],
+  ['景德镇', '360200', '360000'], ['上饶', '361100', '360000'], ['太原', '140100', '140000'], ['大同', '140200', '140000'],
+  ['晋中', '140700', '140000'], ['石家庄', '130100', '130000'], ['秦皇岛', '130300', '130000'], ['承德', '130800', '130000'],
+  ['兰州', '620100', '620000'], ['敦煌', '620900', '620000'], ['酒泉', '620900', '620000'], ['张掖', '620700', '620000'],
+  ['西宁', '630100', '630000'], ['银川', '640100', '640000'], ['呼和浩特', '150100', '150000'], ['呼伦贝尔', '150700', '150000'],
+  ['香港', '810000', '810000'], ['澳门', '820000', '820000'], ['台北', '710000', '710000'],
+];
+
 /* ============================================================================
  * 7. 统一处理手机端所有 /api/planner/* 路由
  * ========================================================================== */
@@ -1960,31 +1985,6 @@ export async function handleMobilePlannerApi<T>(
     return { quota } as unknown as T;
   }
 
-const MOBILE_CITY_ADCODES: Array<[string, string, string]> = [
-  ['北京', '110100', '110000'], ['天津', '120100', '120000'], ['上海', '310100', '310000'], ['重庆', '500100', '500000'],
-  ['广州', '440100', '440000'], ['深圳', '440300', '440000'], ['珠海', '440400', '440000'], ['佛山', '440600', '440000'],
-  ['潮州', '445100', '440000'], ['汕头', '440500', '440000'], ['杭州', '330100', '330000'], ['宁波', '330200', '330000'],
-  ['绍兴', '330600', '330000'], ['嘉兴', '330400', '330000'], ['舟山', '330900', '330000'], ['南京', '320100', '320000'],
-  ['苏州', '320500', '320000'], ['无锡', '320200', '320000'], ['扬州', '321000', '320000'], ['成都', '510100', '510000'],
-  ['乐山', '511100', '510000'], ['阿坝', '513200', '510000'], ['甘孜', '513300', '510000'], ['西安', '610100', '610000'],
-  ['武汉', '420100', '420000'], ['宜昌', '420500', '420000'], ['恩施', '422800', '420000'], ['长沙', '430100', '430000'],
-  ['张家界', '430800', '430000'], ['湘西', '433100', '430000'], ['青岛', '370200', '370000'], ['济南', '370100', '370000'],
-  ['烟台', '370600', '370000'], ['威海', '371000', '370000'], ['泰安', '370900', '370000'], ['厦门', '350200', '350000'],
-  ['福州', '350100', '350000'], ['泉州', '350500', '350000'], ['三亚', '460200', '460000'], ['海口', '460100', '460000'],
-  ['昆明', '530100', '530000'], ['大理', '532900', '530000'], ['丽江', '530700', '530000'], ['西双版纳', '532800', '530000'],
-  ['迪庆', '533400', '530000'], ['香格里拉', '533400', '530000'], ['贵阳', '520100', '520000'], ['黔东南', '522600', '520000'],
-  ['桂林', '450300', '450000'], ['北海', '450500', '450000'], ['南宁', '450100', '450000'], ['拉萨', '540100', '540000'],
-  ['林芝', '540400', '540000'], ['乌鲁木齐', '650100', '650000'], ['伊犁', '654000', '650000'], ['喀什', '653100', '650000'],
-  ['阿勒泰', '654300', '650000'], ['哈尔滨', '230100', '230000'], ['沈阳', '210100', '210000'], ['大连', '210200', '210000'],
-  ['长春', '220100', '220000'], ['延边', '222400', '220000'], ['郑州', '410100', '410000'], ['洛阳', '410300', '410000'],
-  ['开封', '410200', '410000'], ['合肥', '340100', '340000'], ['黄山', '341000', '340000'], ['南昌', '360100', '360000'],
-  ['景德镇', '360200', '360000'], ['上饶', '361100', '360000'], ['太原', '140100', '140000'], ['大同', '140200', '140000'],
-  ['晋中', '140700', '140000'], ['石家庄', '130100', '130000'], ['秦皇岛', '130300', '130000'], ['承德', '130800', '130000'],
-  ['兰州', '620100', '620000'], ['敦煌', '620900', '620000'], ['酒泉', '620900', '620000'], ['张掖', '620700', '620000'],
-  ['西宁', '630100', '630000'], ['银川', '640100', '640000'], ['呼和浩特', '150100', '150000'], ['呼伦贝尔', '150700', '150000'],
-  ['香港', '810000', '810000'], ['澳门', '820000', '820000'], ['台北', '710000', '710000'],
-];
-
 function lookupMobileCity(name: string, rawCode?: unknown, rawProvinceCode?: unknown): JourneyCity {
   const cleanName = String(name || '').trim() || '目的地';
   const validCode = typeof rawCode === 'string' && /^\d{6}$/.test(rawCode.trim()) ? rawCode.trim() : '';
@@ -2023,10 +2023,49 @@ function periodFromMinutes(minutes: number): PlannerPeriod {
 
 function normalizeMobileKind(value: unknown): PlannerActivity['kind'] {
   const raw = String(value ?? '').trim().toLowerCase();
-  if (raw === 'food' || /meal|dining|restaurant|餐饮|美食|用餐|吃饭/.test(raw)) return 'food';
-  if (raw === 'transport' || /transit|traffic|transfer|交通|换乘|出行/.test(raw)) return 'transport';
-  if (raw === 'rest' || /free|break|hotel|休息|自由|入住/.test(raw)) return 'rest';
+  if (raw === 'food' || /meal|dining|restaurant|eat|breakfast|lunch|dinner|snack|cafe|coffee|餐饮|美食|用餐|吃饭|早餐|午餐|晚餐|小吃|下午茶/.test(raw)) return 'food';
+  if (raw === 'transport' || /transit|traffic|transfer|flight|train|car|bus|drive|交通|换乘|出行|乘车|包车|返程|抵达|出发/.test(raw)) return 'transport';
+  if (raw === 'rest' || /free|break|hotel|lodging|checkin|check-in|checkout|stay|relax|休息|自由|入住|退房|酒店|住宿|散步|夜景/.test(raw)) return 'rest';
   return 'sight';
+}
+
+function parseFlexibleYuanToCents(val: unknown): number | null {
+  if (typeof val === 'number' && Number.isFinite(val) && val >= 0) {
+    return Math.round(val * 100);
+  }
+  if (typeof val === 'string') {
+    const clean = val.trim();
+    if (!clean) return null;
+    if (/免费|free|无|0元/i.test(clean) && !/[1-9]/.test(clean)) return 0;
+    const m = clean.replace(/,/g, '').match(/(\d+(?:\.\d+)?)/);
+    if (m) {
+      const n = Number(m[1]);
+      if (Number.isFinite(n) && n >= 0) return Math.round(n * 100);
+    }
+  }
+  return null;
+}
+
+function normalizeCostCategory(raw: unknown, fallback: PlannerCost['category']): PlannerCost['category'] {
+  const s = String(raw ?? '').trim().toLowerCase();
+  if (s === 'transport' || s === 'lodging' || s === 'tickets' || s === 'food' || s === 'other') return s;
+  if (/ticket|entry|admission|门票|票/.test(s)) return 'tickets';
+  if (/food|meal|dining|drink|snack|餐|吃|美食|饮|茶|咖啡/.test(s)) return 'food';
+  if (/transport|traffic|transfer|car|taxi|train|flight|bus|交通|车|船|机票|高铁|地铁/.test(s)) return 'transport';
+  if (/lodging|hotel|stay|room|住|酒店|民宿|客栈/.test(s)) return 'lodging';
+  if (/shop|souvenir|gift|购物|伴手礼|特产/.test(s)) return 'other';
+  return fallback;
+}
+
+function normalizeCostUnit(raw: unknown, cat: PlannerCost['category']): PlannerCost['unit'] {
+  const s = String(raw ?? '').trim().toLowerCase();
+  if (s === 'ticket' || s === 'person' || s === 'room' || s === 'vehicle' || s === 'group') return s;
+  if (/person|people|pax|人|人均/.test(s)) return 'person';
+  if (/room|night|间|房/.test(s)) return 'room';
+  if (/vehicle|car|bus|车|辆/.test(s)) return 'vehicle';
+  if (/ticket|张|票/.test(s)) return 'ticket';
+  if (/group|total|order|团|组|次|总/.test(s)) return 'group';
+  return cat === 'tickets' ? 'ticket' : cat === 'lodging' ? 'room' : cat === 'food' ? 'person' : 'group';
 }
 
 function normalizeMobilePeriod(value: unknown, startMinutes: number): PlannerPeriod {
@@ -2062,8 +2101,6 @@ function normalizeMobileCosts(
   fallbackLabel?: string,
 ): PlannerCost[] {
   const list = Array.isArray(rawCosts) ? rawCosts : [];
-  const validCategories = new Set<PlannerCost['category']>(['transport', 'lodging', 'tickets', 'food', 'other']);
-  const validUnits = new Set<PlannerCost['unit']>(['ticket', 'person', 'room', 'vehicle', 'group']);
   const out: PlannerCost[] = [];
   for (let i = 0; i < list.length; i += 1) {
     const item = list[i] as Record<string, unknown> | null;
@@ -2071,22 +2108,32 @@ function normalizeMobileCosts(
     let id = typeof item.id === 'string' && item.id.trim() ? item.id.trim() : `${prefix}-${i + 1}`;
     while (usedCostIds.has(id)) id = `${prefix}-${i + 1}-${usedCostIds.size + 1}`;
     usedCostIds.add(id);
-    const cat = validCategories.has(item.category as PlannerCost['category'])
-      ? (item.category as PlannerCost['category'])
-      : defaultCategory;
-    const unit = validUnits.has(item.unit as PlannerCost['unit'])
-      ? (item.unit as PlannerCost['unit'])
-      : (cat === 'tickets' ? 'ticket' : cat === 'lodging' ? 'room' : cat === 'food' ? 'person' : 'group');
-    const rawPrice = item.unitPriceCents;
-    const unitPriceCents =
-      typeof rawPrice === 'number' && Number.isFinite(rawPrice) && rawPrice >= 0
-        ? Math.round(rawPrice)
+    const cat = normalizeCostCategory(item.category ?? item.type, defaultCategory);
+    const unit = normalizeCostUnit(item.unit, cat);
+    const rawPriceCents = item.unitPriceCents ?? item.priceCents ?? item.amountCents;
+    let unitPriceCents: number | null =
+      typeof rawPriceCents === 'number' && Number.isFinite(rawPriceCents) && rawPriceCents >= 0
+        ? Math.round(rawPriceCents)
         : null;
-    const qty = typeof item.quantity === 'number' && Number.isSafeInteger(item.quantity) && item.quantity >= 1 ? item.quantity : 1;
-    const occ = typeof item.occurrences === 'number' && Number.isSafeInteger(item.occurrences) && item.occurrences >= 1 ? item.occurrences : 1;
+    if (unitPriceCents === null) {
+      unitPriceCents =
+        parseFlexibleYuanToCents(item.unitAmountYuan)
+        ?? parseFlexibleYuanToCents(item.amountYuan)
+        ?? parseFlexibleYuanToCents(item.priceYuan)
+        ?? parseFlexibleYuanToCents(item.costYuan)
+        ?? parseFlexibleYuanToCents(item.yuan)
+        ?? parseFlexibleYuanToCents(item.unitPrice)
+        ?? parseFlexibleYuanToCents(item.price)
+        ?? parseFlexibleYuanToCents(item.amount)
+        ?? parseFlexibleYuanToCents(item.cost);
+    }
+    const rawQty = Number(item.quantity ?? item.count ?? 1);
+    const qty = Number.isSafeInteger(rawQty) && rawQty >= 1 ? rawQty : 1;
+    const rawOcc = Number(item.occurrences ?? item.nights ?? 1);
+    const occ = Number.isSafeInteger(rawOcc) && rawOcc >= 1 ? rawOcc : 1;
     out.push({
       id,
-      label: String(item.label ?? fallbackLabel ?? '预估费用').trim() || '预估费用',
+      label: String(item.label ?? item.name ?? item.title ?? fallbackLabel ?? '预估费用').trim() || '预估费用',
       category: cat,
       unit,
       unitPriceCents,
@@ -2096,7 +2143,7 @@ function normalizeMobileCosts(
       quantity: qty,
       occurrences: occ,
       status: unitPriceCents === null ? 'unknown' : 'estimate',
-      qualification: String(item.qualification ?? '').trim(),
+      qualification: String(item.qualification ?? item.basis ?? '').trim(),
       sourceIds: [],
       includedIn: null,
     });
@@ -2195,7 +2242,15 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
       ? srcDay.activities
       : Array.isArray(srcDay.items)
         ? srcDay.items
-        : [];
+        : Array.isArray(srcDay.schedule)
+          ? srcDay.schedule
+          : Array.isArray(srcDay.spots)
+            ? srcDay.spots
+            : Array.isArray(srcDay.places)
+              ? srcDay.places
+              : Array.isArray(srcDay.events)
+                ? srcDay.events
+                : [];
     const activities: PlannerActivity[] = [];
     let cursor = 9 * 60;
 
@@ -2206,11 +2261,14 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
       while (usedActIds.has(id)) id = `d${d + 1}-a${i + 1}-${usedActIds.size + 1}`;
       usedActIds.add(id);
 
-      const kind = normalizeMobileKind(a.kind);
-      const parsedStart = parseMobileMinutes(a.startTime) ?? parseMobileMinutes(a.time) ?? cursor;
+      const kind = normalizeMobileKind(a.kind ?? a.type ?? a.category);
+      // 兼容 "09:00-11:30" 或 "09:00 ~ 11:30" 这样的单字段时间区间
+      const timeRangeText = typeof a.time === 'string' ? a.time : (typeof a.timeRange === 'string' ? a.timeRange : '');
+      const rangeParts = timeRangeText.split(/[-~至到—–]+/).map((s) => s.trim()).filter(Boolean);
+      const parsedStart = parseMobileMinutes(a.startTime ?? a.start) ?? parseMobileMinutes(rangeParts[0]) ?? cursor;
       const startMin = Math.min(22 * 60 + 30, Math.max(6 * 60, parsedStart));
       const dur = typeof a.durationMinutes === 'number' && a.durationMinutes > 0 ? Math.min(360, Math.round(a.durationMinutes)) : 90;
-      const parsedEnd = parseMobileMinutes(a.endTime);
+      const parsedEnd = parseMobileMinutes(a.endTime ?? a.end) ?? (rangeParts[1] ? parseMobileMinutes(rangeParts[1]) : null);
       const endMin = parsedEnd !== null && parsedEnd > startMin
         ? Math.min(23 * 60 + 55, parsedEnd)
         : Math.min(23 * 60 + 55, startMin + Math.max(30, dur));
@@ -2221,15 +2279,25 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
 
       const defaultCat: PlannerCost['category'] =
         kind === 'food' ? 'food' : kind === 'transport' ? 'transport' : kind === 'sight' ? 'tickets' : 'other';
-      const title = String(a.title ?? a.name ?? `${dayCity}行程安排`).trim() || `${dayCity}行程安排`;
+      const title = String(a.title ?? a.name ?? a.spot ?? a.place ?? `${dayCity}行程安排`).trim() || `${dayCity}行程安排`;
+      const fallbackCostCents =
+        typeof a.estimatedCostCents === 'number'
+          ? a.estimatedCostCents
+          : (parseFlexibleYuanToCents(a.costYuan ?? a.priceYuan ?? a.cost ?? a.price) ?? undefined);
       const costs = normalizeMobileCosts(
-        a.costs,
+        a.costs ?? a.expenses,
         `cost-${d + 1}-${i + 1}`,
         usedCostIds,
         defaultCat,
-        a.estimatedCostCents,
+        fallbackCostCents,
         title,
       );
+
+      const descParts = [
+        String(a.description ?? a.desc ?? a.detail ?? a.summary ?? '').trim(),
+        typeof a.tips === 'string' && a.tips.trim() && !String(a.description ?? '').includes(a.tips.trim()) ? `贴士：${a.tips.trim()}` : '',
+        typeof a.reservation === 'string' && a.reservation.trim() && !String(a.description ?? '').includes(a.reservation.trim()) ? `预约：${a.reservation.trim()}` : '',
+      ].filter(Boolean);
 
       const rawDistanceKm =
         kind === 'transport' && typeof a.distanceKm === 'number' && Number.isFinite(a.distanceKm) && a.distanceKm > 0
@@ -2248,8 +2316,8 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
         endTime: mobileClock(endMin),
         title,
         city: String(a.city ?? dayCity).trim() || dayCity,
-        location: String(a.location ?? title).trim() || title,
-        description: String(a.description ?? a.detail ?? a.tips ?? '').trim(),
+        location: String(a.location ?? a.address ?? title).trim() || title,
+        description: descParts.join(' · '),
         transportMode: kind === 'transport' ? (String(a.transportMode ?? req.transport).trim() || '公共交通') : '',
         ...(rawDistanceKm !== undefined ? { distanceKm: rawDistanceKm } : {}),
         ...(rawTransferOpts?.length ? { transferOptions: rawTransferOpts } : {}),
@@ -2295,12 +2363,26 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
         : null;
       const area = String(rawLodging?.area ?? srcDay.stayArea ?? `${dayCity}市中心商圈`).trim() || `${dayCity}市中心商圈`;
       const lodgingCity = String(rawLodging?.city ?? dayCity).trim() || dayCity;
+      const lodgingNightlyCents =
+        parseFlexibleYuanToCents(rawLodging?.nightlyCostYuan ?? rawLodging?.costYuan ?? rawLodging?.priceYuan ?? rawLodging?.price) ?? undefined;
+      const lodgingCosts = normalizeMobileCosts(
+        rawLodging?.costs,
+        `lodging-${d + 1}`,
+        usedCostIds,
+        'lodging',
+        lodgingNightlyCents,
+        `${lodgingCity}住宿`,
+      );
+      if (lodgingCosts.length === 1 && typeof rawLodging?.roomCount === 'number' && Number.isSafeInteger(rawLodging.roomCount) && rawLodging.roomCount >= 1) {
+        lodgingCosts[0].quantity = rawLodging.roomCount;
+        lodgingCosts[0].unit = 'room';
+      }
       lodging = {
         city: lodgingCity,
         area,
         searchKeyword: String(rawLodging?.searchKeyword ?? `${lodgingCity} ${area} 酒店`).trim(),
         reason: String(rawLodging?.reason ?? '交通便利，方便次日游览与夜间觅食。').trim(),
-        costs: normalizeMobileCosts(rawLodging?.costs, `lodging-${d + 1}`, usedCostIds, 'lodging', undefined, `${lodgingCity}住宿`),
+        costs: lodgingCosts,
         sourceIds: [],
       };
     }

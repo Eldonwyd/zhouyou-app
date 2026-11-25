@@ -1855,36 +1855,37 @@ export default function PlannerAiSettings({
         <div className="neo-provider-stack">
           {/* 平台免费体验 AI 卡片 */}
           <article
-            className={`neo-provider-card${state?.provider === FREE_TRIAL_PROVIDER_ID ? ' is-active is-connected' : ''}`}
-            style={{ padding: '14px 16px' }}
+            className={`neo-provider-card neo-free-ai-card${state?.provider === FREE_TRIAL_PROVIDER_ID ? ' is-active is-connected' : ''}`}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <strong>✨ 周游免费体验 AI</strong>
-                  <span className="neo-status-text">
-                    {freeQuota.quota?.model || 'glm-5.3-flash'}
-                  </span>
-                  {freeQuota.quota?.vip && <span className="neo-cap-pill is-ok">VIP 无限畅享</span>}
+            <div className="neo-free-ai-head">
+              <div className="neo-free-ai-title-wrap">
+                <span className="neo-free-ai-badge" aria-hidden="true">✨</span>
+                <div className="neo-free-ai-meta">
+                  <div className="neo-free-ai-title-row">
+                    <strong>周游免费体验 AI</strong>
+                    <span className="neo-free-ai-model">{freeQuota.quota?.model || 'glm-5.3-flash'}</span>
+                    {freeQuota.quota?.vip && <span className="neo-cap-pill is-ok">VIP 无限</span>}
+                  </div>
+                  <p className="neo-free-ai-desc">
+                    登录即用，免 API Key，按实际 Token 扣减（报错不扣）
+                  </p>
                 </div>
-                <p className="muted" style={{ margin: '4px 0 0', fontSize: 12 }}>
-                  无需自备 API Key，登录周游账号即可直接生成与修改旅行攻略（按实际 Token 扣减，报错不扣）。
-                </p>
               </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div className="neo-free-ai-actions">
                 {freeQuota.loggedIn && (
                   <button
                     type="button"
-                    className="text-button"
+                    className="text-button neo-free-ai-refresh"
                     disabled={freeQuota.loading}
                     onClick={() => void freeQuota.reload()}
+                    title="刷新今日与本月剩余额度"
                   >
-                    {freeQuota.loading ? '刷新中…' : '↻ 刷新额度'}
+                    {freeQuota.loading ? '刷新中…' : '↻ 刷新'}
                   </button>
                 )}
                 <button
                   type="button"
-                  className={state?.provider === FREE_TRIAL_PROVIDER_ID ? 'secondary' : 'primary'}
+                  className={`${state?.provider === FREE_TRIAL_PROVIDER_ID ? 'secondary' : 'primary'} neo-free-ai-use-btn`}
                   disabled={Boolean(busyKey) || state?.provider === FREE_TRIAL_PROVIDER_ID}
                   onClick={() => {
                     setBusyKey('switch:free-trial');
@@ -1892,16 +1893,17 @@ export default function PlannerAiSettings({
                       .then((next) => {
                         setState((prev) => (prev ? { ...prev, ...next } : prev));
                         onSaved(next);
+                        void freeQuota.reload();
                       })
                       .catch((err) => setGlobalError(err instanceof Error ? err.message : '切换失败'))
                       .finally(() => setBusyKey(''));
                   }}
                 >
-                  {state?.provider === FREE_TRIAL_PROVIDER_ID ? '当前正在使用 ✓' : '使用免费体验 AI'}
+                  {state?.provider === FREE_TRIAL_PROVIDER_ID ? '使用中 ✓' : '使用免费 AI'}
                 </button>
               </div>
             </div>
-            <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+            <div className="neo-free-ai-quotas">
               {(() => {
                 const dailyLimit = freeQuota.quota?.daily.limit ?? 50000;
                 const dailyRem = freeQuota.quota?.daily.remaining ?? dailyLimit;
@@ -1911,22 +1913,22 @@ export default function PlannerAiSettings({
                 const monthlyPct = Math.max(0, Math.min(100, Math.round((monthlyRem / Math.max(1, monthlyLimit)) * 100)));
                 return (
                   <>
-                    <div style={{ fontSize: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span>今日剩余额度（0 点刷新）</span>
+                    <div className="neo-free-ai-quota-item">
+                      <div className="neo-free-ai-quota-label">
+                        <span>今日剩余（0 点刷新）</span>
                         <strong>{freeQuota.quota?.vip ? '无限' : `${formatTokenAmount(dailyRem)} / ${formatTokenAmount(dailyLimit)}`}</strong>
                       </div>
-                      <div style={{ height: 6, borderRadius: 999, background: 'rgba(128,128,128,0.18)', overflow: 'hidden' }}>
-                        <div style={{ width: `${freeQuota.quota?.vip ? 100 : dailyPct}%`, height: '100%', background: 'var(--accent, #2e7d32)' }} />
+                      <div className="neo-free-ai-bar">
+                        <div className="neo-free-ai-bar-fill" style={{ width: `${freeQuota.quota?.vip ? 100 : dailyPct}%` }} />
                       </div>
                     </div>
-                    <div style={{ fontSize: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span>本月剩余额度（1 日刷新）</span>
+                    <div className="neo-free-ai-quota-item">
+                      <div className="neo-free-ai-quota-label">
+                        <span>本月剩余（1 日刷新）</span>
                         <strong>{freeQuota.quota?.vip ? '无限' : `${formatTokenAmount(monthlyRem)} / ${formatTokenAmount(monthlyLimit)}`}</strong>
                       </div>
-                      <div style={{ height: 6, borderRadius: 999, background: 'rgba(128,128,128,0.18)', overflow: 'hidden' }}>
-                        <div style={{ width: `${freeQuota.quota?.vip ? 100 : monthlyPct}%`, height: '100%', background: 'var(--accent, #2e7d32)' }} />
+                      <div className="neo-free-ai-bar">
+                        <div className="neo-free-ai-bar-fill" style={{ width: `${freeQuota.quota?.vip ? 100 : monthlyPct}%` }} />
                       </div>
                     </div>
                   </>
@@ -1934,13 +1936,13 @@ export default function PlannerAiSettings({
               })()}
             </div>
             {!freeQuota.loggedIn && (
-              <p className="muted" style={{ margin: '8px 0 0', fontSize: 12 }}>
-                提示：请先在「个人中心」登录周游账号后即可启用免费额度；未登录也可使用「借用外部免费 AI 导入」零成本生成。
+              <p className="neo-free-ai-note">
+                请先在「个人中心」登录周游账号即可启用；未登录也可使用「借用外部免费 AI 导入」。
               </p>
             )}
             {freeQuota.loggedIn && freeQuota.quota && !freeQuota.quota.enabled && (
-              <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--danger, #c62828)' }}>
-                当前服务端尚未读取到免费体验密钥（若刚在 Cloudflare Pages 添加了 FREE_AI_API_KEY，需重新部署后生效）。
+              <p className="neo-free-ai-note is-warn">
+                服务端免费体验密钥同步中，若刚部署请稍候几秒后点击「刷新」。
               </p>
             )}
           </article>
