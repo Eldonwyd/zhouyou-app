@@ -567,20 +567,43 @@
     }
   }
 
+  const iosIpaMask = document.getElementById('ios-ipa-guide-mask');
+  const iosIpaContinueLink = document.getElementById('ios-ipa-continue-link');
+  const iosIpaCloseBtn = document.getElementById('ios-ipa-close-btn');
+
+  function openIosIpaGuide(targetUrl) {
+    if (!iosIpaMask) return false;
+    if (iosIpaContinueLink && targetUrl) iosIpaContinueLink.href = targetUrl;
+    iosIpaMask.hidden = false;
+    return true;
+  }
+  function closeIosIpaGuide() {
+    if (iosIpaMask) iosIpaMask.hidden = true;
+  }
+  if (iosIpaCloseBtn) iosIpaCloseBtn.addEventListener('click', closeIosIpaGuide);
+  if (iosIpaContinueLink) iosIpaContinueLink.addEventListener('click', () => closeIosIpaGuide());
+  if (iosIpaMask) iosIpaMask.addEventListener('click', (e) => { if (e.target === iosIpaMask) closeIosIpaGuide(); });
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeIosIpaGuide(); });
+
   document.querySelectorAll('a.dl-link[data-asset], #hero-primary-dl').forEach((link) => {
     link.addEventListener('click', (e) => {
-      if (!isInAppBrowser) return;
       const asset = link.dataset.asset || link.dataset.heroAsset || '';
       const href = link.getAttribute('href') || '';
-      const isInstaller =
-        asset === 'android-apk' ||
-        asset === 'ios-ipa' ||
-        /\.(apk|ipa|exe|dmg|AppImage|deb)(?:$|[?#])/i.test(href) ||
-        /^win-|^mac-|^linux-/.test(asset);
-      if (!isInstaller) return;
-      e.preventDefault();
-      const titleEl = link.querySelector('span');
-      openInAppGuide(link.href, titleEl ? titleEl.textContent.trim() : '周游地图安装包');
+      if (isInAppBrowser) {
+        const isInstaller =
+          asset === 'android-apk' ||
+          asset === 'ios-ipa' ||
+          /\.(apk|ipa|exe|dmg|AppImage|deb)(?:$|[?#])/i.test(href) ||
+          /^win-|^mac-|^linux-/.test(asset);
+        if (!isInstaller) return;
+        e.preventDefault();
+        const titleEl = link.querySelector('span');
+        openInAppGuide(link.href, titleEl ? titleEl.textContent.trim() : '周游地图安装包');
+        return;
+      }
+      if (asset === 'ios-ipa' && openIosIpaGuide(link.href)) {
+        e.preventDefault();
+      }
     });
   });
 

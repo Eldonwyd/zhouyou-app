@@ -641,19 +641,19 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="3" /><line x1="10" y1="5" x2="14" y2="5" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
                   </div>
                   <div>
-                    <h3>iOS 苹果手机版 (.ipa)</h3>
-                    <small>iPhone / iPad</small>
+                    <h3>iOS 苹果手机版</h3>
+                    <small>iPhone / iPad · 推荐 Safari PWA</small>
                   </div>
                 </div>
-                <p>提供独立开源 <code>.ipa</code> 安装包（支持 AltStore / SideStore / TrollStore / Sideloadly），也可直接使用下方 Safari PWA 添加到主屏幕。</p>
+                <p>普通苹果用户推荐直接用 <strong>Safari 添加到主屏幕（免自签）</strong>；独立 <code>.ipa</code> 安装包无法在 iPhone「文件」中直接点开，需配合 AltStore / SideStore / Sideloadly / 巨魔签名安装。</p>
                 <div class="dl-list">
-                  <a class="dl-link" data-asset="ios-ipa" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile">
-                    <span>下载 iOS 安装包 (.ipa)</span>
-                    <span class="dl-meta">AltStore / 巨魔</span>
-                  </a>
                   <a class="dl-link primary-dl" href="./">
                     <span>Safari PWA 添加到主屏幕</span>
-                    <span class="dl-meta">免自签</span>
+                    <span class="dl-meta">推荐 · 免自签</span>
+                  </a>
+                  <a class="dl-link" data-asset="ios-ipa" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile">
+                    <span>下载 iOS 安装包 (.ipa)</span>
+                    <span class="dl-meta">需 AltStore / 巨魔自签</span>
                   </a>
                 </div>
               </article>
@@ -891,6 +891,27 @@
       </div>
     </div>
 
-    <script src="./download.js?v=1.0.64"></script>
+    <!-- iOS .ipa 安装说明确认弹窗 -->
+    <div id="ios-ipa-guide-mask" class="inapp-guide-mask" role="dialog" aria-modal="true" aria-labelledby="ios-ipa-guide-title" hidden>
+      <div class="inapp-guide-card">
+        <h3 id="ios-ipa-guide-title">iPhone 无法直接点开安装 .ipa</h3>
+        <p id="ios-ipa-guide-desc">
+          受苹果 iOS 系统限制，下载 <code>.ipa</code> 到手机「文件」后只会显示 <strong>? IPA</strong>，无法直接点击安装。请按需选择：
+        </p>
+        <ol class="inapp-guide-steps">
+          <li><strong>普通用户推荐（免电脑 / 免续签）</strong>：打开网页版后，点 Safari 底部「分享 → 添加到主屏幕」，即可全屏像独立 App 一样使用。</li>
+          <li><strong>进阶自签安装</strong>：需配合电脑端 <strong>AltStore / SideStore / Sideloadly</strong> 或手机端 <strong>TrollStore（巨魔）</strong> 签名后才能安装。</li>
+        </ol>
+        <div class="inapp-guide-actions">
+          <a id="ios-ipa-pwa-link" class="btn btn-primary btn-sm" href="./">✨ 改用 Safari PWA（推荐，免自签）</a>
+          <div class="inapp-guide-row">
+            <a id="ios-ipa-continue-link" class="btn btn-secondary btn-sm" href="https://github.com/Eldonwyd/zhouyou-app/releases?q=mobile">仍要下载 .ipa</a>
+            <button type="button" id="ios-ipa-close-btn" class="btn btn-ghost btn-sm">取消</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="./download.js?v=1.0.68"></script>
   </body>
 </html>
