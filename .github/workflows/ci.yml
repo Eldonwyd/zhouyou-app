@@ -29,6 +29,9 @@ jobs:
       - name: Validate geographic boundary maps
         run: npm run test:maps
 
+      - name: Run unit regression tests
+        run: npm run test:unit
+
       - name: Build production web bundle
         run: npm run build
 

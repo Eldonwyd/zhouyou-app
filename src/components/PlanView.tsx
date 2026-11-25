@@ -114,8 +114,8 @@ export default function PlanView({ city, marks, trips, plans, aiPlans, selectedF
 
   useEffect(() => {
     const plan = activeItem ? activeItem.plan ?? (activeItem.journey ? freshPlan(activeItem.journey) : null) : null;
-    const aiPlan = activeItem?.aiPlan ?? aiPlans?.find((item) => item.linkedTripId === activeItem?.journey?.id);
-    setDraft(plan && aiPlan ? seedAiExpenses(plan, aiPlan.content) : plan);
+    // 不再静默把 AI 估算灌入实际花费（actual），保持实际账本干净，仅在用户主动点击时按预估预填。
+    setDraft(plan);
     setMoveTargetTripId('');
     // 后台抢票或照片更新也会刷新 aiPlans；不能因此重置正在编辑的账本。
   }, [activeItem?.key]);
@@ -198,6 +198,37 @@ export default function PlanView({ city, marks, trips, plans, aiPlans, selectedF
         <div className="entry-form">{activeJourney ? <div className="journey-finance-dates">{t(`旅行时间：${activeJourney.startDate} — ${activeJourney.endDate}`, `Dates: ${activeJourney.startDate} — ${activeJourney.endDate}`)}<small>{t('修改日期请前往旅行手账编辑这次旅行。', 'Edit dates from Travel Journal.')}</small></div> : <><label>{t('出发日期', 'Start Date')}<input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} /></label><label>{t('结束日期', 'End Date')}<input type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} /></label></>}
           <label>{t('同行人数', 'Travelers')}<input type="number" min="1" step="1" value={draft.people} onChange={(event) => setDraft({ ...draft, people: Math.max(1, Math.floor(Number(event.target.value) || 1)) })} /></label></div>
         <AmountFields title={t('分类预算', 'Category Budget')} amounts={draft.budget} onChange={(budget) => setDraft({ ...draft, budget })} />
+        {(() => {
+          const linkedAi = activeItem.aiPlan ?? aiPlans?.find((item) => item.linkedTripId === activeItem.journey?.id);
+          const hasAnyActual = Object.keys(draft.dailyExpenses ?? {}).length > 0
+            || Object.values(draft.actual).some((amount) => amount !== 0)
+            || Object.values(draft.overallExpenses ?? {}).some((amount) => amount !== 0)
+            || (draft.manualActualTotal ?? 0) !== 0;
+          if (!linkedAi) return null;
+          if (draft.aiExpenseSeeded) {
+            return <p className="muted">{t('提示：当前日账包含按 AI 行程预估预填的参考金额，请按实际支出核对修改。', 'Note: Daily expenses include AI estimated values. Update with actual spending.')}</p>;
+          }
+          if (!hasAnyActual) {
+            return (
+              <div className="heading-actions" style={{ marginBottom: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => {
+                    if (!window.confirm(t(
+                      '确定要将 AI 行程的预估费用预填到每日实际花费中吗？预填后请按真实消费逐项修改。',
+                      'Pre-fill daily actual spending with AI itinerary estimates? Please review and update with actual costs.',
+                    ))) return;
+                    setDraft(seedAiExpenses(draft, linkedAi.content));
+                  }}
+                >
+                  {t('按行程预估预填日账', 'Pre-fill from AI Estimates')}
+                </button>
+              </div>
+            );
+          }
+          return null;
+        })()}
         <DailyLedger
           key={activeItem.key}
           plan={draft}

@@ -4,6 +4,7 @@ import type {
   BookingRecord,
   PlannerActivity,
   PlannerContent,
+  PlannerCost,
 } from './planner-types.ts';
 import { bookingLedgerDates } from './finance.ts';
 import { createLocalId } from './utils.ts';
@@ -32,15 +33,15 @@ function normalizeTime(raw: string, fallback: string): string {
 }
 
 function ensureValidTimeRange(startRaw: string, endRaw: string): { startTime: string; endTime: string } {
-  const startTime = normalizeTime(startRaw, '09:00');
+  const startCandidate = normalizeTime(startRaw, '09:00');
   const endCandidate = normalizeTime(endRaw, '');
   const toMin = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
-  const startMin = toMin(startTime);
-  if (endCandidate && toMin(endCandidate) > startMin) return { startTime, endTime: endCandidate };
-  const endMin = Math.min(23 * 60 + 55, startMin + 60);
-  const hh = String(Math.floor(endMin / 60)).padStart(2, '0');
-  const mm = String(endMin % 60).padStart(2, '0');
-  return { startTime, endTime: `${hh}:${mm}` };
+  let startMin = toMin(startCandidate);
+  if (endCandidate && toMin(endCandidate) > startMin) return { startTime: startCandidate, endTime: endCandidate };
+  if (startMin >= 23 * 60 + 59) startMin = 23 * 60 + 58;
+  const endMin = Math.min(23 * 60 + 59, startMin + 60);
+  const fmt = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  return { startTime: fmt(startMin), endTime: fmt(endMin) };
 }
 
 /** 构造一条干净的空白预订草稿。 */
@@ -122,22 +123,44 @@ function syncHotelBookings(content: PlannerContent, hotels: Record<string, strin
       if (old) day.lodging.costs = day.lodging.costs.filter((cost) => cost.status !== 'booked' || cost.label !== `${old.hotelName}（已订）`);
     }
   }
-  for (const order of [...nextHotels].reverse()) {
+  // 按日期聚合同晚全部已订酒店，避免多人拆单订多间房时互相覆盖酒店名或静默漏算房费。
+  const hotelNamesByDate = new Map<string, string[]>();
+  const hotelCostsByDate = new Map<string, PlannerCost[]>();
+  for (const order of nextHotels) {
     const dates = bookingLedgerDates(order);
     const cents = order.amountYuan == null ? null : Math.round(order.amountYuan * 100);
     for (const [index, date] of dates.entries()) {
-      const lodging = content.days.find((day) => day.date === date)?.lodging;
-      hotels[date] = order.hotelName;
-      if (!lodging || cents == null) continue;
-      lodging.bookingOriginalCosts ??= lodging.costs;
+      const names = hotelNamesByDate.get(date) ?? [];
+      if (order.hotelName && !names.includes(order.hotelName)) names.push(order.hotelName);
+      hotelNamesByDate.set(date, names);
+      if (cents == null) continue;
       const share = Math.floor(cents / dates.length) + Number(index < cents % dates.length);
-      lodging.costs = [{
-        id: lodging.bookingOriginalCosts[0]?.id ?? `booking-hotel-${order.id}-${date}`,
-        label: `${order.hotelName}（已订）`, category: 'lodging', unit: 'group', unitPriceCents: share,
-        studentPriceCents: null, quantity: 1, occurrences: 1, status: 'booked',
-        qualification: [order.seatOrRoom, order.note].filter(Boolean).join(' · '), sourceIds: [], includedIn: null,
-      }];
+      const list = hotelCostsByDate.get(date) ?? [];
+      list.push({
+        id: `booking-hotel-${order.id}-${date}`,
+        label: `${order.hotelName}（已订）`,
+        category: 'lodging',
+        unit: 'group',
+        unitPriceCents: share,
+        studentPriceCents: null,
+        quantity: 1,
+        occurrences: 1,
+        status: 'booked',
+        qualification: [order.seatOrRoom, order.note].filter(Boolean).join(' · '),
+        sourceIds: [],
+        includedIn: null,
+      });
+      hotelCostsByDate.set(date, list);
     }
+  }
+  for (const [date, names] of hotelNamesByDate.entries()) {
+    if (names.length) hotels[date] = names.join(' / ');
+  }
+  for (const [date, bookedCosts] of hotelCostsByDate.entries()) {
+    const lodging = content.days.find((day) => day.date === date)?.lodging;
+    if (!lodging || !bookedCosts.length) continue;
+    lodging.bookingOriginalCosts ??= lodging.costs;
+    lodging.costs = bookedCosts;
   }
 }
 
@@ -314,8 +337,14 @@ export function applyBookingToPlan(
   if (isTransportBooking(booking) || booking.kind === 'hotel') {
     return changeCoreBooking(plan, booking, booking.id, options.targetActivityId);
   }
+  const previous = plan.bookings ?? [];
+  const original = previous.find((item) => item.id === booking.id);
   const content = options.updatePlan ? structuredClone(plan.content) : plan.content;
-  const day = options.updatePlan ? content.days.find((item) => item.date === booking.date) ?? content.days[0] : undefined;
+  const day = options.updatePlan ? content.days.find((item) => item.date === booking.date) : undefined;
+  if (options.updatePlan && !day) {
+    throw new Error('预订日期不在当前行程内，请核对日期或取消勾选“一键回填到行程卡片”。');
+  }
+  let linkedActivityId = original?.itineraryActivityId;
   if (day) {
     const { startTime, endTime } = ensureValidTimeRange(booking.startTime, booking.endTime);
     const description = [
@@ -328,14 +357,33 @@ export function applyBookingToPlan(
       unit: 'group' as const, unitPriceCents: Math.round(booking.amountYuan * 100), studentPriceCents: null,
       quantity: 1, occurrences: 1, status: 'booked' as const, qualification: '', sourceIds: [], includedIn: null,
     }];
-    const target = day.activities.find((activity) => activity.id === options.targetActivityId && !activity.locked && !activity.bookingId);
+    // 同一门票/其他订单重复回填或改期时，优先按原关联活动 ID 幂等更新，避免重复创建活动和预算
+    let existingLinked: PlannerActivity | undefined;
+    if (linkedActivityId) {
+      for (const d of content.days) {
+        const idx = d.activities.findIndex((activity) => activity.id === linkedActivityId && !activity.locked);
+        if (idx >= 0) {
+          existingLinked = d.activities[idx];
+          if (d.date !== day.date) {
+            d.activities.splice(idx, 1);
+            day.activities.push(existingLinked);
+          }
+          break;
+        }
+      }
+    }
+    const target = existingLinked
+      ?? day.activities.find((activity) => activity.id === options.targetActivityId && !activity.locked && !activity.bookingId);
     const fields = { startTime, endTime, period: inferPeriodFromTime(startTime), title: booking.title };
     if (target) {
       Object.assign(target, fields);
       if (booking.city) target.city = booking.city;
       if (booking.toLocation) target.location = booking.toLocation;
-      if (description) target.description = [description, target.description].filter(Boolean).join('\n');
+      if (description && !target.description.includes(description)) {
+        target.description = [description, target.description].filter(Boolean).join('\n');
+      }
       if (costs.length) target.costs = costs;
+      linkedActivityId = target.id;
     } else {
       const activity: PlannerActivity = {
         ...fields, id: createLocalId(), kind: booking.kind === 'ticket' ? 'sight' : 'rest',
@@ -345,11 +393,14 @@ export function applyBookingToPlan(
         fromActivityId: null, toActivityId: null,
       };
       day.activities.push(activity);
+      linkedActivityId = activity.id;
     }
     day.activities.sort((a, b) => a.startTime.localeCompare(b.startTime));
   }
-  const previous = plan.bookings ?? [];
-  const bookings = previous.some((item) => item.id === booking.id)
-    ? previous.map((item) => item.id === booking.id ? booking : item) : [booking, ...previous];
-  return saveBookingChange(plan, content, { ...plan.hotels }, bookings, `录入预订：${booking.title}`);
+  const savedBooking: BookingRecord = linkedActivityId
+    ? { ...booking, itineraryActivityId: linkedActivityId }
+    : booking;
+  const bookings = previous.some((item) => item.id === savedBooking.id)
+    ? previous.map((item) => item.id === savedBooking.id ? savedBooking : item) : [savedBooking, ...previous];
+  return saveBookingChange(plan, content, { ...plan.hotels }, bookings, `录入预订：${savedBooking.title}`);
 }

@@ -459,13 +459,16 @@ export default function App() {
         item.title,
         item.body,
         () => handleNotificationAction(item),
-        item.type === 'ticket_reminder' ? `zhouyou-ticket-${item.id}` : 'zhouyou-social-notif',
+        item.type === 'ticket_reminder' ? `zhouyou-ticket-${item.id}` : `zhouyou-social-${item.id}`,
       );
     }
   }, [handleNotificationAction]);
 
+  const socialRefreshInFlightRef = useRef(false);
   const refreshSocialBadges = useCallback(async () => {
-    if (!getCloudToken()) return;
+    if (!getCloudToken() || socialRefreshInFlightRef.current) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    socialRefreshInFlightRef.current = true;
     try {
       const [ov, ntfRes] = await Promise.all([
         cloudApi.getSocialOverview(),
@@ -473,27 +476,45 @@ export default function App() {
       ]);
       setUnreadCount(ov.unreadCount);
       setIntimacyBonds(ov.intimacyBonds);
+      const prefs = readNotificationPrefs();
       const seen = readSeenNotificationIds();
       const freshUnread = (ntfRes.notifications || []).filter((n) => !n.readAt && !seen.has(n.id));
       if (freshUnread.length > 0) {
-        freshUnread.forEach((n) => seen.add(n.id));
+        // 先按用户偏好分流：被屏蔽类型直接记已见，允许类型绝不因首条被屏蔽而整批吞掉
+        const eligible: CloudNotification[] = [];
+        for (const n of freshUnread) {
+          seen.add(n.id);
+          if (shouldNotifyForType(prefs, n.type)) {
+            eligible.push(n);
+          }
+        }
         writeSeenNotificationIds(seen);
-        const latest = freshUnread[0];
-        triggerNotificationPopup(latest, false);
+        if (eligible.length === 1) {
+          triggerNotificationPopup(eligible[0], false);
+        } else if (eligible.length > 1) {
+          const latest = eligible[0];
+          triggerNotificationPopup({
+            ...latest,
+            title: `${latest.title}（等 ${eligible.length} 条新通知）`,
+            body: `${latest.body || '收到多条旅伴与行程新动态'} · 点击前往通知中心查看全部`,
+          }, false);
+        }
       }
-    } catch { /* ignore offline */ }
+    } catch { /* ignore offline */ } finally {
+      socialRefreshInFlightRef.current = false;
+    }
   }, [triggerNotificationPopup]);
 
-  // 登录后每 12 秒静默轮询一次新消息，实现应用内与系统弹窗准实时提醒
+  // 登录后仅在前台且联网时每 12 秒静默轮询一次新消息，避免切后台后持续双请求耗电
   useEffect(() => {
     if (!cloudUser || !notifPrefs.enabled) return;
     const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible' || notifPrefs.systemPopup) {
+      if (document.visibilityState === 'visible' && (typeof navigator === 'undefined' || navigator.onLine !== false)) {
         void refreshSocialBadges();
       }
     }, 12000);
     return () => window.clearInterval(interval);
-  }, [cloudUser, notifPrefs.enabled, notifPrefs.systemPopup, refreshSocialBadges]);
+  }, [cloudUser, notifPrefs.enabled, refreshSocialBadges]);
 
   const [urgentTicketCount, setUrgentTicketCount] = useState(0);
 
@@ -514,6 +535,7 @@ export default function App() {
       const now = Date.now();
       const fired = readFiredTicketReminderKeys();
       let changed = false;
+      const duePopups: Array<Pick<CloudNotification, 'id' | 'title' | 'body' | 'type' | 'targetRef'>> = [];
       for (const plan of snapshot.aiPlans) {
         const reminders = plan.ticketReminders;
         if (!reminders) continue;
@@ -523,9 +545,10 @@ export default function App() {
           if (!setting?.enabled) continue;
           const schedule = resolveTicketReminderSchedule(item, setting);
           if (schedule.triggerMs == null || schedule.saleMs == null) continue;
+          const key = `${plan.id}:${item.activityId}:${schedule.triggerMs}`;
+          if (fired.has(key)) continue;
+          const playDateEndMs = item.travelDate ? Date.parse(`${item.travelDate}T23:59:59`) : (schedule.saleMs + 24 * 3600_000);
           if (now >= schedule.triggerMs && now <= schedule.saleMs + 30 * 60_000) {
-            const key = `${plan.id}:${item.activityId}:${schedule.triggerMs}`;
-            if (fired.has(key)) continue;
             fired.add(key);
             changed = true;
             const remainMin = Math.max(0, Math.round((schedule.saleMs - now) / 60_000));
@@ -533,17 +556,38 @@ export default function App() {
               ? `⏰ 抢票提醒：${item.title} 还有 ${remainMin} 分钟开售`
               : `⏰ 抢票时间到：${item.title}`;
             const body = `开售时间：${schedule.dateStr} ${schedule.timeStr}${item.platform ? ` · ${item.platform}` : ''}（行程：${plan.content.title}）`;
-            triggerNotificationPopup({
+            duePopups.push({
               id: `ticket-${key}`,
               type: 'ticket_reminder',
               title,
               body,
               targetRef: { planId: plan.id },
-            }, false);
+            });
+          } else if (now > schedule.saleMs + 30 * 60_000 && Number.isFinite(playDateEndMs) && now <= playDateEndMs) {
+            // 超过开售 30 分钟但在出行游玩日前重新打开应用：温和补发一次已开售/查余票提示，避免静默错过
+            fired.add(key);
+            changed = true;
+            duePopups.push({
+              id: `ticket-missed-${key}`,
+              type: 'ticket_reminder',
+              title: `⚠️ 已开售：${item.title}`,
+              body: `原定 ${schedule.dateStr} ${schedule.timeStr} 开售（已错过开售前提醒），建议尽快查看余票或候补（行程：${plan.content.title}）`,
+              targetRef: { planId: plan.id },
+            });
           }
         }
       }
       if (changed) writeFiredTicketReminderKeys(fired);
+      if (duePopups.length === 1) {
+        triggerNotificationPopup(duePopups[0], false);
+      } else if (duePopups.length > 1) {
+        const first = duePopups[0];
+        triggerNotificationPopup({
+          ...first,
+          title: `${first.title}（另有 ${duePopups.length - 1} 项抢票提醒）`,
+          body: `${first.body} · 点击前往行程查看全部抢票状态`,
+        }, false);
+      }
     };
     checkTicketReminders();
     const interval = window.setInterval(checkTicketReminders, 20000);

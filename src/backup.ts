@@ -1,20 +1,38 @@
 import { BlobReader, BlobWriter, TextReader, TextWriter, ZipReader, ZipWriter } from '@zip.js/zip.js';
 import type { Entry, FileEntry } from '@zip.js/zip.js';
 import type { AppSnapshot, Badge, CityMark, DayEntry, Journey, JourneyPlace, MediaFile, TravelMedia } from './types';
-import { getMediaBlob, getPlannerPhotoBlob, loadSnapshot, replaceSnapshot, STORE_NAMES } from './db';
+import { getMediaBlob, getPlannerPhotoBlob, loadSnapshot, replaceSnapshot, savePlannerPhotoBlob, STORE_NAMES } from './db';
 import { downloadBlob, localDay } from './utils';
 import { validatePlannerContent } from './planner-domain';
 import { upgradeLegacyBookingSchedule } from './planner-booking';
+import { getCloudPlannerPhotoUrl } from './cloud-api';
+import { plannerApiUrl } from './api-base';
+
+interface PlannerPhotoBackupMeta {
+  mimeType: string;
+  sha256: string;
+  fileName: string;
+}
+
+type SerializedBadge = Omit<Badge, 'image'> & { hasImage?: boolean; imageMimeType?: string | null; image?: Blob | null };
 
 interface BackupManifest {
   format: 'travel-footprints-backup';
   version: 1 | 2 | 3;
   exportedAt: string;
   plannerPhotoIds?: string[];
-  data: AppSnapshot | (Omit<AppSnapshot, 'trips' | 'places' | 'entries' | 'media'> & {
+  plannerPhotoMeta?: Record<string, PlannerPhotoBackupMeta>;
+  missingPlannerPhotoIds?: string[];
+  data: (Omit<AppSnapshot, 'badges'> & { badges: SerializedBadge[] }) | (Omit<AppSnapshot, 'trips' | 'places' | 'entries' | 'media' | 'badges'> & {
+    badges: SerializedBadge[];
     entries: Array<Omit<DayEntry, 'tripId' | 'placeId'>>;
     media: Array<Omit<TravelMedia, 'tripId' | 'placeId'>>;
   });
+}
+
+export interface ExportBackupResult {
+  skippedPlannerPhotos: number;
+  missingPlannerPhotoIds: string[];
 }
 
 /** 图片只收集当前计划及可撤销历史中的引用，避免把无关缓存塞进备份。 */
@@ -34,13 +52,68 @@ function isFileEntry(entry: Entry | undefined): entry is FileEntry {
   return Boolean(entry && !entry.directory && 'getData' in entry);
 }
 
-/** 从数据库读取最新的已保存记录，再把原始媒体作为独立文件装入 ZIP。 */
-export async function exportBackup(): Promise<void> {
+function plannerPhotoExt(mimeType: string): string {
+  if (mimeType === 'image/jpeg') return 'jpg';
+  if (mimeType === 'image/png') return 'png';
+  return 'webp';
+}
+
+async function resolvePlannerPhotoForBackup(id: string): Promise<Blob | null> {
+  const local = await getPlannerPhotoBlob(id).catch(() => null);
+  if (local && local.size > 0) return local;
+  const candidates = [getCloudPlannerPhotoUrl(id), plannerApiUrl(`photo-file/${id}`)];
+  for (const url of candidates) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4000);
+      try {
+        const resp = await fetch(url, { signal: controller.signal });
+        if (!resp.ok) continue;
+        const blob = await resp.blob();
+        if (blob.size > 0 && ['image/webp', 'image/jpeg', 'image/png'].includes(blob.type)) {
+          await savePlannerPhotoBlob(id, blob).catch(() => undefined);
+          return blob;
+        }
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch {
+      // 网络离线或本地服务未启动时继续尝试下一个来源，不阻断备份
+    }
+  }
+  return null;
+}
+
+/** 从数据库读取最新的已保存记录，再把原始媒体作为独立文件装入 ZIP。可重建参考图缺失时优雅跳过，不阻断核心备份。 */
+export async function exportBackup(): Promise<ExportBackupResult> {
   const snapshot = await loadSnapshot();
-  const photoIds = plannerPhotoIds(snapshot);
-  const manifest = {
-    format: 'travel-footprints-backup', version: 3, exportedAt: new Date().toISOString(),
-    plannerPhotoIds: photoIds,
+  const referencedPhotoIds = plannerPhotoIds(snapshot);
+  const includedPhotoIds: string[] = [];
+  const missingPlannerPhotoIds: string[] = [];
+  const plannerPhotoMeta: Record<string, PlannerPhotoBackupMeta> = {};
+  const photoBlobs: Array<{ fileName: string; blob: Blob }> = [];
+
+  for (const id of referencedPhotoIds) {
+    const blob = await resolvePlannerPhotoForBackup(id);
+    if (!blob) {
+      missingPlannerPhotoIds.push(id);
+      continue;
+    }
+    const mimeType = ['image/webp', 'image/jpeg', 'image/png'].includes(blob.type) ? blob.type : 'image/webp';
+    const fileName = `planner-photos/${id}.${plannerPhotoExt(mimeType)}`;
+    const sha256 = await plannerPhotoDigest(blob);
+    includedPhotoIds.push(id);
+    plannerPhotoMeta[id] = { mimeType, sha256, fileName };
+    photoBlobs.push({ fileName, blob });
+  }
+
+  const manifest: BackupManifest = {
+    format: 'travel-footprints-backup',
+    version: 3,
+    exportedAt: new Date().toISOString(),
+    plannerPhotoIds: includedPhotoIds,
+    plannerPhotoMeta,
+    missingPlannerPhotoIds: missingPlannerPhotoIds.length ? missingPlannerPhotoIds : undefined,
     data: {
       ...snapshot,
       badges: snapshot.badges.map(({ image, ...badge }) => ({
@@ -50,16 +123,18 @@ export async function exportBackup(): Promise<void> {
   };
   const writer = new ZipWriter(new BlobWriter('application/zip'));
   await writer.add('manifest.json', new TextReader(JSON.stringify(manifest, null, 2)));
-  for (const id of photoIds) {
-    const blob = await getPlannerPhotoBlob(id);
-    if (!blob) throw new Error('本地行程照片缺失，请重新查找照片后再导出完整备份');
-    await writer.add(`planner-photos/${id}.webp`, new BlobReader(blob));
+  for (const { fileName, blob } of photoBlobs) {
+    await writer.add(fileName, new BlobReader(blob));
   }
   for (const item of snapshot.media) await writer.add(`media/${item.id}`, new BlobReader(await getMediaBlob(item.id)));
   for (const badge of snapshot.badges) {
     if (badge.image) await writer.add(`badges/${badge.id}`, new BlobReader(badge.image));
   }
   downloadBlob(await writer.close(), `旅行足迹备份-${localDay(new Date())}.zip`);
+  return {
+    skippedPlannerPhotos: missingPlannerPhotoIds.length,
+    missingPlannerPhotoIds,
+  };
 }
 
 /** Legacy ZIPs have no journeys; create a stable one for each city and day. */
@@ -202,13 +277,27 @@ export async function importBackup(
       || snapshot.media.some((item) => (item.tripId !== null && !tripIds.has(item.tripId)) || !placeIds.has(item.placeId))) {
       throw new Error('备份中的旅行、账单与地点关联不完整');
     }
-    const photoIds = plannerPhotoIds(snapshot);
-    for (const id of photoIds) {
+    const expectedPhotoIds = Array.isArray(manifest.plannerPhotoIds)
+      ? manifest.plannerPhotoIds
+      : plannerPhotoIds(snapshot).filter((id) =>
+        isFileEntry(byName.get(`planner-photos/${id}.webp`))
+        || isFileEntry(byName.get(`planner-photos/${id}.jpg`))
+        || isFileEntry(byName.get(`planner-photos/${id}.png`))
+      );
+    for (const id of expectedPhotoIds) {
       if (!/^[a-f\d]{64}$/.test(id)) throw new Error('备份中的行程照片编号无效');
-      const member = byName.get(`planner-photos/${id}.webp`);
+      const meta = manifest.plannerPhotoMeta?.[id];
+      const member = (meta?.fileName ? byName.get(meta.fileName) : undefined)
+        ?? byName.get(`planner-photos/${id}.webp`)
+        ?? byName.get(`planner-photos/${id}.jpg`)
+        ?? byName.get(`planner-photos/${id}.png`);
       if (!isFileEntry(member) || member.uncompressedSize > 8 * 1024 * 1024) throw new Error('备份中的行程照片缺失或过大');
-      const blob = await member.getData(new BlobWriter('image/webp'));
-      if (await plannerPhotoDigest(blob) !== id) throw new Error('备份中的行程照片已损坏');
+      const mimeType = meta?.mimeType && ['image/webp', 'image/jpeg', 'image/png'].includes(meta.mimeType)
+        ? meta.mimeType
+        : member.filename.endsWith('.jpg') ? 'image/jpeg' : member.filename.endsWith('.png') ? 'image/png' : 'image/webp';
+      const blob = await member.getData(new BlobWriter(mimeType));
+      const expectedDigest = meta?.sha256 && /^[a-f\d]{64}$/.test(meta.sha256) ? meta.sha256 : id;
+      if (await plannerPhotoDigest(blob) !== expectedDigest) throw new Error('备份中的行程照片已损坏');
       const bitmap = await createImageBitmap(blob);
       bitmap.close();
       plannerPhotos.push({ id, blob });

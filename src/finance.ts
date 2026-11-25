@@ -1,4 +1,4 @@
-import type { CategoryAmounts, ExpenseAmounts, ExpenseCategory, ExpenseSplitItem, TripPlan } from './types.ts';
+import type { BookingLedgerEntry, CategoryAmounts, ExpenseAmounts, ExpenseCategory, ExpenseSplitItem, TripPlan } from './types.ts';
 import { emptyAmounts } from './types.ts';
 import type { BookingRecord, PlannerActivity, PlannerContent, PlannerCost } from './planner-types.ts';
 import { calculatePlannerBudget, plannerFillEstimates } from './planner-domain.ts';
@@ -132,15 +132,19 @@ export function defaultSplitMembers(people: number, companions?: string[], saved
   return list;
 }
 
-/** 按整数分精确计算每人实付、应付、净额，并生成最少转账次数的 AA 结算单。 */
-export function calculateAaSplit(members: string[], items: ExpenseSplitItem[]): AaSplitSummary {
+/** 按整数分精确计算每人实付、应付、净额，并生成精简转账的 AA 结算单。支持传入稳定 ID 与展示名映射，防止同名或已退群成员被错误合并。 */
+export function calculateAaSplit(
+  members: string[],
+  items: ExpenseSplitItem[],
+  displayNames?: Record<string, string>,
+): AaSplitSummary {
   const names = [...new Set(members.map((name) => name.trim()).filter(Boolean))];
   const balances = new Map<string, AaMemberBalance>();
-  const ensure = (name: string) => {
-    let row = balances.get(name);
+  const ensure = (key: string) => {
+    let row = balances.get(key);
     if (!row) {
-      row = { name, paidCents: 0, owedCents: 0, netCents: 0 };
-      balances.set(name, row);
+      row = { name: key, paidCents: 0, owedCents: 0, netCents: 0 };
+      balances.set(key, row);
     }
     return row;
   };
@@ -163,6 +167,7 @@ export function calculateAaSplit(members: string[], items: ExpenseSplitItem[]): 
     });
   }
 
+  const labelOf = (key: string) => displayNames?.[key] || key;
   const memberRows = [...balances.values()].map((row) => ({
     ...row,
     netCents: row.paidCents - row.owedCents,
@@ -180,7 +185,7 @@ export function calculateAaSplit(members: string[], items: ExpenseSplitItem[]): 
   for (let d = debtors.length - 1; d >= 0; d--) {
     const exactIndex = creditors.findIndex((creditor) => creditor.amount === debtors[d].amount);
     if (exactIndex >= 0) {
-      transfers.push({ from: debtors[d].name, to: creditors[exactIndex].name, amountCents: debtors[d].amount });
+      transfers.push({ from: labelOf(debtors[d].name), to: labelOf(creditors[exactIndex].name), amountCents: debtors[d].amount });
       debtors.splice(d, 1);
       creditors.splice(exactIndex, 1);
     }
@@ -192,14 +197,18 @@ export function calculateAaSplit(members: string[], items: ExpenseSplitItem[]): 
     const debtor = debtors[0];
     const creditor = creditors[0];
     const amount = Math.min(debtor.amount, creditor.amount);
-    if (amount > 0) transfers.push({ from: debtor.name, to: creditor.name, amountCents: amount });
+    if (amount > 0) transfers.push({ from: labelOf(debtor.name), to: labelOf(creditor.name), amountCents: amount });
     debtor.amount -= amount;
     creditor.amount -= amount;
     if (debtor.amount <= 0) debtors.shift();
     if (creditor.amount <= 0) creditors.shift();
   }
 
-  return { totalCents, members: memberRows, transfers };
+  return {
+    totalCents,
+    members: memberRows.map((row) => ({ ...row, name: labelOf(row.name) })),
+    transfers,
+  };
 }
 
 /** 生成适合直接粘贴到微信群的纯文本 AA 结算单。 */
@@ -246,31 +255,73 @@ export function bookingExpenseCategory(kind: BookingRecord['kind']): ExpenseCate
   return 'other';
 }
 
-/** 将车次/航班/酒店/门票订单金额精准回填到每日账本（按分计算，支持覆盖或累加）。 */
+/** 按订单 ID 从账本中精确扣回此前回填的金额（用于编辑订单差额更新或删除订单时同步撤销）。 */
+export function removeBookingFromLedger(plan: TripPlan, bookingId: string): TripPlan {
+  const prevEntry = plan.bookingLedgerEntries?.[bookingId];
+  if (!prevEntry) return plan;
+  const dailyExpenses: Record<string, ExpenseAmounts> = { ...plan.dailyExpenses };
+  const overall = { ...overallExpenses(plan) };
+  const cat = prevEntry.category;
+
+  for (const [date, cents] of Object.entries(prevEntry.dailyCents || {})) {
+    const row = { ...(dailyExpenses[date] ?? {}) };
+    const nextCents = Math.max(0, Math.round((row[cat] ?? 0) * 100) - cents);
+    if (nextCents > 0) row[cat] = nextCents / 100;
+    else delete row[cat];
+    if (Object.keys(row).length > 0) dailyExpenses[date] = row;
+    else delete dailyExpenses[date];
+  }
+  if (prevEntry.overallCents) {
+    const nextCents = Math.max(0, Math.round((overall[cat] ?? 0) * 100) - prevEntry.overallCents);
+    overall[cat] = nextCents / 100;
+  }
+  const nextEntries = { ...plan.bookingLedgerEntries };
+  delete nextEntries[bookingId];
+  return updateExpenses(
+    { ...plan, bookingLedgerEntries: Object.keys(nextEntries).length ? nextEntries : undefined },
+    { dailyExpenses, overallExpenses: overall },
+  );
+}
+
+/** 将车次/航班/酒店/门票订单金额精准回填到每日账本（按分计算、按订单 ID 幂等，支持覆盖或累加）。 */
 export function applyBookingToLedger(
   plan: TripPlan,
   booking: BookingRecord,
   mode: 'replace' | 'add' = 'add',
 ): TripPlan {
   if (booking.amountYuan == null || !Number.isFinite(booking.amountYuan) || booking.amountYuan < 0) return plan;
+  // 同一订单重复回填或修改金额/日期时，先扣回该订单旧入账，杜绝重复计费。
+  const basePlan = booking.id && plan.bookingLedgerEntries?.[booking.id]
+    ? removeBookingFromLedger(plan, booking.id)
+    : plan;
   const totalCents = Math.round(booking.amountYuan * 100);
   const category = bookingExpenseCategory(booking.kind);
   const dates = bookingLedgerDates(booking);
+  const nextEntries: Record<string, BookingLedgerEntry> = { ...(basePlan.bookingLedgerEntries ?? {}) };
+
   if (!dates.length) {
-    const overall = { ...overallExpenses(plan) };
+    const overall = { ...overallExpenses(basePlan) };
     const prevCents = Math.round((overall[category] ?? 0) * 100);
     overall[category] = (mode === 'replace' ? totalCents : prevCents + totalCents) / 100;
-    return updateExpenses(plan, { overallExpenses: overall });
+    if (booking.id) {
+      nextEntries[booking.id] = { category, dailyCents: {}, overallCents: totalCents };
+    }
+    return updateExpenses({ ...basePlan, bookingLedgerEntries: Object.keys(nextEntries).length ? nextEntries : undefined }, { overallExpenses: overall });
   }
-  const dailyExpenses: Record<string, ExpenseAmounts> = { ...plan.dailyExpenses };
+  const dailyExpenses: Record<string, ExpenseAmounts> = { ...basePlan.dailyExpenses };
+  const dailyCents: Record<string, number> = {};
   const base = Math.floor(totalCents / dates.length);
   const rem = totalCents % dates.length;
   dates.forEach((date, index) => {
     const shareCents = base + (index < rem ? 1 : 0);
+    dailyCents[date] = shareCents;
     const row = { ...(dailyExpenses[date] ?? {}) };
     const prevCents = Math.round((row[category] ?? 0) * 100);
     row[category] = (mode === 'replace' ? shareCents : prevCents + shareCents) / 100;
     dailyExpenses[date] = row;
   });
-  return updateExpenses(plan, { dailyExpenses });
+  if (booking.id) {
+    nextEntries[booking.id] = { category, dailyCents };
+  }
+  return updateExpenses({ ...basePlan, bookingLedgerEntries: Object.keys(nextEntries).length ? nextEntries : undefined }, { dailyExpenses });
 }

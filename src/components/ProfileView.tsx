@@ -278,11 +278,18 @@ export default function ProfileView({
   async function handleExport(): Promise<void> {
     setBackupAction('export');
     try {
-      await exportBackup();
+      const result = await exportBackup();
       const time = new Date().toISOString();
       try { localStorage.setItem('travel-last-backup', time); } catch { /* 当前页面仍可显示导出时间。 */ }
       setLastBackup(time);
-      onNotice(t('完整备份文件已生成。', 'Full backup archive downloaded.'));
+      if (result.skippedPlannerPhotos > 0) {
+        onNotice(t(
+          `完整备份文件已生成（有 ${result.skippedPlannerPhotos} 张行程参考图本地缺失已跳过，不影响足迹、手账与原图恢复）。`,
+          `Backup archive downloaded (${result.skippedPlannerPhotos} missing reference photos skipped; core trips, journals and media are intact).`,
+        ));
+      } else {
+        onNotice(t('完整备份文件已生成。', 'Full backup archive downloaded.'));
+      }
     } catch (error) {
       onError(error instanceof Error ? error.message : t('导出失败', 'Export failed'));
     } finally {
@@ -478,7 +485,7 @@ export default function ProfileView({
                     {t('系统级弹窗通知', 'System Popup Notifications')}
                     <em className="notif-perm-tag">{sysPermLabel}</em>
                   </strong>
-                  <small>{t('应用切到后台时，通过手机或电脑系统通知栏弹出提醒。', 'Show OS-level notifications when the app is in the background.')}</small>
+                  <small>{t('应用运行期间通过系统通知栏弹出提醒；关闭页面或杀进程后无法后台触发，重要抢票建议同步导出日历提醒。', 'Show OS-level notifications while the app is running. Export to system calendar for closed-app reminders.')}</small>
                 </div>
                 <label className="ios-switch">
                   <input

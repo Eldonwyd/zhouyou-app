@@ -43,11 +43,19 @@ export interface DayEntry {
   highlight: boolean;
 }
 
+export interface BookingLedgerEntry {
+  category: ExpenseCategory;
+  dailyCents: Record<string, number>;
+  overallCents?: number;
+}
+
 export interface TripPlan {
   /** 仅首次预填预测值，之后清空或改成 0 都不会再次被 AI 覆盖。 */
   aiExpenseSeeded?: boolean;
   dailyExpenses?: Record<string, ExpenseAmounts>;
   overallExpenses?: ExpenseAmounts;
+  /** 按订单 ID 记录已回填到账本的金额明细，保证同订单幂等更新与删单准确扣回。 */
+  bookingLedgerEntries?: Record<string, BookingLedgerEntry>;
   /** 旧版餐饮没有三餐划分，单独保留原值，不能猜测属于哪一餐。 */
   unallocatedFood?: number;
   id: string; // New sheets use the journey ID; old sheets retain their city ID.

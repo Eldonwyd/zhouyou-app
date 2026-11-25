@@ -515,6 +515,14 @@ export default function PlannerConversation({
                   </div>
                 )}
 
+                {extPreview.conflicts && extPreview.conflicts.length > 0 && (
+                  <div className="ext-edit-lock-warn">
+                    <strong>⚠ 时间冲突提醒：</strong>
+                    {extPreview.conflicts.slice(0, 3).join('；')}
+                    {extPreview.conflicts.length > 3 ? ` 等 ${extPreview.conflicts.length} 处` : ''}
+                  </div>
+                )}
+
                 {extPreview.changedDays.length > 0 ? (
                   <div className="ext-edit-diff-list">
                     {extPreview.changedDays.map((d) => (
@@ -530,6 +538,9 @@ export default function PlannerConversation({
                           ))}
                           {d.removed.map((t, i) => (
                             <span key={`rm-${i}`} className="ext-diff-chip is-remove">－ {t}</span>
+                          ))}
+                          {(d.updated ?? []).map((t, i) => (
+                            <span key={`upd-${i}`} className="ext-diff-chip">✎ {t}</span>
                           ))}
                         </div>
                       </div>

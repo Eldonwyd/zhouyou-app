@@ -229,9 +229,33 @@ export function PlannerBookingDialog({ plan, defaultDate = plan?.content.days[0]
 
   const ledgerDates = bookingLedgerDates(draft);
   const ledgerCat = EXPENSE_LABELS[bookingExpenseCategory(draft.kind)];
+  const planDayDates = useMemo(() => new Set(plan?.content.days.map((day) => day.date) ?? []), [plan]);
+  const nonCoreDateOutsidePlan = Boolean(
+    plan && !transport && draft.kind !== 'hotel' && draft.date && planDayDates.size > 0 && !planDayDates.has(draft.date),
+  );
+  useEffect(() => {
+    if (nonCoreDateOutsidePlan && updatePlan) {
+      setUpdatePlan(false);
+    }
+  }, [nonCoreDateOutsidePlan, updatePlan]);
 
   async function submit() {
     if (saving || parsing) return;
+    const rawStart = draft.startTime.trim();
+    const rawEnd = draft.endTime.trim();
+    const validHm = (v: string) => /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(v);
+    if (rawStart && !validHm(rawStart)) {
+      setErrorText('开始时间请使用 24 小时制 HH:MM 格式，例如 09:30');
+      return;
+    }
+    if (rawEnd && !validHm(rawEnd)) {
+      setErrorText('结束时间请使用 24 小时制 HH:MM 格式，例如 17:30');
+      return;
+    }
+    if (!transport && draft.kind !== 'hotel' && rawStart && rawEnd && rawEnd <= rawStart) {
+      setErrorText('结束时间需晚于开始时间，请核对预约时段。');
+      return;
+    }
     const finalized = finalizeBookingRecord(draft);
     if (finalized.kind === 'hotel' && !finalized.hotelName) {
       setErrorText('请填写具体酒店名称');
@@ -241,16 +265,40 @@ export function PlannerBookingDialog({ plan, defaultDate = plan?.content.days[0]
       setErrorText('请选择入住日期。填写离店日期时，离店须晚于入住。');
       return;
     }
+    if (finalized.kind === 'hotel' && finalized.endDate && finalized.date) {
+      const nights = Math.round((Date.parse(`${finalized.endDate}T00:00:00Z`) - Date.parse(`${finalized.date}T00:00:00Z`)) / 86400000);
+      if (nights > 60) {
+        setErrorText(`单笔酒店入住最多支持 60 晚（当前为 ${nights} 晚），请核对离店年份或拆分为多笔订单。`);
+        return;
+      }
+    }
     if (finalized.kind !== 'hotel' && !finalized.title && !finalized.code) {
       setErrorText('请填写车次/航班号或预订名称');
       return;
+    }
+    if (!editing && plan?.bookings?.length) {
+      const duplicate = plan.bookings.find((item) =>
+        item.id !== finalized.id
+        && item.kind === finalized.kind
+        && item.date === finalized.date
+        && (
+          (finalized.code && item.code && item.code.toUpperCase() === finalized.code.toUpperCase())
+          || (finalized.hotelName && item.hotelName && item.hotelName === finalized.hotelName)
+          || (finalized.title && item.title && item.title === finalized.title)
+        )
+        && item.amountYuan === finalized.amountYuan,
+      );
+      if (duplicate && !window.confirm(`当前行程中已有疑似相同的订单「${duplicate.hotelName || duplicate.title}（${duplicate.date}）」，确认仍要作为新订单录入吗？`)) {
+        return;
+      }
     }
     setSaving(true);
     setErrorText('');
     try {
       validateTransportBooking(finalized);
+      const shouldUpdatePlan = transport || draft.kind === 'hotel' || (updatePlan && !nonCoreDateOutsidePlan);
       await onConfirm(finalized, {
-        updatePlan: transport || draft.kind === 'hotel' || updatePlan,
+        updatePlan: shouldUpdatePlan,
         targetActivityId: targetActivityId === 'auto' && !transport ? 'new' : targetActivityId,
         updateLedger: updateLedger && finalized.amountYuan != null,
         ledgerMode,
@@ -570,10 +618,19 @@ export function PlannerBookingDialog({ plan, defaultDate = plan?.content.days[0]
           {transport || draft.kind === 'hotel' ? <p className="muted">{transport
             ? '按票面时刻更新行程，并为路程、进站或值机及抵达后的接驳留出时间。'
             : '将酒店资料同步到对应日期的住宿安排。'}</p> : plan && <label className="booking-check">
-            <input type="checkbox" checked={updatePlan} onChange={(event) => setUpdatePlan(event.target.checked)} />
+            <input
+              type="checkbox"
+              checked={updatePlan && !nonCoreDateOutsidePlan}
+              disabled={nonCoreDateOutsidePlan}
+              onChange={(event) => setUpdatePlan(event.target.checked)}
+            />
             <span>
               <strong>一键回填到行程卡片</strong>
-              <small>写入对应日期的行程时间轴和预订费用。</small>
+              <small>
+                {nonCoreDateOutsidePlan
+                  ? `预订日期（${draft.date}）不在当前行程日期内，将仅保存到预订列表，不自动插入行程第一天。`
+                  : '写入对应日期的行程时间轴和预订费用。'}
+              </small>
             </span>
           </label>}
           {plan && !editing && !initialTarget && updatePlan && draft.kind !== 'hotel' && (
@@ -602,7 +659,13 @@ export function PlannerBookingDialog({ plan, defaultDate = plan?.content.days[0]
               <small>
                 {draft.amountYuan == null
                   ? '填写订单金额后可自动记入账本'
-                  : `将 ${currency(draft.amountYuan)} 写入「${ledgerCat}」（${ledgerDates.length ? `${ledgerDates.join('、')}${ledgerDates.length > 1 ? ' 均摊' : ''}` : '整程补充'}）`}
+                  : `将 ${currency(draft.amountYuan)} 写入「${ledgerCat}」（${
+                    ledgerDates.length === 0
+                      ? '整程补充'
+                      : ledgerDates.length > 3
+                        ? `${ledgerDates[0]} 至 ${ledgerDates[ledgerDates.length - 1]}（共 ${ledgerDates.length} 晚均摊）`
+                        : `${ledgerDates.join('、')}${ledgerDates.length > 1 ? ' 均摊' : ''}`
+                  }）`}
               </small>
             </span>
           </label>}

@@ -20,6 +20,9 @@ const PLAN_BATCH_MAX_COUNT = 2;
 const PLAN_BATCH_MAX_BYTES = 700 * 1024;
 const MAX_SINGLE_PLAN_BYTES = 460 * 1024;
 const PULL_OVERLAP_MS = 10_000;
+const MAX_CLOUD_PHOTO_BYTES = 240 * 1024;
+/** 下载失败的行程照片冷却重试表，防止一次网络抖动永久放弃，也不在坏图上高频死循环。 */
+const photoDownloadRetryMap = new Map<string, { count: number; nextRetryAt: number }>();
 
 /** 当前会话内最近一次同步失败的错误提示（用于个人中心与顶栏状态展示）。 */
 let lastSyncErrorMessage = '';
@@ -276,50 +279,12 @@ function blobToBase64(blob: Blob): Promise<string> {
 }
 
 async function compressPhotoBlobForCloud(blob: Blob): Promise<{ mimeType: string; dataBase64: string } | null> {
-  const allowedDirect = blob.type === 'image/webp' || blob.type === 'image/jpeg';
-  if (allowedDirect && blob.size > 0 && blob.size <= 160 * 1024) {
+  // 严格保持原字节直传（与服务端 240KB 上限和 SHA-256 内容寻址校验一致），绝不重编码冒充原 assetId。
+  const allowedDirect = blob.type === 'image/webp' || blob.type === 'image/jpeg' || blob.type === 'image/png';
+  if (allowedDirect && blob.size > 0 && blob.size <= MAX_CLOUD_PHOTO_BYTES) {
     return { mimeType: blob.type, dataBase64: await blobToBase64(blob) };
   }
-  if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') {
-    if (blob.size <= 220 * 1024 && (allowedDirect || blob.type === 'image/png')) {
-      return { mimeType: blob.type || 'image/jpeg', dataBase64: await blobToBase64(blob) };
-    }
-    return null;
-  }
-  let bitmap: ImageBitmap | null = null;
-  try {
-    bitmap = await createImageBitmap(blob);
-    const attempts: Array<{ maxSide: number; quality: number }> = [
-      { maxSide: 960, quality: 0.8 },
-      { maxSide: 720, quality: 0.68 },
-      { maxSide: 560, quality: 0.6 },
-    ];
-    for (const { maxSide, quality } of attempts) {
-      const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height, 1));
-      const width = Math.max(1, Math.round(bitmap.width * scale));
-      const height = Math.max(1, Math.round(bitmap.height * scale));
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
-      ctx.drawImage(bitmap, 0, 0, width, height);
-      const encoded = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((out) => resolve(out), 'image/webp', quality);
-      }) || await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((out) => resolve(out), 'image/jpeg', quality);
-      });
-      if (encoded && encoded.size > 0 && encoded.size <= 220 * 1024) {
-        const mimeType = encoded.type === 'image/webp' || encoded.type === 'image/jpeg' ? encoded.type : 'image/jpeg';
-        return { mimeType, dataBase64: await blobToBase64(encoded) };
-      }
-    }
-    return null;
-  } catch {
-    return null;
-  } finally {
-    bitmap?.close();
-  }
+  return null;
 }
 
 async function resolveLocalPlannerPhotoBlob(assetId: string): Promise<Blob | null> {
@@ -386,9 +351,18 @@ async function syncPlannerPhotosWithCloud(allPlans: AiTravelPlan[]): Promise<{ u
 
     for (const assetId of batch) {
       if (existingSet.has(assetId)) {
-        // 云端已有：若本机 IndexedDB 缺失则拉到本地缓存，离线和切页都能秒开
+        // 云端已有：若本机 IndexedDB 缺失则拉到本地缓存，仅确认持久化成功后才标记已同步，失败走冷却重试
         const localBlob = await getPlannerPhotoBlob(assetId).catch(() => null);
-        if (!localBlob) {
+        if (localBlob) {
+          syncedPhotoIdsCache.add(assetId);
+          photoDownloadRetryMap.delete(assetId);
+        } else {
+          const retry = photoDownloadRetryMap.get(assetId);
+          const now = Date.now();
+          if (retry && (retry.count >= 4 || now < retry.nextRetryAt)) {
+            continue;
+          }
+          let persisted = false;
           try {
             const resp = await fetch(getCloudPlannerPhotoUrl(assetId));
             if (resp.ok) {
@@ -396,13 +370,20 @@ async function syncPlannerPhotosWithCloud(allPlans: AiTravelPlan[]): Promise<{ u
               if (blob.size > 0) {
                 await savePlannerPhotoBlob(assetId, blob);
                 downloaded += 1;
+                persisted = true;
               }
             }
           } catch {
-            // 单张下载失败不阻塞整体同步
+            // 单张下载失败不阻塞整体同步，保留重试机会
+          }
+          if (persisted) {
+            syncedPhotoIdsCache.add(assetId);
+            photoDownloadRetryMap.delete(assetId);
+          } else {
+            const nextCount = (retry?.count || 0) + 1;
+            photoDownloadRetryMap.set(assetId, { count: nextCount, nextRetryAt: now + 45_000 * nextCount });
           }
         }
-        syncedPhotoIdsCache.add(assetId);
       } else {
         // 云端暂无：若本机有该照片则压缩后上传云端
         const localBlob = await resolveLocalPlannerPhotoBlob(assetId);

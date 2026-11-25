@@ -43,15 +43,22 @@ export function plannerMapRouteStops(content: PlannerContent, _hotels: Record<st
   const places: PlannerMapPlace[] = [];
   for (const day of content.days) {
     let order = 0;
+    const seenBaseKeys = new Set<string>();
     const sights = day.activities
       .filter((activity) => activity.kind === 'sight' && !activity.bookingTiming?.deferred)
       .sort((left, right) => left.startTime.localeCompare(right.startTime));
     for (const activity of sights) {
       const activityPlaces = collectPlannerMapPlaces({ ...content, days: [{ ...day, activities: [activity], lodging: null }] });
       for (const place of activityPlaces) {
+        const baseKey = JSON.stringify([day.date, place.city, place.name]);
+        // 首条保持 3 元组键兼容历史 savedPositions，同日重复到访同名地点附加 activity.id 以支持分别校准不同入口
+        const key = seenBaseKeys.has(baseKey)
+          ? JSON.stringify([day.date, place.city, place.name, activity.id])
+          : baseKey;
+        seenBaseKeys.add(baseKey);
         places.push({
           ...place,
-          key: JSON.stringify([day.date, place.city, place.name]),
+          key,
           visits: [{ date: day.date, title: activity.title, lodging: false, order: ++order }],
         });
       }

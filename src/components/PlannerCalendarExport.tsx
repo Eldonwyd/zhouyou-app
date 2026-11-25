@@ -44,6 +44,8 @@ export default function PlannerCalendarExport({ plan, initialReminderDays, disab
           contentVersion: plan.contentVersion ?? plan.version, updatedAt: new Date().toISOString() }, plan.version);
       }
       exportCalendarEvent(plan.content.title, {
+        id: plan.id,
+        sequence: plan.version,
         startDate,
         endDate: plan.content.days.at(-1)!.date,
         reminderDays,

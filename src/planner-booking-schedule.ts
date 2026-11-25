@@ -36,7 +36,11 @@ export function validateTransportBooking(booking: BookingRecord) {
     throw new Error('请填写实际发车或起飞时间，以及到达时间。');
   }
   const endDate = bookingArrivalDate(booking);
-  if (endDate < booking.date || (endDate === booking.date && booking.endTime <= booking.startTime)) {
+  const crossTimezoneSameDayFlight = booking.kind === 'flight'
+    && Boolean(booking.internationalFlight)
+    && Boolean(booking.endDate)
+    && endDate === booking.date;
+  if (endDate < booking.date || (!crossTimezoneSameDayFlight && endDate === booking.date && booking.endTime <= booking.startTime)) {
     throw new Error('到达日期和时间需要晚于出发。');
   }
   const timing = bookingTransportTiming(booking);
@@ -204,8 +208,12 @@ function addBookingWindow(content: PlannerContent, booking: BookingRecord): Book
     let firstSegment = true;
     for (const [index, day] of content.days.entries()) {
       const midnight = index * MINUTES_PER_DAY;
-      const start = Math.max(0, phase.start - midnight);
+      let start = Math.max(0, phase.start - midnight);
       const end = Math.min(LAST_MINUTE, phase.end - midnight);
+      // 23:59 跨午夜发车/起飞边界保护：避免出发日切片因 start===end===23:59 被跳过导致主票卡跳次日或最后一天丢卡丢费
+      if (phase.key === 'ride' && firstSegment && start === LAST_MINUTE && phase.end > midnight + LAST_MINUTE) {
+        start = LAST_MINUTE - 1;
+      }
       if (end <= start) continue;
       const rideStart = phase.key === 'ride' && firstSegment;
       day.activities.push({
@@ -239,7 +247,14 @@ function freeWindows(occupied: TimeWindow[], lower: number, upper: number) {
   return available;
 }
 
-function scheduleDay(activities: PlannerActivity[], windows: BookingWindow[], midnight: number, skipBreakfast: boolean) {
+function scheduleDay(
+  activities: PlannerActivity[],
+  windows: BookingWindow[],
+  midnight: number,
+  skipBreakfast: boolean,
+  dayDate?: string,
+  warnings?: string[],
+) {
   const occupied = activities.filter((activity) => activity.bookingId || activity.locked)
     .map((activity) => ({ start: minutes(activity.startTime), end: minutes(activity.endTime) }))
     .sort((a, b) => a.start - b.start);
@@ -300,6 +315,15 @@ function scheduleDay(activities: PlannerActivity[], windows: BookingWindow[], mi
     activity.startTime = nextStart;
     activity.endTime = clock(chosen.end);
     activity.period = inferPeriodFromTime(activity.startTime);
+    if (
+      warnings
+      && dayDate
+      && activity.kind === 'sight'
+      && ((chosen.start < 8 * 60 + 30 && originalStart >= 8 * 60 + 30)
+        || (chosen.end > 18 * 60 && minutes(base.endTime) <= 18 * 60))
+    ) {
+      warnings.push(`${dayDate}「${activity.title}」因交通改签调整至 ${activity.startTime}–${activity.endTime}，请核对景区开放与停止入园时间。`);
+    }
   }
 }
 
@@ -324,13 +348,14 @@ export function syncTransportBookings(input: PlannerContent, bookings: readonly 
   }
   content.warnings = content.warnings.filter((warning) =>
     !/^\d{4}-\d{2}-\d{2}「.+」与「.+」时间重叠$/.test(warning) &&
+    !/因交通改签调整至 .+，请核对景区开放与停止入园时间。$/.test(warning) &&
     !/预计需在行程开始前出发|的到达或接驳超出行程日期/.test(warning));
   const windows = bookings.filter((booking) => booking.itineraryActivityId)
     .map((booking) => addBookingWindow(content, booking)).filter((window): window is BookingWindow => Boolean(window));
   for (const [index, day] of content.days.entries()) {
     const midnight = index * MINUTES_PER_DAY;
     const limits = windows.filter((window) => window.end > midnight && window.start < midnight + MINUTES_PER_DAY);
-    if (limits.length) scheduleDay(day.activities, limits, midnight, content.request.skipBreakfast);
+    if (limits.length) scheduleDay(day.activities, limits, midnight, content.request.skipBreakfast, day.date, content.warnings);
     // 换走当天唯一的预订后仍保留日期和可编辑的时间轴。
     if (!day.activities.length) day.activities.push({
       id: `booking-empty-${day.date}`, kind: 'rest', title: '当天待安排', startTime: '09:00', endTime: '09:30',

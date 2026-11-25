@@ -59,9 +59,22 @@ export async function fetchPlannerPhotoBytes(address, signal, fetchImpl = fetch)
     const input = Buffer.concat(chunks);
     const metadata = await sharp(input, { limitInputPixels: 24000000, failOn: 'warning' }).metadata();
     if (metadata.width < 160 || metadata.height < 100) throw new Error('图片尺寸不足');
-    return sharp(input, { limitInputPixels: 24000000, failOn: 'warning' }).rotate()
-      .resize({ width: 1200, height: 900, fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 82 }).toBuffer();
+    // 源头将 WebP 控制在 240KB 云端直传上限内，确保跨端同步直传原字节且 SHA-256 哈希与 assetId 始终一致。
+    const cloudLimit = 240 * 1024;
+    const profiles = [
+      { width: 1200, height: 900, quality: 82 },
+      { width: 960, height: 720, quality: 78 },
+      { width: 720, height: 540, quality: 68 },
+      { width: 560, height: 420, quality: 60 },
+    ];
+    let output = null;
+    for (const profile of profiles) {
+      output = await sharp(input, { limitInputPixels: 24000000, failOn: 'warning' }).rotate()
+        .resize({ width: profile.width, height: profile.height, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: profile.quality }).toBuffer();
+      if (output.byteLength <= cloudLimit) break;
+    }
+    return output;
   }
   throw new Error('图片重定向过多');
 }

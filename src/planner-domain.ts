@@ -496,12 +496,16 @@ export function calculatePlannerBudget(content: PlannerContent): PlannerBudget {
       .flatMap((activity) => activity.costs),
     ...(day.lodging?.costs ?? []),
   ]);
+  const activeCostIds = new Set(costs.map((cost) => cost.id));
   for (const cost of costs) {
     if (seen.has(cost.id)) continue;
     seen.add(cost.id);
     if (cost.includedIn) {
-      budget.notes.push(`${cost.label}已含在套餐内，不重复计费`);
-      continue;
+      if (activeCostIds.has(cost.includedIn)) {
+        budget.notes.push(`${cost.label}已含在套餐内，不重复计费`);
+        continue;
+      }
+      budget.notes.push(`${cost.label}原属套餐主项已暂缓，已按单项/待确认处理`);
     }
     let total: number | null = null;
     let explanation = '';

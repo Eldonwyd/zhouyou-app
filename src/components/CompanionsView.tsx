@@ -254,21 +254,31 @@ export default function CompanionsView({
     }
   }, [cloudUser?.id, onError]);
 
-  // 群内 AA 结算计算
+  // 群内 AA 结算计算（以稳定 userId 为分账键，防止多位已退群成员或同名成员被错误合并）
   const groupAaSummary = useMemo(() => {
     if (!activeGroup) return null;
-    const nameById = new Map(activeGroup.members.map((m) => [m.user.id, m.user.nickname]));
-    const memberNames = activeGroup.members.map((m) => m.user.nickname);
+    const displayNames: Record<string, string> = {};
+    const memberIds: string[] = [];
+    for (const m of activeGroup.members) {
+      memberIds.push(m.user.id);
+      displayNames[m.user.id] = m.user.nickname;
+    }
+    const ensureDisplayName = (userId: string) => {
+      if (!displayNames[userId]) {
+        displayNames[userId] = `已退群成员(${userId.slice(-4)})`;
+      }
+      return userId;
+    };
     const items: ExpenseSplitItem[] = activeGroup.expenses.map((e) => ({
       id: e.id,
       date: e.date,
       category: e.category,
       title: e.title,
       amountCents: e.amountCents,
-      payer: nameById.get(e.payerUserId) || '成员',
-      participants: e.participantUserIds.map((id) => nameById.get(id) || '成员'),
+      payer: ensureDisplayName(e.payerUserId),
+      participants: e.participantUserIds.map((id) => ensureDisplayName(id)),
     }));
-    return calculateAaSplit(memberNames, items);
+    return calculateAaSplit(memberIds, items, displayNames);
   }, [activeGroup]);
 
   if (!cloudUser) {

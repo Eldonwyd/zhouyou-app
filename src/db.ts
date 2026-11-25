@@ -141,16 +141,110 @@ function transactionDone(transaction: IDBTransaction): Promise<void> {
   });
 }
 
+interface StoredBinary {
+  data: ArrayBuffer;
+  mimeType: string;
+}
+
+type StoredMediaFile =
+  | { id: string; data: ArrayBuffer; mimeType: string }
+  | { id: string; blob: Blob };
+
+type StoredBadge = Omit<Badge, 'image'> & { image: Blob | StoredBinary | null };
+
+/**
+ * Android WebView / Electron / WKWebView can reject writing File or Blob
+ * handles directly into IndexedDB with `Failed to write blobs (InvalidBlob)`.
+ * Materialize binary data into an ArrayBuffer before opening any IDB
+ * transaction, while still reading legacy Blob records seamlessly.
+ */
+async function readBlobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+  if (typeof blob.arrayBuffer === 'function') {
+    try {
+      return await blob.arrayBuffer();
+    } catch {
+      // Fallback to FileReader for content:// URIs or WebViews where Blob.arrayBuffer() fails.
+    }
+  }
+  return new Promise<ArrayBuffer>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (reader.result instanceof ArrayBuffer) resolve(reader.result);
+      else reject(new Error('无法读取本地文件内容'));
+    };
+    reader.onerror = () => reject(reader.error ?? new Error('无法读取本地文件内容'));
+    reader.readAsArrayBuffer(blob);
+  });
+}
+
+async function toStoredBinary(blob: Blob, fallbackMimeType = ''): Promise<StoredBinary> {
+  const data = await readBlobToArrayBuffer(blob);
+  if (blob.size > 0 && data.byteLength === 0) {
+    throw new Error('文件内容为空或读取失败，请重新选择');
+  }
+  return { data, mimeType: blob.type || fallbackMimeType };
+}
+
+function storedBinaryToBlob(value: Blob | StoredBinary | null | undefined, fallbackMimeType = ''): Blob | null {
+  if (!value) return null;
+  if (value instanceof Blob) return value;
+  if ('data' in value && value.data instanceof ArrayBuffer) {
+    return new Blob([value.data], { type: value.mimeType || fallbackMimeType });
+  }
+  if ('data' in value && ArrayBuffer.isView(value.data)) {
+    const view = value.data as ArrayBufferView;
+    const copy = new Uint8Array(view.byteLength);
+    copy.set(new Uint8Array(view.buffer, view.byteOffset, view.byteLength));
+    return new Blob([copy], { type: value.mimeType || fallbackMimeType });
+  }
+  return null;
+}
+
+function storedMediaToBlob(record: StoredMediaFile | undefined, fallbackMimeType = ''): Blob | null {
+  if (!record) return null;
+  if ('data' in record) return storedBinaryToBlob(record, fallbackMimeType);
+  if ('blob' in record && record.blob instanceof Blob) return record.blob;
+  return null;
+}
+
+function hasStoredMediaBinary(record: StoredMediaFile | undefined): record is StoredMediaFile {
+  if (!record) return false;
+  if ('data' in record) return record.data instanceof ArrayBuffer || ArrayBuffer.isView(record.data);
+  return 'blob' in record && record.blob instanceof Blob;
+}
+
+function hydrateStoredBadge(badge: StoredBadge): Badge {
+  return {
+    ...badge,
+    image: storedBinaryToBlob(badge.image, 'image/png'),
+  };
+}
+
+async function serializeBadgeForStorage(badge: Badge): Promise<StoredBadge> {
+  if (!badge.image) return { ...badge, image: null };
+  return {
+    ...badge,
+    image: await toStoredBinary(badge.image, 'image/png'),
+  };
+}
+
 export async function getAll<T extends StoreName>(name: T): Promise<StoreTypes[T][]> {
   const database = await openDatabase();
-  return requestResult(database.transaction(name, 'readonly').objectStore(name).getAll());
+  const rows = await requestResult<StoreTypes[T][]>(database.transaction(name, 'readonly').objectStore(name).getAll());
+  if (name === 'badges') {
+    return (rows as unknown as StoredBadge[]).map(hydrateStoredBadge) as unknown as StoreTypes[T][];
+  }
+  return rows;
 }
 
 export async function saveItem<T extends StoreName>(name: T, item: StoreTypes[T]): Promise<void> {
+  const payload = name === 'badges'
+    ? await serializeBadgeForStorage(item as Badge)
+    : item;
   const database = await openDatabase();
   const transaction = database.transaction(name, 'readwrite');
   const completion = transactionDone(transaction);
-  transaction.objectStore(name).put(item);
+  transaction.objectStore(name).put(payload);
   await completion;
 }
 
@@ -261,9 +355,9 @@ export async function saveJourneyAndLinkCityRecords(journey: Journey): Promise<J
         mediaStore.put({ ...original, id: copyId, tripId: journey.id, placeId: journeyPlaceId } satisfies TravelMedia);
         const fileRequest = mediaFileStore.get(original.id);
         fileRequest.onsuccess = () => {
-          const file = fileRequest.result as MediaFile | undefined;
-          if (!file?.blob) { transaction.abort(); return; }
-          mediaFileStore.put({ id: copyId, blob: file.blob } satisfies MediaFile);
+          const file = fileRequest.result as StoredMediaFile | undefined;
+          if (!hasStoredMediaBinary(file)) { transaction.abort(); return; }
+          mediaFileStore.put({ ...file, id: copyId });
         };
       }
       result.places += 1;
@@ -311,45 +405,57 @@ export async function moveLegacyPlanToJourney(legacyId: string, journeyPlan: Tri
 /** One transaction keeps each media metadata row paired with its binary file. */
 export async function saveMediaBatch(items: Array<{ media: TravelMedia; blob: Blob }>, entries: DayEntry[] = []): Promise<void> {
   if (!items.length && !entries.length) return;
+  const prepared: Array<{ media: TravelMedia; stored: StoredMediaFile }> = [];
+  for (const { media, blob } of items) {
+    const binary = await toStoredBinary(blob, media.mimeType);
+    prepared.push({ media, stored: { id: media.id, ...binary } });
+  }
   const database = await openDatabase();
   const transaction = database.transaction(['media', 'mediaFiles', 'entries'], 'readwrite');
   const completion = transactionDone(transaction);
   for (const entry of entries) transaction.objectStore('entries').put(entry);
-  for (const { media, blob } of items) {
+  for (const { media, stored } of prepared) {
     transaction.objectStore('media').put(media);
-    transaction.objectStore('mediaFiles').put({ id: media.id, blob } satisfies MediaFile);
+    transaction.objectStore('mediaFiles').put(stored);
   }
   await completion;
 }
 
 export async function getMediaBlob(id: string): Promise<Blob> {
   const database = await openDatabase();
-  const file = await requestResult<MediaFile | undefined>(database.transaction('mediaFiles', 'readonly').objectStore('mediaFiles').get(id));
-  if (!file?.blob) throw new Error('本机媒体文件已丢失');
-  return file.blob;
+  const file = await requestResult<StoredMediaFile | undefined>(database.transaction('mediaFiles', 'readonly').objectStore('mediaFiles').get(id));
+  const blob = storedMediaToBlob(file);
+  if (!blob) throw new Error('本机媒体文件已丢失');
+  return blob;
 }
 
 /** AI 配图与用户原始媒体分开存储，不进入足迹、相册或实际账本。 */
 export async function getPlannerPhotoBlob(id: string): Promise<Blob | null> {
   const database = await openDatabase();
-  const file = await requestResult<MediaFile | undefined>(database.transaction('plannerPhotoFiles', 'readonly').objectStore('plannerPhotoFiles').get(id));
-  return file?.blob ?? null;
+  const file = await requestResult<StoredMediaFile | undefined>(database.transaction('plannerPhotoFiles', 'readonly').objectStore('plannerPhotoFiles').get(id));
+  return storedMediaToBlob(file);
 }
 
+const ALLOWED_PLANNER_PHOTO_MIMES = new Set(['image/webp', 'image/jpeg', 'image/png']);
+
 export async function savePlannerPhotoBlob(id: string, blob: Blob): Promise<void> {
-  if (!/^[a-f\d]{64}$/.test(id) || blob.type !== 'image/webp' || blob.size > 8 * 1024 * 1024) throw new Error('本地行程照片无效');
+  if (!/^[a-f\d]{64}$/.test(id) || !ALLOWED_PLANNER_PHOTO_MIMES.has(blob.type) || blob.size <= 0 || blob.size > 8 * 1024 * 1024) {
+    throw new Error('本地行程照片无效');
+  }
+  const binary = await toStoredBinary(blob, blob.type);
   const database = await openDatabase();
   const transaction = database.transaction('plannerPhotoFiles', 'readwrite');
   const completion = transactionDone(transaction);
-  transaction.objectStore('plannerPhotoFiles').put({ id, blob });
+  transaction.objectStore('plannerPhotoFiles').put({ id, ...binary } satisfies StoredMediaFile);
   await completion;
 }
 
 /** Thumbnails are disposable; backups include originals, not this cache. */
 export async function getMediaPreview(id: string, kind: TravelMedia['kind']): Promise<Blob> {
   const database = await openDatabase();
-  const cached = await requestResult<MediaFile | undefined>(database.transaction('mediaPreviews', 'readonly').objectStore('mediaPreviews').get(id));
-  if (cached) return cached.blob;
+  const cached = await requestResult<StoredMediaFile | undefined>(database.transaction('mediaPreviews', 'readonly').objectStore('mediaPreviews').get(id));
+  const cachedBlob = storedMediaToBlob(cached, 'image/jpeg');
+  if (cachedBlob) return cachedBlob;
   const original = await getMediaBlob(id);
   if (kind !== 'photo') return original;
   try {
@@ -362,9 +468,10 @@ export async function getMediaPreview(id: string, kind: TravelMedia['kind']): Pr
     image.close();
     const preview = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.78));
     if (!preview) return original;
+    const storedPreview = await toStoredBinary(preview, 'image/jpeg');
     const transaction = database.transaction('mediaPreviews', 'readwrite');
     const completion = transactionDone(transaction);
-    transaction.objectStore('mediaPreviews').put({ id, blob: preview } satisfies MediaFile);
+    transaction.objectStore('mediaPreviews').put({ id, ...storedPreview } satisfies StoredMediaFile);
     await completion;
     return preview;
   } catch {
@@ -385,8 +492,9 @@ export async function loadSnapshot(): Promise<AppSnapshot> {
   // 同一个只读事务读取关联表，避免跨标签页写入时导出不对应的旅行、地点和账本。
   const database = await openDatabase();
   const transaction = database.transaction(STORE_NAMES, 'readonly');
-  const [marks, entries, plans, media, badges, profile, trips, places, aiPlans, plannerPreferences]
+  const [marks, entries, plans, media, rawBadges, profile, trips, places, aiPlans, plannerPreferences]
     = await Promise.all(STORE_NAMES.map((name) => requestResult(transaction.objectStore(name).getAll())));
+  const badges = (rawBadges as StoredBadge[]).map(hydrateStoredBadge);
   const snapshot = { marks, entries, plans, media, badges, profile, trips, places, aiPlans, plannerPreferences } as AppSnapshot;
   return { ...snapshot, aiPlans: snapshot.aiPlans.map(upgradeLegacyBookingSchedule) };
 }
@@ -501,6 +609,7 @@ function plannerPublicationRecords(
     dailyExpenses: firstFinance?.dailyExpenses ?? finance?.dailyExpenses,
     aiExpenseSeeded: firstFinance?.aiExpenseSeeded ?? finance?.aiExpenseSeeded,
     overallExpenses: firstFinance?.overallExpenses ?? finance?.overallExpenses,
+    bookingLedgerEntries: firstFinance?.bookingLedgerEntries ?? finance?.bookingLedgerEntries,
     unallocatedFood: firstFinance?.unallocatedFood ?? finance?.unallocatedFood,
     startDate: journey.startDate, endDate: journey.endDate, people: firstFinance?.people ?? plan.content.request.people,
     budget: snapshot.budget,
@@ -564,6 +673,82 @@ export async function publishAiPlan(plan: AiTravelPlan, initialFinance?: TripPla
   if (placesRequest) placesRequest.onsuccess = writeWhenReady;
   try { await completion; } catch (error) { if (errorMessage) throw new Error(errorMessage); throw error; }
   return updated!;
+}
+
+/** 原子事务：在同一个 IndexedDB 事务中同时保存 AI 行程订单变更与对应账本（或首次发布旅程+账本），失败全量回滚。 */
+export async function saveAiPlanWithBookingLedger(
+  plan: AiTravelPlan,
+  expectedVersion: number,
+  ledgerUpdate: { kind: 'update'; sheet: TripPlan } | { kind: 'publish'; initialFinance: TripPlan } | null,
+): Promise<AiTravelPlan> {
+  validatePlannerContent(plan.content);
+  const database = await openDatabase();
+  const stores = ledgerUpdate?.kind === 'publish'
+    ? ['aiPlans', 'trips', 'plans', 'places']
+    : ledgerUpdate?.kind === 'update'
+      ? ['aiPlans', 'plans']
+      : ['aiPlans'];
+  const transaction = database.transaction(stores, 'readwrite');
+  const completion = transactionDone(transaction);
+  const aiStore = transaction.objectStore('aiPlans');
+  let errorMessage = '';
+  let saved: AiTravelPlan = plan;
+
+  if (ledgerUpdate?.kind === 'publish') {
+    const tripId = plan.linkedTripId ?? createLocalId();
+    const firstFinance = !plan.linkedTripId ? ledgerUpdate.initialFinance : undefined;
+    const snapshot = plannerPublicationSnapshot(plan, firstFinance?.budget);
+    const currentReq = aiStore.get(plan.id);
+    const tripReq = transaction.objectStore('trips').get(tripId);
+    const financeReq = transaction.objectStore('plans').get(tripId);
+    let doneCount = 0;
+    const onReady = () => {
+      if (++doneCount !== 3) return;
+      const existing = currentReq.result as AiTravelPlan | undefined;
+      if (existing?.version !== expectedVersion) {
+        errorMessage = '计划已在其他操作中更新，请刷新后重试';
+        transaction.abort();
+        return;
+      }
+      const trip = tripReq.result as Journey | undefined;
+      const finance = financeReq.result as TripPlan | undefined;
+      const mergedPlan: AiTravelPlan = {
+        ...plan,
+        mapPositions: { ...plan.mapPositions, ...existing?.mapPositions },
+      };
+      const { journey, sheet } = plannerPublicationRecords(tripId, snapshot, mergedPlan, trip, finance, firstFinance);
+      saved = {
+        ...mergedPlan,
+        linkedTripId: tripId,
+        linkedSnapshot: structuredClone(snapshot),
+        updatedAt: new Date().toISOString(),
+      };
+      transaction.objectStore('trips').put(journey);
+      transaction.objectStore('plans').put(sheet);
+      aiStore.put(saved);
+    };
+    currentReq.onsuccess = onReady;
+    tripReq.onsuccess = onReady;
+    financeReq.onsuccess = onReady;
+  } else {
+    const currentReq = aiStore.get(plan.id);
+    currentReq.onsuccess = () => {
+      const existing = currentReq.result as AiTravelPlan | undefined;
+      if (existing?.version !== expectedVersion) {
+        errorMessage = '计划已在其他操作中更新，请刷新后重试';
+        transaction.abort();
+        return;
+      }
+      saved = { ...plan, mapPositions: { ...plan.mapPositions, ...existing?.mapPositions } };
+      aiStore.put(saved);
+      if (ledgerUpdate?.kind === 'update') {
+        transaction.objectStore('plans').put(ledgerUpdate.sheet);
+      }
+    };
+  }
+
+  try { await completion; } catch (error) { if (errorMessage) throw new Error(errorMessage); throw error; }
+  return saved;
 }
 
 /** 用户确认一个景点后，行程关联、地点和完成状态在同一次事务保存。
@@ -644,6 +829,18 @@ export async function recordPlannerJournalVisit(
 
 /** Validate first in backup.ts, then replace all records in one transaction. */
 export async function replaceSnapshot(snapshot: AppSnapshot, files: MediaFile[], plannerPhotos: MediaFile[] = []): Promise<void> {
+  const storedBadges: StoredBadge[] = [];
+  for (const badge of snapshot.badges) {
+    storedBadges.push(await serializeBadgeForStorage(badge));
+  }
+  const storedFiles: StoredMediaFile[] = [];
+  for (const file of files) {
+    storedFiles.push({ id: file.id, ...await toStoredBinary(file.blob, file.blob.type) });
+  }
+  const storedPlannerPhotos: StoredMediaFile[] = [];
+  for (const photo of plannerPhotos) {
+    storedPlannerPhotos.push({ id: photo.id, ...await toStoredBinary(photo.blob, photo.blob.type) });
+  }
   const database = await openDatabase();
   const transaction = database.transaction([...STORE_NAMES, 'mediaFiles', 'mediaPreviews', 'plannerPhotoFiles'], 'readwrite');
   const completion = transactionDone(transaction);
@@ -651,13 +848,14 @@ export async function replaceSnapshot(snapshot: AppSnapshot, files: MediaFile[],
     for (const name of STORE_NAMES) {
       const store = transaction.objectStore(name);
       store.clear();
-      for (const item of snapshot[name]) store.put(item);
+      const rows = name === 'badges' ? storedBadges : snapshot[name];
+      for (const item of rows) store.put(item);
     }
     transaction.objectStore('mediaFiles').clear();
     transaction.objectStore('mediaPreviews').clear();
-    for (const file of files) transaction.objectStore('mediaFiles').put(file);
+    for (const file of storedFiles) transaction.objectStore('mediaFiles').put(file);
     transaction.objectStore('plannerPhotoFiles').clear();
-    for (const photo of plannerPhotos) transaction.objectStore('plannerPhotoFiles').put(photo);
+    for (const photo of storedPlannerPhotos) transaction.objectStore('plannerPhotoFiles').put(photo);
     await completion;
   } catch (error) {
     // put() 也可能同步抛错。显式回滚，避免之前排队的 clear() 被提交。
