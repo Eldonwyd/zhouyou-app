@@ -99,6 +99,7 @@ export default function ProfileView({
   const [storageEstimate, setStorageEstimate] = useState<{ usage: number; quota: number } | null>(null);
   const [backupAction, setBackupAction] = useState<'export' | 'import' | null>(null);
   const [editing, setEditing] = useState(false);
+  const [presetsOpen, setPresetsOpen] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [lastBackup, setLastBackup] = useState(() => {
     try { return localStorage.getItem('travel-last-backup') ?? ''; } catch { return ''; }
@@ -653,7 +654,7 @@ export default function ProfileView({
             aria-controls={editing ? 'profile-dressup-drawer' : undefined}
             onClick={() => setEditing(!editing)}
           >
-            {editing ? t('收起装扮', 'Close Editor') : t('装扮名片 ✦', 'Edit Card ✦')}
+            {editing ? t('收起 ▴', 'Close ▴') : t('编辑名片', 'Edit')}
           </button>
         </div>
 
@@ -681,7 +682,7 @@ export default function ProfileView({
             </div>
 
             <div className="avatar-picker-block">
-              <span className="avatar-picker-label">{t('更换头像（支持相册上传、现场拍照或可爱预设）', 'Change Avatar (Upload, Take Photo, or Presets)')}</span>
+              <span className="avatar-picker-label">{t('更换头像', 'Change Avatar')}</span>
               <div className="avatar-photo-actions">
                 <button
                   type="button"
@@ -705,7 +706,7 @@ export default function ProfileView({
                     className="text-button avatar-photo-clear"
                     onClick={() => setAvatar('bear')}
                   >
-                    {t('恢复默认头像', 'Reset Preset')}
+                    {t('恢复默认', 'Reset')}
                   </button>
                 )}
                 <input
@@ -724,21 +725,34 @@ export default function ProfileView({
                   onChange={(event) => void handleAvatarFileChange(event.currentTarget)}
                 />
               </div>
-              <div className="avatar-picker-grid" role="radiogroup" aria-label={t('旅人头像', 'Traveler avatar')}>
-                {AVATAR_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={avatar === preset.id}
-                    className={`avatar-choice ${avatar === preset.id ? 'selected' : ''}`}
-                    onClick={() => setAvatar(preset.id)}
-                  >
-                    <TravelAvatar avatarId={preset.id} nickname={nickname || (isEn ? 'T' : '旅')} className="avatar-choice-preview" />
-                    <small>{isEn ? preset.labelEn : preset.label}</small>
-                  </button>
-                ))}
-              </div>
+
+              <button
+                type="button"
+                className="avatar-presets-toggle"
+                aria-expanded={presetsOpen}
+                onClick={() => setPresetsOpen((v) => !v)}
+              >
+                <span>🎨 {t('或挑选可爱预设头像', 'Or choose a preset avatar')}</span>
+                <small>{presetsOpen ? t('收起 ▴', 'Hide ▴') : t(`展开 ${AVATAR_PRESETS.length} 款 ▾`, `${AVATAR_PRESETS.length} presets ▾`)}</small>
+              </button>
+
+              {presetsOpen && (
+                <div className="avatar-picker-grid" role="radiogroup" aria-label={t('旅人头像', 'Traveler avatar')}>
+                  {AVATAR_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={avatar === preset.id}
+                      className={`avatar-choice ${avatar === preset.id ? 'selected' : ''}`}
+                      onClick={() => setAvatar(preset.id)}
+                    >
+                      <TravelAvatar avatarId={preset.id} nickname={nickname || (isEn ? 'T' : '旅')} className="avatar-choice-preview" />
+                      <small>{isEn ? preset.labelEn : preset.label}</small>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="profile-dressup-actions">

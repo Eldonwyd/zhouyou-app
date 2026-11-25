@@ -1999,6 +1999,7 @@
   .warm-profile .profile-name-row { gap: 4px 6px; grid-column: 2; min-width: 0; }
   .warm-profile .profile-name-row h2 {
     flex-basis: 100%;
+    padding-right: 78px;
     font-size: clamp(20px, 6vw, 25px);
     line-height: 1.25;
     overflow-wrap: anywhere;
@@ -2041,23 +2042,20 @@
   }
   .warm-profile .profile-stat-label { grid-column: 1 / -1; color: var(--muted); font-size: 11px; }
   .warm-profile .profile-edit-toggle {
-    grid-column: 1 / -1;
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 3;
     width: auto;
-    justify-self: end;
-    min-height: 38px;
+    min-height: 30px;
     margin-left: 0;
-    padding: 6px 16px;
-    font-size: 12.5px;
-    box-shadow: none;
+    padding: 5px 11px;
+    font-size: 12px;
+    border-radius: 999px;
+    box-shadow: 0 2px 6px rgba(60, 43, 38, 0.06);
   }
   .warm-profile .profile-float-plane {
-    display: block;
-    top: 10px;
-    right: 12px;
-    width: 34px;
-    height: 22px;
-    opacity: .5;
-    pointer-events: none;
+    display: none;
   }
   .warm-profile .profile-float-sparkle {
     display: block;

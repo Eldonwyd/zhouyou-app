@@ -1334,6 +1334,33 @@
   color: var(--muted, #8a7670);
 }
 
+.avatar-presets-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 12px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  border: 1px dashed var(--line-strong, #e2cfc0);
+  background: color-mix(in srgb, var(--surface, #fff) 75%, transparent);
+  color: var(--ink, #3c2e2a);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.avatar-presets-toggle small {
+  color: var(--muted, #877971);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.avatar-presets-toggle:hover {
+  background: var(--surface, #fff);
+}
+
 .profile-achievements-entry-card {
   padding: 0 !important;
   margin-bottom: 16px;
