@@ -2369,6 +2369,20 @@ input, select, textarea { border-radius: 10px; }
 .planner-plan-list > button.planner-plan-card { border-radius: 18px; border-left-width: 1px; box-shadow: var(--elev-card); }
 .planner-plan-list > button.planner-plan-card.active { background: var(--surface); box-shadow: 0 0 0 2px var(--app-sage), var(--elev-card); }
 .planner-plan-list > button.planner-plan-card.active::after { display: none; }
+/* 计划切换条：只展示当前计划卡片，其他计划以紧凑标签切换 */
+.planner-plan-switcher { display: flex; gap: 8px; overflow-x: auto; padding: 2px 4px 10px; margin-bottom: 4px; scrollbar-width: thin; }
+.planner-plan-switcher > button {
+  flex: 0 0 auto; max-width: 240px; display: grid; gap: 2px; text-align: left; cursor: pointer;
+  padding: 8px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+.planner-plan-switcher > button:hover:not(:disabled) { border-color: var(--line-strong); box-shadow: var(--elev-card); }
+.planner-plan-switcher > button.active { border-color: var(--warm-green); background: var(--teal-soft); box-shadow: 0 0 0 1px var(--warm-green) inset; }
+.planner-plan-switcher small { font-size: 11px; color: var(--warm-green); font-weight: 600; letter-spacing: .04em; }
+.planner-plan-switcher strong { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.planner-plan-switcher em { font-style: normal; font-size: 11px; color: var(--muted); }
+.planner-plan-list.single { overflow: visible; }
+.planner-plan-list.single > button.planner-plan-card { flex: 1 1 100%; }
 /* 元信息行：柔和底色核心日期人数 + 轻量无边框偏好标签 */
 .planner-plan-meta {
   display: flex;

@@ -2636,27 +2636,57 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
               {t('＋ 新建 AI 计划', '+ New AI Plan')}
             </button>
           </div>
-          {props.aiPlans.length > 0 && (
-            <div className="planner-plan-list">
-              {[...props.aiPlans]
-                .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-                .map((plan) => (
-                  <PlannerPlanCard
-                    key={plan.id}
-                    plan={plan}
-                    disabled={busy}
-                    active={activePlan?.id === plan.id && !creating}
-                    onSelect={() => {
-                      setActiveId(plan.id);
-                      setCreating(false);
-                      setScopeId(null);
-                      setChatRefs([]);
-                      setError('');
-                    }}
-                  />
-                ))}
-            </div>
-          )}
+          {props.aiPlans.length > 0 && (() => {
+            const selectPlan = (planId: string) => {
+              setActiveId(planId);
+              setCreating(false);
+              setScopeId(null);
+              setChatRefs([]);
+              setError('');
+            };
+            const sortedPlans = [...props.aiPlans].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+            return (
+              <>
+                {sortedPlans.length > 1 && (
+                  <div className="planner-plan-switcher" role="tablist" aria-label={t('切换计划', 'Switch plan')}>
+                    {sortedPlans.map((plan) => {
+                      const selected = activePlan?.id === plan.id && !creating;
+                      const days = plan.content.days;
+                      return (
+                        <button
+                          key={plan.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={selected}
+                          className={selected ? 'active' : ''}
+                          disabled={busy}
+                          onClick={() => selectPlan(plan.id)}
+                          title={plan.content.title}
+                        >
+                          <small>{plan.content.cities.map((city) => city.name).join(' → ') || plan.content.request.destination}</small>
+                          <strong>{plan.content.title}</strong>
+                          {days.length > 0 && (
+                            <em>{days[0].date.slice(5).replace('-', '/')} · {days.length}{t('天', 'd')}</em>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {activePlan && !creating && (
+                  <div className="planner-plan-list single">
+                    <PlannerPlanCard
+                      key={activePlan.id}
+                      plan={activePlan}
+                      disabled={busy}
+                      active
+                      onSelect={() => selectPlan(activePlan.id)}
+                    />
+                  </div>
+                )}
+              </>
+            );
+          })()}
           {creating ? (
             <section className="card planner-create">
               <div className="card-heading">
@@ -2865,6 +2895,11 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                       await props.onSaveAi(restored, null);
                     }}
                     onSyncNow={props.onSyncNow}
+                    onExecutePollOption={(prompt) => {
+                      setScopeId(null);
+                      focusPlannerChat();
+                      void sendChat(prompt, 'edit', undefined, null);
+                    }}
                     onNotice={props.onNotice}
                     onError={props.onError}
                   />
@@ -3049,6 +3084,13 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                 attachedRefs={chatRefs}
                 onOpenXhsAttach={(files) => openXhsDialog({ mode: 'chat', initialFiles: files })}
                 onRemoveAttachedRef={(id) => setChatRefs((prev) => prev.filter((item) => item.id !== id))}
+                cloudUser={props.cloudUser ?? null}
+                onExecutePollOption={(prompt) => {
+                  setScopeId(null);
+                  void sendChat(prompt, 'edit', undefined, null);
+                }}
+                onNotice={props.onNotice}
+                onError={props.onError}
               />
               <button className="planner-ai-launcher" type="button" aria-expanded={chatOpen}
                 aria-controls="planner-conversation-body" onClick={focusPlannerChat}>
