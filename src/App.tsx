@@ -125,9 +125,18 @@ export default function App() {
   const tourMode = useMemo(() => isWebTourMode(), []);
   const embeddedTour = useMemo(() => isEmbeddedTour(), []);
   const [availableUpdate, setAvailableUpdate] = useState<AppUpdateInfo | null>(null);
-  const [updateBannerDismissed, setUpdateBannerDismissed] = useState(false);
+  const [ignoredUpdateVersion, setIgnoredUpdateVersion] = useState<string>(() => {
+    try { return localStorage.getItem('zhouyou-ignored-update-version') || ''; } catch { return ''; }
+  });
   const [updateFocusToken, setUpdateFocusToken] = useState(0);
   const [updateCheckToken, setUpdateCheckToken] = useState(0);
+
+  const ignoreAvailableUpdate = useCallback(() => {
+    if (!availableUpdate?.latestVersion) return;
+    const ver = availableUpdate.latestVersion;
+    setIgnoredUpdateVersion(ver);
+    try { localStorage.setItem('zhouyou-ignored-update-version', ver); } catch { /* ignore */ }
+  }, [availableUpdate]);
 
   // 云端账号、同步、同行旅伴小红点与分享口令状态
   const [cloudUser, setCloudUser] = useState<CloudSelfUser | null>(() => (getCloudToken() ? getCachedCloudUser() : null));
@@ -219,22 +228,55 @@ export default function App() {
     if (triggerCheck) setUpdateCheckToken((token) => token + 1);
   }, []);
 
-  // 原生手机 App 与桌面端启动后静默检查一次更新；无网络时静默跳过。
+  // 原生手机 App 与桌面端启动后静默检查更新，并在切回前台/联网恢复/每 10 分钟自动复查；无网络时静默跳过。
   useEffect(() => {
     if (!isNativeAppPlatform()) return;
+    let disposed = false;
+    let inFlight = false;
+    let lastCheckedAt = 0;
     const controller = new AbortController();
-    const timer = window.setTimeout(() => {
+
+    const runCheck = (force = false) => {
+      if (disposed || inFlight) return;
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+      const now = Date.now();
+      if (!force && now - lastCheckedAt < 3 * 60 * 1000) return;
+      lastCheckedAt = now;
+      inFlight = true;
       void checkForAppUpdate(controller.signal)
         .then((result) => {
-          if (!controller.signal.aborted && result.hasUpdate) {
+          if (disposed || controller.signal.aborted) return;
+          if (result.hasUpdate) {
             setAvailableUpdate(result);
-            setUpdateBannerDismissed(false);
+          } else {
+            setAvailableUpdate(null);
           }
         })
-        .catch(() => undefined);
-    }, 2500);
+        .catch(() => undefined)
+        .finally(() => {
+          inFlight = false;
+        });
+    };
+
+    const timer = window.setTimeout(() => runCheck(true), 2000);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') runCheck(false);
+    }, 10 * 60 * 1000);
+    const onWake = () => {
+      if (document.visibilityState === 'visible') runCheck(false);
+    };
+    const onOnline = () => runCheck(true);
+
+    document.addEventListener('visibilitychange', onWake);
+    window.addEventListener('focus', onWake);
+    window.addEventListener('online', onOnline);
     return () => {
+      disposed = true;
       window.clearTimeout(timer);
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onWake);
+      window.removeEventListener('focus', onWake);
+      window.removeEventListener('online', onOnline);
       controller.abort();
     };
   }, []);
@@ -1041,7 +1083,7 @@ export default function App() {
           </div>
         </div>
       )}
-      {ready && availableUpdate && !updateBannerDismissed && page !== 'profile' && (
+      {ready && availableUpdate?.hasUpdate && availableUpdate.latestVersion !== ignoredUpdateVersion && (
         <div className="app-update-top-bar" role="status">
           <span>
             {t(
@@ -1053,8 +1095,8 @@ export default function App() {
             <button type="button" className="primary" onClick={() => openUpdateSection(false)}>
               {t('立即更新', 'Update Now')}
             </button>
-            <button type="button" className="text-button" onClick={() => setUpdateBannerDismissed(true)}>
-              {t('稍后', 'Later')}
+            <button type="button" className="text-button" onClick={ignoreAvailableUpdate}>
+              {t('忽略', 'Ignore')}
             </button>
           </div>
         </div>
