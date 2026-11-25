@@ -4,7 +4,7 @@
 
 # Zhouyou Map · 周游地图
 
-**An All-in-One Cross-Platform Travel Toolkit — From AI Trip Planning & Map Lookup with One-Click Amap/Xiaohongshu Links to Footprint Maps & Photo Journals**
+**An All-in-One Cross-Platform Travel Toolkit — From AI Trip Planning & Amap/Xiaohongshu Links to Travel Companions, Cloud Sync, Footprint Maps & Photo Journals**
 
 <p>
   <a href="../README.md">简体中文</a>
@@ -64,9 +64,10 @@
 
 - **🔗 Seamless Amap & Xiaohongshu Integration**: Import Xiaohongshu travel guides or screenshots directly into your plan, open curated city activity/food searches on Xiaohongshu in one click, and jump straight to **Amap (高德地图)** for exact spot locations and navigation without copy-pasting.
 - **🤖 One-Click AI Trip Planning**: Enter destination, dates, travelers, and budget to generate complete day-by-day itineraries with scenic cards, transit connectors, budgets, calendar reminders, offline HTML roadbook export, and local PP-OCRv5 booking screenshot parsing across DeepSeek, OpenAI, Claude, Gemini, Qwen, Zhipu, and Kimi.
+- **🤝 Travel Companions & Group Collaboration**: Add friends by nickname, friend code, or QR card; bind intimate bonds (couple, family, bestie) with anniversary cards; overlay and compare China footprint maps (*visited together*, *peer visited*, *mutual wishlist*); create travel groups (including 4-digit face-to-face PIN rooms) with real-time DM/group chat, image sharing, polls, itinerary co-editing, spot voting & comments, version rollback, group AA bill splitting, and WeChat/QQ share tokens.
+- **☁️ Cloud Account & Multi-Device Sync**: Plan on desktop and go on mobile — sign in with phone or email to automatically sync AI roadbooks, lit-up cities, text journals, and expenses across Windows, macOS, Linux, Android, iOS, and Web PWA, with customizable avatars and map visibility controls.
 - **🗺️ Footprint Map Recording**: Track visited and planned cities across all 34 provincial regions and 370+ cities in China, with province drill-down, exploration progress, and offline province map caching.
-- **📸 Photo & Memory Travel Journal**: Archive original photos, videos, text notes, and voice memos by trip or city with automatic timeline grouping, GPS city checks, and illustrated city postcards so every journey is easy to revisit.
-- **🔒 Local-First & Private**: Zero ads, zero forced accounts. All data lives locally in `IndexedDB` with full **ZIP v3** cross-device backup & restore.
+- **📸 Photo & Memory Travel Journal**: Archive original photos, videos, text notes, and voice memos by trip or city with automatic timeline grouping, GPS city checks, illustrated city postcards, and full **ZIP v3** cross-device backup & restore.
 
 ---
 
