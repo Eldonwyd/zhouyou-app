@@ -2506,20 +2506,27 @@ async function locateSingleMobilePlace(place: { key: string; name: string; city?
 }> {
   const name = String(place.name || '').trim();
   const city = String(place.city || '').trim();
-  const shortCity = city.replace(/(?:市|自治州|地区)$/, '');
+  // 处理 "云南保山·腾冲" / "保山·腾冲" 这类复合地名，拆出最具体的区县/市名
+  const cityParts = city
+    .split(/[·•・\s/,，]+/)
+    .map((s) => s.replace(/(?:市|自治州|地区|县|区)$/, '').trim())
+    .filter(Boolean);
+  const specificCity = cityParts[cityParts.length - 1] || city.replace(/(?:市|自治州|地区)$/, '').trim();
+  const cleanName = name.replace(/[·•・]/g, ' ').replace(/市区$/g, '').trim();
   const looksChinese = /[\u4e00-\u9fff]/.test(`${city}${name}`);
   const inChina = (lat: number, lng: number) => lat >= 17 && lat <= 55 && lng >= 72 && lng <= 136;
 
   const queries = [...new Set([
-    shortCity && name && !name.includes(shortCity) ? `${shortCity} ${name}` : name,
-    name,
-    shortCity && name ? `${name} ${shortCity}` : '',
-    shortCity || city,
+    specificCity && cleanName && !cleanName.includes(specificCity) ? `${specificCity} ${cleanName}` : cleanName,
+    cleanName,
+    specificCity && cleanName ? `${cleanName} ${specificCity}` : '',
+    specificCity,
+    cityParts[0] && cityParts[0] !== specificCity ? cityParts[0] : '',
   ].filter(Boolean))];
 
   for (let qi = 0; qi < queries.length; qi += 1) {
     const q = queries[qi];
-    const isCityFallback = qi === queries.length - 1 && queries.length > 1 && (q === shortCity || q === city);
+    const isCityFallback = qi === queries.length - 1 && queries.length > 1 && (q === specificCity || q === city || q === cityParts[0]);
 
     // 1) Komoot Photon（支持 CORS、响应快、返回 WGS84）
     const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=5`;
@@ -2607,16 +2614,16 @@ async function locateSingleMobilePlace(place: { key: string; name: string; city?
     const expectedDays = req.endDate ? plannerDayCount(req.startDate, req.endDate) : (req.days ?? 3);
     const selfDrive = isSelfDriveTransport(req.transport);
     const transitRule = selfDrive
-      ? '市内交通卡仅填 1 条自驾项：transferOptions:[{"mode":"drive","recommended":true,"distanceKm":4.2,"durationMinutes":14}]，transportMode写"自驾"。'
-      : '相邻景点之间的市内交通卡（kind:"transport"）请填写结构化 transferOptions（2~3项，含步行/地铁具体线路与站名/公交线路/打车预估，远途≥12km附carpoolCostCents顺风车预估），主推荐标 recommended:true，并填 distanceKm。';
+      ? '市内交通卡填 1 条自驾项：transferOptions:[{"mode":"drive","recommended":true,"distanceKm":4.2,"durationMinutes":14}]，transportMode写"自驾"。'
+      : '相邻景点间可写简明交通卡（kind:"transport"），填 transportMode 与 distanceKm，主推荐写 1~2 条 transferOptions（详细备选方案会由后续交通接口自动补全）。';
     const sys = [
-      '你是周游地图专业中文旅行规划师。请严格返回合法 JSON 对象，不要输出任何额外说明。',
-      `必须严格按以下结构返回，共 ${expectedDays} 天（从 ${req.startDate} 起连续每一天）：`,
-      '{"title":"行程标题","summary":"行程亮点概要","cities":[{"name":"城市名"}],"constraints":["约束说明"],"warnings":["实用提醒"],"days":[{"date":"YYYY-MM-DD","title":"当天主题","weather":"当季天气参考","activities":[{"id":"d1-a1","kind":"sight|food|transport|rest","period":"morning|noon|afternoon|evening","startTime":"09:00","endTime":"11:30","title":"活动名","city":"城市","location":"具体地点","description":"简明游玩建议","transportMode":"","distanceKm":3.2,"transferOptions":[{"mode":"subway","recommended":true,"line":"地铁1号线","fromStation":"A站","toStation":"B站","transferNote":"出站步行300米","durationMinutes":18,"distanceKm":4.5,"costCents":300,"costUnit":"person"},{"mode":"taxi","durationMinutes":12,"distanceKm":4.2,"costCents":1500,"costUnit":"vehicle"}],"meal":null,"costs":[{"id":"c1","label":"门票","category":"tickets","unit":"ticket","unitPriceCents":6000,"quantity":1,"occurrences":1}]}],"lodging":{"city":"城市","area":"推荐住宿片区","searchKeyword":"酒店搜索词","reason":"选址理由","costs":[{"id":"l1","label":"住宿","category":"lodging","unit":"room","unitPriceCents":35000,"quantity":1,"occurrences":1}]}}],"alternatives":[{"title":"备选景点","city":"城市","reason":"推荐理由","rainyDay":true}]}',
+      '你是周游地图专业中文旅行规划师。请严格返回紧凑合法 JSON 对象，不要输出任何额外说明或注释。',
+      `必须严格按以下结构返回，共 ${expectedDays} 天（从 ${req.startDate} 起连续每一天，每天 3~5 个核心活动，简洁实用勿冗长）：`,
+      '{"title":"行程标题","summary":"行程亮点概要","cities":[{"name":"城市名"}],"constraints":["约束说明"],"warnings":["实用提醒"],"days":[{"date":"YYYY-MM-DD","title":"当天主题","weather":"当季天气参考","activities":[{"id":"d1-a1","kind":"sight|food|transport|rest","period":"morning|noon|afternoon|evening","startTime":"09:00","endTime":"11:30","title":"活动名","city":"城市","location":"具体地点","description":"简明游玩建议","transportMode":"","meal":null,"costs":[{"id":"c1","label":"门票","category":"tickets","unit":"ticket","unitPriceCents":6000,"quantity":1,"occurrences":1}]}],"lodging":{"city":"城市","area":"推荐住宿片区","searchKeyword":"酒店搜索词","reason":"选址理由","costs":[{"id":"l1","label":"住宿","category":"lodging","unit":"room","unitPriceCents":35000,"quantity":1,"occurrences":1}]}}],"alternatives":[{"title":"备选景点","city":"城市","reason":"推荐理由","rainyDay":true}]}',
       transitRule,
       '注意：非交通卡省略 distanceKm 与 transferOptions；最后一天 lodging 必须为 null；所有金额为人民币整数分（如 60 元填 6000）；kind 仅取 sight/food/transport/rest；period 仅取 morning/noon/afternoon/evening。',
     ].join('\n');
-    const res = await callMobileModel(sys, `旅行需求：\n${JSON.stringify(req, null, 2)}`, { maxTokens: 6000 });
+    const res = await callMobileModel(sys, `旅行需求：\n${JSON.stringify(req, null, 2)}`, { maxTokens: 8000 });
     onProgress('整理路线与预算…');
     const raw = extractJsonObject<Record<string, unknown>>(res.text);
     const content = normalizeMobilePlanContent(raw, req);

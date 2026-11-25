@@ -60,6 +60,7 @@ const browser = await chromium.launch({
 });
 
 const apiCalls = [];
+const openedExternalUrls = [];
 const pageErrors = [];
 const consoleErrors = [];
 
@@ -76,10 +77,16 @@ try {
     if (msg.type() === 'error') consoleErrors.push(msg.text());
   });
 
+  await page.exposeFunction('__recordExternalUrl', (optsJson) => {
+    openedExternalUrls.push(JSON.parse(optsJson));
+  });
+
   await page.exposeFunction('__bridgeNativeHttp', async (reqJson) => {
     const req = JSON.parse(reqJson);
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    apiCalls.push({ url: req.url, model: body?.model });
+    const method = (req.method || 'GET').toUpperCase();
+    const isJsonBody = method === 'POST' && req.body;
+    const body = isJsonBody && typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    apiCalls.push({ url: req.url, method, model: body?.model });
 
     if (req.url.includes('api.deepseek.com')) {
       assert.ok(
@@ -88,14 +95,16 @@ try {
       );
     }
 
-    if (isLive) {
+    if (isLive || !req.url.includes('api.deepseek.com')) {
       const resp = await fetch(req.url, {
-        method: req.method || 'POST',
+        method,
         headers: req.headers || {},
-        body: typeof req.body === 'string' ? req.body : JSON.stringify(req.body),
+        ...(method === 'POST' && req.body !== undefined
+          ? { body: typeof req.body === 'string' ? req.body : JSON.stringify(req.body) }
+          : {}),
       });
       const text = await resp.text();
-      console.log(`   [LIVE HTTP ${resp.status}] ${req.url} model=${body?.model} len=${text.length}`);
+      console.log(`   [LIVE HTTP ${resp.status}] ${method} ${req.url.slice(0, 88)} len=${text.length}`);
       return JSON.stringify({
         status: resp.status,
         headers: Object.fromEntries(resp.headers.entries()),
@@ -224,7 +233,10 @@ try {
         const resJson = await window.__bridgeNativeHttp(JSON.stringify(options));
         return JSON.parse(resJson);
       },
-      openExternalUrl: async () => ({ ok: true }),
+      openExternalUrl: async (options) => {
+        await window.__recordExternalUrl(JSON.stringify(options));
+        return { ok: true };
+      },
       startOAuthCallbackServer: async () => ({ ok: true, port: 1455 }),
       stopOAuthCallbackServer: async () => {},
       addListener: async () => ({ remove: async () => {} }),
@@ -313,8 +325,21 @@ try {
   await page.locator('button', { hasText: '用这个目的地规划' }).first().waitFor({ timeout: 60000 });
   const recCount = await page.locator('button', { hasText: '用这个目的地规划' }).count();
   assert.ok(recCount >= 1, 'Expected at least 1 recommendation card');
+  // Verify recommendation photos were fetched!
+  const recPhotos = await page.locator('.planner-recommendation img').count();
+  console.log(`   ✓ 挑选目的地成功返回 ${recCount} 个推荐卡片，其中 ${recPhotos} 张已带真实实景图，零白屏！`);
+  assert.ok(recPhotos >= 1, 'Expected at least 1 real photo on recommendation cards');
+
+  // Test Xiaohongshu direct App link from recommendation card
+  const xhsBtn = page.locator('.planner-recommendation a', { hasText: '去小红书搜这个地点' }).first();
+  if (await xhsBtn.isVisible().catch(() => false)) {
+    await xhsBtn.click();
+    await page.waitForTimeout(200);
+    const xhsCall = openedExternalUrls.find((u) => String(u.url || '').startsWith('xhsdiscover://'));
+    assert.ok(xhsCall, `Expected xhsdiscover:// deep link call, got: ${JSON.stringify(openedExternalUrls)}`);
+    console.log(`   ✓ 小红书跳转验证通过：${xhsCall.url.slice(0, 60)}...`);
+  }
   await assertNotWhiteScreen('发现目的地结果');
-  console.log(`   ✓ 挑选目的地成功返回 ${recCount} 个推荐卡片，零白屏！`);
 
   console.log('4. 测试从推荐卡片「用这个目的地规划」-> 建议天数 -> 生成完整行程...');
   await page.locator('button', { hasText: '用这个目的地规划' }).first().click();
@@ -333,19 +358,25 @@ try {
   await assertNotWhiteScreen('完整行程生成');
   console.log('   ✓ 完整行程生成并通过严格校验，页面正常渲染！');
 
-  console.log('5. 测试「行程地图」...');
-  const mapBtn = page.locator('button', { hasText: /行程地图|地图/ }).first();
-  if (await mapBtn.isVisible().catch(() => false)) {
-    await mapBtn.click();
-    await page.waitForTimeout(800);
-    await assertNotWhiteScreen('行程地图');
-    // Close map modal/dialog if open
-    const closeMapBtn = page.getByRole('button', { name: /关闭|返回/ }).first();
-    if (await closeMapBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await closeMapBtn.click();
-      await page.waitForTimeout(300);
-    }
-    console.log('   ✓ 行程地图打开与关闭正常，无报错！');
+  console.log('5. 测试「行程地图」（点击查看行程地图 -> 真实景点定位标点 + 高德 App 跳转）...');
+  const openMapBtn = page.getByRole('button', { name: '查看行程地图' });
+  await openMapBtn.waitFor({ timeout: 10000 });
+  await openMapBtn.click();
+  await page.locator('.planner-number-marker').first().waitFor({ timeout: 45000 });
+  const markerCount = await page.locator('.planner-number-marker').count();
+  assert.ok(markerCount >= 1, 'Expected at least 1 located attraction marker on itinerary map');
+  await assertNotWhiteScreen('行程地图');
+  console.log(`   ✓ 行程地图真实定位成功（${markerCount} 个景点标点）！`);
+  await page.getByRole('button', { name: '收起地图' }).click();
+
+  // Verify Amap deep link on activity card
+  const amapLink = page.locator('a', { hasText: '高德地图' }).first();
+  if (await amapLink.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await amapLink.click();
+    await page.waitForTimeout(200);
+    const amapCall = openedExternalUrls.find((u) => String(u.url || '').startsWith('androidamap://'));
+    assert.ok(amapCall, `Expected androidamap:// deep link call, got: ${JSON.stringify(openedExternalUrls)}`);
+    console.log(`   ✓ 高德地图 App 跳转验证通过：${amapCall.url.slice(0, 60)}...`);
   }
 
   console.log('6. 测试「行前打包清单」AI 生成...');
@@ -402,6 +433,18 @@ try {
     await assertNotWhiteScreen(tabName);
     console.log(`   ✓ ${tabName} 正常！`);
   }
+
+  console.log('9. 测试个人中心「导航地图 App」切换（高德 / 百度 / 谷歌）...');
+  await page.locator('button', { hasText: '偏好与设置' }).first().click();
+  await page.getByText('导航地图 App').waitFor({ timeout: 8000 });
+  await page.getByRole('radio', { name: /百度地图/ }).click();
+  const savedBaidu = await page.evaluate(() => localStorage.getItem('zhouyou-map-app-provider-v1'));
+  assert.equal(savedBaidu, 'baidu', 'Expected map provider saved as baidu');
+  await page.getByRole('radio', { name: /谷歌地图/ }).click();
+  const savedGoogle = await page.evaluate(() => localStorage.getItem('zhouyou-map-app-provider-v1'));
+  assert.equal(savedGoogle, 'google', 'Expected map provider saved as google');
+  await page.getByRole('radio', { name: /高德地图/ }).click();
+  console.log('   ✓ 导航地图 App 切换（高德 / 百度 / 谷歌）验证通过！');
 
   assert.equal(pageErrors.length, 0, `Page errors detected: ${pageErrors.join('\n')}`);
   console.log(`\n🎉 全流程实测通过！共完成 ${apiCalls.length} 次 AI 接口调用，0 个页面报错，0 次白屏！`);
