@@ -1900,36 +1900,6 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
   function editActivity(activity: PlannerActivity, dayIndex: number) {
     setEditing({ dayIndex, activity, isNew: false });
   }
-  async function moveActivity(dayIndex: number, activityId: string, direction: -1 | 1) {
-    if (!activePlan || busy) return;
-    const content = structuredClone(activePlan.content);
-    const day = content.days[dayIndex];
-    if (!day) return;
-    const idx = day.activities.findIndex((item) => item.id === activityId);
-    const targetIdx = idx + direction;
-    if (idx < 0 || targetIdx < 0 || targetIdx >= day.activities.length) return;
-    const current = day.activities[idx];
-    const neighbor = day.activities[targetIdx];
-    if (current.locked || neighbor.locked) return;
-    // 交换时间段与顺序，使按时间排序后顺序稳定生效
-    const prevStart = current.startTime;
-    const prevEnd = current.endTime;
-    const prevPeriod = current.period;
-    current.startTime = neighbor.startTime;
-    current.endTime = neighbor.endTime;
-    current.period = neighbor.period;
-    neighbor.startTime = prevStart;
-    neighbor.endTime = prevEnd;
-    neighbor.period = prevPeriod;
-    day.activities[idx] = neighbor;
-    day.activities[targetIdx] = current;
-    try {
-      validatePlannerContent(content);
-      await commit(content, direction < 0 ? '手动上移活动顺序' : '手动下移活动顺序');
-    } catch (failure) {
-      report(failure);
-    }
-  }
   async function handleExternalAiImported(result: { content: PlannerContent }) {
     validatePlannerContent(result.content);
     const now = new Date().toISOString();
@@ -3239,28 +3209,6 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                                     >
                                       {booking ? '编辑预订' : '编辑'}
                                     </button>
-                                    {!booking && !activity.locked && (
-                                      <>
-                                        <button
-                                          className="text-button"
-                                          disabled={busy || day.activities.findIndex((item) => item.id === activity.id) <= 0}
-                                          title="手动上移顺序（无需 AI）"
-                                          aria-label="上移顺序"
-                                          onClick={() => void moveActivity(dayIndex, activity.id, -1)}
-                                        >
-                                          ↑
-                                        </button>
-                                        <button
-                                          className="text-button"
-                                          disabled={busy || day.activities.findIndex((item) => item.id === activity.id) >= day.activities.length - 1}
-                                          title="手动下移顺序（无需 AI）"
-                                          aria-label="下移顺序"
-                                          onClick={() => void moveActivity(dayIndex, activity.id, 1)}
-                                        >
-                                          ↓
-                                        </button>
-                                      </>
-                                    )}
                                     <button
                                       className="text-button"
                                       disabled={busy || activity.locked || Boolean(booking)}
