@@ -21,12 +21,22 @@ const DEFAULT_MODEL = 'glm-5.3-flash';
 const DEFAULT_USER_DAILY_TOKENS = 50000;
 const DEFAULT_USER_MONTHLY_TOKENS = 120000;
 const DEFAULT_SITE_DAILY_TOKENS = 500000;
+const DEFAULT_VIP_MULTIPLIER = 2;
 const MAX_INPUT_CHARS = 120000;
 const MAX_OUTPUT_TOKENS = 12000;
 
 function parsePositiveInt(raw, fallback) {
   const n = Number.parseInt(String(raw ?? '').trim(), 10);
   return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+function parseVipMultiplier(raw, fallback = DEFAULT_VIP_MULTIPLIER) {
+  const s = String(raw ?? '').trim();
+  if (!s) return fallback;
+  const n = Number(s);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  // 0 表示 VIP 不限额；>0 表示额度倍数（如 2 = 双倍额度）
+  return n === 0 ? 0 : Math.min(100, Math.max(1, n));
 }
 
 /** 按北京时间（UTC+8）计算当日与当月 key，保证“明日 0 点刷新”符合国内习惯。 */
@@ -66,6 +76,12 @@ function readFreeAiConfig(env, overrides = {}) {
       .map((item) => item.trim().toLowerCase())
       .filter(Boolean),
   );
+  const vipMultiplier = parseVipMultiplier(
+    overrides.free_ai_vip_multiplier !== undefined && overrides.free_ai_vip_multiplier !== ''
+      ? overrides.free_ai_vip_multiplier
+      : env?.FREE_AI_VIP_MULTIPLIER,
+    DEFAULT_VIP_MULTIPLIER,
+  );
   return {
     apiKey,
     enabled: Boolean(apiKey) && enabledFlag,
@@ -75,6 +91,7 @@ function readFreeAiConfig(env, overrides = {}) {
     userMonthlyLimit,
     siteDailyLimit,
     vipSet,
+    vipMultiplier,
   };
 }
 
@@ -148,8 +165,12 @@ async function readQuotaSnapshot(db, user, config) {
   const dailyUsed = Number(userDailyRow?.tokens_used || 0);
   const monthlyUsed = Number(userMonthlyRow?.tokens_used || 0);
   const siteUsed = Number(siteDailyRow?.tokens_used || 0);
-  const dailyRemaining = vip ? config.userDailyLimit : Math.max(0, config.userDailyLimit - dailyUsed);
-  const monthlyRemaining = vip ? config.userMonthlyLimit : Math.max(0, config.userMonthlyLimit - monthlyUsed);
+  const vipUnlimited = vip && config.vipMultiplier === 0;
+  const multiplier = vip && config.vipMultiplier > 0 ? config.vipMultiplier : 1;
+  const effectiveDailyLimit = Math.round(config.userDailyLimit * multiplier);
+  const effectiveMonthlyLimit = Math.round(config.userMonthlyLimit * multiplier);
+  const dailyRemaining = vipUnlimited ? effectiveDailyLimit : Math.max(0, effectiveDailyLimit - dailyUsed);
+  const monthlyRemaining = vipUnlimited ? effectiveMonthlyLimit : Math.max(0, effectiveMonthlyLimit - monthlyUsed);
   const siteRemaining = Math.max(0, config.siteDailyLimit - siteUsed);
 
   return {
@@ -157,17 +178,19 @@ async function readQuotaSnapshot(db, user, config) {
     label: '周游免费体验 AI',
     model: config.model,
     vip,
+    vipMultiplier: vip ? config.vipMultiplier : 1,
+    vipUnlimited,
     dayKey,
     monthKey,
     daily: {
       used: dailyUsed,
-      limit: config.userDailyLimit,
+      limit: effectiveDailyLimit,
       remaining: dailyRemaining,
       requests: Number(userDailyRow?.requests_count || 0),
     },
     monthly: {
       used: monthlyUsed,
-      limit: config.userMonthlyLimit,
+      limit: effectiveMonthlyLimit,
       remaining: monthlyRemaining,
       requests: Number(userMonthlyRow?.requests_count || 0),
     },
@@ -428,21 +451,22 @@ export const onRequest = withApiHandler(async (context) => {
     }
 
     const beforeQuota = await readQuotaSnapshot(db, auth.user, config);
-    if (!beforeQuota.vip) {
-      if (beforeQuota.site.remaining <= 0) {
-        return errorResponse(
-          request,
-          429,
-          '今日全站免费体验额度已用完，明日 0 点刷新；你也可以点「借用外部免费 AI 导入」零成本生成，或在设置中绑定自己的 API',
-          'FREE_AI_SITE_LIMIT',
-          { quota: beforeQuota },
-        );
-      }
+    if (!beforeQuota.vip && beforeQuota.site.remaining <= 0) {
+      return errorResponse(
+        request,
+        429,
+        '今日全站免费体验额度已用完，明日 0 点刷新；你也可以点「借用外部免费 AI 导入」零成本生成，或在设置中绑定自己的 API',
+        'FREE_AI_SITE_LIMIT',
+        { quota: beforeQuota },
+      );
+    }
+    if (!beforeQuota.vipUnlimited) {
+      const tierLabel = beforeQuota.vip ? `VIP ${beforeQuota.vipMultiplier}倍` : '免费体验';
       if (beforeQuota.daily.remaining <= 0) {
         return errorResponse(
           request,
           429,
-          `今日免费体验额度（${Math.round(beforeQuota.daily.limit / 10000)} 万 tokens）已用完，明日 0 点刷新；你也可以点「借用外部免费 AI 导入」零成本生成，或在设置中绑定自己的 API`,
+          `今日${tierLabel}额度（${Number((beforeQuota.daily.limit / 10000).toFixed(1))} 万 tokens）已用完，明日 0 点刷新；你也可以点「借用外部免费 AI 导入」零成本生成，或在设置中绑定自己的 API`,
           'FREE_AI_DAILY_LIMIT',
           { quota: beforeQuota },
         );
@@ -451,7 +475,7 @@ export const onRequest = withApiHandler(async (context) => {
         return errorResponse(
           request,
           429,
-          `本月免费体验额度（${Math.round(beforeQuota.monthly.limit / 10000)} 万 tokens）已用完，下月 1 日刷新；你也可以点「借用外部免费 AI 导入」零成本生成，或在设置中绑定自己的 API`,
+          `本月${tierLabel}额度（${Number((beforeQuota.monthly.limit / 10000).toFixed(1))} 万 tokens）已用完，下月 1 日刷新；你也可以点「借用外部免费 AI 导入」零成本生成，或在设置中绑定自己的 API`,
           'FREE_AI_MONTHLY_LIMIT',
           { quota: beforeQuota },
         );

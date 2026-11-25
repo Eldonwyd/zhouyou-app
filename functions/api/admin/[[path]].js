@@ -120,6 +120,11 @@ function buildEffectiveConfig(env, settingsMap) {
   ));
   const enabledStr = String(settingsMap.free_ai_enabled || '').trim().toLowerCase();
   const freeAiEnabled = Boolean(env?.FREE_AI_API_KEY) && (enabledStr === '' || (enabledStr !== 'false' && enabledStr !== '0'));
+  const rawMult = settingsMap.free_ai_vip_multiplier !== undefined && settingsMap.free_ai_vip_multiplier !== ''
+    ? settingsMap.free_ai_vip_multiplier
+    : env?.FREE_AI_VIP_MULTIPLIER;
+  const parsedMult = rawMult !== undefined && String(rawMult).trim() !== '' ? Number(rawMult) : 2;
+  const vipMultiplier = Number.isFinite(parsedMult) && parsedMult >= 0 ? parsedMult : 2;
   return {
     freeAiHasKey: Boolean(env?.FREE_AI_API_KEY),
     freeAiEnabled,
@@ -128,6 +133,7 @@ function buildEffectiveConfig(env, settingsMap) {
     userDailyLimit: Number(settingsMap.free_ai_user_daily_tokens || env?.FREE_AI_USER_DAILY_TOKENS || 50000),
     userMonthlyLimit: Number(settingsMap.free_ai_user_monthly_tokens || env?.FREE_AI_USER_MONTHLY_TOKENS || 120000),
     siteDailyLimit: Number(settingsMap.free_ai_site_daily_tokens || env?.FREE_AI_SITE_DAILY_TOKENS || 500000),
+    vipMultiplier,
     vipAccounts: vipList,
     vipAccountsDynamic: settingsMap.free_ai_vip_accounts || '',
     announcementEnabled: settingsMap.announcement_enabled === 'true' || settingsMap.announcement_enabled === '1',
@@ -703,7 +709,7 @@ export const onRequest = withApiHandler(async (context) => {
       };
     });
 
-    return jsonResponse(request, 200, { ok: true, page, limit, total, items });
+    return jsonResponse(request, 200, { ok: true, page, limit, total, vipMultiplier: cfg.vipMultiplier, items });
   }
 
   // POST /api/admin/users/:id/action

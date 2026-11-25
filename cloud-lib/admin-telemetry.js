@@ -18,6 +18,7 @@ export const ALLOWED_SETTING_KEYS = new Set([
   'free_ai_user_monthly_tokens',
   'free_ai_site_daily_tokens',
   'free_ai_vip_accounts',
+  'free_ai_vip_multiplier',
   'announcement_enabled',
   'announcement_title',
   'announcement_body',
