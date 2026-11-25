@@ -55,12 +55,10 @@ function PlanCardPhoto({ title, assetId, url }: { title: string; assetId?: strin
   }} />;
 }
 
-const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 const CATEGORY = [
   ['transport', '交通'], ['lodging', '住宿'], ['tickets', '门票'], ['food', '餐饮'], ['other', '其他'],
 ] as const;
 const shortDate = (date: string) => date.slice(5).replace('-', '/');
-const weekday = (date: string) => WEEKDAYS[new Date(`${date}T00:00:00`).getDay()];
 const yuan = (cents: number) => currency(cents / 100).replace(/\.00$/, '');
 
 /** 行程卡集中展示简介、日期、预算和每日路线，方便在列表里直接对比。 */
@@ -100,10 +98,12 @@ export default function PlannerPlanCard({ plan, active, disabled, onSelect }: {
           <span className="planner-card-summary">{plannerDisplayText(content.summary, content)}</span>
         )}
         <span className="planner-plan-meta">
-          <span>{shortDate(first)} {weekday(first)} – {shortDate(last)} {weekday(last)}</span>
-          <span>{content.days.length} 天</span>
-          <span>{travelers}</span>
-          {preferences.map((item) => <span key={item}>{item}</span>)}
+          <span className="planner-meta-core">
+            {shortDate(first)}–{shortDate(last)} · {content.days.length}天 · {travelers}
+          </span>
+          {preferences.map((item) => (
+            <span key={item} className="planner-meta-tag">{item}</span>
+          ))}
         </span>
         <span className="planner-card-stats">
           <span><b>{count('sight')}</b>景点</span>

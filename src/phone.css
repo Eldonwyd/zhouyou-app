@@ -291,13 +291,14 @@ div.mobile-disclosure-body,
   .planner-card-title { font-size: calc(16px * var(--font-scale, 0.84)); line-height: 1.28; }
   .planner-card-summary {
     font-size: calc(12.5px * var(--font-scale, 0.84));
-    line-height: 1.42;
-    -webkit-line-clamp: 2;
+    line-height: 1.48;
   }
   .planner-plan-meta { gap: 4px; }
   .planner-plan-meta > span {
+    border: 0;
+    border-radius: 6px;
     font-size: calc(11px * var(--font-scale, 0.84));
-    padding: 1.5px 7px;
+    padding: 2px 7px;
   }
   .planner-card-stats { gap: 3px 10px; font-size: calc(11.5px * var(--font-scale, 0.84)); }
   .planner-card-stats b { font-size: calc(13.5px * var(--font-scale, 0.84)); margin-right: 2px; }
@@ -352,7 +353,8 @@ div.mobile-disclosure-body,
     height: 35px;
     padding: 0 10px;
     border-radius: 10px;
-    font-size: calc(12.5px * var(--font-scale, 0.9));
+    font-size: calc(13px * var(--font-scale, 0.86));
+    white-space: nowrap;
   }
   .planner-actions-tools {
     display: grid;
@@ -367,9 +369,10 @@ div.mobile-disclosure-body,
     padding: 7px 3px 6px;
     gap: 4px;
     border-radius: 11px;
-    font-size: calc(11.2px * var(--font-scale, 0.9));
+    font-size: calc(11.5px * var(--font-scale, 0.86));
     line-height: 1.15;
     text-align: center;
+    white-space: nowrap;
   }
   .planner-tool-ic {
     width: 22px;
@@ -427,20 +430,22 @@ div.mobile-disclosure-body,
     padding: 3px;
   }
   .planner-trip-status h3 {
-    font-size: 16.5px;
+    font-size: calc(18px * var(--font-scale, 0.86));
   }
   .planner-trip-state-pill {
     padding: 2px 7.5px;
-    font-size: 10.5px;
+    font-size: calc(11.5px * var(--font-scale, 0.86));
+    white-space: nowrap;
   }
   .planner-trip-status p {
     margin-top: 2px;
-    font-size: 11.5px;
+    font-size: calc(12.5px * var(--font-scale, 0.86));
   }
   .planner-trip-device-time {
     align-self: flex-start;
     padding: 3.5px 9px;
-    font-size: 10.5px;
+    font-size: calc(11.5px * var(--font-scale, 0.86));
+    white-space: nowrap;
   }
   .planner-trip-days {
     grid-auto-columns: minmax(90px, 1fr);
@@ -496,8 +501,9 @@ div.mobile-disclosure-body,
   .planner-trip-day-title { display: none; }
   .planner-trip-day-num-mobile {
     display: inline;
-    font-size: 12px;
+    font-size: calc(13px * var(--font-scale, 0.86));
     line-height: 1.2;
+    white-space: nowrap;
   }
   .planner-trip-day-track { height: 6px; }
   .planner-trip-day-pin { width: 11px; height: 11px; border-width: 2px; }
@@ -509,7 +515,7 @@ div.mobile-disclosure-body,
   }
   .planner-calendar-stub-head { gap: 5px; }
   .planner-calendar-charm { width: 20px; height: 20px; flex-basis: 20px; }
-  .planner-calendar-stub-title { font-size: 11px; }
+  .planner-calendar-stub-title { font-size: calc(12px * var(--font-scale, 0.86)); }
   .planner-calendar-controls {
     flex-direction: row;
     flex-wrap: nowrap;
@@ -519,31 +525,33 @@ div.mobile-disclosure-body,
   }
   .planner-calendar-export label {
     padding: 2px 4px 2px 8px;
-    font-size: calc(11.5px * var(--font-scale, 0.9));
+    font-size: calc(12px * var(--font-scale, 0.86));
     gap: 4px;
     flex: 0 0 auto;
     border-radius: 9px;
+    white-space: nowrap;
   }
   .planner-calendar-export select {
     height: 24px;
     min-width: 48px;
     padding: 0 4px;
-    font-size: calc(11.5px * var(--font-scale, 0.9));
+    font-size: calc(12px * var(--font-scale, 0.86));
   }
   .planner-calendar-export button.planner-calendar-btn {
     min-height: 30px;
     height: 30px;
     padding: 0 10px;
-    font-size: calc(11.5px * var(--font-scale, 0.9));
+    font-size: calc(12px * var(--font-scale, 0.86));
     gap: 4px;
     flex: 1 1 auto;
     min-width: 0;
     border-radius: 9px;
     border-width: 1px;
     box-shadow: none;
+    white-space: nowrap;
   }
   .planner-calendar-export button .travel-icon { width: 13px; height: 13px; flex-basis: 13px; }
-  .planner-calendar-hint { font-size: 10.5px; line-height: 1.35; text-align: left; }
+  .planner-calendar-hint { font-size: calc(11.5px * var(--font-scale, 0.86)); line-height: 1.35; text-align: left; }
 
   /* 2. 市内交通卡片：改为“头行 + 通栏横向信息胶囊 + 通栏步行提示”，彻底消除细长竖排留白。 */
   .planner-transfer-bridge-summary { padding: 6px 8px; gap: 4px; }
@@ -572,16 +580,16 @@ div.mobile-disclosure-body,
     gap: 4px 6px;
     min-width: 0;
   }
-  .planner-transfer-option-title { font-size: 13px; }
+  .planner-transfer-option-title { font-size: calc(14px * var(--font-scale, 0.86)); }
   .planner-transfer-rec,
-  .planner-transfer-selected-tag { padding: 1px 6px; font-size: 10.5px; }
+  .planner-transfer-selected-tag { padding: 1px 6px; font-size: calc(11px * var(--font-scale, 0.86)); }
   .planner-transfer-switch-pill,
   .planner-transfer-check {
     grid-column: 3;
     grid-row: 1;
     margin-left: 0;
   }
-  .planner-transfer-switch-pill { padding: 3px 8px; font-size: 11px; }
+  .planner-transfer-switch-pill { padding: 3px 8px; font-size: calc(11.5px * var(--font-scale, 0.86)); white-space: nowrap; }
   .planner-transfer-meta-group {
     grid-column: 1 / -1;
     grid-row: 2;
@@ -591,11 +599,11 @@ div.mobile-disclosure-body,
     gap: 5px 6px;
   }
   .planner-transfer-stations,
-  .planner-transfer-metric { padding: 2px 8px; font-size: 11.5px; }
+  .planner-transfer-metric { padding: 2px 8px; font-size: calc(12px * var(--font-scale, 0.86)); }
   .planner-transfer-note {
     grid-column: 1 / -1;
     grid-row: 3;
-    font-size: 11.5px;
+    font-size: calc(12.5px * var(--font-scale, 0.86));
     line-height: 1.45;
     margin-top: -1px;
   }
@@ -616,7 +624,7 @@ div.mobile-disclosure-body,
   .planner-activity-actions > :is(button, a) {
     flex: 0 0 auto;
     white-space: nowrap;
-    font-size: 11.5px;
+    font-size: calc(12px * var(--font-scale, 0.86));
     padding: 3px 1px;
   }
   .planner-journal-row { margin-top: 6px; }

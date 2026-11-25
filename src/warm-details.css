@@ -2369,19 +2369,37 @@ input, select, textarea { border-radius: 10px; }
 .planner-plan-list > button.planner-plan-card { border-radius: 16px; border-left-width: 1px; box-shadow: var(--elev-card); }
 .planner-plan-list > button.planner-plan-card.active { background: var(--surface); box-shadow: 0 0 0 2px var(--app-sage), var(--elev-card); }
 .planner-plan-list > button.planner-plan-card.active::after { display: none; }
-/* 电脑端行程卡：保留右侧实景图组，同时收紧留白与字号比例更显利落 */
-.planner-card-main { padding: 15px 18px 14px; gap: 7px; }
-.planner-card-title { font-size: clamp(17px, 1.55vw, 20px); line-height: 1.3; }
+/* 电脑端行程卡：保留右侧实景图组，说明文字保持完整展示，元信息标签轻量化 */
+.planner-card-main { padding: 16px 18px 14px; gap: 8px; }
+.planner-card-title { font-size: clamp(18px, 1.6vw, 22px); line-height: 1.32; }
 .planner-card-summary {
-  font-size: calc(12.5px * var(--font-scale, 1));
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  font-size: calc(13.5px * var(--font-scale, 1));
+  line-height: 1.65;
 }
-.planner-plan-meta { gap: 5px; }
-.planner-plan-meta > span { font-size: calc(11.5px * var(--font-scale, 1)); padding: 2px 8px; }
+.planner-plan-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+.planner-plan-meta > span {
+  border: 0;
+  border-radius: 7px;
+  padding: 2.5px 8px;
+  font-size: calc(11.5px * var(--font-scale, 1));
+  font-weight: 500;
+  line-height: 1.4;
+}
+.planner-plan-meta > .planner-meta-core {
+  background: color-mix(in srgb, var(--warm-green, #387a52) 10%, var(--surface-2));
+  color: var(--warm-green, #387a52);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.planner-plan-meta > .planner-meta-tag {
+  background: var(--surface-2);
+  color: var(--muted);
+}
 .planner-card-stats { gap: 4px 14px; font-size: calc(11.5px * var(--font-scale, 1)); }
 .planner-card-stats b { font-size: calc(14.5px * var(--font-scale, 1)); margin-right: 3px; }
 .planner-card-budget { gap: 5px; padding-top: 7px; }
