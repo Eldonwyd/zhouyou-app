@@ -1824,7 +1824,7 @@ code, pre { font-family: var(--font-mono); }
   white-space: nowrap;
   letter-spacing: -0.01em;
 }
-.trust-item span {
+.trust-item > div > span {
   display: block;
   margin-top: 3px;
   font-size: 12.2px;
@@ -1833,5 +1833,155 @@ code, pre { font-family: var(--font-mono); }
 @media (max-width: 1024px) {
   .trust-item strong {
     white-space: normal;
+  }
+}
+
+/* ---------- 手机端专属精致视觉重构 (<= 640px) ---------- */
+@media (max-width: 640px) {
+  .hero-section {
+    padding: 28px 0 30px;
+  }
+  .hero-title {
+    font-size: clamp(28px, 8.2vw, 35px);
+    line-height: 1.24;
+    margin-bottom: 12px;
+  }
+  .hero-subtitle {
+    font-size: 13.5px;
+    line-height: 1.65;
+    margin-bottom: 20px;
+    padding: 0 2px;
+  }
+
+  /* 手机端按钮重排：顶部 1 个全宽主按钮（下载手机版）+ 下方对称双列（电脑版 | GitHub），彻底告别 2+1 不和谐 */
+  .hero-cta-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    max-width: 100%;
+  }
+  .hero-cta-row .hero-btn-main {
+    grid-column: span 2;
+    min-height: 48px;
+    font-size: 14.5px;
+    border-radius: 14px;
+    box-shadow: 0 10px 24px -8px rgba(235, 107, 86, 0.45);
+  }
+  .hero-cta-row .hero-btn-desktop {
+    background: var(--bg-elevated);
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    box-shadow: var(--shadow-sm);
+    min-height: 42px;
+    font-size: 13px;
+    border-radius: 12px;
+  }
+  .hero-cta-row .btn-github {
+    min-height: 42px;
+    font-size: 13px;
+    border-radius: 12px;
+  }
+  .hero-cta-meta {
+    margin-top: 14px;
+    font-size: 11.5px;
+    gap: 6px;
+  }
+
+  /* 首屏 4 优势卡：手机端柔暖渐变底，不再一片刺眼纯白 */
+  .trust-strip {
+    margin-top: 20px;
+    gap: 10px;
+  }
+  .trust-item {
+    background: linear-gradient(155deg, var(--bg-elevated) 0%, var(--bg-soft) 100%);
+    border: 1px solid var(--line-strong);
+    border-radius: 16px;
+    padding: 13px 12px;
+  }
+
+  /* 01-05 流程条：手机端合并为一张精致的暖纸感竖向时间轴卡片，彻底告别 5 个白盒子堆叠 */
+  .journey-flow-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background: linear-gradient(165deg, var(--bg-soft) 0%, var(--bg-elevated) 100%);
+    border: 1px solid var(--line-strong);
+    border-radius: 20px;
+    padding: 6px 16px;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 18px;
+  }
+  .journey-step-card {
+    background: transparent;
+    border: 0;
+    border-bottom: 1px dashed var(--line);
+    border-radius: 0;
+    box-shadow: none;
+    padding: 12px 0 12px 26px;
+    gap: 3px;
+  }
+  .journey-step-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+  .journey-step-card:last-child {
+    border-bottom: 0;
+  }
+  .journey-step-card::before {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 18px;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .journey-step-card:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    left: 9.5px;
+    top: 28px;
+    bottom: -14px;
+    width: 1px;
+    background: linear-gradient(to bottom, rgba(235, 107, 86, 0.35), rgba(235, 107, 86, 0.08));
+  }
+  .journey-step-num {
+    font-size: 10.5px;
+  }
+  .journey-step-num i {
+    display: none;
+  }
+  .journey-step-card strong {
+    font-size: 14px;
+  }
+  .journey-step-card span {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  /* Bento 卡片：手机端交替暖纸底色，层次感更强 */
+  .bento-card:nth-child(even) {
+    background: linear-gradient(160deg, var(--bg-soft) 0%, var(--bg-elevated) 100%);
+  }
+
+  /* 界面精选标签栏：手机端单行横向滑动胶囊条，不挤成两行 */
+  .showcase-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 6px;
+    padding: 4px;
+  }
+  .showcase-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .showcase-tab {
+    flex: 0 0 auto;
+    padding: 7px 12px;
+    font-size: 12px;
   }
 }
