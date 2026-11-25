@@ -538,10 +538,11 @@
   const heroPrimaryBtn = document.getElementById('hero-primary-dl');
   const heroPrimaryLabel = document.getElementById('hero-primary-dl-label');
 
+  const isNarrowHero = window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
   if (heroMobileLabel) {
-    heroMobileLabel.textContent = isMobileDevice
-      ? '下载手机版（APK / iOS / PWA）'
-      : '手机版（APK / iOS / PWA）';
+    heroMobileLabel.textContent = (isMobileDevice || isNarrowHero)
+      ? '下载手机版'
+      : '下载手机版（APK / iOS）';
   }
   if (heroMobileBtn) {
     heroMobileBtn.addEventListener('click', (e) => {
@@ -551,11 +552,11 @@
   }
 
   const HERO_DESKTOP_MAP = {
-    windows: { label: '下载 Windows 电脑版', asset: 'win-setup', fallback: '#desktop' },
-    macos: { label: '下载 macOS 苹果版', asset: 'mac-arm64', fallback: '#desktop' },
-    linux: { label: '下载 Linux 电脑版', asset: 'linux-appimage', fallback: '#desktop' },
+    windows: { label: isNarrowHero ? '电脑桌面版' : '下载 Windows 版', asset: 'win-setup', fallback: '#desktop' },
+    macos: { label: isNarrowHero ? '电脑桌面版' : '下载 macOS 版', asset: 'mac-arm64', fallback: '#desktop' },
+    linux: { label: isNarrowHero ? '电脑桌面版' : '下载 Linux 版', asset: 'linux-appimage', fallback: '#desktop' },
   };
-  const heroSpec = HERO_DESKTOP_MAP[detected] || { label: isMobileDevice ? '电脑版下载' : '下载电脑桌面版', asset: null, fallback: '#desktop' };
+  const heroSpec = HERO_DESKTOP_MAP[detected] || { label: (isMobileDevice || isNarrowHero) ? '电脑桌面版' : '下载电脑桌面版', asset: null, fallback: '#desktop' };
   if (heroPrimaryLabel) heroPrimaryLabel.textContent = heroSpec.label;
   if (heroPrimaryBtn) {
     if (heroSpec.asset && useEdgeProxy && INSTALL_ROUTE_BY_ASSET[heroSpec.asset]) {
