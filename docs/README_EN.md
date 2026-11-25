@@ -62,9 +62,9 @@
 
 > Note: The in-app UI supports Chinese (`zh-CN`) and English (`en`), defaulting to the warm **Vintage Journal** paper aesthetic.
 
-- **🤖 1. One-Click AI Roadbooks & All-in-One Trip Manager**: Generate complete day-by-day itineraries with place introductions, 4A/5A badges, real photos, transit connectors, and per-group budgets in one minute. Built-in **backup plans & unvisited hotspots**, spot locking, live conversational adjustments, ticket booking countdown reminders, and local PP-OCRv5 ticket screenshot import. Includes **daily & monthly free AI quotas** on sign-in, supports custom **API keys & AI subscriptions** (DeepSeek, OpenAI, Claude, Gemini, Qwen, Zhipu, Kimi), plus **one-click prompt export to craft itineraries with any external AI** and import them back, synced across 6 platforms.
-- **🔗 2. Smooth App Switching — Amap / Baidu / Google Maps × Xiaohongshu**: Not limited to Amap — freely switch between **Amap, Baidu Maps, and Google Maps** (covering both China and overseas travel) with native mobile app launch and automatic web fallback. Parse Xiaohongshu links or screenshots straight into your map inspiration pool, and jump to live Xiaohongshu tips or luggage storage searches in one tap.
-- **🤝 3. Travel Companions — View, Edit & Split Bills Together**: Create groups (including 4-digit face-to-face PIN rooms) or share WeChat/QQ tokens so everyone views the latest itinerary. Chat in-app, vote/comment on stops, or push **AI-generated alternative plans to a group poll and execute the winning option automatically**. Log shared expenses anytime to compute the minimum-transfer **AA settlement** down to the cent, plus compare China footprint maps side-by-side.
+- **🤖 1. One-Click AI Roadbooks & All-in-One Trip Manager**: Generate complete day-by-day itineraries with place introductions, 4A/5A badges, real photos, transit connectors, and per-group budgets in one minute. Built-in backup plans & unvisited hotspots, spot locking, live conversational adjustments, ticket booking countdown reminders, and local PP-OCRv5 ticket screenshot import. Includes daily & monthly free AI quotas on sign-in, supports custom API keys & AI subscriptions, plus one-click prompt export to craft itineraries with any external AI and import them back, synced across desktop, mobile, and web.
+- **🔗 2. Smooth App Switching — Popular Map Apps × Xiaohongshu**: Freely switch between major map apps with native mobile launch and automatic web fallback. Parse Xiaohongshu links or screenshots straight into your map inspiration pool, and jump to live Xiaohongshu tips or luggage storage searches in one tap.
+- **🤝 3. Travel Companions — View, Edit & Split Bills Together**: Create groups or share itineraries so everyone views the latest plan. Chat in-app, push AI-generated alternative plans to a group poll and execute the winning option automatically, log shared expenses for effortless bill splitting, and compare China footprint maps side-by-side.
 - **🗺️ 4. China Footprint Map, Photo Journals & Travel Badges**: Light up visited and planned cities across all 34 provincial regions and 370+ cities with offline province map caching; archive original photos, videos, text notes, and voice memos with EXIF/GPS checks and illustrated city postcards; unlock 8 traveler tiers, craft custom round badges, export posters, and back up everything via **ZIP v3**.
 
 ---
@@ -73,27 +73,27 @@
 
 <table>
   <tr>
-    <td align="center" width="50%">
-      <img src="screenshots/desktop-planner.png" alt="One-Click AI Illustrated Trip Planner" />
-      <br /><b>🤖 AI Illustrated Roadbook</b> — place intros, real photos, budgets &amp; backup plans
+    <td align="center" valign="top" width="50%">
+      <img src="screenshots/desktop-planner.png" width="100%" alt="One-Click AI Illustrated Trip Planner" />
+      <br /><b>🤖 AI Illustrated Roadbook</b> — intros, photos, budgets &amp; backups
     </td>
-    <td align="center" width="50%">
-      <img src="screenshots/desktop-companions-chat.png" alt="Group Chat and AI Poll Co-Editing" />
-      <br /><b>🤝 Group Chat &amp; Co-Editing</b> — share plans, vote on AI options &amp; split expenses
+    <td align="center" valign="top" width="50%">
+      <img src="screenshots/desktop-companions-chat.png" width="100%" alt="Group Chat and AI Poll Co-Editing" />
+      <br /><b>🤝 Group Chat &amp; Co-Editing</b> — share plans, AI polls &amp; ledger
     </td>
   </tr>
   <tr>
-    <td align="center" width="50%">
+    <td align="center" valign="top" width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="screenshots/desktop-map-dark.png" />
         <source media="(prefers-color-scheme: light)" srcset="screenshots/desktop-map-light.png" />
-        <img src="screenshots/desktop-map-light.png" alt="Interactive China Travel Footprint Map" />
+        <img src="screenshots/desktop-map-light.png" width="100%" alt="Interactive China Travel Footprint Map" />
       </picture>
-      <br /><b>🗺️ China Footprint Map</b> — 34 provinces × 370+ cities in Vintage Journal style
+      <br /><b>🗺️ China Footprint Map</b> — 34 provinces × 370+ cities
     </td>
-    <td align="center" width="50%">
-      <img src="screenshots/desktop-journal.png" alt="Travel Journal and City Postcards" />
-      <br /><b>📔 Photo Journal &amp; Postcards</b> — original photos, voice memos &amp; custom badges
+    <td align="center" valign="top" width="50%">
+      <img src="screenshots/desktop-journal.png" width="100%" alt="Travel Journal and City Postcards" />
+      <br /><b>📔 Photo Journal &amp; Postcards</b> — photos, voice &amp; badges
     </td>
   </tr>
 </table>
