@@ -1861,8 +1861,8 @@ export default function CompanionsView({
               ))}
             </div>
             <label className="auth-field" style={{ marginTop: 12 }}>
-              <span>我给 TA 的亲密称呼（可选，后续可随时修改）</span>
-              <input maxLength={24} placeholder="例如：小可爱、哥比、一起看世界的人" value={intimacyLabel} onChange={(e) => setIntimacyLabel(e.target.value)} />
+              <span>我给 TA 的亲密称呼（可选）</span>
+              <input maxLength={24} value={intimacyLabel} onChange={(e) => setIntimacyLabel(e.target.value)} />
             </label>
             <label className="auth-field" style={{ marginTop: 8 }}>
               <span>纪念日（可选）</span>
@@ -1886,10 +1886,9 @@ export default function CompanionsView({
               {acceptBondTarget.peerCustomLabel ? ` · 对方称呼你「${acceptBondTarget.peerCustomLabel}」` : ''}
             </p>
             <label className="auth-field" style={{ marginTop: 10 }}>
-              <span>我给 TA 的亲密称呼（可选，留空显示「{RELATION_META[acceptBondTarget.relationType].label}」）</span>
+              <span>我给 TA 的亲密称呼（可选）</span>
               <input
                 maxLength={24}
-                placeholder="例如：小可爱、臭宝、老铁（之后也可随时改）"
                 value={acceptBondLabel}
                 onChange={(e) => setAcceptBondLabel(e.target.value)}
               />
@@ -1908,10 +1907,9 @@ export default function CompanionsView({
           <div className="dialog" role="dialog" aria-modal="true">
             <h3>修改对 {friendDisplayName(editBondTarget.peer)} 的亲密称呼</h3>
             <label className="auth-field" style={{ marginTop: 10 }}>
-              <span>亲密称呼（留空恢复默认「{RELATION_META[editBondTarget.relationType].label}」）</span>
+              <span>亲密称呼（可选）</span>
               <input
                 maxLength={24}
-                placeholder={`例如：${RELATION_META[editBondTarget.relationType].label}、专属爱称`}
                 value={editBondLabel}
                 onChange={(e) => setEditBondLabel(e.target.value)}
               />
