@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   RELATION_META,
   cloudApi,
@@ -35,12 +35,33 @@ interface CompanionsViewProps {
 }
 
 type CompanionsTab = 'friends' | 'groups' | 'shares' | 'notifications';
+type GroupModalMode = 'create' | 'f2f' | 'join' | null;
+type GroupRoomTab = 'plans' | 'aa';
+
+const GROUP_AVATAR_COLORS = ['#2e8b6e', '#e07a5f', '#4a7fb5', '#9c6bb8', '#d99038', '#4d9b8f'];
+
+function pickGroupColor(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  return GROUP_AVATAR_COLORS[hash % GROUP_AVATAR_COLORS.length];
+}
 
 function daysSince(dateStr: string): number | null {
   if (!dateStr) return null;
   const ts = Date.parse(`${dateStr}T00:00:00`);
   if (!Number.isFinite(ts)) return null;
   return Math.max(1, Math.floor((Date.now() - ts) / 86400000) + 1);
+}
+
+function formatShortTime(iso: string): string {
+  const ts = Date.parse(iso);
+  if (!Number.isFinite(ts)) return '';
+  const now = new Date();
+  const d = new Date(ts);
+  if (d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  }
+  return d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
 }
 
 export default function CompanionsView({
@@ -61,14 +82,21 @@ export default function CompanionsView({
   const [groups, setGroups] = useState<TravelGroupSummary[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [activeGroup, setActiveGroup] = useState<TravelGroupDetail | null>(null);
+  const [groupRoomTab, setGroupRoomTab] = useState<GroupRoomTab>('plans');
   const [notifications, setNotifications] = useState<CloudNotification[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // 顶栏「+」快捷菜单、名片二维码弹窗、好友更多菜单
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
+  const [showMyQr, setShowMyQr] = useState(false);
+  const [openFriendMenuId, setOpenFriendMenuId] = useState<string | null>(null);
+  const [groupModal, setGroupModal] = useState<GroupModalMode>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // 搜索与加好友
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<CloudPublicUser[]>([]);
   const [searching, setSearching] = useState(false);
-  const [showMyQr, setShowMyQr] = useState(false);
   const [compareUserId, setCompareUserId] = useState<string | null>(null);
 
   // 亲密关系弹窗
@@ -86,7 +114,6 @@ export default function CompanionsView({
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupMembers, setNewGroupMembers] = useState<string[]>([]);
   const [newGroupPlanId, setNewGroupPlanId] = useState('');
-  const [groupActionTab, setGroupActionTab] = useState<'create' | 'join'>('create');
   const [f2fPin, setF2fPin] = useState('');
   const [f2fName, setF2fName] = useState('');
   const [joinCode, setJoinCode] = useState('');
@@ -139,6 +166,7 @@ export default function CompanionsView({
       const res = await cloudApi.getGroup(groupId);
       setActiveGroup(res.group);
       setActiveGroupId(groupId);
+      setShowGroupQr(false);
       const memberIds = res.group.members.map((m) => m.user.id);
       setExpPayerId(cloudUser?.id || memberIds[0] || '');
       setExpParticipants(memberIds);
@@ -147,7 +175,7 @@ export default function CompanionsView({
     }
   }, [cloudUser?.id, onError]);
 
-  // 群内 AA 结算计算（直接复用项目已有的 calculateAaSplit）
+  // 群内 AA 结算计算
   const groupAaSummary = useMemo(() => {
     if (!activeGroup) return null;
     const nameById = new Map(activeGroup.members.map((m) => [m.user.id, m.user.nickname]));
@@ -168,25 +196,25 @@ export default function CompanionsView({
     return (
       <section className="companions-guest-view">
         <div className="companions-hero-card">
-          <span className="city-dialog-pill">🤝 全新模块 · 同行旅伴</span>
+          <span className="city-dialog-pill">🤝 同行旅伴</span>
           <h2>把独自规划的攻略，变成一群人的出发</h2>
-          <p>注册或登录周游账号后，即可在电脑与手机间自动同步全部攻略与足迹，并解锁以下旅伴协作功能：</p>
+          <p>登录周游账号后，即可跨端同步攻略与足迹，并解锁好友互看地图、行程群共编与 AA 分账：</p>
           <div className="companions-feature-grid">
             <div className="companions-feature-tile">
               <strong>🔍 搜昵称 / 好友码 / 名片码加好友</strong>
-              <span>全站唯一昵称与专属好友码，互看点亮的中国地图、对比共同去过的城市。</span>
+              <span>互看点亮的中国地图、对比共同去过的城市。</span>
             </div>
             <div className="companions-feature-tile">
               <strong>💑 绑定亲密关系 & 专属旅途成就</strong>
-              <span>支持情侣、家人、挚友、闺蜜专属卡片、纪念日记录与双人同行徽章。</span>
+              <span>支持情侣、家人、挚友、闺蜜专属卡片与纪念日记录。</span>
             </div>
             <div className="companions-feature-tile">
               <strong>👥 行程群 & 面对面 4 位数字建群</strong>
-              <span>创建多人行程自动建群或直接选家人群，群成员共编攻略、景点投票、防误删回退。</span>
+              <span>全员共享编辑同一份攻略、景点投票与版本回退。</span>
             </div>
             <div className="companions-feature-tile">
               <strong>💰 群内 AA 记账 & 微信 QQ 分享</strong>
-              <span>记录垫付一键算出最少转账方案；微信/QQ 发链接与周游口令，免下载预览、已装直达。</span>
+              <span>一键算出最少转账方案，发微信/QQ 口令直达攻略。</span>
             </div>
           </div>
           <div className="dialog-actions">
@@ -200,6 +228,8 @@ export default function CompanionsView({
 
   const activeBonds = (overview?.intimacyBonds || []).filter((b) => b.status === 'active');
   const pendingBonds = (overview?.intimacyBonds || []).filter((b) => b.status === 'pending' && b.incoming);
+  const pendingCount = (overview?.pendingFriendRequests.length || 0) + pendingBonds.length;
+  const bondByPeerId = new Map(activeBonds.map((b) => [b.peer.id, b]));
   const myQrUrl = `${getCloudOrigin()}/?addFriend=${encodeURIComponent(cloudUser.friendCode)}`;
 
   async function handleSearch() {
@@ -221,6 +251,8 @@ export default function CompanionsView({
     try {
       const res = await cloudApi.requestFriend({ targetUserId });
       onNotice(res.message);
+      setSearchResults([]);
+      setSearchQuery('');
       await refreshAll();
     } catch (err) {
       onError(err instanceof Error ? err.message : '发送好友申请失败');
@@ -230,6 +262,7 @@ export default function CompanionsView({
   async function handleFriendDecision(friendshipId: string, decision: 'accept' | 'reject' | 'remove') {
     try {
       await cloudApi.respondFriend(friendshipId, decision);
+      setOpenFriendMenuId(null);
       onNotice(decision === 'accept' ? '已通过好友申请' : decision === 'remove' ? '已删除好友' : '已拒绝申请');
       await refreshAll();
     } catch (err) {
@@ -291,6 +324,8 @@ export default function CompanionsView({
       setNewGroupName('');
       setNewGroupMembers([]);
       setNewGroupPlanId('');
+      setGroupModal(null);
+      setTab('groups');
       onNotice(`行程群「${res.group.name}」创建成功`);
       await refreshAll();
       await loadGroupDetail(res.group.id);
@@ -308,6 +343,8 @@ export default function CompanionsView({
       const res = await cloudApi.faceToFaceGroup(f2fPin.trim(), f2fName.trim(), true);
       setF2fPin('');
       setF2fName('');
+      setGroupModal(null);
+      setTab('groups');
       onNotice(res.created
         ? `已开启面对面房间 ${res.pinCode}（30 分钟有效），让身边同伴输入相同 4 位数字即可入群！`
         : `已加入面对面行程群「${res.group.name}」`);
@@ -323,6 +360,8 @@ export default function CompanionsView({
     try {
       const res = await cloudApi.joinGroupByCode(joinCode.trim());
       setJoinCode('');
+      setGroupModal(null);
+      setTab('groups');
       onNotice(`已加入行程群「${res.group.name}」`);
       await refreshAll();
       await loadGroupDetail(res.group.id);
@@ -388,140 +427,230 @@ export default function CompanionsView({
   }
 
   return (
-    <section className="companions-view">
-      <div className="companions-header-bar">
-        <div>
+    <section className="companions-view chat-shell" onClick={() => { if (plusMenuOpen) setPlusMenuOpen(false); if (openFriendMenuId) setOpenFriendMenuId(null); }}>
+      {/* 主流聊天软件风格顶部栏：左标题 + 好友码胶囊，右刷新 / 二维码 / + 菜单 */}
+      <header className="chat-top-bar">
+        <div className="chat-top-title">
           <h2>同行旅伴</h2>
-          <p>
-            我的唯一昵称：<strong>{cloudUser.nickname}</strong> · 好友码：
-            <button
-              type="button"
-              className="inline-code-btn"
-              onClick={() => navigator.clipboard?.writeText(cloudUser.friendCode).then(() => onNotice(`已复制好友码：${cloudUser.friendCode}`)).catch(() => undefined)}
-            >
-              {cloudUser.friendCode}
-            </button>
-          </p>
-        </div>
-        <div className="companions-header-actions">
-          <button type="button" className="secondary" onClick={() => setShowMyQr((v) => !v)}>
-            {showMyQr ? '收起名片二维码' : '📱 我的名片二维码'}
-          </button>
-          <button type="button" className="secondary" disabled={loading} onClick={() => void refreshAll()}>
-            {loading ? '刷新中…' : '刷新'}
+          <button
+            type="button"
+            className="chat-code-pill"
+            title="点击复制好友码"
+            onClick={() => navigator.clipboard?.writeText(cloudUser.friendCode).then(() => onNotice(`已复制好友码：${cloudUser.friendCode}`)).catch(() => undefined)}
+          >
+            {cloudUser.friendCode}
           </button>
         </div>
-      </div>
-
-      {showMyQr && (
-        <div className="companions-qr-card">
-          <QrCodeBox value={myQrUrl} size={160} caption={`微信/相机扫码加 ${cloudUser.nickname} 为好友`} />
-          <div className="companions-qr-copy">
-            <strong>{cloudUser.nickname} 的周游名片</strong>
-            <p>当面出示二维码，或把好友码 <code>{cloudUser.friendCode}</code> 发给朋友即可互加好友、互看足迹地图与共同规划行程。</p>
+        <div className="chat-top-actions" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            className={`chat-icon-btn ${loading ? 'is-spinning' : ''}`}
+            disabled={loading}
+            title="刷新"
+            aria-label="刷新"
+            onClick={() => void refreshAll()}
+          >
+            ↻
+          </button>
+          <button
+            type="button"
+            className="chat-icon-btn"
+            title="我的名片二维码"
+            aria-label="我的名片二维码"
+            onClick={() => { setPlusMenuOpen(false); setShowMyQr(true); }}
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="3" width="7" height="7" rx="1" />
+              <rect x="3" y="14" width="7" height="7" rx="1" />
+              <path d="M14 14h3v3h-3zM19 14h2v2M14 19h2v2M19 19h2v2" />
+            </svg>
+          </button>
+          <div className="chat-plus-wrap">
             <button
               type="button"
-              className="secondary"
-              onClick={() => navigator.clipboard?.writeText(`加我周游地图好友！昵称：${cloudUser.nickname}，好友码：${cloudUser.friendCode}，链接：${myQrUrl}`).then(() => onNotice('已复制好友名片')).catch(() => undefined)}
+              className={`chat-icon-btn is-plus ${plusMenuOpen ? 'active' : ''}`}
+              title="更多操作"
+              aria-label="添加好友或建群"
+              aria-expanded={plusMenuOpen}
+              onClick={() => setPlusMenuOpen((v) => !v)}
             >
-              复制名片发微信 / QQ
+              ＋
             </button>
-          </div>
-        </div>
-      )}
-
-      <div className="companions-tabs" role="tablist">
-        <button type="button" role="tab" aria-selected={tab === 'friends'} className={tab === 'friends' ? 'active' : ''} onClick={() => setTab('friends')}>
-          好友与亲密关系 ({overview?.friends.length || 0})
-        </button>
-        <button type="button" role="tab" aria-selected={tab === 'groups'} className={tab === 'groups' ? 'active' : ''} onClick={() => setTab('groups')}>
-          行程群 ({groups.length})
-        </button>
-        <button type="button" role="tab" aria-selected={tab === 'shares'} className={tab === 'shares' ? 'active' : ''} onClick={() => setTab('shares')}>
-          收到的攻略 & 口令 ({overview?.receivedShares.length || 0})
-        </button>
-        <button type="button" role="tab" aria-selected={tab === 'notifications'} className={tab === 'notifications' ? 'active' : ''} onClick={() => setTab('notifications')}>
-          消息提醒 {(overview?.unreadCount || 0) > 0 && <span className="nav-unread-badge">{overview?.unreadCount}</span>}
-        </button>
-      </div>
-
-      {/* ===== TAB 1: 好友与亲密关系 ===== */}
-      {tab === 'friends' && (
-        <div className="companions-panel">
-          {/* 添加好友搜索框 */}
-          <div className="companions-card">
-            <h3>添加旅伴好友</h3>
-            <div className="companions-search-row">
-              <input
-                type="text"
-                placeholder="输入昵称或好友码"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') void handleSearch(); }}
-              />
-              <button type="button" className="primary" disabled={searching} onClick={() => void handleSearch()}>
-                {searching ? '搜索中…' : '搜索'}
-              </button>
-            </div>
-            {searchResults.length > 0 && (
-              <div className="companions-user-list">
-                {searchResults.map((u) => (
-                  <div key={u.id} className="companions-user-row">
-                    <div className="companions-user-info">
-                      <TravelAvatar avatarId={u.avatar} nickname={u.nickname} className="avatar" />
-                      <div>
-                        <strong>{u.nickname}</strong>
-                        <small>好友码：{u.friendCode}</small>
-                      </div>
-                    </div>
-                    <button type="button" className="primary" onClick={() => void handleAddFriend(u.id)}>加为好友</button>
-                  </div>
-                ))}
+            {plusMenuOpen && (
+              <div className="chat-plus-popover" role="menu">
+                <button type="button" role="menuitem" onClick={() => { setPlusMenuOpen(false); setTab('friends'); window.setTimeout(() => searchInputRef.current?.focus(), 40); }}>
+                  <span>👤</span> 添加旅伴好友
+                </button>
+                <button type="button" role="menuitem" onClick={() => { setPlusMenuOpen(false); setGroupModal('create'); }}>
+                  <span>👥</span> 新建行程群
+                </button>
+                <button type="button" role="menuitem" onClick={() => { setPlusMenuOpen(false); setGroupModal('f2f'); }}>
+                  <span>📍</span> 面对面建群
+                </button>
+                <button type="button" role="menuitem" onClick={() => { setPlusMenuOpen(false); setGroupModal('join'); }}>
+                  <span>🔑</span> 邀请码入群
+                </button>
+                <button type="button" role="menuitem" onClick={() => { setPlusMenuOpen(false); setTab('shares'); }}>
+                  <span>✈️</span> 粘贴周游口令
+                </button>
+                <button type="button" role="menuitem" onClick={() => { setPlusMenuOpen(false); setShowMyQr(true); }}>
+                  <span>📱</span> 我的名片二维码
+                </button>
               </div>
             )}
           </div>
+        </div>
+      </header>
 
-          {/* 待处理的好友 / 亲密关系申请 */}
-          {((overview?.pendingFriendRequests.length || 0) > 0 || pendingBonds.length > 0) && (
-            <div className="companions-card accent-card">
-              <h3>待处理邀请</h3>
-              {(overview?.pendingFriendRequests || []).map((req) => (
-                <div key={req.friendshipId} className="companions-user-row">
-                  <div className="companions-user-info">
-                    <TravelAvatar avatarId={req.user.avatar} nickname={req.user.nickname} className="avatar" />
-                    <div>
-                      <strong>{req.user.nickname}</strong> 请求加你为好友
-                      <small>好友码：{req.user.friendCode}</small>
-                    </div>
+      {/* 微信/Telegram 风格圆角搜索栏 */}
+      {!activeGroup && (
+        <div className="chat-search-wrap">
+          <div className="chat-search-box">
+            <span className="chat-search-icon" aria-hidden="true">🔍</span>
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="搜索昵称或好友码，添加新旅伴…"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                if (!e.target.value.trim()) setSearchResults([]);
+              }}
+              onKeyDown={(e) => { if (e.key === 'Enter') void handleSearch(); }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="chat-search-clear"
+                aria-label="清空"
+                onClick={() => { setSearchQuery(''); setSearchResults([]); }}
+              >
+                ×
+              </button>
+            )}
+            <button
+              type="button"
+              className="chat-search-submit"
+              disabled={searching || !searchQuery.trim()}
+              onClick={() => void handleSearch()}
+            >
+              {searching ? '…' : '搜索'}
+            </button>
+          </div>
+
+          {searchResults.length > 0 && (
+            <div className="chat-list-group chat-search-results">
+              <div className="chat-group-label">
+                <span>搜索结果 ({searchResults.length})</span>
+                <button type="button" className="text-button" onClick={() => setSearchResults([])}>收起</button>
+              </div>
+              {searchResults.map((u) => (
+                <div key={u.id} className="chat-list-row">
+                  <TravelAvatar avatarId={u.avatar} nickname={u.nickname} className="chat-row-avatar" />
+                  <div className="chat-row-body">
+                    <strong>{u.nickname}</strong>
+                    <small>好友码：{u.friendCode}</small>
                   </div>
-                  <div className="companions-row-actions">
-                    <button type="button" className="primary" onClick={() => void handleFriendDecision(req.friendshipId, 'accept')}>同意</button>
-                    <button type="button" className="text-button" onClick={() => void handleFriendDecision(req.friendshipId, 'reject')}>拒绝</button>
+                  <button type="button" className="primary chat-mini-btn" onClick={() => void handleAddFriend(u.id)}>
+                    加好友
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 单行等宽分段导航（绝不换行拥挤） */}
+      {!activeGroup && (
+        <div className="chat-segment-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'friends'}
+            className={tab === 'friends' ? 'active' : ''}
+            onClick={() => setTab('friends')}
+          >
+            <span>旅伴</span>
+            {(overview?.friends.length || 0) > 0 && <em className="chat-tab-count">{overview?.friends.length}</em>}
+            {pendingCount > 0 && <i className="chat-tab-dot" aria-label="有待处理请求" />}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'groups'}
+            className={tab === 'groups' ? 'active' : ''}
+            onClick={() => setTab('groups')}
+          >
+            <span>行程群</span>
+            {groups.length > 0 && <em className="chat-tab-count">{groups.length}</em>}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'shares'}
+            className={tab === 'shares' ? 'active' : ''}
+            onClick={() => setTab('shares')}
+          >
+            <span>攻略</span>
+            {(overview?.receivedShares.length || 0) > 0 && <em className="chat-tab-count">{overview?.receivedShares.length}</em>}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'notifications'}
+            className={tab === 'notifications' ? 'active' : ''}
+            onClick={() => setTab('notifications')}
+          >
+            <span>消息</span>
+            {(overview?.unreadCount || 0) > 0 && <span className="nav-unread-badge">{overview?.unreadCount}</span>}
+          </button>
+        </div>
+      )}
+
+      {/* ===== TAB 1: 旅伴（通讯录风格） ===== */}
+      {tab === 'friends' && !activeGroup && (
+        <div className="chat-panel">
+          {/* 新的朋友 / 亲密邀请 */}
+          {pendingCount > 0 && (
+            <div className="chat-list-group is-highlight">
+              <div className="chat-group-label">
+                <span>新的朋友与邀请 ({pendingCount})</span>
+              </div>
+              {(overview?.pendingFriendRequests || []).map((req) => (
+                <div key={req.friendshipId} className="chat-list-row">
+                  <TravelAvatar avatarId={req.user.avatar} nickname={req.user.nickname} className="chat-row-avatar" />
+                  <div className="chat-row-body">
+                    <strong>{req.user.nickname}</strong>
+                    <small>请求加你为旅伴好友 · {req.user.friendCode}</small>
+                  </div>
+                  <div className="chat-row-end">
+                    <button type="button" className="primary chat-mini-btn" onClick={() => void handleFriendDecision(req.friendshipId, 'accept')}>同意</button>
+                    <button type="button" className="text-button chat-mini-text" onClick={() => void handleFriendDecision(req.friendshipId, 'reject')}>忽略</button>
                   </div>
                 </div>
               ))}
               {pendingBonds.map((bond) => (
-                <div key={bond.id} className="companions-user-row">
-                  <div className="companions-user-info">
-                    <TravelAvatar avatarId={bond.peer.avatar} nickname={bond.peer.nickname} className="avatar" />
-                    <div>
-                      <strong>{bond.peer.nickname}</strong> 邀请绑定「{RELATION_META[bond.relationType].emoji} {RELATION_META[bond.relationType].label}」
-                      {bond.customLabel && <small>备注：{bond.customLabel}</small>}
-                    </div>
+                <div key={bond.id} className="chat-list-row">
+                  <TravelAvatar avatarId={bond.peer.avatar} nickname={bond.peer.nickname} className="chat-row-avatar" />
+                  <div className="chat-row-body">
+                    <strong>{bond.peer.nickname}</strong>
+                    <small>邀请绑定「{RELATION_META[bond.relationType].emoji} {RELATION_META[bond.relationType].label}」{bond.customLabel ? ` · ${bond.customLabel}` : ''}</small>
                   </div>
-                  <div className="companions-row-actions">
-                    <button type="button" className="primary" onClick={() => void handleIntimacyDecision(bond.id, 'accept')}>同意绑定</button>
-                    <button type="button" className="text-button" onClick={() => void handleIntimacyDecision(bond.id, 'reject')}>拒绝</button>
+                  <div className="chat-row-end">
+                    <button type="button" className="primary chat-mini-btn" onClick={() => void handleIntimacyDecision(bond.id, 'accept')}>同意</button>
+                    <button type="button" className="text-button chat-mini-text" onClick={() => void handleIntimacyDecision(bond.id, 'reject')}>拒绝</button>
                   </div>
                 </div>
               ))}
             </div>
           )}
 
-          {/* 亲密关系专属卡片 */}
+          {/* 亲密关系置顶条 */}
           {activeBonds.length > 0 && (
-            <div className="companions-card">
-              <h3>亲密关系专属卡片（联动旅途成就）</h3>
+            <div className="chat-intimacy-strip">
+              <div className="chat-section-caption">亲密旅伴</div>
               <div className="intimacy-cards-grid">
                 {activeBonds.map((bond) => {
                   const meta = RELATION_META[bond.relationType];
@@ -530,18 +659,18 @@ export default function CompanionsView({
                     <div key={bond.id} className={`intimacy-card type-${bond.relationType}`}>
                       <div className="intimacy-card-top">
                         <span className="intimacy-badge">{meta.emoji} {bond.customLabel || meta.label}</span>
-                        {days && <small>相伴第 {days} 天</small>}
+                        {days && <small>第 {days} 天</small>}
                       </div>
                       <div className="intimacy-card-peer">
-                        <TravelAvatar avatarId={bond.peer.avatar} nickname={bond.peer.nickname} className="avatar" />
+                        <TravelAvatar avatarId={bond.peer.avatar} nickname={bond.peer.nickname} className="chat-row-avatar" />
                         <div>
                           <strong>{bond.peer.nickname}</strong>
-                          <small>共同点亮 {bond.sharedVisitedCount} 座城市{bond.anniversaryDate ? ` · 纪念日 ${bond.anniversaryDate}` : ''}</small>
+                          <small>共同点亮 {bond.sharedVisitedCount} 座城市</small>
                         </div>
                       </div>
                       <div className="intimacy-card-actions">
-                        <button type="button" className="secondary" onClick={() => setCompareUserId(bond.peer.id)}>🗺️ 对比足迹地图</button>
-                        <button type="button" className="text-button" onClick={() => void handleIntimacyDecision(bond.id, 'remove')}>解除</button>
+                        <button type="button" className="secondary chat-mini-btn" onClick={() => setCompareUserId(bond.peer.id)}>🗺️ 足迹对比</button>
+                        <button type="button" className="text-button chat-mini-text" onClick={() => void handleIntimacyDecision(bond.id, 'remove')}>解除</button>
                       </div>
                     </div>
                   );
@@ -550,117 +679,511 @@ export default function CompanionsView({
             </div>
           )}
 
-          {/* 我的好友列表 */}
-          <div className="companions-card">
-            <h3>我的旅伴好友（{overview?.friends.length || 0}）</h3>
+          {/* 好友列表（主流聊天软件通讯录样式） */}
+          <div className="chat-list-group">
+            <div className="chat-group-label">
+              <span>全部旅伴好友 ({overview?.friends.length || 0})</span>
+            </div>
             {!(overview?.friends.length) ? (
-              <p className="auth-hint">还没有好友，试试搜索朋友的昵称、好友码，或者出示你的名片二维码吧。</p>
+              <div className="chat-empty-state">
+                <div className="chat-empty-icon" aria-hidden="true">💬</div>
+                <strong>还没有旅伴好友</strong>
+                <p>在上方搜索好友昵称或好友码，或出示你的名片二维码面对面扫码添加。</p>
+                <div className="chat-empty-actions">
+                  <button type="button" className="primary chat-mini-btn" onClick={() => setShowMyQr(true)}>出示名片二维码</button>
+                  <button
+                    type="button"
+                    className="secondary chat-mini-btn"
+                    onClick={() => navigator.clipboard?.writeText(`加我周游地图好友！昵称：${cloudUser.nickname}，好友码：${cloudUser.friendCode}`).then(() => onNotice('已复制好友码，快发给朋友吧')).catch(() => undefined)}
+                  >
+                    复制我的好友码
+                  </button>
+                </div>
+              </div>
             ) : (
-              <div className="companions-user-list">
-                {overview.friends.map((f) => (
-                  <div key={f.friendshipId} className="companions-user-row">
-                    <div className="companions-user-info">
-                      <TravelAvatar avatarId={f.user.avatar} nickname={f.user.nickname} className="avatar" />
-                      <div>
-                        <strong>{f.user.nickname}</strong>
-                        <small>好友码：{f.user.friendCode}</small>
-                      </div>
+              overview.friends.map((f) => {
+                const bond = bondByPeerId.get(f.user.id);
+                const menuOpen = openFriendMenuId === f.friendshipId;
+                return (
+                  <div key={f.friendshipId} className="chat-list-row">
+                    <div className="chat-avatar-wrap">
+                      <TravelAvatar avatarId={f.user.avatar} nickname={f.user.nickname} className="chat-row-avatar" />
+                      {bond && <span className="chat-avatar-badge" title={RELATION_META[bond.relationType].label}>{RELATION_META[bond.relationType].emoji}</span>}
                     </div>
-                    <div className="companions-row-actions">
-                      <button type="button" className="secondary" onClick={() => setCompareUserId(f.user.id)}>🗺️ 对比足迹</button>
+                    <div className="chat-row-body">
+                      <div className="chat-row-title-line">
+                        <strong>{f.user.nickname}</strong>
+                        {bond && <span className="chat-mini-tag">{bond.customLabel || RELATION_META[bond.relationType].label}</span>}
+                      </div>
+                      <small>{f.user.motto || `好友码：${f.user.friendCode}`}</small>
+                    </div>
+                    <div className="chat-row-end" onClick={(e) => e.stopPropagation()}>
+                      <button type="button" className="secondary chat-mini-btn" onClick={() => setCompareUserId(f.user.id)}>足迹</button>
                       <button
                         type="button"
-                        className="secondary"
+                        className="secondary chat-mini-btn"
                         onClick={() => {
                           setSendPlanFriend(f.user);
                           setSendPlanId(aiPlans[0]?.id || '');
                           setSendPlanMode('copy');
                         }}
                       >
-                        ✈️ 发攻略
+                        发攻略
                       </button>
-                      <button type="button" className="secondary" onClick={() => setIntimacyTarget(f.user)}>💞 亲密关系</button>
-                      <button type="button" className="text-button" onClick={() => void handleFriendDecision(f.friendshipId, 'remove')}>删除</button>
+                      <div className="chat-more-wrap">
+                        <button
+                          type="button"
+                          className="chat-more-btn"
+                          aria-label="更多"
+                          onClick={() => setOpenFriendMenuId(menuOpen ? null : f.friendshipId)}
+                        >
+                          ···
+                        </button>
+                        {menuOpen && (
+                          <div className="chat-row-popover" role="menu">
+                            <button type="button" role="menuitem" onClick={() => { setOpenFriendMenuId(null); setIntimacyTarget(f.user); }}>
+                              💞 绑定亲密关系
+                            </button>
+                            <button type="button" role="menuitem" className="danger-text" onClick={() => void handleFriendDecision(f.friendshipId, 'remove')}>
+                              🗑️ 删除好友
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                );
+              })
             )}
           </div>
         </div>
       )}
 
-      {/* ===== TAB 2: 行程群 ===== */}
-      {tab === 'groups' && (
-        <div className="companions-panel">
-          <div className="companions-grid-2">
-            {/* 面对面建群 */}
-            <div className="companions-card group-entry-card">
-              <h3>面对面建群</h3>
-              <p className="group-card-desc">30 分钟内与身边同伴输入相同 4 位数字，即可快速成群并互加好友。</p>
-              <div className="group-form-stack">
-                <label className="auth-field">
-                  <span>4 位数字口令</span>
-                  <input
-                    type="text"
-                    className="f2f-pin-input"
-                    maxLength={4}
-                    inputMode="numeric"
-                    placeholder="0 0 0 0"
-                    value={f2fPin}
-                    onChange={(e) => setF2fPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  />
-                </label>
-                <label className="auth-field">
-                  <span>群名称（选填）</span>
-                  <input
-                    type="text"
-                    maxLength={30}
-                    placeholder="例如：周末出游小队"
-                    value={f2fName}
-                    onChange={(e) => setF2fName(e.target.value)}
-                  />
-                </label>
-                <button type="button" className="primary group-card-submit" onClick={() => void handleFaceToFace()}>
-                  进入面对面群
+      {/* ===== TAB 2: 行程群列表 ===== */}
+      {tab === 'groups' && !activeGroup && (
+        <div className="chat-panel">
+          <div className="chat-quick-bar">
+            <button type="button" className="chat-quick-pill" onClick={() => setGroupModal('create')}>
+              <span>＋</span> 新建行程群
+            </button>
+            <button type="button" className="chat-quick-pill" onClick={() => setGroupModal('f2f')}>
+              <span>📍</span> 面对面建群
+            </button>
+            <button type="button" className="chat-quick-pill" onClick={() => setGroupModal('join')}>
+              <span>🔑</span> 邀请码入群
+            </button>
+          </div>
+
+          <div className="chat-list-group">
+            <div className="chat-group-label">
+              <span>我的行程群 ({groups.length})</span>
+            </div>
+            {!groups.length ? (
+              <div className="chat-empty-state">
+                <div className="chat-empty-icon" aria-hidden="true">👥</div>
+                <strong>还没有行程群</strong>
+                <p>建一个「家人群」或「好友同游群」，群内全员可共同编辑攻略、景点投票与 AA 记账。</p>
+                <div className="chat-empty-actions">
+                  <button type="button" className="primary chat-mini-btn" onClick={() => setGroupModal('create')}>新建行程群</button>
+                  <button type="button" className="secondary chat-mini-btn" onClick={() => setGroupModal('f2f')}>面对面 4 位数字建群</button>
+                </div>
+              </div>
+            ) : (
+              groups.map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  className="chat-list-row is-clickable"
+                  onClick={() => { setGroupRoomTab('plans'); void loadGroupDetail(g.id); }}
+                >
+                  <span className="chat-group-avatar" style={{ background: pickGroupColor(g.id) }} aria-hidden="true">
+                    {g.name.slice(0, 1)}
+                  </span>
+                  <div className="chat-row-body">
+                    <div className="chat-row-title-line">
+                      <strong>{g.name}</strong>
+                      {g.myRole === 'owner' && <span className="chat-mini-tag">群主</span>}
+                    </div>
+                    <small>{g.memberCount} 位成员 · {g.planCount} 份共享攻略</small>
+                  </div>
+                  <span className="chat-row-meta">
+                    <small>{formatShortTime(g.updatedAt)}</small>
+                    <span className="chat-row-chevron" aria-hidden="true">›</span>
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ===== 行程群会话详情页（进入群聊样式） ===== */}
+      {activeGroup && (
+        <div className="chat-room-view">
+          <div className="chat-room-header">
+            <button
+              type="button"
+              className="chat-room-back"
+              onClick={() => { setActiveGroup(null); setActiveGroupId(null); }}
+            >
+              ‹ 返回
+            </button>
+            <div className="chat-room-title">
+              <strong>{activeGroup.name}</strong>
+              <small>{activeGroup.members.length} 人 · 邀请码 {activeGroup.inviteCode}</small>
+            </div>
+            <div className="chat-room-actions">
+              <button type="button" className="chat-icon-btn" title="群二维码" onClick={() => setShowGroupQr((v) => !v)}>
+                📱
+              </button>
+              {activeGroup.ownerId === cloudUser.id ? (
+                <button
+                  type="button"
+                  className="text-button danger-text chat-mini-text"
+                  onClick={() => {
+                    if (window.confirm(`确认解散行程群「${activeGroup.name}」吗？`)) {
+                      void cloudApi.deleteGroup(activeGroup.id).then(() => {
+                        onNotice('已解散行程群');
+                        setActiveGroup(null);
+                        setActiveGroupId(null);
+                        return refreshAll();
+                      }).catch((err) => onError(err instanceof Error ? err.message : '解散失败'));
+                    }
+                  }}
+                >
+                  解散
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="text-button danger-text chat-mini-text"
+                  onClick={() => {
+                    void cloudApi.removeGroupMember(activeGroup.id, cloudUser.id).then(() => {
+                      onNotice('已退出行程群');
+                      setActiveGroup(null);
+                      setActiveGroupId(null);
+                      return refreshAll();
+                    }).catch((err) => onError(err instanceof Error ? err.message : '退群失败'));
+                  }}
+                >
+                  退群
+                </button>
+              )}
+            </div>
+          </div>
+
+          {showGroupQr && (
+            <div className="companions-qr-card">
+              <QrCodeBox value={`${getCloudOrigin()}/?joinGroup=${encodeURIComponent(activeGroup.inviteCode)}`} size={140} caption={`扫码加入「${activeGroup.name}」`} />
+              <div className="companions-qr-copy">
+                <strong>邀请同行伙伴入群</strong>
+                <p>让同伴扫码或输入群邀请码 <code>{activeGroup.inviteCode}</code>，入群后同步群内攻略并参与 AA 记账。</p>
+                <button
+                  type="button"
+                  className="secondary chat-mini-btn"
+                  onClick={() => navigator.clipboard?.writeText(`加入我们的周游行程群「${activeGroup.name}」，群邀请码：${activeGroup.inviteCode}，链接：${getCloudOrigin()}/?joinGroup=${activeGroup.inviteCode}`).then(() => onNotice('已复制群邀请')).catch(() => undefined)}
+                >
+                  复制群邀请发微信
                 </button>
               </div>
             </div>
+          )}
 
-            {/* 行程群（新建 / 邀请码加入） */}
-            <div className="companions-card group-entry-card">
-              <div className="group-card-head-row">
-                <h3>行程群</h3>
-                <div className="auth-account-switch group-mini-switch" role="tablist" aria-label="行程群操作">
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={groupActionTab === 'create'}
-                    className={groupActionTab === 'create' ? 'active' : ''}
-                    onClick={() => setGroupActionTab('create')}
-                  >
-                    新建群
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={groupActionTab === 'join'}
-                    className={groupActionTab === 'join' ? 'active' : ''}
-                    onClick={() => setGroupActionTab('join')}
-                  >
-                    邀请码加入
-                  </button>
+          {/* 成员头像条 */}
+          <div className="chat-room-members">
+            <div className="chat-members-strip">
+              {activeGroup.members.map((m) => (
+                <div key={m.user.id} className="chat-member-chip">
+                  <TravelAvatar avatarId={m.user.avatar} nickname={m.user.nickname} className="chat-member-avatar" />
+                  <span>{m.user.nickname}</span>
+                  {activeGroup.ownerId === cloudUser.id && m.user.id !== cloudUser.id && (
+                    <button
+                      type="button"
+                      className="chip-remove-btn"
+                      title="移出群"
+                      onClick={() => void cloudApi.removeGroupMember(activeGroup.id, m.user.id).then(() => loadGroupDetail(activeGroup.id))}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {(overview?.friends.filter((f) => !activeGroup.members.some((m) => m.user.id === f.user.id)).length || 0) > 0 && (
+              <div className="companions-search-row" style={{ marginTop: 8 }}>
+                <select value={inviteFriendId} onChange={(e) => setInviteFriendId(e.target.value)}>
+                  <option value="">邀请好友加入本群…</option>
+                  {overview!.friends
+                    .filter((f) => !activeGroup.members.some((m) => m.user.id === f.user.id))
+                    .map((f) => <option key={f.user.id} value={f.user.id}>{f.user.nickname}</option>)}
+                </select>
+                <button
+                  type="button"
+                  className="secondary chat-mini-btn"
+                  disabled={!inviteFriendId}
+                  onClick={() => void cloudApi.addGroupMembers(activeGroup.id, [inviteFriendId]).then(() => { setInviteFriendId(''); onNotice('已拉入好友'); return loadGroupDetail(activeGroup.id); })}
+                >
+                  拉进群
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 群内双分页：共享攻略 | AA 记账 */}
+          <div className="chat-segment-tabs is-room" role="tablist">
+            <button type="button" role="tab" aria-selected={groupRoomTab === 'plans'} className={groupRoomTab === 'plans' ? 'active' : ''} onClick={() => setGroupRoomTab('plans')}>
+              ✈️ 共享攻略 ({activeGroup.plans.length})
+            </button>
+            <button type="button" role="tab" aria-selected={groupRoomTab === 'aa'} className={groupRoomTab === 'aa' ? 'active' : ''} onClick={() => setGroupRoomTab('aa')}>
+              💰 AA 记账 ({activeGroup.expenses.length})
+            </button>
+          </div>
+
+          {groupRoomTab === 'plans' && (
+            <div className="chat-list-group">
+              {activeGroup.plans.length === 0 ? (
+                <div className="chat-empty-state is-compact">
+                  <p>本群暂未关联攻略，在下方选择一份你的攻略共享给全群吧。</p>
+                </div>
+              ) : (
+                activeGroup.plans.map((p) => (
+                  <div key={p.id} className="chat-list-row">
+                    <span className="chat-msg-icon" aria-hidden="true">🗺️</span>
+                    <div className="chat-row-body">
+                      <strong>{p.title || p.destination || '未命名攻略'}</strong>
+                      <small>v{p.version} · 最近由 {p.updatedByName || '成员'} 更新</small>
+                    </div>
+                    <button type="button" className="primary chat-mini-btn" onClick={() => onOpenPlan(p.id)}>打开共编</button>
+                  </div>
+                ))
+              )}
+              {aiPlans.length > 0 && (
+                <div className="chat-group-footer-form">
+                  <select value={bindPlanId} onChange={(e) => setBindPlanId(e.target.value)}>
+                    <option value="">关联我的攻略到本群…</option>
+                    {aiPlans.map((p) => <option key={p.id} value={p.id}>{p.content.title || p.content.request.destination || '未命名攻略'}</option>)}
+                  </select>
+                  <button type="button" className="secondary chat-mini-btn" disabled={!bindPlanId} onClick={() => void handleBindPlanToGroup()}>关联</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {groupRoomTab === 'aa' && (
+            <div className="companions-card">
+              <div className="aa-form-grid">
+                <input type="text" placeholder="消费项目（如：晚餐烤肉）" value={expTitle} onChange={(e) => setExpTitle(e.target.value)} />
+                <input type="number" step="0.01" min="0" placeholder="金额（元）" value={expAmount} onChange={(e) => setExpAmount(e.target.value)} />
+                <input type="date" value={expDate} onChange={(e) => setExpDate(e.target.value)} />
+                <select value={expCategory} onChange={(e) => setExpCategory(e.target.value as ExpenseCategory)}>
+                  {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{EXPENSE_LABELS[c]}</option>)}
+                </select>
+                <select value={expPayerId} onChange={(e) => setExpPayerId(e.target.value)}>
+                  {activeGroup.members.map((m) => <option key={m.user.id} value={m.user.id}>付款人：{m.user.nickname}</option>)}
+                </select>
+                <button type="button" className="primary" onClick={() => void handleAddGroupExpense()}>记一笔</button>
+              </div>
+              <div className="group-friend-picker">
+                <small>参与平摊成员：</small>
+                <div className="compare-city-chips">
+                  {activeGroup.members.map((m) => {
+                    const checked = expParticipants.includes(m.user.id);
+                    return (
+                      <button
+                        key={m.user.id}
+                        type="button"
+                        className={`chip-toggle ${checked ? 'active' : ''}`}
+                        onClick={() => setExpParticipants((prev) => checked ? prev.filter((id) => id !== m.user.id) : [...prev, m.user.id])}
+                      >
+                        {checked ? '✓ ' : ''}{m.user.nickname}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {groupActionTab === 'create' ? (
+              {groupAaSummary && groupAaSummary.totalCents > 0 && (
+                <div className="aa-settlement-box">
+                  <div className="aa-settlement-head">
+                    <strong>总计分摊：¥{(groupAaSummary.totalCents / 100).toFixed(2)}</strong>
+                    <button
+                      type="button"
+                      className="secondary chat-mini-btn"
+                      onClick={() => {
+                        const text = formatAaSettlementText(activeGroup.name, groupAaSummary);
+                        navigator.clipboard?.writeText(text).then(() => onNotice('已复制 AA 结算单，可直接粘贴到微信群')).catch(() => undefined);
+                      }}
+                    >
+                      📋 复制结算单
+                    </button>
+                  </div>
+                  <div className="aa-transfers">
+                    {groupAaSummary.transfers.length === 0 ? (
+                      <small>大家账目已全部结清 ✨</small>
+                    ) : (
+                      groupAaSummary.transfers.map((tr, i) => (
+                        <div key={i} className="aa-transfer-row">
+                          <span>{tr.from} → {tr.to}</span>
+                          <strong>¥{(tr.amountCents / 100).toFixed(2)}</strong>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeGroup.expenses.length > 0 && (
+                <div className="chat-list-group" style={{ marginTop: 12 }}>
+                  {activeGroup.expenses.map((e) => {
+                    const payerName = activeGroup.members.find((m) => m.user.id === e.payerUserId)?.user.nickname || '成员';
+                    return (
+                      <div key={e.id} className="chat-list-row">
+                        <div className="chat-row-body">
+                          <strong>{e.title} · ¥{(e.amountCents / 100).toFixed(2)}</strong>
+                          <small>{e.date} · {EXPENSE_LABELS[e.category] || '其他'} · {payerName} 垫付 · {e.participantUserIds.length} 人平摊</small>
+                        </div>
+                        <button
+                          type="button"
+                          className="text-button chat-mini-text"
+                          onClick={() => void cloudApi.deleteGroupExpense(activeGroup.id, e.id).then(() => loadGroupDetail(activeGroup.id))}
+                        >
+                          删除
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== TAB 3: 收到的攻略与周游口令 ===== */}
+      {tab === 'shares' && !activeGroup && (
+        <div className="chat-panel">
+          <div className="chat-token-bar">
+            <input
+              type="text"
+              placeholder="粘贴微信/QQ 收到的周游口令（#ZY:...#）或链接"
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleParseToken(); }}
+            />
+            <button type="button" className="primary chat-mini-btn" disabled={!tokenInput.trim()} onClick={handleParseToken}>接收</button>
+          </div>
+
+          <div className="chat-list-group">
+            <div className="chat-group-label">
+              <span>好友发来的攻略 ({overview?.receivedShares.length || 0})</span>
+            </div>
+            {!(overview?.receivedShares.length) ? (
+              <div className="chat-empty-state">
+                <div className="chat-empty-icon" aria-hidden="true">✈️</div>
+                <strong>暂未收到攻略</strong>
+                <p>好友发送的行程攻略或粘贴的周游口令会出现在这里。</p>
+              </div>
+            ) : (
+              overview.receivedShares.map((s) => (
+                <div key={s.code} className="chat-list-row">
+                  <span className="chat-msg-icon" aria-hidden="true">✈️</span>
+                  <div className="chat-row-body">
+                    <strong>{s.title}</strong>
+                    <small>来自 {s.senderNickname} · {s.mode === 'collab' ? '邀请同游共编' : '独立副本'}{s.daysCount ? ` · ${s.daysCount}天` : ''}</small>
+                  </div>
+                  <button type="button" className="primary chat-mini-btn" onClick={() => onOpenShareCode(s.code)}>查看</button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ===== TAB 4: 消息提醒 ===== */}
+      {tab === 'notifications' && !activeGroup && (
+        <div className="chat-panel">
+          <div className="chat-list-group">
+            <div className="chat-group-label">
+              <span>消息提醒</span>
+              {notifications.length > 0 && (
+                <button type="button" className="text-button" onClick={() => void handleMarkAllRead()}>全部已读</button>
+              )}
+            </div>
+            {notifications.length === 0 ? (
+              <div className="chat-empty-state">
+                <div className="chat-empty-icon" aria-hidden="true">🔔</div>
+                <strong>暂无新消息</strong>
+                <p>好友申请、行程群邀请和攻略分享动态都会在这里提醒你。</p>
+              </div>
+            ) : (
+              notifications.map((n) => (
+                <div key={n.id} className={`chat-list-row ${!n.readAt ? 'is-unread' : ''}`}>
+                  <span className="chat-msg-icon" aria-hidden="true">
+                    {!n.readAt && <i className="chat-unread-dot" />}
+                    🔔
+                  </span>
+                  <div className="chat-row-body">
+                    <div className="chat-row-title-line">
+                      <strong>{n.title}</strong>
+                      <small className="chat-row-time">{formatShortTime(n.createdAt)}</small>
+                    </div>
+                    {n.body && <small>{n.body}</small>}
+                  </div>
+                  {typeof n.targetRef?.shareCode === 'string' && (
+                    <button type="button" className="secondary chat-mini-btn" onClick={() => onOpenShareCode(String(n.targetRef.shareCode))}>查看</button>
+                  )}
+                  {typeof n.targetRef?.planId === 'string' && !n.targetRef?.shareCode && (
+                    <button type="button" className="secondary chat-mini-btn" onClick={() => onOpenPlan(String(n.targetRef.planId))}>打开</button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 我的名片二维码弹窗 */}
+      {showMyQr && (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowMyQr(false); }}>
+          <div className="dialog chat-qr-dialog" role="dialog" aria-modal="true">
+            <div className="chat-qr-dialog-head">
+              <TravelAvatar avatarId={cloudUser.avatar} nickname={cloudUser.nickname} className="chat-row-avatar" />
+              <div>
+                <strong>{cloudUser.nickname}</strong>
+                <small>好友码：{cloudUser.friendCode}</small>
+              </div>
+            </div>
+            <div className="chat-qr-dialog-box">
+              <QrCodeBox value={myQrUrl} size={184} caption="微信 / 相机扫码加我为周游好友" />
+            </div>
+            <div className="dialog-actions">
+              <button
+                type="button"
+                className="primary"
+                onClick={() => navigator.clipboard?.writeText(`加我周游地图好友！昵称：${cloudUser.nickname}，好友码：${cloudUser.friendCode}，链接：${myQrUrl}`).then(() => onNotice('已复制好友名片')).catch(() => undefined)}
+              >
+                复制名片发微信 / QQ
+              </button>
+              <button type="button" className="text-button" onClick={() => setShowMyQr(false)}>关闭</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 建群 / 面对面建群 / 邀请码入群弹窗 */}
+      {groupModal && (
+        <div className="dialog-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setGroupModal(null); }}>
+          <div className="dialog" role="dialog" aria-modal="true">
+            {groupModal === 'create' && (
+              <>
+                <h3>新建行程群</h3>
                 <div className="group-form-stack">
                   <label className="auth-field">
                     <span>群名称</span>
                     <input
                       type="text"
                       maxLength={36}
-                      placeholder="例如：家人群"
+                      placeholder="例如：五一川西小分队 / 家人群"
                       value={newGroupName}
                       onChange={(e) => setNewGroupName(e.target.value)}
                     />
@@ -694,13 +1217,54 @@ export default function CompanionsView({
                       </select>
                     </label>
                   )}
-                  <button type="button" className="primary group-card-submit" onClick={() => void handleCreateGroup()}>
-                    创建行程群
-                  </button>
                 </div>
-              ) : (
+                <div className="dialog-actions">
+                  <button type="button" className="primary" onClick={() => void handleCreateGroup()}>创建行程群</button>
+                  <button type="button" className="text-button" onClick={() => setGroupModal(null)}>取消</button>
+                </div>
+              </>
+            )}
+
+            {groupModal === 'f2f' && (
+              <>
+                <h3>面对面建群</h3>
+                <p className="group-card-desc">30 分钟内与身边同伴输入相同 4 位数字，即可快速成群并互加好友。</p>
                 <div className="group-form-stack">
-                  <p className="group-card-desc">输入好友发来的群邀请码，立即加入对应的行程群。</p>
+                  <label className="auth-field">
+                    <span>4 位数字口令</span>
+                    <input
+                      type="text"
+                      className="f2f-pin-input"
+                      maxLength={4}
+                      inputMode="numeric"
+                      placeholder="0 0 0 0"
+                      value={f2fPin}
+                      onChange={(e) => setF2fPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    />
+                  </label>
+                  <label className="auth-field">
+                    <span>群名称（选填）</span>
+                    <input
+                      type="text"
+                      maxLength={30}
+                      placeholder="例如：周末出游小队"
+                      value={f2fName}
+                      onChange={(e) => setF2fName(e.target.value)}
+                    />
+                  </label>
+                </div>
+                <div className="dialog-actions">
+                  <button type="button" className="primary" onClick={() => void handleFaceToFace()}>进入面对面群</button>
+                  <button type="button" className="text-button" onClick={() => setGroupModal(null)}>取消</button>
+                </div>
+              </>
+            )}
+
+            {groupModal === 'join' && (
+              <>
+                <h3>邀请码加入行程群</h3>
+                <p className="group-card-desc">输入好友发来的群邀请码，立即加入对应的行程群。</p>
+                <div className="group-form-stack">
                   <label className="auth-field">
                     <span>群邀请码</span>
                     <input
@@ -711,327 +1275,12 @@ export default function CompanionsView({
                       onChange={(e) => setJoinCode(e.target.value)}
                     />
                   </label>
-                  <button type="button" className="primary group-card-submit" onClick={() => void handleJoinByCode()}>
-                    加入行程群
-                  </button>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* 群列表 + 群详情 */}
-          <div className="companions-card">
-            <h3>我的行程群（{groups.length}）</h3>
-            {!groups.length ? (
-              <p className="auth-hint">还没有行程群，可以先创建一个「家人群」或「好友同游群」，以后做多人攻略直接选中它即可全员共享！</p>
-            ) : (
-              <div className="group-list-grid">
-                {groups.map((g) => (
-                  <button
-                    key={g.id}
-                    type="button"
-                    className={`group-list-item ${activeGroupId === g.id ? 'active' : ''}`}
-                    onClick={() => void loadGroupDetail(g.id)}
-                  >
-                    <strong>{g.name}</strong>
-                    <small>{g.memberCount} 人 · {g.planCount} 份共享攻略 · {g.myRole === 'owner' ? '群主' : '成员'}</small>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {activeGroup && (
-            <div className="companions-card group-detail-panel">
-              <div className="companions-header-bar">
-                <div>
-                  <h3>👥 {activeGroup.name}</h3>
-                  <small>群邀请码：<code>{activeGroup.inviteCode}</code> · {activeGroup.members.length} 位成员</small>
+                <div className="dialog-actions">
+                  <button type="button" className="primary" onClick={() => void handleJoinByCode()}>加入行程群</button>
+                  <button type="button" className="text-button" onClick={() => setGroupModal(null)}>取消</button>
                 </div>
-                <div className="companions-row-actions">
-                  <button type="button" className="secondary" onClick={() => setShowGroupQr((v) => !v)}>
-                    {showGroupQr ? '收起群二维码' : '📱 群二维码'}
-                  </button>
-                  {activeGroup.ownerId === cloudUser.id ? (
-                    <button
-                      type="button"
-                      className="text-button danger-text"
-                      onClick={() => {
-                        if (window.confirm(`确认解散行程群「${activeGroup.name}」吗？`)) {
-                          void cloudApi.deleteGroup(activeGroup.id).then(() => {
-                            onNotice('已解散行程群');
-                            setActiveGroup(null);
-                            setActiveGroupId(null);
-                            return refreshAll();
-                          }).catch((err) => onError(err instanceof Error ? err.message : '解散失败'));
-                        }
-                      }}
-                    >
-                      解散群
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="text-button danger-text"
-                      onClick={() => {
-                        void cloudApi.removeGroupMember(activeGroup.id, cloudUser.id).then(() => {
-                          onNotice('已退出行程群');
-                          setActiveGroup(null);
-                          setActiveGroupId(null);
-                          return refreshAll();
-                        }).catch((err) => onError(err instanceof Error ? err.message : '退群失败'));
-                      }}
-                    >
-                      退出群
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {showGroupQr && (
-                <div className="companions-qr-card">
-                  <QrCodeBox value={`${getCloudOrigin()}/?joinGroup=${encodeURIComponent(activeGroup.inviteCode)}`} size={148} caption={`扫码加入「${activeGroup.name}」`} />
-                  <div className="companions-qr-copy">
-                    <strong>邀请同行伙伴入群</strong>
-                    <p>让同伴扫码或输入群邀请码 <code>{activeGroup.inviteCode}</code>，入群后即可同步群内全部行程、一起编辑、投票并参与 AA 记账。</p>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => navigator.clipboard?.writeText(`加入我们的周游行程群「${activeGroup.name}」，群邀请码：${activeGroup.inviteCode}，链接：${getCloudOrigin()}/?joinGroup=${activeGroup.inviteCode}`).then(() => onNotice('已复制群邀请')).catch(() => undefined)}
-                    >
-                      复制群邀请发微信
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* 群成员与拉人 */}
-              <div className="group-sub-section">
-                <h4>群成员</h4>
-                <div className="compare-city-chips">
-                  {activeGroup.members.map((m) => (
-                    <span key={m.user.id} className="stop-pill">
-                      {m.user.nickname}{m.role === 'owner' ? ' (群主)' : ''}
-                      {activeGroup.ownerId === cloudUser.id && m.user.id !== cloudUser.id && (
-                        <button
-                          type="button"
-                          className="chip-remove-btn"
-                          title="移出群"
-                          onClick={() => void cloudApi.removeGroupMember(activeGroup.id, m.user.id).then(() => loadGroupDetail(activeGroup.id))}
-                        >
-                          ×
-                        </button>
-                      )}
-                    </span>
-                  ))}
-                </div>
-                {(overview?.friends.length || 0) > 0 && (
-                  <div className="companions-search-row" style={{ marginTop: 8 }}>
-                    <select value={inviteFriendId} onChange={(e) => setInviteFriendId(e.target.value)}>
-                      <option value="">选择好友拉入本群…</option>
-                      {overview!.friends
-                        .filter((f) => !activeGroup.members.some((m) => m.user.id === f.user.id))
-                        .map((f) => <option key={f.user.id} value={f.user.id}>{f.user.nickname}</option>)}
-                    </select>
-                    <button
-                      type="button"
-                      className="secondary"
-                      disabled={!inviteFriendId}
-                      onClick={() => void cloudApi.addGroupMembers(activeGroup.id, [inviteFriendId]).then(() => { setInviteFriendId(''); onNotice('已拉入好友'); return loadGroupDetail(activeGroup.id); })}
-                    >
-                      拉进群
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* 群内共享攻略 */}
-              <div className="group-sub-section">
-                <h4>群内共享攻略（全员可共同编辑）</h4>
-                {activeGroup.plans.length === 0 ? (
-                  <p className="auth-hint">本群暂未关联攻略，可在下方选择一份你的攻略关联进来。</p>
-                ) : (
-                  <div className="companions-user-list">
-                    {activeGroup.plans.map((p) => (
-                      <div key={p.id} className="companions-user-row">
-                        <div>
-                          <strong>{p.title || p.destination || '未命名攻略'}</strong>
-                          <small>v{p.version} · 最近由 {p.updatedByName || '成员'} 更新</small>
-                        </div>
-                        <button type="button" className="primary" onClick={() => onOpenPlan(p.id)}>打开共编</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {aiPlans.length > 0 && (
-                  <div className="companions-search-row" style={{ marginTop: 8 }}>
-                    <select value={bindPlanId} onChange={(e) => setBindPlanId(e.target.value)}>
-                      <option value="">把我的另一份攻略关联到本群…</option>
-                      {aiPlans.map((p) => <option key={p.id} value={p.id}>{p.content.title || p.content.request.destination || '未命名攻略'}</option>)}
-                    </select>
-                    <button type="button" className="secondary" disabled={!bindPlanId} onClick={() => void handleBindPlanToGroup()}>关联进群</button>
-                  </div>
-                )}
-              </div>
-
-              {/* 群内 AA 记账与一键结算 */}
-              <div className="group-sub-section">
-                <h4>💰 群内 AA 记账与一键结算</h4>
-                <div className="aa-form-grid">
-                  <input type="text" placeholder="消费项目（如：晚餐烤肉）" value={expTitle} onChange={(e) => setExpTitle(e.target.value)} />
-                  <input type="number" step="0.01" min="0" placeholder="金额（元）" value={expAmount} onChange={(e) => setExpAmount(e.target.value)} />
-                  <input type="date" value={expDate} onChange={(e) => setExpDate(e.target.value)} />
-                  <select value={expCategory} onChange={(e) => setExpCategory(e.target.value as ExpenseCategory)}>
-                    {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{EXPENSE_LABELS[c]}</option>)}
-                  </select>
-                  <select value={expPayerId} onChange={(e) => setExpPayerId(e.target.value)}>
-                    {activeGroup.members.map((m) => <option key={m.user.id} value={m.user.id}>付款人：{m.user.nickname}</option>)}
-                  </select>
-                  <button type="button" className="primary" onClick={() => void handleAddGroupExpense()}>记一笔</button>
-                </div>
-                <div className="group-friend-picker">
-                  <small>参与平摊成员：</small>
-                  <div className="compare-city-chips">
-                    {activeGroup.members.map((m) => {
-                      const checked = expParticipants.includes(m.user.id);
-                      return (
-                        <button
-                          key={m.user.id}
-                          type="button"
-                          className={`chip-toggle ${checked ? 'active' : ''}`}
-                          onClick={() => setExpParticipants((prev) => checked ? prev.filter((id) => id !== m.user.id) : [...prev, m.user.id])}
-                        >
-                          {checked ? '✓ ' : ''}{m.user.nickname}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {groupAaSummary && groupAaSummary.totalCents > 0 && (
-                  <div className="aa-settlement-box">
-                    <div className="aa-settlement-head">
-                      <strong>总计分摊：¥{(groupAaSummary.totalCents / 100).toFixed(2)}</strong>
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() => {
-                          const text = formatAaSettlementText(activeGroup.name, groupAaSummary);
-                          navigator.clipboard?.writeText(text).then(() => onNotice('已复制 AA 结算单，可直接粘贴到微信群')).catch(() => undefined);
-                        }}
-                      >
-                        📋 复制结算单发微信
-                      </button>
-                    </div>
-                    <div className="aa-transfers">
-                      {groupAaSummary.transfers.length === 0 ? (
-                        <small>大家账目已全部结清 ✨</small>
-                      ) : (
-                        groupAaSummary.transfers.map((tr, i) => (
-                          <div key={i} className="aa-transfer-row">
-                            <span>{tr.from} → {tr.to}</span>
-                            <strong>¥{(tr.amountCents / 100).toFixed(2)}</strong>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {activeGroup.expenses.length > 0 && (
-                  <div className="companions-user-list" style={{ marginTop: 10 }}>
-                    {activeGroup.expenses.map((e) => {
-                      const payerName = activeGroup.members.find((m) => m.user.id === e.payerUserId)?.user.nickname || '成员';
-                      return (
-                        <div key={e.id} className="companions-user-row">
-                          <div>
-                            <strong>{e.title} · ¥{(e.amountCents / 100).toFixed(2)}</strong>
-                            <small>{e.date} · {EXPENSE_LABELS[e.category] || '其他'} · {payerName} 垫付 · {e.participantUserIds.length} 人平摊</small>
-                          </div>
-                          <button
-                            type="button"
-                            className="text-button"
-                            onClick={() => void cloudApi.deleteGroupExpense(activeGroup.id, e.id).then(() => loadGroupDetail(activeGroup.id))}
-                          >
-                            删除
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ===== TAB 3: 收到的攻略与周游口令 ===== */}
-      {tab === 'shares' && (
-        <div className="companions-panel">
-          <div className="companions-card">
-            <h3>🔑 粘贴周游口令 / 分享码接收攻略</h3>
-            <p className="auth-hint">从微信或 QQ 复制好友发来的整段周游口令（如 #ZY:AB12CD#）或链接，粘贴到这里一键接收：</p>
-            <div className="companions-search-row">
-              <input
-                type="text"
-                placeholder="粘贴周游口令、分享链接或 6 位分享码"
-                value={tokenInput}
-                onChange={(e) => setTokenInput(e.target.value)}
-              />
-              <button type="button" className="primary" onClick={handleParseToken}>识别并接收</button>
-            </div>
-          </div>
-
-          <div className="companions-card">
-            <h3>好友推送给我的攻略（{overview?.receivedShares.length || 0}）</h3>
-            {!(overview?.receivedShares.length) ? (
-              <p className="auth-hint">暂未收到好友直接推送的攻略。</p>
-            ) : (
-              <div className="companions-user-list">
-                {overview.receivedShares.map((s) => (
-                  <div key={s.code} className="companions-user-row">
-                    <div>
-                      <strong>{s.title}</strong>
-                      <small>来自 {s.senderNickname} · {s.mode === 'collab' ? '邀请同游共编' : '独立攻略副本'}{s.daysCount ? ` · ${s.daysCount}天` : ''}</small>
-                    </div>
-                    <button type="button" className="primary" onClick={() => onOpenShareCode(s.code)}>查看接收</button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ===== TAB 4: 消息提醒 ===== */}
-      {tab === 'notifications' && (
-        <div className="companions-panel">
-          <div className="companions-card">
-            <div className="companions-header-bar">
-              <h3>站内消息提醒</h3>
-              <button type="button" className="secondary" onClick={() => void handleMarkAllRead()}>全部标为已读</button>
-            </div>
-            {notifications.length === 0 ? (
-              <p className="auth-hint">暂无消息提醒。</p>
-            ) : (
-              <div className="companions-user-list">
-                {notifications.map((n) => (
-                  <div key={n.id} className={`companions-user-row ${!n.readAt ? 'unread-row' : ''}`}>
-                    <div>
-                      <strong>{n.title}</strong>
-                      {n.body && <small>{n.body}</small>}
-                      <small>{new Date(n.createdAt).toLocaleString('zh-CN')}</small>
-                    </div>
-                    {typeof n.targetRef?.shareCode === 'string' && (
-                      <button type="button" className="secondary" onClick={() => onOpenShareCode(String(n.targetRef.shareCode))}>查看</button>
-                    )}
-                    {typeof n.targetRef?.planId === 'string' && !n.targetRef?.shareCode && (
-                      <button type="button" className="secondary" onClick={() => onOpenPlan(String(n.targetRef.planId))}>打开攻略</button>
-                    )}
-                  </div>
-                ))}
-              </div>
+              </>
             )}
           </div>
         </div>

@@ -120,7 +120,6 @@ export default function App() {
     { id: 'plan', label: t('行程规划', 'Planner'), icon: '▦' },
     { id: 'companions', label: t('同行旅伴', 'Companions'), icon: '◈' },
     { id: 'detail', label: t('旅行手账', 'Journal'), icon: '▤' },
-    { id: 'achievements', label: t('旅途成就', 'Badges'), icon: '✦' },
     { id: 'profile', label: t('个人中心', 'Profile'), icon: '◉' },
   ];
 
@@ -651,7 +650,7 @@ export default function App() {
             title={t('打开个人中心', 'Open Personal Center')}
             onClick={() => openPage('profile')}
           >
-            <TravelAvatar avatarId={activeProfile?.avatar} nickname={avatarNickname} className="avatar" />
+            <TravelAvatar avatarId={activeProfile?.avatar || cloudUser?.avatar} nickname={avatarNickname} className="avatar" />
           </button>
         </div>
       </header>
@@ -723,13 +722,38 @@ export default function App() {
           )}
           {page === 'detail' && <DetailView city={selectedCity} marks={effectiveMarks} entries={snapshot.entries} media={snapshot.media} trips={snapshot.trips} aiPlans={snapshot.aiPlans} places={snapshot.places} targetEntryId={targetEntryId} targetPlaceId={targetPlaceId} onOpenMap={() => openPage('map')} onSaveEntry={saveEntry} onSaveMedia={saveMedia} onSaveMediaGroup={saveMediaGroup} onUpdateMedia={updateMedia} onDeleteMedia={deleteMedia} onSaveTrip={saveTrip} onSavePlace={savePlace} onSaveCityMark={saveMark} onUpdateMark={updateSelectedMark} onError={showError} onNotice={showNotice} webTourMode={tourMode} onRequireClient={requestClientForTour} />}
           {page === 'achievements' && <AchievementsView marks={effectiveMarks} entries={snapshot.entries} trips={snapshot.trips} media={snapshot.media} badges={snapshot.badges} intimacyBonds={intimacyBonds} onSaveBadge={saveBadge} onOpenEntry={openEntry} onError={showError} onNotice={showNotice} webTourMode={tourMode} onRequireClient={requestClientForTour} />}
-          {page === 'profile' && <ProfileView snapshot={snapshot} activeProvinceCode={activeProvinceCode} resetSettingsToken={profileResetToken} availableUpdate={availableUpdate} updateFocusToken={updateFocusToken} updateCheckToken={updateCheckToken} cloudUser={cloudUser} syncingCloud={syncingCloud} onOpenAuth={(m) => openAuthModal(m)} onSyncNow={() => runCloudSync(false)} onCloudUserUpdated={(u) => setCloudUser(u)} onUpdateFound={setAvailableUpdate} onSaveProfile={saveProfile} onImported={(data) => {
-            // 恢复备份会替换行程数据，清除上一份数据上打开的规划会话。
-            setPlannerOpened(false);
-            setSnapshot(data);
-            setSelectedCityCode(null);
-            setPage('map');
-          }} onError={showError} onNotice={showNotice} />}
+          {page === 'profile' && (
+            <ProfileView
+              snapshot={snapshot}
+              effectiveMarks={effectiveMarks}
+              intimacyBonds={intimacyBonds}
+              activeProvinceCode={activeProvinceCode}
+              resetSettingsToken={profileResetToken}
+              availableUpdate={availableUpdate}
+              updateFocusToken={updateFocusToken}
+              updateCheckToken={updateCheckToken}
+              cloudUser={cloudUser}
+              syncingCloud={syncingCloud}
+              onOpenAuth={(m) => openAuthModal(m)}
+              onSyncNow={() => runCloudSync(false)}
+              onCloudUserUpdated={(u) => setCloudUser(u)}
+              onUpdateFound={setAvailableUpdate}
+              onSaveProfile={saveProfile}
+              onSaveBadge={saveBadge}
+              onOpenEntry={openEntry}
+              webTourMode={tourMode}
+              onRequireClient={requestClientForTour}
+              onImported={(data) => {
+                // 恢复备份会替换行程数据，清除上一份数据上打开的规划会话。
+                setPlannerOpened(false);
+                setSnapshot(data);
+                setSelectedCityCode(null);
+                setPage('map');
+              }}
+              onError={showError}
+              onNotice={showNotice}
+            />
+          )}
         </Suspense>
       </>}</main>
     </div>

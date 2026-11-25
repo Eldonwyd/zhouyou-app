@@ -1,23 +1,29 @@
-import { useEffect, useRef, useState } from 'react';
-import type { AppSnapshot, LocalProfile } from '../types';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import type { AppSnapshot, Badge, CityMark, DayEntry, LocalProfile } from '../types';
 import { exportBackup, importBackup } from '../backup';
 import { getPlannerApiOrigin, setPlannerApiOrigin } from '../api-base';
 import { applyLanguage, useI18n, type AppLanguage } from '../i18n';
 import { MAP_APP_OPTIONS, readMapAppProvider, writeMapAppProvider, type MapAppProvider } from '../external-app-links';
 import { TravelIcon } from './TravelArt';
-import { AVATAR_PRESETS, CuteSticker, TravelAvatar, getTravelerLevel } from './CuteArt';
+import { AVATAR_PRESETS, CuteSticker, TravelAvatar, compressAvatarImage, getTravelerLevel, isCustomAvatarUrl } from './CuteArt';
 import AppearanceSettings from './AppearanceSettings';
 import OfflineMapSettings from './OfflineMapSettings';
 import AppUpdateCard from './AppUpdateCard';
 import AiUsageSettingsCard from './AiUsageSettingsCard';
 import CloudSyncCard from './CloudSyncCard';
 import type { AppUpdateInfo } from '../app-updater';
-import type { CloudSelfUser } from '../cloud-api';
+import { cloudApi, getCloudToken, setCloudAuthState, type CloudSelfUser, type IntimacyBond } from '../cloud-api';
+import type { TourRestrictedFeature } from '../web-tour';
+
+const AchievementsView = lazy(() => import('./AchievementsView'));
 
 interface ProfileViewProps {
   snapshot: AppSnapshot;
+  effectiveMarks: CityMark[];
+  intimacyBonds?: IntimacyBond[];
   activeProvinceCode: string | null;
   resetSettingsToken?: number;
+  initialSubView?: 'home' | 'achievements' | 'settings' | 'account';
   availableUpdate?: AppUpdateInfo | null;
   updateFocusToken?: number;
   updateCheckToken?: number;
@@ -28,9 +34,13 @@ interface ProfileViewProps {
   onCloudUserUpdated?: (user: CloudSelfUser | null) => void;
   onUpdateFound?: (info: AppUpdateInfo | null) => void;
   onSaveProfile: (profile: LocalProfile) => Promise<void>;
+  onSaveBadge: (badge: Badge) => Promise<void>;
+  onOpenEntry: (entry: DayEntry) => void;
   onImported: (snapshot: AppSnapshot) => void;
   onError: (message: string) => void;
   onNotice: (message: string) => void;
+  webTourMode?: boolean;
+  onRequireClient?: (feature: TourRestrictedFeature) => void;
 }
 
 const DEFAULT_MOTTO_ZH = '把喜欢的风和日落，悄悄夹进旅行小册子 ✨';
@@ -44,8 +54,11 @@ function readableBytes(bytes: number): string {
 
 export default function ProfileView({
   snapshot,
+  effectiveMarks,
+  intimacyBonds = [],
   activeProvinceCode,
   resetSettingsToken,
+  initialSubView = 'home',
   availableUpdate,
   updateFocusToken,
   updateCheckToken,
@@ -56,42 +69,51 @@ export default function ProfileView({
   onCloudUserUpdated,
   onUpdateFound,
   onSaveProfile,
+  onSaveBadge,
+  onOpenEntry,
   onImported,
   onError,
   onNotice,
+  webTourMode,
+  onRequireClient,
 }: ProfileViewProps) {
   const { lang, isEn, locale, t } = useI18n();
 
   const savedProfile = snapshot.profile[0];
   const defaultNickname = t('旅行者', 'Traveler');
   const defaultMotto = isEn ? DEFAULT_MOTTO_EN : DEFAULT_MOTTO_ZH;
-  const displaySavedNickname = savedProfile?.nickname && savedProfile.nickname !== '旅行者'
+  const resolvedNickname = (savedProfile?.nickname && savedProfile.nickname !== '旅行者')
     ? savedProfile.nickname
-    : (savedProfile?.nickname ? defaultNickname : defaultNickname);
+    : (cloudUser?.nickname || defaultNickname);
+  const resolvedAvatar = savedProfile?.avatar || cloudUser?.avatar || 'bear';
+  const displaySavedNickname = resolvedNickname;
   const displaySavedMotto = savedProfile?.motto && savedProfile.motto !== DEFAULT_MOTTO_ZH
     ? savedProfile.motto
-    : defaultMotto;
+    : (cloudUser?.motto || defaultMotto);
 
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [subView, setSubView] = useState<'home' | 'achievements' | 'settings' | 'account'>(initialSubView);
   const [pendingSectionId, setPendingSectionId] = useState<string | null>(null);
-  const [nickname, setNickname] = useState(savedProfile?.nickname ?? '旅行者');
-  const [avatar, setAvatar] = useState(savedProfile?.avatar ?? 'bear');
-  const [motto, setMotto] = useState(savedProfile?.motto ?? DEFAULT_MOTTO_ZH);
+  const [nickname, setNickname] = useState(resolvedNickname);
+  const [avatar, setAvatar] = useState(resolvedAvatar);
+  const [motto, setMotto] = useState(savedProfile?.motto ?? cloudUser?.motto ?? DEFAULT_MOTTO_ZH);
   const [storageEstimate, setStorageEstimate] = useState<{ usage: number; quota: number } | null>(null);
   const [backupAction, setBackupAction] = useState<'export' | 'import' | null>(null);
   const [editing, setEditing] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [lastBackup, setLastBackup] = useState(() => {
     try { return localStorage.getItem('travel-last-backup') ?? ''; } catch { return ''; }
   });
   const [apiOrigin, setApiOrigin] = useState(() => getPlannerApiOrigin());
   const [testingApi, setTestingApi] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const avatarUploadRef = useRef<HTMLInputElement>(null);
+  const avatarCameraRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setNickname(savedProfile?.nickname ?? '旅行者');
-    setAvatar(savedProfile?.avatar ?? 'bear');
-    setMotto(savedProfile?.motto ?? DEFAULT_MOTTO_ZH);
-  }, [savedProfile]);
+    setNickname(resolvedNickname);
+    setAvatar(resolvedAvatar);
+    setMotto(savedProfile?.motto ?? cloudUser?.motto ?? DEFAULT_MOTTO_ZH);
+  }, [savedProfile, cloudUser?.nickname, cloudUser?.avatar, cloudUser?.motto, resolvedNickname, resolvedAvatar]);
 
   useEffect(() => {
     navigator.storage?.estimate()
@@ -100,19 +122,19 @@ export default function ProfileView({
   }, [snapshot.media.length]);
 
   useEffect(() => {
-    if (resetSettingsToken) setSettingsOpen(false);
+    if (resetSettingsToken) setSubView('home');
   }, [resetSettingsToken]);
 
   useEffect(() => {
     if (updateFocusToken) {
       setEditing(false);
-      setSettingsOpen(true);
+      setSubView('settings');
       setPendingSectionId('app-update-card');
     }
   }, [updateFocusToken]);
 
   useEffect(() => {
-    if (!settingsOpen || !pendingSectionId) return;
+    if (subView !== 'settings' || !pendingSectionId) return;
     const frame = window.requestAnimationFrame(() => {
       const target = document.getElementById(pendingSectionId);
       if (target) {
@@ -125,16 +147,20 @@ export default function ProfileView({
       setPendingSectionId(null);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [settingsOpen, pendingSectionId]);
+  }, [subView, pendingSectionId]);
 
-  function openSettings(sectionId?: string): void {
+  function openSubView(next: 'home' | 'achievements' | 'settings' | 'account', sectionId?: string): void {
     setEditing(false);
-    setSettingsOpen(true);
+    setSubView(next);
     if (sectionId) {
       setPendingSectionId(sectionId);
     } else {
       window.scrollTo({ top: 0, behavior: 'auto' });
     }
+  }
+
+  function openSettings(sectionId?: string): void {
+    openSubView('settings', sectionId);
   }
 
   function scrollToSettingsSection(sectionId: string): void {
@@ -166,14 +192,44 @@ export default function ProfileView({
   const backupHealthy = Boolean(lastBackup && (Date.now() - Date.parse(lastBackup)) < 30 * 86_400_000);
   const storagePct = storageEstimate?.quota ? Math.min(100, Math.max(3, (storageEstimate.usage / storageEstimate.quota) * 100)) : 0;
 
+  async function handleAvatarFileChange(input: HTMLInputElement): Promise<void> {
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const dataUrl = await compressAvatarImage(file);
+      setAvatar(dataUrl);
+      onNotice(t('已选取头像照片，点击「保存名片装扮」生效。', 'Avatar photo selected. Save profile to apply.'));
+    } catch (error: unknown) {
+      onError(error instanceof Error ? error.message : t('头像处理失败', 'Failed to process avatar photo'));
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
+
   async function saveMyProfile(): Promise<void> {
     try {
+      const nextNickname = nickname.trim() || cloudUser?.nickname || '旅行者';
+      const nextMotto = motto.trim() || DEFAULT_MOTTO_ZH;
       await onSaveProfile({
         id: 'profile',
-        nickname: nickname.trim() || '旅行者',
+        nickname: nextNickname,
         avatar,
-        motto: motto.trim() || DEFAULT_MOTTO_ZH,
+        motto: nextMotto,
       });
+      if (cloudUser && getCloudToken()) {
+        try {
+          const res = await cloudApi.updateProfile({
+            avatar,
+            motto: nextMotto,
+          });
+          setCloudAuthState(getCloudToken(), res.user);
+          onCloudUserUpdated?.(res.user);
+        } catch {
+          /* 云端资料同步失败不影响本机保存 */
+        }
+      }
       setEditing(false);
       onNotice(t('旅人名片已更新。', 'Traveler card updated.'));
     } catch (error: unknown) {
@@ -244,7 +300,68 @@ export default function ProfileView({
 
   const [mapApp, setMapApp] = useState<MapAppProvider>(() => readMapAppProvider());
 
-  if (settingsOpen) {
+  if (subView === 'achievements') {
+    return (
+      <div className="profile-subview-shell">
+        <div className="content-page profile-subview-topbar">
+          <button
+            type="button"
+            className="secondary settings-back-btn"
+            onClick={() => openSubView('home')}
+          >
+            <span aria-hidden="true">←</span> {t('返回个人中心', 'Back to Profile')}
+          </button>
+        </div>
+        <Suspense fallback={<div className="empty-state">{t('正在打开旅途成就…', 'Opening Achievements…')}</div>}>
+          <AchievementsView
+            marks={effectiveMarks}
+            entries={snapshot.entries}
+            trips={snapshot.trips}
+            media={snapshot.media}
+            badges={snapshot.badges}
+            intimacyBonds={intimacyBonds}
+            onSaveBadge={onSaveBadge}
+            onOpenEntry={onOpenEntry}
+            onError={onError}
+            onNotice={onNotice}
+            webTourMode={webTourMode}
+            onRequireClient={onRequireClient}
+          />
+        </Suspense>
+      </div>
+    );
+  }
+
+  if (subView === 'account' && onOpenAuth && onSyncNow && onCloudUserUpdated) {
+    return (
+      <div className="content-page warm-profile profile-settings-view">
+        <div className="section-heading settings-view-header">
+          <div>
+            <button
+              type="button"
+              className="secondary settings-back-btn"
+              onClick={() => openSubView('home')}
+            >
+              <span aria-hidden="true">←</span> {t('返回个人中心', 'Back to Profile')}
+            </button>
+            <h1>{t('账号与云同步', 'Account & Cloud Sync')}</h1>
+            <p>{t('管理云端账号、多端同步、好友码、地图可见度、密码密保与已登录设备。', 'Manage your cloud account, sync, friend code, map privacy, security, and devices.')}</p>
+          </div>
+        </div>
+        <CloudSyncCard
+          cloudUser={cloudUser}
+          syncing={syncingCloud}
+          onOpenAuth={onOpenAuth}
+          onSyncNow={onSyncNow}
+          onUserUpdated={onCloudUserUpdated}
+          onNotice={onNotice}
+          onError={onError}
+        />
+      </div>
+    );
+  }
+
+  if (subView === 'settings') {
     const quickNavItems = [
       { id: 'settings-ai-usage', label: t('AI 额度与用量', 'AI Quota & Usage') },
       { id: 'settings-language', label: t('语言', 'Language') },
@@ -262,10 +379,7 @@ export default function ProfileView({
             <button
               type="button"
               className="secondary settings-back-btn"
-              onClick={() => {
-                setSettingsOpen(false);
-                window.scrollTo({ top: 0, behavior: 'auto' });
-              }}
+              onClick={() => openSubView('home')}
             >
               <span aria-hidden="true">←</span> {t('返回个人中心', 'Back to Profile')}
             </button>
@@ -471,23 +585,11 @@ export default function ProfileView({
       <div className="section-heading">
         <div>
           <h1>{t('个人中心', 'Personal Center')}</h1>
-          <p>{t('装扮你的旅人小护照，随时切换页面风格；云端账号同步、语言、备份与离线地图等均在此管理。', 'Customize your traveler passport, cloud sync account, language, backups, and offline maps.')}</p>
+          <p>{t('装扮旅人名片、查看旅途成就与徽章，并管理页面风格、账号同步与偏好设置。', 'Customize your traveler card, explore achievements, switch themes, and manage account & settings.')}</p>
         </div>
       </div>
 
-      {onOpenAuth && onSyncNow && onCloudUserUpdated && (
-        <CloudSyncCard
-          cloudUser={cloudUser}
-          syncing={syncingCloud}
-          onOpenAuth={onOpenAuth}
-          onSyncNow={onSyncNow}
-          onUserUpdated={onCloudUserUpdated}
-          onNotice={onNotice}
-          onError={onError}
-        />
-      )}
-
-      {/* 旅人护照横幅 + 内联装扮面板 */}
+      {/* 旅人护照横幅 + 内联装扮面板（统一展示，不再堆叠多余的云同步大卡片） */}
       <section className="warm-profile-banner">
         <span className="washi-tape tape-top-left" aria-hidden="true" />
         <CuteSticker kind="plane" className="profile-float-plane" />
@@ -502,18 +604,29 @@ export default function ProfileView({
             aria-controls={editing ? 'profile-dressup-drawer' : undefined}
           >
             <TravelAvatar
-              avatarId={editing ? avatar : savedProfile?.avatar}
+              avatarId={editing ? avatar : resolvedAvatar}
               nickname={editing ? nickname : displaySavedNickname}
               className="warm-profile-avatar"
             />
-            <span className="avatar-edit-dot" aria-hidden="true">✎</span>
+            <span className="avatar-edit-dot" aria-hidden="true">📷</span>
           </button>
 
           <div className="profile-banner-info">
             <div className="profile-name-row">
               <h2>{editing ? (nickname.trim() || defaultNickname) : displaySavedNickname}</h2>
               <span className="profile-level-tag">Lv.{levelInfo.level} {levelInfo.title}</span>
-              <span className="profile-local-tag">{t('本机单机版', 'Local Only')}</span>
+              {cloudUser ? (
+                <button
+                  type="button"
+                  className="profile-local-tag profile-code-tag"
+                  title={t('点击复制好友码', 'Tap to copy friend code')}
+                  onClick={() => navigator.clipboard?.writeText(cloudUser.friendCode).then(() => onNotice(`已复制好友码：${cloudUser.friendCode}`)).catch(() => undefined)}
+                >
+                  ☁️ {cloudUser.friendCode}
+                </button>
+              ) : (
+                <span className="profile-local-tag">{t('本机单机版', 'Local Only')}</span>
+              )}
             </div>
             <p className="profile-motto">{editing ? (motto.trim() || defaultMotto) : displaySavedMotto}</p>
             <div className="profile-quick-chips">
@@ -568,7 +681,49 @@ export default function ProfileView({
             </div>
 
             <div className="avatar-picker-block">
-              <span className="avatar-picker-label">{t('挑选一个可爱旅人头像', 'Choose a traveler avatar')}</span>
+              <span className="avatar-picker-label">{t('更换头像（支持相册上传、现场拍照或可爱预设）', 'Change Avatar (Upload, Take Photo, or Presets)')}</span>
+              <div className="avatar-photo-actions">
+                <button
+                  type="button"
+                  className="secondary avatar-photo-btn"
+                  disabled={avatarUploading}
+                  onClick={() => avatarUploadRef.current?.click()}
+                >
+                  🖼️ {avatarUploading ? t('处理中…', 'Processing…') : t('上传照片', 'Upload Photo')}
+                </button>
+                <button
+                  type="button"
+                  className="secondary avatar-photo-btn"
+                  disabled={avatarUploading}
+                  onClick={() => avatarCameraRef.current?.click()}
+                >
+                  📷 {t('拍照', 'Take Photo')}
+                </button>
+                {isCustomAvatarUrl(avatar) && (
+                  <button
+                    type="button"
+                    className="text-button avatar-photo-clear"
+                    onClick={() => setAvatar('bear')}
+                  >
+                    {t('恢复默认头像', 'Reset Preset')}
+                  </button>
+                )}
+                <input
+                  ref={avatarUploadRef}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(event) => void handleAvatarFileChange(event.currentTarget)}
+                />
+                <input
+                  ref={avatarCameraRef}
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  hidden
+                  onChange={(event) => void handleAvatarFileChange(event.currentTarget)}
+                />
+              </div>
               <div className="avatar-picker-grid" role="radiogroup" aria-label={t('旅人头像', 'Traveler avatar')}>
                 {AVATAR_PRESETS.map((preset) => (
                   <button
@@ -587,16 +742,16 @@ export default function ProfileView({
             </div>
 
             <div className="profile-dressup-actions">
-              <button type="button" className="primary" disabled={backupAction !== null} onClick={() => void saveMyProfile()}>
+              <button type="button" className="primary" disabled={backupAction !== null || avatarUploading} onClick={() => void saveMyProfile()}>
                 {t('保存名片装扮', 'Save Profile')}
               </button>
               <button
                 type="button"
                 className="text-button"
                 onClick={() => {
-                  setNickname(savedProfile?.nickname ?? '旅行者');
-                  setAvatar(savedProfile?.avatar ?? 'bear');
-                  setMotto(savedProfile?.motto ?? DEFAULT_MOTTO_ZH);
+                  setNickname(resolvedNickname);
+                  setAvatar(resolvedAvatar);
+                  setMotto(savedProfile?.motto ?? cloudUser?.motto ?? DEFAULT_MOTTO_ZH);
                   setEditing(false);
                 }}
               >
@@ -605,6 +760,33 @@ export default function ProfileView({
             </div>
           </div>
         )}
+      </section>
+
+      {/* 旅途成就入口卡片：从底部导航收进个人中心，点击打开完整成就与徽章墙 */}
+      <section className="card profile-achievements-entry-card" aria-label={t('旅途成就与徽章', 'Travel Achievements & Badges')}>
+        <button type="button" className="profile-achievements-entry-btn" onClick={() => openSubView('achievements')}>
+          <span className="profile-ach-icon" aria-hidden="true">
+            <TravelIcon name="achievements" />
+          </span>
+          <span className="profile-ach-body">
+            <span className="profile-ach-title-row">
+              <strong>{t('旅途成就与徽章', 'Travel Achievements & Badges')}</strong>
+              <span className="profile-ach-pill">Lv.{levelInfo.level} · {levelInfo.title}</span>
+            </span>
+            <small>
+              {levelInfo.nextTarget
+                ? t(
+                  `已点亮 ${visitedCityCount} 座城市 · 再去 ${levelInfo.remainingCities} 城升级「${levelInfo.nextTitle}」 · 已收藏 ${snapshot.badges.length} 枚定制徽章`,
+                  `${visitedCityCount} cities · ${levelInfo.remainingCities} more to ${levelInfo.nextTitle} · ${snapshot.badges.length} custom badges`,
+                )
+                : t(`已满级！已点亮 ${visitedCityCount} 座城市 · 已收藏 ${snapshot.badges.length} 枚定制徽章`, `Max Level! ${visitedCityCount} cities · ${snapshot.badges.length} custom badges`)}
+            </small>
+            <span className="profile-ach-bar" aria-hidden="true">
+              <span style={{ width: `${Math.max(8, levelInfo.progressPct)}%` }} />
+            </span>
+          </span>
+          <span className="settings-entry-chevron" aria-hidden="true">›</span>
+        </button>
       </section>
 
       {/* 页面风格与明暗直接放在个人中心外面，方便随时换肤 */}
@@ -643,7 +825,7 @@ export default function ProfileView({
               <strong>{snapshot.badges.length}</strong>
             </div>
           </div>
-          <p className="muted profile-privacy-note">{t('单机隐私模式：不上传云端、无账号绑定，你的照片、语音和手账只属于这台设备。', 'Local-first privacy: no cloud upload or account required. Your photos, voice notes, and journals stay on this device.')}</p>
+          <p className="muted profile-privacy-note">{t('照片、视频与语音始终安全保存在本机；登录周游账号后可额外同步文字攻略与城市足迹。', 'Photos, videos, and audio stay safely on your device; sign in to sync itineraries and footprints across devices.')}</p>
         </section>
 
         <section className="card warm-storage">
@@ -674,8 +856,29 @@ export default function ProfileView({
         </section>
       </div>
 
-      {/* 偏好与设置：放在个人中心最下面，点开进入设置页 */}
-      <section className="card profile-settings-entry-card profile-settings-compact-card" aria-label={t('偏好与设置', 'Preferences & Settings')}>
+      {/* 账号云同步 & 偏好与设置：简洁收口在个人中心底部 */}
+      <section className="card profile-settings-entry-card profile-settings-compact-card" aria-label={t('账号与设置', 'Account & Settings')}>
+        {onOpenAuth && onSyncNow && onCloudUserUpdated && (
+          <button
+            type="button"
+            className="settings-entry-row settings-entry-divider"
+            onClick={() => (cloudUser ? openSubView('account') : onOpenAuth('login'))}
+          >
+            <span className="settings-entry-icon is-cloud" aria-hidden="true">☁️</span>
+            <span className="settings-entry-copy">
+              <strong>{t('账号与云同步', 'Account & Cloud Sync')}</strong>
+              <small>
+                {cloudUser
+                  ? t(`已登录 ${cloudUser.nickname} · 管理隐私、密保与多端设备`, `Signed in as ${cloudUser.nickname} · Privacy, security & devices`)
+                  : t('登录或注册开启电脑-手机攻略同步与同行旅伴', 'Sign in to sync plans across devices and unlock Companions')}
+              </small>
+            </span>
+            <span className={`settings-entry-value ${cloudUser ? 'is-safe' : ''}`}>
+              {cloudUser ? (syncingCloud ? t('同步中…', 'Syncing…') : t('已开启', 'Active')) : t('去登录', 'Sign In')}
+            </span>
+            <span className="settings-entry-chevron" aria-hidden="true">›</span>
+          </button>
+        )}
         <button type="button" className="settings-entry-row" onClick={() => openSettings()}>
           <span className="settings-entry-icon is-server"><TravelIcon name="settings" /></span>
           <span className="settings-entry-copy">

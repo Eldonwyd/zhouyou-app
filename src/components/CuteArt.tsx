@@ -21,6 +21,44 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
   { id: 'initial', label: '经典文字', labelEn: 'Initial', bg: '#eaf0e1', accent: '#526c48' },
 ];
 
+export function isCustomAvatarUrl(avatarId?: string): boolean {
+  if (!avatarId) return false;
+  return /^(data:image\/(jpeg|jpg|png|webp|gif);base64,|https?:\/\/|blob:)/i.test(avatarId.trim());
+}
+
+/** 将上传或拍照的图片居中裁切为 256×256 正方形 JPEG dataURL（约 15-30KB），适合本地存储与云端同步。 */
+export async function compressAvatarImage(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('请选择图片文件');
+  }
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('无法读取该图片，请换一张重试'));
+      el.src = objectUrl;
+    });
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('当前环境不支持图片处理');
+    const minSide = Math.min(img.naturalWidth || img.width, img.naturalHeight || img.height);
+    const sx = Math.max(0, ((img.naturalWidth || img.width) - minSide) / 2);
+    const sy = Math.max(0, ((img.naturalHeight || img.height) - minSide) / 2);
+    ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+    let dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+    if (dataUrl.length > 65_000) {
+      dataUrl = canvas.toDataURL('image/jpeg', 0.65);
+    }
+    return dataUrl;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 export function TravelAvatar({
   avatarId,
   nickname,
@@ -30,6 +68,14 @@ export function TravelAvatar({
   nickname: string;
   className?: string;
 }) {
+  if (isCustomAvatarUrl(avatarId)) {
+    return (
+      <span className={`travel-avatar travel-avatar-photo ${className}`} aria-hidden="true">
+        <img src={avatarId} alt={nickname || '头像'} className="cute-avatar-img" />
+      </span>
+    );
+  }
+
   const id = AVATAR_PRESETS.some((item) => item.id === avatarId) ? avatarId! : 'bear';
   const preset = AVATAR_PRESETS.find((item) => item.id === id) ?? AVATAR_PRESETS[0];
   const initial = (nickname.trim() || '旅')[0];

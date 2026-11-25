@@ -319,7 +319,7 @@ export const onRequest = withApiHandler(async (context) => {
 
   // PATCH /api/auth/profile
   if (method === 'PATCH' && action === 'profile') {
-    const body = await readJsonBody(request, 8192);
+    const body = await readJsonBody(request, 96 * 1024);
     const updates = [];
     const params = [];
 
@@ -332,8 +332,11 @@ export const onRequest = withApiHandler(async (context) => {
       params.push(parsed.display, parsed.norm);
     }
     if (body.avatar !== undefined) {
+      const rawAvatar = String(body.avatar || 'bear').trim();
+      const isDataImage = /^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/i.test(rawAvatar);
+      const safeAvatar = isDataImage ? rawAvatar.slice(0, 80000) : rawAvatar.slice(0, 32);
       updates.push('avatar_preset = ?');
-      params.push(String(body.avatar || 'bear').slice(0, 32));
+      params.push(safeAvatar || 'bear');
     }
     if (body.motto !== undefined) {
       updates.push('motto = ?');

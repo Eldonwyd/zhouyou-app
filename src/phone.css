@@ -107,8 +107,8 @@ div.mobile-disclosure-body,
   }
   .app-shell .sidebar nav {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 1px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
     height: auto;
   }
   .main-shell {
@@ -129,7 +129,7 @@ div.mobile-disclosure-body,
     border-radius: 12px;
     background: transparent;
     color: var(--muted);
-    font-size: 10.5px;
+    font-size: 11px;
     font-weight: 500;
     line-height: 1.2;
     white-space: nowrap;
@@ -137,8 +137,8 @@ div.mobile-disclosure-body,
   }
   .app-shell .sidebar .nav-item:hover { transform: none; background: transparent; color: var(--ink); }
   .app-shell .sidebar .nav-item .nav-icon {
-    width: 38px;
-    height: 26px;
+    width: 44px;
+    height: 28px;
     border-radius: 999px;
     display: grid;
     place-items: center;
@@ -160,6 +160,7 @@ div.mobile-disclosure-body,
   .app-shell .sidebar .nav-item.active .nav-icon { transform: translateY(-1px); }
   .app-shell .sidebar .nav-item.nav-map.active .nav-icon { background: var(--app-sage); color: var(--app-sage-ink); }
   .app-shell .sidebar .nav-item.nav-plan.active .nav-icon { background: var(--app-blue); color: var(--app-blue-ink); }
+  .app-shell .sidebar .nav-item.nav-companions.active .nav-icon { background: #e1f4ee; color: #1f7d64; }
   .app-shell .sidebar .nav-item.nav-detail.active .nav-icon { background: var(--app-peach); color: var(--app-peach-ink); }
   .app-shell .sidebar .nav-item.nav-achievements.active .nav-icon { background: var(--app-honey); color: var(--app-honey-ink); }
   .app-shell .sidebar .nav-item.nav-profile.active .nav-icon { background: var(--app-lilac); color: var(--app-lilac-ink); }
