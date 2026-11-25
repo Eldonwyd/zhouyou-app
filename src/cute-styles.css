@@ -1026,15 +1026,18 @@
   position: relative;
   border-radius: 24px;
   padding: 26px 28px 24px;
-  background: var(--app-sage);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--app-honey, var(--warm-soft)) 42%, var(--surface)) 0%,
+    var(--surface) 52%,
+    color-mix(in srgb, var(--app-sage, var(--warm-soft)) 44%, var(--surface)) 100%
+  );
   border: 1px solid color-mix(in srgb, var(--warm-green) 18%, var(--line));
   margin-bottom: 26px;
   box-shadow: var(--elev-card);
 }
 .passport-mobile-level,
-.passport-mobile-progress,
-.level-roadmap-toggle,
-.level-roadmap-mini-preview { display: none; }
+.passport-mobile-progress { display: none; }
 
 .passport-sparkle {
   position: absolute;
@@ -1152,40 +1155,44 @@
   height: 34px;
 }
 
-/* 路线颜色集中在面板内，随页面的深浅模式切换。海松绿用于走过的路线，杏陶色标记下一站。 */
+/* 旅人成长路线：采用与手机端成就一致的多彩柔和马卡龙色板，自动联动 5 套主题与深浅模式；默认折叠为紧凑预览条，点击展开全部 8 级。 */
 .level-roadmap {
   container: traveler-roadmap / inline-size;
-  --roadmap-paper: light-dark(#fcfaf5, #1e2927);
-  --roadmap-card: light-dark(#fffdf9, #242e2c);
-  --roadmap-edge: light-dark(#ddd9cf, #43504b);
-  --roadmap-ink: light-dark(#273e38, #edf2e9);
-  --roadmap-muted: light-dark(#5c6962, #b6c5bb);
-  --roadmap-pine: light-dark(#245e53, #a7d9c8);
-  --roadmap-pine-soft: light-dark(#dceee5, #2e4a42);
-  --roadmap-pine-line: light-dark(#77a492, #6f9f91);
-  --roadmap-pine-inverse: light-dark(#f7fff9, #15312b);
-  --roadmap-clay: light-dark(#8b4634, #fac0a8);
-  --roadmap-clay-soft: light-dark(#f7e0d4, #563c35);
+  --roadmap-surface: color-mix(in srgb, var(--surface) 94%, transparent);
+  --roadmap-edge: color-mix(in srgb, var(--line-strong, var(--line)) 78%, transparent);
+  --roadmap-ink: var(--ink);
+  --roadmap-muted: var(--muted);
+  --roadmap-accent: var(--app-sage-ink, var(--warm-green));
+  --roadmap-accent-soft: var(--app-sage, var(--warm-soft));
+  --roadmap-next: var(--app-peach-ink, var(--coral));
+  --roadmap-next-soft: var(--app-peach, var(--warm-peach));
   margin-bottom: 18px;
-  padding: clamp(12px, 2vw, 22px);
-  border: 1px solid var(--roadmap-edge);
+  padding: 14px clamp(14px, 2vw, 20px);
+  border: 1px solid color-mix(in srgb, var(--app-peach-ink, var(--warm-green)) 16%, var(--line));
   border-radius: 20px;
-  background: linear-gradient(125deg, var(--roadmap-paper), color-mix(in srgb, var(--roadmap-pine-soft) 54%, var(--roadmap-paper)));
+  background: linear-gradient(
+    130deg,
+    color-mix(in srgb, var(--app-honey, var(--warm-soft)) 44%, var(--surface)) 0%,
+    color-mix(in srgb, var(--surface) 96%, var(--app-blue, var(--surface))) 52%,
+    color-mix(in srgb, var(--app-peach, var(--warm-soft)) 38%, var(--surface)) 100%
+  );
+  box-shadow: 0 4px 16px -8px color-mix(in srgb, var(--ink) 12%, transparent);
 }
 .level-roadmap-head {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 .level-roadmap-icon {
   display: grid;
   flex: 0 0 32px;
   height: 32px;
   place-items: center;
-  border-radius: 10px;
-  background: var(--roadmap-pine-soft);
-  color: var(--roadmap-pine);
+  border-radius: 11px;
+  background: linear-gradient(135deg, var(--app-sage, var(--warm-soft)), color-mix(in srgb, var(--app-blue, var(--warm-soft)) 65%, var(--surface)));
+  color: var(--app-sage-ink, var(--warm-green));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .55);
 }
 .level-roadmap-icon .travel-icon {
   width: 17px;
@@ -1194,24 +1201,207 @@
 .level-roadmap-head h3 {
   margin: 0;
   color: var(--roadmap-ink);
-  font-size: clamp(16px, 2cqi, 19px);
+  font-size: clamp(15px, 1.8cqi, 17px);
   line-height: 1.4;
 }
+.level-roadmap-progress-pill {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-honey, var(--warm-soft)) 78%, var(--surface));
+  color: var(--app-honey-ink, var(--ink-2));
+  border: 1px solid color-mix(in srgb, var(--app-honey-ink, var(--line)) 22%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.level-roadmap-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-inline-start: auto;
+  padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--app-sage-ink, var(--warm-green)) 22%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 86%, var(--app-sage, var(--surface)));
+  color: var(--app-sage-ink, var(--warm-green));
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+.level-roadmap-toggle:hover {
+  background: color-mix(in srgb, var(--app-sage, var(--warm-soft)) 62%, var(--surface));
+  border-color: color-mix(in srgb, var(--app-sage-ink, var(--warm-green)) 38%, var(--line));
+  transform: translateY(-1px);
+}
+.level-roadmap-toggle span {
+  width: 6px;
+  height: 6px;
+  border: solid currentColor;
+  border-width: 0 1.6px 1.6px 0;
+  transform: translateY(-1.5px) rotate(45deg);
+  transition: transform .2s ease;
+}
+.level-roadmap-toggle[aria-expanded="true"] span {
+  transform: translateY(1.5px) rotate(225deg);
+}
+
+/* 8 个里程碑各自的柔和马卡龙色板（与手机端统计卡片与徽章墙呼应） */
+:is(.level-step, .roadmap-mini-node)[data-tier="1"] { --tier-bg: var(--app-sage, #dff4e4); --tier-ink: var(--app-sage-ink, #387a52); --tier-on-ink: #ffffff; }
+:is(.level-step, .roadmap-mini-node)[data-tier="2"] { --tier-bg: var(--app-blue, #dff0fe); --tier-ink: var(--app-blue-ink, #3570a8); --tier-on-ink: #ffffff; }
+:is(.level-step, .roadmap-mini-node)[data-tier="3"] { --tier-bg: var(--app-honey, #fff0c7); --tier-ink: var(--app-honey-ink, #ad6d17); --tier-on-ink: #ffffff; }
+:is(.level-step, .roadmap-mini-node)[data-tier="4"] { --tier-bg: var(--app-peach, #ffe3d9); --tier-ink: var(--app-peach-ink, #c24b3a); --tier-on-ink: #ffffff; }
+:is(.level-step, .roadmap-mini-node)[data-tier="5"] { --tier-bg: var(--app-lilac, #efe3fd); --tier-ink: var(--app-lilac-ink, #7a4fb0); --tier-on-ink: #ffffff; }
+:is(.level-step, .roadmap-mini-node)[data-tier="6"] { --tier-bg: var(--app-sage, #dff4e4); --tier-ink: var(--app-sage-ink, #387a52); --tier-on-ink: #ffffff; }
+:is(.level-step, .roadmap-mini-node)[data-tier="7"] { --tier-bg: var(--app-honey, #fff0c7); --tier-ink: var(--app-honey-ink, #ad6d17); --tier-on-ink: #ffffff; }
+:is(.level-step, .roadmap-mini-node)[data-tier="8"] { --tier-bg: var(--app-peach, #ffe3d9); --tier-ink: var(--app-peach-ink, #c24b3a); --tier-on-ink: #ffffff; }
+
+:root[data-theme="dark"] :is(.level-step, .roadmap-mini-node)[data-tier="1"],
+:root[data-theme="dark"] :is(.level-step, .roadmap-mini-node)[data-tier="6"] { --tier-bg: #243b31; --tier-ink: #9ad8b4; --tier-on-ink: #12241c; }
+:root[data-theme="dark"] :is(.level-step, .roadmap-mini-node)[data-tier="2"] { --tier-bg: #223548; --tier-ink: #94cbf4; --tier-on-ink: #12202d; }
+:root[data-theme="dark"] :is(.level-step, .roadmap-mini-node)[data-tier="3"],
+:root[data-theme="dark"] :is(.level-step, .roadmap-mini-node)[data-tier="7"] { --tier-bg: #3f331e; --tier-ink: #f4cc7e; --tier-on-ink: #291e0b; }
+:root[data-theme="dark"] :is(.level-step, .roadmap-mini-node)[data-tier="4"],
+:root[data-theme="dark"] :is(.level-step, .roadmap-mini-node)[data-tier="8"] { --tier-bg: #442b29; --tier-ink: #f8ab9a; --tier-on-ink: #2c1513; }
+:root[data-theme="dark"] :is(.level-step, .roadmap-mini-node)[data-tier="5"] { --tier-bg: #362947; --tier-ink: #cfb0f6; --tier-on-ink: #201430; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) :is(.level-step, .roadmap-mini-node)[data-tier="1"],
+  :root:not([data-theme="light"]) :is(.level-step, .roadmap-mini-node)[data-tier="6"] { --tier-bg: #243b31; --tier-ink: #9ad8b4; --tier-on-ink: #12241c; }
+  :root:not([data-theme="light"]) :is(.level-step, .roadmap-mini-node)[data-tier="2"] { --tier-bg: #223548; --tier-ink: #94cbf4; --tier-on-ink: #12202d; }
+  :root:not([data-theme="light"]) :is(.level-step, .roadmap-mini-node)[data-tier="3"],
+  :root:not([data-theme="light"]) :is(.level-step, .roadmap-mini-node)[data-tier="7"] { --tier-bg: #3f331e; --tier-ink: #f4cc7e; --tier-on-ink: #291e0b; }
+  :root:not([data-theme="light"]) :is(.level-step, .roadmap-mini-node)[data-tier="4"],
+  :root:not([data-theme="light"]) :is(.level-step, .roadmap-mini-node)[data-tier="8"] { --tier-bg: #442b29; --tier-ink: #f8ab9a; --tier-on-ink: #2c1513; }
+  :root:not([data-theme="light"]) :is(.level-step, .roadmap-mini-node)[data-tier="5"] { --tier-bg: #362947; --tier-ink: #cfb0f6; --tier-on-ink: #201430; }
+}
+
+/* 折叠态：当前站 → 下一站紧凑彩条（桌面与手机通用） */
+.level-roadmap-mini-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  font-size: 13px;
+  min-width: 0;
+  cursor: pointer;
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+.level-roadmap-mini-preview:hover {
+  background: var(--surface);
+  border-color: color-mix(in srgb, var(--app-peach-ink, var(--warm-green)) 28%, var(--line));
+  box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--ink) 14%, transparent);
+}
+.roadmap-mini-node {
+  --tier-bg: var(--app-sage, #dff4e4);
+  --tier-ink: var(--app-sage-ink, #387a52);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 11px 5px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tier-bg) 52%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--tier-ink) 20%, transparent);
+  color: var(--roadmap-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.roadmap-mini-copy {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.roadmap-mini-node b { font-weight: 700; }
+.roadmap-mini-node.is-current {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--tier-bg) 88%, var(--surface)), color-mix(in srgb, var(--tier-bg) 42%, var(--surface)));
+  border-color: color-mix(in srgb, var(--tier-ink) 34%, transparent);
+  color: var(--tier-ink);
+  font-weight: 600;
+}
+.roadmap-mini-node.is-next {
+  background: color-mix(in srgb, var(--tier-bg) 46%, var(--surface));
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--tier-ink) 32%, transparent);
+  color: var(--tier-ink);
+}
+.roadmap-mini-node.is-done {
+  background: linear-gradient(135deg, var(--app-honey, #fff0c7), var(--app-peach, #ffe3d9));
+  border-color: color-mix(in srgb, var(--app-honey-ink, #ad6d17) 30%, transparent);
+  color: var(--app-honey-ink, #ad6d17);
+  font-weight: 700;
+  padding-inline: 12px;
+}
+.roadmap-mini-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+.roadmap-mini-node.is-current .roadmap-mini-icon {
+  background: var(--tier-ink);
+  color: var(--tier-on-ink, #ffffff);
+  box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--tier-bg) 90%, transparent);
+}
+.roadmap-mini-node.is-next .roadmap-mini-icon {
+  background: var(--tier-bg);
+  color: var(--tier-ink);
+}
+.roadmap-mini-icon .travel-icon { width: 13px; height: 13px; }
+.roadmap-mini-tag {
+  font-style: normal;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  line-height: 1.25;
+  flex: none;
+}
+.roadmap-mini-node.is-current .roadmap-mini-tag {
+  background: var(--tier-ink);
+  color: var(--tier-on-ink, #ffffff);
+}
+.roadmap-mini-node.is-next .roadmap-mini-tag {
+  background: color-mix(in srgb, var(--tier-bg) 92%, var(--surface));
+  color: var(--tier-ink);
+}
+.roadmap-mini-rail {
+  flex: 1;
+  min-width: 18px;
+  height: 3px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--app-sage-ink, var(--warm-green)) 48%, transparent) 0 6px,
+    transparent 6px 11px
+  );
+}
+
+.level-roadmap-steps[data-expanded="false"] { display: none; }
 .level-roadmap-steps {
-  --roadmap-gap: clamp(8px, 1.25cqi, 16px);
-  --roadmap-marker-size: 34px;
+  --roadmap-gap: clamp(10px, 1.35cqi, 16px);
+  --roadmap-marker-size: 36px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px var(--roadmap-gap);
+  gap: 16px var(--roadmap-gap);
   margin: 0;
-  padding: 0;
+  padding: 6px 0 2px;
   list-style: none;
 }
 .level-step {
+  --tier-bg: var(--app-sage, #dff4e4);
+  --tier-ink: var(--app-sage-ink, #387a52);
   position: relative;
   display: grid;
   grid-template-rows: auto 1fr;
-  gap: 8px;
+  gap: 9px;
   min-width: 0;
 }
 
@@ -1222,10 +1412,14 @@
   top: calc(var(--roadmap-marker-size) / 2 - 1px);
   inset-inline-start: 50%;
   width: calc(100% + var(--roadmap-gap));
-  border-top: 2px dashed var(--roadmap-edge);
+  border-top: 2px dashed color-mix(in srgb, var(--roadmap-edge) 92%, transparent);
 }
-.level-step.is-reached::before { border-top: 2px solid var(--roadmap-pine-line); }
-.level-step.is-current::before { border-top-color: var(--roadmap-pine-line); }
+.level-step.is-reached::before {
+  border-top: 2.5px solid color-mix(in srgb, var(--tier-ink) 42%, var(--tier-bg));
+}
+.level-step.is-current::before {
+  border-top: 2px dashed color-mix(in srgb, var(--tier-ink) 52%, transparent);
+}
 @container traveler-roadmap (width < 520px) {
   .level-step:nth-child(2n)::before { display: none; }
 }
@@ -1236,16 +1430,18 @@
 .level-step:last-child::before { display: none; }
 .level-step-marker {
   position: relative;
+  z-index: 1;
   display: grid;
   place-items: center;
   justify-self: center;
   box-sizing: border-box;
   width: var(--roadmap-marker-size);
   height: var(--roadmap-marker-size);
-  border: 1px solid var(--roadmap-edge);
+  border: 1.5px solid color-mix(in srgb, var(--tier-ink) 20%, var(--line));
   border-radius: 50%;
-  background: var(--roadmap-card);
-  color: var(--roadmap-muted);
+  background: color-mix(in srgb, var(--tier-bg) 32%, var(--surface));
+  color: color-mix(in srgb, var(--tier-ink) 68%, var(--muted));
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--ink) 6%, transparent);
 }
 .level-step-marker .travel-icon {
   width: 17px;
@@ -1258,14 +1454,20 @@
   align-items: center;
   gap: 4px;
   min-width: 0;
-  padding: 9px clamp(7px, 1.6cqi, 15px) 10px;
-  border: 1px solid var(--roadmap-edge);
-  border-radius: 12px;
-  background: var(--roadmap-card);
+  padding: 11px clamp(9px, 1.6cqi, 15px) 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 92%, transparent);
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--surface) 92%, var(--tier-bg));
+  box-shadow: 0 2px 8px -4px color-mix(in srgb, var(--ink) 10%, transparent);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.level-step-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px -10px color-mix(in srgb, var(--tier-ink) 32%, transparent);
 }
 .level-step-number {
   grid-column: 1;
-  color: var(--roadmap-muted);
+  color: color-mix(in srgb, var(--tier-ink) 72%, var(--muted));
   font-size: 11px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -1291,61 +1493,83 @@
   place-items: center;
   width: 16px;
   height: 16px;
-  border: 1px solid var(--roadmap-paper);
+  border: 1.5px solid var(--surface);
   border-radius: 50%;
-  background: var(--roadmap-pine);
-  color: var(--roadmap-pine-inverse);
+  background: var(--tier-ink);
+  color: var(--tier-on-ink, #ffffff);
   font-size: 10px;
   font-weight: 700;
 }
 .level-step-status {
   grid-column: 2;
-  padding: 3px 6px;
+  padding: 3px 8px;
   border-radius: 999px;
   font-size: 10px;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.25;
   white-space: nowrap;
 }
 
-/* 走过的站点保留浅绿色，当前位置使用更浓的色块，下一站保留暖色与文字标签。 */
+/* 已达成：保留每级专属柔和马卡龙底色与彩色小圆章；当前站：高亮渐变与光晕；下一站：柔和虚线预告。 */
 .level-step.is-reached .level-step-marker {
-  border-color: var(--roadmap-pine-line);
-  background: var(--roadmap-pine-soft);
-  color: var(--roadmap-pine);
+  border-color: color-mix(in srgb, var(--tier-ink) 42%, var(--tier-bg));
+  background: var(--tier-bg);
+  color: var(--tier-ink);
 }
 .level-step.is-reached .level-step-card {
-  border-color: color-mix(in srgb, var(--roadmap-pine-line) 36%, var(--roadmap-edge));
-  background: color-mix(in srgb, var(--roadmap-pine-soft) 28%, var(--roadmap-card));
+  border-color: color-mix(in srgb, var(--tier-ink) 22%, var(--line));
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--tier-bg) 56%, var(--surface)) 0%,
+    color-mix(in srgb, var(--tier-bg) 16%, var(--surface)) 100%
+  );
+}
+.level-step.is-reached .level-step-number {
+  color: var(--tier-ink);
 }
 .level-step.is-current .level-step-marker,
 .level-step.is-current .level-step-status {
-  background: var(--roadmap-pine);
-  color: var(--roadmap-pine-inverse);
+  background: var(--tier-ink);
+  color: var(--tier-on-ink, #ffffff);
 }
 .level-step.is-current .level-step-marker {
-  border-color: var(--roadmap-pine);
-  box-shadow: 0 0 0 3px var(--roadmap-pine-soft);
+  border-color: var(--tier-ink);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--tier-bg) 92%, transparent), 0 4px 12px -4px color-mix(in srgb, var(--tier-ink) 45%, transparent);
 }
 .level-step.is-current .level-step-card {
-  border-color: var(--roadmap-pine-line);
-  background: linear-gradient(135deg, var(--roadmap-pine-soft), color-mix(in srgb, var(--roadmap-pine-soft) 44%, var(--roadmap-card)));
+  border: 1.5px solid color-mix(in srgb, var(--tier-ink) 48%, var(--tier-bg));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--tier-bg) 94%, var(--surface)) 0%,
+    color-mix(in srgb, var(--tier-bg) 42%, var(--surface)) 100%
+  );
+  box-shadow: 0 8px 20px -10px color-mix(in srgb, var(--tier-ink) 38%, transparent);
 }
 .level-step.is-current .level-step-number,
 .level-step.is-current .level-step-title {
-  color: var(--roadmap-pine);
+  color: var(--tier-ink);
 }
 .level-step.is-next .level-step-marker,
 .level-step.is-next .level-step-status {
-  background: var(--roadmap-clay-soft);
-  color: var(--roadmap-clay);
+  background: var(--tier-bg);
+  color: var(--tier-ink);
 }
-.level-step.is-next .level-step-marker,
-.level-step.is-next .level-step-card {
-  border-color: color-mix(in srgb, var(--roadmap-clay) 36%, var(--roadmap-clay-soft));
+.level-step.is-next .level-step-marker {
+  border-color: color-mix(in srgb, var(--tier-ink) 38%, var(--tier-bg));
 }
 .level-step.is-next .level-step-card {
-  background: color-mix(in srgb, var(--roadmap-clay-soft) 32%, var(--roadmap-card));
+  border: 1.5px dashed color-mix(in srgb, var(--tier-ink) 38%, var(--tier-bg));
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--tier-bg) 52%, var(--surface)) 0%,
+    color-mix(in srgb, var(--tier-bg) 18%, var(--surface)) 100%
+  );
+}
+.level-step.is-next .level-step-number {
+  color: var(--tier-ink);
+}
+.level-step.is-upcoming .level-step-card {
+  background: color-mix(in srgb, var(--surface) 88%, var(--paper));
 }
 
 .warm-achievements .metric-grid.passport-metrics {
@@ -2247,88 +2471,43 @@
   .warm-achievements .level-roadmap {
     grid-row: 3;
     margin: 0;
-    padding: 6px 12px 10px;
+    padding: 8px 12px 10px;
     border-radius: 14px;
   }
-  .level-roadmap-mini-preview {
-    display: flex;
-    align-items: center;
+  .warm-achievements .level-roadmap-progress-pill,
+  .warm-achievements .roadmap-mini-tag {
+    display: none;
+  }
+  .warm-achievements .level-roadmap-mini-preview {
     gap: 6px;
     padding: 6px 8px;
     margin-top: 2px;
     border-radius: 10px;
-    background: color-mix(in srgb, var(--roadmap-card) 85%, transparent);
-    border: 1px solid color-mix(in srgb, var(--roadmap-edge) 75%, transparent);
     font-size: 11.5px;
-    min-width: 0;
   }
-  .roadmap-mini-node {
-    display: inline-flex;
-    align-items: center;
+  .warm-achievements .roadmap-mini-node {
     gap: 5px;
-    min-width: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--roadmap-ink);
+    padding: 3px 8px 3px 4px;
   }
-  .roadmap-mini-node b { font-weight: 700; }
-  .roadmap-mini-node.is-current { color: var(--roadmap-pine); font-weight: 600; }
-  .roadmap-mini-node.is-next { color: var(--roadmap-clay); }
-  .roadmap-mini-icon {
+  .warm-achievements .roadmap-mini-icon {
     width: 22px;
     height: 22px;
-    border-radius: 50%;
-    display: inline-grid;
-    place-items: center;
-    flex: none;
   }
-  .roadmap-mini-node.is-current .roadmap-mini-icon {
-    background: var(--roadmap-pine);
-    color: var(--roadmap-pine-inverse);
-  }
-  .roadmap-mini-node.is-next .roadmap-mini-icon {
-    background: var(--roadmap-clay-soft);
-    color: var(--roadmap-clay);
-  }
-  .roadmap-mini-icon .travel-icon { width: 12px; height: 12px; }
-  .roadmap-mini-rail {
-    flex: 1;
-    min-width: 12px;
-    border-top: 2px dashed var(--roadmap-pine-line);
-    opacity: .7;
-  }
-  .warm-achievements .level-roadmap-head { gap: 7px; margin: 0; }
+  .warm-achievements .roadmap-mini-icon .travel-icon { width: 12px; height: 12px; }
+  .warm-achievements .roadmap-mini-rail { min-width: 12px; }
+  .warm-achievements .level-roadmap-head { gap: 7px; margin: 0 0 6px; }
   .warm-achievements .level-roadmap-icon { flex-basis: 26px; height: 26px; border-radius: 8px; }
   .warm-achievements .level-roadmap-head h3 { font-size: 14px; }
-  .level-roadmap-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 44px;
-    margin-inline-start: auto;
-    padding: 0 5px;
-    border: 0;
-    background: transparent;
-    color: var(--roadmap-pine);
+  .warm-achievements .level-roadmap-toggle {
+    min-height: 36px;
+    padding: 4px 10px;
     font-size: 12px;
-    font-weight: 700;
-    white-space: nowrap;
   }
-  .level-roadmap-toggle span {
-    width: 6px;
-    height: 6px;
-    border: solid currentColor;
-    border-width: 0 1.5px 1.5px 0;
-    transform: translateY(-1px) rotate(45deg);
-  }
-  .level-roadmap-toggle[aria-expanded="true"] span { transform: translateY(2px) rotate(225deg); }
-  .warm-achievements .level-roadmap-steps[data-expanded="false"] { display: none; }
   .warm-achievements .level-roadmap-steps {
-    --roadmap-marker-size: 26px;
+    --roadmap-marker-size: 28px;
     grid-template-columns: minmax(0, 1fr);
-    gap: 6px;
-    padding: 4px 0 8px;
+    gap: 7px;
+    padding: 4px 0 6px;
   }
   .warm-achievements .level-step {
     grid-template-columns: var(--roadmap-marker-size) minmax(0, 1fr);
@@ -2342,18 +2521,23 @@
     top: 50%;
     inset-inline-start: calc(var(--roadmap-marker-size) / 2 - 1px);
     width: 0;
-    height: calc(100% + 6px);
+    height: calc(100% + 7px);
     border: 0;
-    border-inline-start: 2px dashed var(--roadmap-edge);
+    border-inline-start: 2px dashed color-mix(in srgb, var(--roadmap-edge) 92%, transparent);
   }
-  .warm-achievements .level-step.is-reached::before { border-inline-start: 2px solid var(--roadmap-pine-line); }
+  .warm-achievements .level-step.is-reached::before {
+    border-inline-start: 2.5px solid color-mix(in srgb, var(--tier-ink) 42%, var(--tier-bg));
+  }
+  .warm-achievements .level-step.is-current::before {
+    border-inline-start: 2px dashed color-mix(in srgb, var(--tier-ink) 52%, transparent);
+  }
   .warm-achievements .level-step:last-child::before { display: none; }
   .warm-achievements .level-step-marker .travel-icon { width: 14px; height: 14px; }
   .warm-achievements .level-step-card {
     grid-template-columns: minmax(0, 1fr) auto;
-    padding: 6px 8px;
+    padding: 7px 10px;
     gap: 2px 6px;
-    border-radius: 9px;
+    border-radius: 11px;
   }
   .warm-achievements .level-step-title { grid-column: 1; grid-row: 2; font-size: 13px; }
   .warm-achievements .level-step-threshold { grid-column: 2; grid-row: 2; font-size: 11px; white-space: nowrap; }

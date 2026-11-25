@@ -349,10 +349,13 @@ export default function AchievementsView({
           </div>
         </div>
 
-        <section className="level-roadmap" aria-labelledby="traveler-roadmap-title">
+        <section className="level-roadmap" aria-labelledby="traveler-roadmap-title" data-expanded={roadmapExpanded}>
           <div className="level-roadmap-head">
             <span className="level-roadmap-icon"><TravelIcon name="map" /></span>
             <h3 id="traveler-roadmap-title">{t('旅人成长路线', 'Traveler Roadmap')}</h3>
+            <span className="level-roadmap-progress-pill">
+              Lv.{levelInfo.level} / {levelInfo.maxLevel}
+            </span>
             <button
               type="button"
               className="level-roadmap-toggle"
@@ -365,23 +368,33 @@ export default function AchievementsView({
             </button>
           </div>
           {!roadmapExpanded && (
-            <div className="level-roadmap-mini-preview" aria-hidden="true">
-              <span className="roadmap-mini-node is-current">
+            <div
+              className="level-roadmap-mini-preview"
+              onClick={() => setRoadmapExpanded(true)}
+              role="presentation"
+            >
+              <span className="roadmap-mini-node is-current" data-tier={levelInfo.level}>
                 <span className="roadmap-mini-icon"><TravelIcon name={travelerStopIcons[levelInfo.level - 1] ?? 'map'} /></span>
-                <span><b>Lv.{levelInfo.level}</b> {levelInfo.title}</span>
+                <span className="roadmap-mini-copy">
+                  <b>Lv.{levelInfo.level}</b> {levelInfo.title}
+                </span>
+                <em className="roadmap-mini-tag">{t('当前', 'Now')}</em>
               </span>
               <span className="roadmap-mini-rail" />
               {levelInfo.nextTitle ? (
-                <span className="roadmap-mini-node is-next">
+                <span className="roadmap-mini-node is-next" data-tier={levelInfo.level + 1}>
                   <span className="roadmap-mini-icon"><TravelIcon name={travelerStopIcons[levelInfo.level] ?? 'map'} /></span>
-                  <span><b>Lv.{levelInfo.level + 1}</b> {levelInfo.nextTitle}</span>
+                  <span className="roadmap-mini-copy">
+                    <b>Lv.{levelInfo.level + 1}</b> {levelInfo.nextTitle}
+                  </span>
+                  <em className="roadmap-mini-tag">{t('下一站', 'Next')}</em>
                 </span>
               ) : (
                 <span className="roadmap-mini-node is-done">{t('✦ 已达成满级', '✦ Max Level')}</span>
               )}
             </div>
           )}
-          {/* 同一份等级列表在宽屏常显，窄屏按需展开，避免两端的达成状态分叉。 */}
+          {/* 桌面端与移动端统一默认折叠为当前→下一站紧凑条，点击展开完整 8 级多彩路线。 */}
           <ol id="traveler-roadmap-steps" className="level-roadmap-steps" role="list" data-expanded={roadmapExpanded}>
             {levelInfo.tiers.map((tier) => {
               // 用同一套等级结果标记已达成、当前与下一站，满级时自然没有下一站。
@@ -392,6 +405,7 @@ export default function AchievementsView({
               return (
                 <li
                   key={tier.level}
+                  data-tier={tier.level}
                   className={`level-step is-${status}`}
                   aria-current={isCurrent ? 'step' : undefined}
                 >
