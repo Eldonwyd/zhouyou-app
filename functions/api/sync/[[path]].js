@@ -4,6 +4,7 @@ import {
   MAX_USER_PLANS,
   SYNCABLE_STORES,
   canAccessPlan,
+  corsHeaders,
   createId,
   createNotification,
   errorResponse,
@@ -20,6 +21,43 @@ import {
   utf8ByteLength,
   withApiHandler,
 } from '../../../cloud-lib/cloud.js';
+
+const ASSET_ID_RE = /^[a-f0-9]{64}$/;
+const ALLOWED_PHOTO_MIMES = new Set(['image/webp', 'image/jpeg', 'image/png']);
+const MAX_PLANNER_PHOTO_BYTES = 240 * 1024; // 单张压缩后行程参考图上限 240KB
+
+let plannerPhotosReadyPromise = null;
+
+async function ensurePlannerPhotosTable(db) {
+  if (!plannerPhotosReadyPromise) {
+    plannerPhotosReadyPromise = db
+      .prepare(`
+        CREATE TABLE IF NOT EXISTS planner_photos (
+          asset_id TEXT PRIMARY KEY,
+          mime_type TEXT NOT NULL,
+          data_base64 TEXT NOT NULL,
+          byte_size INTEGER NOT NULL,
+          uploaded_by TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      `)
+      .run()
+      .catch((err) => {
+        plannerPhotosReadyPromise = null;
+        throw err;
+      });
+  }
+  return plannerPhotosReadyPromise;
+}
+
+function decodeBase64ToBytes(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
 
 function summarizePlanChange(prevPlan, nextPlan) {
   if (!prevPlan) return '创建了这份攻略';
@@ -65,8 +103,109 @@ export const onRequest = withApiHandler(async (context) => {
   const method = request.method.toUpperCase();
   const segments = parseRouteSegments(context);
   const db = getDb(context);
+
+  // GET /api/sync/photo/:assetId — 按 64 位内容哈希读取已同步的行程参考图（公开只读 + 强缓存，便于 <img> 与跨端缓存）
+  if (method === 'GET' && segments[0] === 'photo' && segments[1] && segments.length === 2) {
+    const assetId = String(segments[1]).toLowerCase();
+    if (!ASSET_ID_RE.test(assetId)) {
+      return errorResponse(request, 400, '无效的图片标识', 'INVALID_ASSET_ID');
+    }
+    await ensurePlannerPhotosTable(db);
+    const row = await db
+      .prepare('SELECT mime_type, data_base64 FROM planner_photos WHERE asset_id = ?')
+      .bind(assetId)
+      .first();
+    if (!row || !row.data_base64) {
+      return errorResponse(request, 404, '云端暂无该行程照片', 'PHOTO_NOT_FOUND');
+    }
+    const bytes = decodeBase64ToBytes(row.data_base64);
+    const cors = corsHeaders(request);
+    return new Response(bytes, {
+      status: 200,
+      headers: {
+        ...cors,
+        'Content-Type': ALLOWED_PHOTO_MIMES.has(row.mime_type) ? row.mime_type : 'image/jpeg',
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      },
+    });
+  }
+
   const auth = await requireAuth(db, request);
   const userId = auth.user.id;
+
+  // GET /api/sync/version — 极轻版本号探测（前端高频轮询仅查最新时间戳，无变化时不拉全量数据）
+  if (method === 'GET' && segments[0] === 'version' && segments.length === 1) {
+    const [recRow, planRow] = await Promise.all([
+      db.prepare('SELECT MAX(updated_at) AS ts FROM user_records WHERE user_id = ?').bind(userId).first(),
+      db
+        .prepare(`
+          SELECT MAX(updated_at) AS ts
+          FROM ai_plans
+          WHERE owner_id = ?
+             OR group_id IN (SELECT group_id FROM travel_group_members WHERE user_id = ?)
+        `)
+        .bind(userId, userId)
+        .first(),
+    ]);
+    const rTs = typeof recRow?.ts === 'string' ? recRow.ts : '';
+    const pTs = typeof planRow?.ts === 'string' ? planRow.ts : '';
+    const latestUpdatedAt = rTs >= pTs ? rTs : pTs;
+    return jsonResponse(request, 200, {
+      ok: true,
+      latestUpdatedAt,
+      serverTime: nowIso(),
+    });
+  }
+
+  // POST /api/sync/photos/exists — 批量查询哪些行程参考图已存在云端（内容哈希去重，避免重复上传）
+  if (method === 'POST' && segments[0] === 'photos' && segments[1] === 'exists') {
+    await ensurePlannerPhotosTable(db);
+    const body = await readJsonBody(request, 32768);
+    const rawIds = Array.isArray(body.assetIds) ? body.assetIds : [];
+    const validIds = [...new Set(rawIds.map((id) => String(id || '').toLowerCase()).filter((id) => ASSET_ID_RE.test(id)))].slice(0, 60);
+    if (validIds.length === 0) {
+      return jsonResponse(request, 200, { ok: true, existing: [] });
+    }
+    const placeholders = validIds.map(() => '?').join(', ');
+    const rows = await db
+      .prepare(`SELECT asset_id FROM planner_photos WHERE asset_id IN (${placeholders})`)
+      .bind(...validIds)
+      .all();
+    return jsonResponse(request, 200, {
+      ok: true,
+      existing: (rows.results || []).map((r) => r.asset_id),
+    });
+  }
+
+  // POST /api/sync/photos — 上传单张压缩后的行程参考图到云端（按内容哈希去重）
+  if (method === 'POST' && segments[0] === 'photos' && segments.length === 1) {
+    await ensurePlannerPhotosTable(db);
+    const body = await readJsonBody(request, 420 * 1024);
+    const assetId = String(body.assetId || '').toLowerCase();
+    const mimeType = String(body.mimeType || 'image/jpeg').toLowerCase();
+    const dataBase64 = String(body.dataBase64 || '').replace(/^data:[^;]+;base64,/, '').trim();
+    if (!ASSET_ID_RE.test(assetId)) {
+      return errorResponse(request, 400, '无效的图片标识', 'INVALID_ASSET_ID');
+    }
+    if (!ALLOWED_PHOTO_MIMES.has(mimeType)) {
+      return errorResponse(request, 400, '不支持的图片格式', 'INVALID_MIME_TYPE');
+    }
+    if (!dataBase64 || !/^[A-Za-z0-9+/=]+$/.test(dataBase64)) {
+      return errorResponse(request, 400, '图片数据格式无效', 'INVALID_PHOTO_DATA');
+    }
+    const approxBytes = Math.floor((dataBase64.length * 3) / 4);
+    if (approxBytes <= 0 || approxBytes > MAX_PLANNER_PHOTO_BYTES) {
+      return errorResponse(request, 413, '单张行程参考图压缩后超过 240KB 上限', 'PHOTO_TOO_LARGE');
+    }
+    await db
+      .prepare(`
+        INSERT OR IGNORE INTO planner_photos (asset_id, mime_type, data_base64, byte_size, uploaded_by, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `)
+      .bind(assetId, mimeType, dataBase64, approxBytes, userId, nowIso())
+      .run();
+    return jsonResponse(request, 200, { ok: true, assetId });
+  }
 
   // POST /api/sync/pull
   if (method === 'POST' && segments[0] === 'pull') {

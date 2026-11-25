@@ -26,7 +26,14 @@ import {
   writeSeenNotificationIds,
   type NotificationPrefs,
 } from './notification-prefs';
-import { extractZhouyouActionFromUrl, extractZhouyouShareCode, syncWithCloud } from './cloud-sync';
+import {
+  checkCloudSyncNeeded,
+  extractZhouyouActionFromUrl,
+  extractZhouyouShareCode,
+  resetCloudSyncCursor,
+  syncSinglePlannerPhotoToCloud,
+  syncWithCloud,
+} from './cloud-sync';
 import {
   isEmbeddedTour,
   isWebTourMode,
@@ -232,16 +239,17 @@ export default function App() {
 
   const reload = useCallback(async () => setSnapshot(await loadSnapshot()), []);
 
-  const runCloudSync = useCallback(async (silent = false) => {
+  const runCloudSync = useCallback(async (silent = false, forceFull = false) => {
     if (!getCloudToken()) return;
     setSyncingCloud(true);
     try {
-      const res = await syncWithCloud();
+      const res = await syncWithCloud(forceFull);
       setSnapshot(res.snapshot);
       if (!silent) {
         const parts: string[] = [];
         if (res.pulledPlans || res.pulledRecords) parts.push(`拉取 ${res.pulledPlans} 份攻略 / ${res.pulledRecords} 条记录`);
         if (res.pushedPlans || res.pushedRecords) parts.push(`上传 ${res.pushedPlans} 份攻略 / ${res.pushedRecords} 条记录`);
+        if (res.syncedPhotos) parts.push(`同步 ${res.syncedPhotos} 张行程照片`);
         showNotice(parts.length ? `☁️ 云同步完成（${parts.join('，')}）` : '☁️ 云端已是最新状态');
       }
       if (res.conflicts.length > 0) {
@@ -259,9 +267,62 @@ export default function App() {
     if (syncTimerRef.current) window.clearTimeout(syncTimerRef.current);
     syncTimerRef.current = window.setTimeout(() => {
       syncTimerRef.current = null;
-      void runCloudSync(true);
-    }, 3000);
+      void runCloudSync(true, false);
+    }, 1500);
   }, [runCloudSync]);
+
+  // 方案 A：多端准实时同步 — 12 秒轻量版本号探测（无变化不拉数据）+ 切回前台/窗口聚焦/断网恢复立即同步
+  useEffect(() => {
+    if (!cloudUser) return;
+    let disposed = false;
+    let lastProbeAt = 0;
+    let probing = false;
+
+    const probeAndSync = async (forceCheck = false) => {
+      if (disposed || probing || !getCloudToken()) return;
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+      const now = Date.now();
+      if (!forceCheck && now - lastProbeAt < 4000) return;
+      lastProbeAt = now;
+      probing = true;
+      try {
+        const needed = await checkCloudSyncNeeded();
+        if (!disposed && needed) {
+          await runCloudSync(true, false);
+        }
+      } catch {
+        // 离线或弱网时静默跳过，等待下次唤醒
+      } finally {
+        probing = false;
+      }
+    };
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void probeAndSync(false);
+      }
+    }, 12000);
+
+    const onWake = () => {
+      if (document.visibilityState === 'visible') {
+        void probeAndSync(false);
+      }
+    };
+    const onOnline = () => {
+      void probeAndSync(true);
+    };
+
+    document.addEventListener('visibilitychange', onWake);
+    window.addEventListener('focus', onWake);
+    window.addEventListener('online', onOnline);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onWake);
+      window.removeEventListener('focus', onWake);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [cloudUser, runCloudSync]);
 
   useEffect(() => {
     const onPrefsChange = () => setNotifPrefs(readNotificationPrefs());
@@ -349,6 +410,7 @@ export default function App() {
       const token = getCloudToken();
       setCloudUser(token ? getCachedCloudUser() : null);
       if (!token) {
+        resetCloudSyncCursor();
         setUnreadCount(0);
         setIntimacyBonds([]);
       }
@@ -460,8 +522,13 @@ export default function App() {
       requestClientForTour('photo');
       return;
     }
-    await saveAiPlanPhoto(planId, activityId, photo); await reload();
-  }, [reload, requestClientForTour, tourMode]);
+    await saveAiPlanPhoto(planId, activityId, photo);
+    await reload();
+    if (photo.assetId) {
+      void syncSinglePlannerPhotoToCloud(photo.assetId);
+    }
+    scheduleCloudSync();
+  }, [reload, requestClientForTour, scheduleCloudSync, tourMode]);
   const publishPlan = useCallback(async (plan: AiTravelPlan, initialFinance?: TripPlan) => {
     const updated = await publishAiPlan(plan, initialFinance); await reload(); scheduleCloudSync(); return updated;
   }, [reload, scheduleCloudSync]);
@@ -708,7 +775,7 @@ export default function App() {
               type="button"
               className="local-pill cloud-pill-btn"
               disabled={syncingCloud}
-              onClick={() => void runCloudSync(false)}
+              onClick={() => void runCloudSync(false, true)}
               title={t('点击立即同步云端攻略与足迹', 'Click to sync cloud plans & footprints')}
             >
               {syncingCloud ? t('☁️ 同步中…', '☁️ Syncing…') : `☁️ ${cloudUser.nickname}`}

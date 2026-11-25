@@ -279,6 +279,10 @@ export function getCloudOrigin(): string {
   return DEFAULT_CLOUD_ORIGIN;
 }
 
+export function getCloudPlannerPhotoUrl(assetId: string): string {
+  return `${getCloudOrigin()}/api/sync/photo/${encodeURIComponent(assetId.toLowerCase())}`;
+}
+
 export function getCloudToken(): string {
   try {
     return localStorage.getItem(CLOUD_TOKEN_KEY) || '';
@@ -441,6 +445,21 @@ export const cloudApi = {
   },
 
   // ---- Sync & Collaborative Plans ----
+  getSyncVersion() {
+    return cloudRequest<{ ok: true; latestUpdatedAt: string; serverTime: string }>('/api/sync/version');
+  },
+  checkPlannerPhotosExist(assetIds: string[]) {
+    return cloudRequest<{ ok: true; existing: string[] }>('/api/sync/photos/exists', {
+      method: 'POST',
+      body: { assetIds },
+    });
+  },
+  uploadPlannerPhoto(payload: { assetId: string; mimeType: string; dataBase64: string }) {
+    return cloudRequest<{ ok: true; assetId: string }>('/api/sync/photos', {
+      method: 'POST',
+      body: payload,
+    });
+  },
   pullSync(since = '') {
     return cloudRequest<{
       ok: true;

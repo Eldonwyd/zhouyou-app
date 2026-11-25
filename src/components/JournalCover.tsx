@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { plannerApiUrl } from '../api-base';
+import { getCloudPlannerPhotoUrl } from '../cloud-api';
 import { getMediaPreview, getPlannerPhotoBlob } from '../db';
 import type { AiTravelPlan, PlannerPhoto } from '../planner-types';
 import northPostcards from '../city-postcards-north.webp';
@@ -99,9 +100,10 @@ function PlannerCoverPhoto({ photo, onUnavailable }: { photo: PlannerPhoto; onUn
     return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [assetId]);
 
-  // 离线优先读取已验证的本地照片；旧行程还可以使用服务端缓存或保存的原图地址。
+  // 离线优先读取已验证的本地照片；其次走云端已同步参考图、本地服务端缓存或保存的原图地址。
+  const cloudSrc = assetId ? getCloudPlannerPhotoUrl(assetId) : '';
   const serverSrc = assetId ? plannerApiUrl(`photo-file/${assetId}`) : '';
-  const sources = [...new Set([localSrc, serverSrc, url].filter(Boolean))];
+  const sources = [...new Set([localSrc, cloudSrc, serverSrc, url].filter(Boolean))];
   const src = sources[sourceIndex];
   if (!src || localSrc === null) return null;
   return <img className="journal-cover-photo" src={src} alt="" loading="lazy" onError={() => {

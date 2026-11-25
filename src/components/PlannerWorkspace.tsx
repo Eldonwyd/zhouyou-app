@@ -89,7 +89,8 @@ import {
 } from '../planner-display';
 import { plannerShortStage } from '../planner-stage';
 import { plannerXiaohongshuSearchUrl } from '../planner-photo';
-import { getPlannerPhotoBlob, savePlannerMapPositions, type recordPlannerJournalVisit } from '../db';
+import { getPlannerPhotoBlob, savePlannerMapPositions, savePlannerPhotoBlob, type recordPlannerJournalVisit } from '../db';
+import { getCloudPlannerPhotoUrl } from '../cloud-api';
 import { plannerJournalActivityKey, plannerJournalCity, plannerJournalVisitFor } from '../planner-journal';
 import { mapAppLabel, mapPlaceLinks, openMapAppPlace, openXiaohongshuSearch } from '../external-app-links';
 import { PLANNER_API_ORIGIN_EVENT, plannerApiUrl } from '../api-base';
@@ -288,23 +289,46 @@ function PlacePhoto({
   const [message, setMessage] = useState('');
   const [localUrl, setLocalUrl] = useState('');
   const [loadingLocal, setLoadingLocal] = useState(Boolean(photo?.assetId));
+  const [fallbackIndex, setFallbackIndex] = useState(0);
   const controller = useRef<AbortController | null>(null);
   useEffect(() => {
     setFailed(false);
+    setFallbackIndex(0);
     setMessage('');
-  }, [photo?.url]);
+  }, [photo?.url, photo?.assetId]);
   useEffect(() => {
     let disposed = false;
     let objectUrl = '';
     setLocalUrl('');
+    setFallbackIndex(0);
     setLoadingLocal(Boolean(photo?.assetId));
-    if (photo?.assetId) void getPlannerPhotoBlob(photo.assetId).then((blob) => {
-      if (!blob || disposed) return;
-      objectUrl = URL.createObjectURL(blob);
-      setLocalUrl(objectUrl);
-      setFailed(false);
-    }).catch(() => setMessage('本地照片读取失败，请重新查找'))
-      .finally(() => { if (!disposed) setLoadingLocal(false); });
+    if (photo?.assetId) {
+      const assetId = photo.assetId;
+      void getPlannerPhotoBlob(assetId).then(async (blob) => {
+        if (disposed) return;
+        let resolvedBlob = blob;
+        if (!resolvedBlob && !isWebTourMode()) {
+          // 跨端同步过来的行程参考图：优先从云端拉取并缓存到本地 IndexedDB
+          try {
+            const resp = await fetch(getCloudPlannerPhotoUrl(assetId));
+            if (resp.ok) {
+              const cloudBlob = await resp.blob();
+              if (cloudBlob.size > 0) {
+                await savePlannerPhotoBlob(assetId, cloudBlob).catch(() => undefined);
+                resolvedBlob = cloudBlob;
+              }
+            }
+          } catch {
+            // 离线或云端暂无时回退到其他源
+          }
+        }
+        if (!resolvedBlob || disposed) return;
+        objectUrl = URL.createObjectURL(resolvedBlob);
+        setLocalUrl(objectUrl);
+        setFailed(false);
+      }).catch(() => setMessage('本地照片读取失败，请重新查找'))
+        .finally(() => { if (!disposed) setLoadingLocal(false); });
+    }
     return () => { disposed = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [photo?.assetId]);
   useEffect(() => {
@@ -368,16 +392,34 @@ function PlacePhoto({
       if (controller.current === currentRequest) { setBusy(false); setPhotoStage(''); }
     }
   }
+  const photoSources = useMemo(() => {
+    if (!photo) return [];
+    const list: string[] = [];
+    if (localUrl) list.push(localUrl);
+    if (photo.assetId) {
+      list.push(getCloudPlannerPhotoUrl(photo.assetId));
+      list.push(plannerApiUrl(`photo-file/${photo.assetId}`));
+    }
+    if (photo.url) list.push(photo.url);
+    return [...new Set(list.filter(Boolean))];
+  }, [localUrl, photo]);
+  const activePhotoSrc = photoSources[fallbackIndex] || '';
   return (
     <div className="planner-photo">
-      {photo && !failed && !loadingLocal && (localUrl || !isWebTourMode()) ? (
+      {photo && !failed && !loadingLocal && activePhotoSrc && (localUrl || !isWebTourMode()) ? (
         <>
           <img
-            src={localUrl || (photo.assetId ? plannerApiUrl(`photo-file/${photo.assetId}`) : photo.url)}
+            src={activePhotoSrc}
             alt={title}
             loading="lazy"
             referrerPolicy="no-referrer"
-            onError={() => setFailed(true)}
+            onError={() => {
+              if (fallbackIndex + 1 < photoSources.length) {
+                setFallbackIndex((prev) => prev + 1);
+              } else {
+                setFailed(true);
+              }
+            }}
           />
           <a href={photo.sourceUrl} target="_blank" rel="noreferrer">
             {photo.attribution}

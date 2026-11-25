@@ -449,6 +449,7 @@ export async function saveAiPlanPhoto(planId: string, activityId: string, photo:
     const target = existing?.content.days.flatMap((day) => day.activities).find((item) => item.id === activityId);
     if (!existing || !target) return;
     target.photo = photo;
+    existing.updatedAt = new Date().toISOString();
     store.put(existing);
   };
   await completion;

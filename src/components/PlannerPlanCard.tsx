@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { plannerApiUrl } from '../api-base';
+import { getCloudPlannerPhotoUrl } from '../cloud-api';
 import { getPlannerPhotoBlob } from '../db';
 import { calculatePlannerBudget, plannerFillEstimates, plannerLocalTransport } from '../planner-domain';
 import { plannerDisplayText } from '../planner-display';
@@ -7,44 +8,50 @@ import type { AiTravelPlan } from '../planner-types';
 import { currency } from '../utils';
 import { isWebTourMode } from '../web-tour';
 
-/** 优先加载服务端本地图；在在线漫游模式或离线时直接读 IndexedDB 缓存，避免无效请求。 */
+/** 优先读取本地 IndexedDB 缓存，其次走云端已同步参考图 / 本地服务端 / 原始地址。 */
 function PlanCardPhoto({ title, assetId, url }: { title: string; assetId?: string; url?: string }) {
-  const tourIdbFirst = Boolean(assetId && isWebTourMode());
-  const primarySrc = tourIdbFirst ? '' : (assetId ? plannerApiUrl(`photo-file/${assetId}`) : (url ?? ''));
-  const [src, setSrc] = useState(primarySrc);
-  const [triedIdb, setTriedIdb] = useState(tourIdbFirst);
-  const [failed, setFailed] = useState(!primarySrc && !tourIdbFirst);
+  const [localSrc, setLocalSrc] = useState<string | null>(assetId ? null : '');
+  const [sourceIndex, setSourceIndex] = useState(0);
 
   useEffect(() => {
-    setSrc(primarySrc);
-    setTriedIdb(tourIdbFirst);
-    setFailed(!primarySrc && !tourIdbFirst);
-  }, [primarySrc, tourIdbFirst]);
-
-  useEffect(() => {
-    if (!triedIdb || !assetId) return;
+    setSourceIndex(0);
+    if (!assetId) {
+      setLocalSrc('');
+      return;
+    }
     let active = true;
     let objectUrl = '';
+    setLocalSrc(null);
     void getPlannerPhotoBlob(assetId).then((blob) => {
       if (!active) return;
       if (blob) {
         objectUrl = URL.createObjectURL(blob);
-        setSrc(objectUrl);
-        setFailed(false);
+        setLocalSrc(objectUrl);
       } else {
-        setFailed(true);
+        setLocalSrc('');
       }
-    }).catch(() => { if (active) setFailed(true); });
+    }).catch(() => { if (active) setLocalSrc(''); });
     return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [triedIdb, assetId]);
+  }, [assetId, url]);
 
-  if (failed || !src) {
+  const sources = useMemo(() => {
+    const list: string[] = [];
+    if (localSrc) list.push(localSrc);
+    if (assetId && !isWebTourMode()) {
+      list.push(getCloudPlannerPhotoUrl(assetId));
+      list.push(plannerApiUrl(`photo-file/${assetId}`));
+    }
+    if (url && !isWebTourMode()) list.push(url);
+    return [...new Set(list.filter(Boolean))];
+  }, [assetId, localSrc, url]);
+
+  const src = sources[sourceIndex];
+  if (localSrc === null || !src) {
     return <span className="planner-card-photo-fallback" title={title}>{title}</span>;
   }
-  return <img src={src} alt={title} loading="lazy" onError={() => {
-    if (assetId && !triedIdb) setTriedIdb(true);
-    else if (url && src !== url) setSrc(url);
-    else setFailed(true);
+  return <img src={src} alt={title} loading="lazy" referrerPolicy="no-referrer" onError={() => {
+    if (sourceIndex + 1 < sources.length) setSourceIndex((prev) => prev + 1);
+    else setSourceIndex(sources.length);
   }} />;
 }
 
