@@ -12,9 +12,20 @@ import {
   cloudApi,
   getCachedCloudUser,
   getCloudToken,
+  type CloudNotification,
   type CloudSelfUser,
   type IntimacyBond,
 } from './cloud-api';
+import {
+  NOTIFICATION_PREFS_EVENT,
+  fireSystemNotification,
+  playNotificationChime,
+  readNotificationPrefs,
+  readSeenNotificationIds,
+  shouldNotifyForType,
+  writeSeenNotificationIds,
+  type NotificationPrefs,
+} from './notification-prefs';
 import { extractZhouyouActionFromUrl, extractZhouyouShareCode, syncWithCloud } from './cloud-sync';
 import {
   isEmbeddedTour,
@@ -108,6 +119,9 @@ export default function App() {
   const [intimacyBonds, setIntimacyBonds] = useState<IntimacyBond[]>([]);
   const [pendingShareCode, setPendingShareCode] = useState<string | null>(null);
   const [targetPlanId, setTargetPlanId] = useState<string | null>(null);
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(() => readNotificationPrefs());
+  const [activePopup, setActivePopup] = useState<Pick<CloudNotification, 'id' | 'title' | 'body' | 'type' | 'targetRef'> | null>(null);
+  const popupTimerRef = useRef<number | null>(null);
   const syncTimerRef = useRef<number | null>(null);
   const seenClipboardCodesRef = useRef<Set<string>>(new Set());
 
@@ -249,14 +263,80 @@ export default function App() {
     }, 3000);
   }, [runCloudSync]);
 
+  useEffect(() => {
+    const onPrefsChange = () => setNotifPrefs(readNotificationPrefs());
+    window.addEventListener(NOTIFICATION_PREFS_EVENT, onPrefsChange);
+    return () => window.removeEventListener(NOTIFICATION_PREFS_EVENT, onPrefsChange);
+  }, []);
+
+  const handleNotificationAction = useCallback((item: Pick<CloudNotification, 'targetRef'>) => {
+    setActivePopup(null);
+    const shareCode = typeof item.targetRef?.shareCode === 'string' ? item.targetRef.shareCode : '';
+    const planId = typeof item.targetRef?.planId === 'string' ? item.targetRef.planId : '';
+    if (shareCode) {
+      setPendingShareCode(shareCode);
+      return;
+    }
+    if (planId) {
+      setTargetPlanId(planId);
+      openPage('plan');
+      return;
+    }
+    openPage('companions');
+  }, [openPage]);
+
+  const triggerNotificationPopup = useCallback((
+    item: Pick<CloudNotification, 'id' | 'title' | 'body' | 'type' | 'targetRef'>,
+    forcePreview = false,
+  ) => {
+    const prefs = readNotificationPrefs();
+    if (!forcePreview && !shouldNotifyForType(prefs, item.type)) return;
+    if (forcePreview || prefs.inAppBanner) {
+      setActivePopup(item);
+      if (popupTimerRef.current) window.clearTimeout(popupTimerRef.current);
+      popupTimerRef.current = window.setTimeout(() => {
+        setActivePopup(null);
+        popupTimerRef.current = null;
+      }, 5500);
+    }
+    if (prefs.sound) {
+      playNotificationChime();
+    }
+    if (prefs.systemPopup && (forcePreview || document.visibilityState === 'hidden')) {
+      fireSystemNotification(item.title, item.body, () => handleNotificationAction(item));
+    }
+  }, [handleNotificationAction]);
+
   const refreshSocialBadges = useCallback(async () => {
     if (!getCloudToken()) return;
     try {
-      const ov = await cloudApi.getSocialOverview();
+      const [ov, ntfRes] = await Promise.all([
+        cloudApi.getSocialOverview(),
+        cloudApi.getNotifications(),
+      ]);
       setUnreadCount(ov.unreadCount);
       setIntimacyBonds(ov.intimacyBonds);
+      const seen = readSeenNotificationIds();
+      const freshUnread = (ntfRes.notifications || []).filter((n) => !n.readAt && !seen.has(n.id));
+      if (freshUnread.length > 0) {
+        freshUnread.forEach((n) => seen.add(n.id));
+        writeSeenNotificationIds(seen);
+        const latest = freshUnread[0];
+        triggerNotificationPopup(latest, false);
+      }
     } catch { /* ignore offline */ }
-  }, []);
+  }, [triggerNotificationPopup]);
+
+  // 登录后每 30 秒静默轮询一次新消息，实现应用内与系统弹窗实时提醒
+  useEffect(() => {
+    if (!cloudUser || !notifPrefs.enabled) return;
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible' || notifPrefs.systemPopup) {
+        void refreshSocialBadges();
+      }
+    }, 30000);
+    return () => window.clearInterval(interval);
+  }, [cloudUser, notifPrefs.enabled, notifPrefs.systemPopup, refreshSocialBadges]);
 
   const openAuthModal = useCallback((mode: 'login' | 'register' = 'login') => {
     setAuthModalMode(mode);
@@ -741,6 +821,13 @@ export default function App() {
               onSaveProfile={saveProfile}
               onSaveBadge={saveBadge}
               onOpenEntry={openEntry}
+              onTestNotification={() => triggerNotificationPopup({
+                id: `test-${Date.now()}`,
+                title: t('小鹿同学邀请你同游共编攻略', 'Travel Buddy invited you to collaborate'),
+                body: t('云南大理+丽江 5 天慢游 · 点击立即查看', 'Yunnan 5-day slow trip · Tap to view'),
+                type: 'share',
+                targetRef: {},
+              }, true)}
               webTourMode={tourMode}
               onRequireClient={requestClientForTour}
               onImported={(data) => {
@@ -847,6 +934,30 @@ export default function App() {
       }}
       onClose={() => setPendingShareCode(null)}
     />
+    {activePopup && (
+      <div className="inapp-notif-banner" role="alert" aria-live="polite">
+        <button
+          type="button"
+          className="inapp-notif-main"
+          onClick={() => handleNotificationAction(activePopup)}
+        >
+          <span className="inapp-notif-icon" aria-hidden="true">🔔</span>
+          <span className="inapp-notif-copy">
+            <strong>{activePopup.title}</strong>
+            {activePopup.body && <small>{activePopup.body}</small>}
+          </span>
+          <span className="inapp-notif-cta">{t('查看', 'View')}</span>
+        </button>
+        <button
+          type="button"
+          className="inapp-notif-close"
+          aria-label={t('关闭通知', 'Dismiss notification')}
+          onClick={() => setActivePopup(null)}
+        >
+          ×
+        </button>
+      </div>
+    )}
     {notice && (
       <div className="toast" role="status">
         {notice}

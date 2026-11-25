@@ -13,6 +13,13 @@ import AiUsageSettingsCard from './AiUsageSettingsCard';
 import CloudSyncCard from './CloudSyncCard';
 import type { AppUpdateInfo } from '../app-updater';
 import { cloudApi, getCloudToken, setCloudAuthState, type CloudSelfUser, type IntimacyBond } from '../cloud-api';
+import {
+  getSystemNotificationPermission,
+  readNotificationPrefs,
+  requestSystemNotificationPermission,
+  writeNotificationPrefs,
+  type NotificationPrefs,
+} from '../notification-prefs';
 import type { TourRestrictedFeature } from '../web-tour';
 
 const AchievementsView = lazy(() => import('./AchievementsView'));
@@ -23,7 +30,7 @@ interface ProfileViewProps {
   intimacyBonds?: IntimacyBond[];
   activeProvinceCode: string | null;
   resetSettingsToken?: number;
-  initialSubView?: 'home' | 'achievements' | 'settings' | 'account';
+  initialSubView?: 'home' | 'achievements' | 'settings' | 'account' | 'notifications';
   availableUpdate?: AppUpdateInfo | null;
   updateFocusToken?: number;
   updateCheckToken?: number;
@@ -36,6 +43,7 @@ interface ProfileViewProps {
   onSaveProfile: (profile: LocalProfile) => Promise<void>;
   onSaveBadge: (badge: Badge) => Promise<void>;
   onOpenEntry: (entry: DayEntry) => void;
+  onTestNotification?: () => void;
   onImported: (snapshot: AppSnapshot) => void;
   onError: (message: string) => void;
   onNotice: (message: string) => void;
@@ -71,6 +79,7 @@ export default function ProfileView({
   onSaveProfile,
   onSaveBadge,
   onOpenEntry,
+  onTestNotification,
   onImported,
   onError,
   onNotice,
@@ -91,7 +100,9 @@ export default function ProfileView({
     ? savedProfile.motto
     : (cloudUser?.motto || defaultMotto);
 
-  const [subView, setSubView] = useState<'home' | 'achievements' | 'settings' | 'account'>(initialSubView);
+  const [subView, setSubView] = useState<'home' | 'achievements' | 'settings' | 'account' | 'notifications'>(initialSubView);
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(() => readNotificationPrefs());
+  const [sysNotifPerm, setSysNotifPerm] = useState(() => getSystemNotificationPermission());
   const [pendingSectionId, setPendingSectionId] = useState<string | null>(null);
   const [nickname, setNickname] = useState(resolvedNickname);
   const [avatar, setAvatar] = useState(resolvedAvatar);
@@ -150,13 +161,38 @@ export default function ProfileView({
     return () => window.cancelAnimationFrame(frame);
   }, [subView, pendingSectionId]);
 
-  function openSubView(next: 'home' | 'achievements' | 'settings' | 'account', sectionId?: string): void {
+  function openSubView(next: 'home' | 'achievements' | 'settings' | 'account' | 'notifications', sectionId?: string): void {
     setEditing(false);
     setSubView(next);
     if (sectionId) {
       setPendingSectionId(sectionId);
     } else {
       window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  }
+
+  function updateNotifPrefs(updater: (prev: NotificationPrefs) => NotificationPrefs): void {
+    setNotifPrefs((prev) => {
+      const next = updater(prev);
+      writeNotificationPrefs(next);
+      return next;
+    });
+  }
+
+  async function handleToggleSystemPopup(checked: boolean): Promise<void> {
+    if (!checked) {
+      updateNotifPrefs((prev) => ({ ...prev, systemPopup: false }));
+      return;
+    }
+    const perm = await requestSystemNotificationPermission();
+    setSysNotifPerm(perm);
+    if (perm === 'granted') {
+      updateNotifPrefs((prev) => ({ ...prev, systemPopup: true }));
+      onNotice(t('已开启系统级弹窗通知。', 'System popup notifications enabled.'));
+    } else if (perm === 'unsupported') {
+      onNotice(t('当前环境暂不支持系统通知，将继续使用应用内顶部弹窗。', 'System notifications unavailable here; in-app top banner will be used.'));
+    } else {
+      onError(t('系统通知权限被拒绝，请在浏览器或手机系统设置中允许通知。', 'Notification permission denied in browser/system settings.'));
     }
   }
 
@@ -358,6 +394,167 @@ export default function ProfileView({
           onNotice={onNotice}
           onError={onError}
         />
+      </div>
+    );
+  }
+
+  if (subView === 'notifications') {
+    const sysPermLabel = sysNotifPerm === 'granted'
+      ? t('系统权限已允许', 'Allowed')
+      : sysNotifPerm === 'denied'
+        ? t('已被系统禁用', 'Blocked')
+        : sysNotifPerm === 'unsupported'
+          ? t('当前环境不支持', 'Unsupported')
+          : t('未授权', 'Not requested');
+
+    return (
+      <div className="content-page warm-profile profile-settings-view">
+        <div className="section-heading settings-view-header">
+          <div>
+            <button
+              type="button"
+              className="secondary settings-back-btn"
+              onClick={() => openSubView('home')}
+            >
+              <span aria-hidden="true">←</span> {t('返回个人中心', 'Back to Profile')}
+            </button>
+            <h1>{t('消息弹窗通知', 'Message Notifications')}</h1>
+            <p>{t('自定义好友申请、亲密关系邀请、攻略分享与行程群动态的弹窗与提示音。', 'Customize popup banners, sounds, and categories for friend requests, shares, and group updates.')}</p>
+          </div>
+        </div>
+
+        <section className="card notif-settings-card">
+          <div className="notif-toggle-row is-master">
+            <div>
+              <strong>{t('接收新消息弹窗通知', 'Enable Message Popups')}</strong>
+              <small>{t('关闭后不再弹出任何顶部横幅或系统通知，仍可在「同行旅伴 → 消息」查看。', 'When off, popups are muted; messages remain in Companions → Messages.')}</small>
+            </div>
+            <label className="ios-switch">
+              <input
+                type="checkbox"
+                checked={notifPrefs.enabled}
+                onChange={(e) => updateNotifPrefs((prev) => ({ ...prev, enabled: e.target.checked }))}
+              />
+              <span className="ios-switch-track" />
+            </label>
+          </div>
+        </section>
+
+        {notifPrefs.enabled && (
+          <>
+            <section className="card notif-settings-card">
+              <div className="notif-group-title">{t('提醒方式', 'Alert Style')}</div>
+              <div className="notif-toggle-row">
+                <div>
+                  <strong>{t('应用内顶部悬浮弹窗', 'In-App Top Banner')}</strong>
+                  <small>{t('使用周游地图时，在屏幕顶部滑出微信式消息横幅，点击直达详情。', 'Slide a banner at the top of the screen while using the app.')}</small>
+                </div>
+                <label className="ios-switch">
+                  <input
+                    type="checkbox"
+                    checked={notifPrefs.inAppBanner}
+                    onChange={(e) => updateNotifPrefs((prev) => ({ ...prev, inAppBanner: e.target.checked }))}
+                  />
+                  <span className="ios-switch-track" />
+                </label>
+              </div>
+              <div className="notif-toggle-row">
+                <div>
+                  <strong>{t('轻柔提示音', 'Notification Sound')}</strong>
+                  <small>{t('收到新消息弹窗时播放清脆柔和的双音提示。', 'Play a gentle chime when a new message arrives.')}</small>
+                </div>
+                <label className="ios-switch">
+                  <input
+                    type="checkbox"
+                    checked={notifPrefs.sound}
+                    onChange={(e) => updateNotifPrefs((prev) => ({ ...prev, sound: e.target.checked }))}
+                  />
+                  <span className="ios-switch-track" />
+                </label>
+              </div>
+              <div className="notif-toggle-row">
+                <div>
+                  <strong>
+                    {t('系统级弹窗通知', 'System Popup Notifications')}
+                    <em className="notif-perm-tag">{sysPermLabel}</em>
+                  </strong>
+                  <small>{t('应用切到后台时，通过手机或电脑系统通知栏弹出提醒。', 'Show OS-level notifications when the app is in the background.')}</small>
+                </div>
+                <label className="ios-switch">
+                  <input
+                    type="checkbox"
+                    checked={notifPrefs.systemPopup}
+                    onChange={(e) => void handleToggleSystemPopup(e.target.checked)}
+                  />
+                  <span className="ios-switch-track" />
+                </label>
+              </div>
+            </section>
+
+            <section className="card notif-settings-card">
+              <div className="notif-group-title">{t('通知内容分类', 'Notification Types')}</div>
+              <div className="notif-toggle-row">
+                <div>
+                  <strong>{t('好友申请与亲密关系邀请', 'Friend & Intimacy Requests')}</strong>
+                  <small>{t('新旅伴加你为好友或发起情侣/家人/挚友绑定时提醒。', 'Notify on friend requests and intimacy bond invites.')}</small>
+                </div>
+                <label className="ios-switch">
+                  <input
+                    type="checkbox"
+                    checked={notifPrefs.types.friendRequests}
+                    onChange={(e) => updateNotifPrefs((prev) => ({
+                      ...prev,
+                      types: { ...prev.types, friendRequests: e.target.checked },
+                    }))}
+                  />
+                  <span className="ios-switch-track" />
+                </label>
+              </div>
+              <div className="notif-toggle-row">
+                <div>
+                  <strong>{t('好友攻略分享与同游共编', 'Shared Plans & Collab Invites')}</strong>
+                  <small>{t('好友给你发送行程攻略或邀请共同编辑时提醒。', 'Notify when a friend sends an itinerary or invites you to co-edit.')}</small>
+                </div>
+                <label className="ios-switch">
+                  <input
+                    type="checkbox"
+                    checked={notifPrefs.types.planShares}
+                    onChange={(e) => updateNotifPrefs((prev) => ({
+                      ...prev,
+                      types: { ...prev.types, planShares: e.target.checked },
+                    }))}
+                  />
+                  <span className="ios-switch-track" />
+                </label>
+              </div>
+              <div className="notif-toggle-row">
+                <div>
+                  <strong>{t('行程群动态与 AA 记账', 'Travel Groups & AA Expenses')}</strong>
+                  <small>{t('行程群成员变动、共享攻略更新或新增 AA 账单时提醒。', 'Notify on group changes, plan edits, and shared AA expenses.')}</small>
+                </div>
+                <label className="ios-switch">
+                  <input
+                    type="checkbox"
+                    checked={notifPrefs.types.groupUpdates}
+                    onChange={(e) => updateNotifPrefs((prev) => ({
+                      ...prev,
+                      types: { ...prev.types, groupUpdates: e.target.checked },
+                    }))}
+                  />
+                  <span className="ios-switch-track" />
+                </label>
+              </div>
+            </section>
+
+            {onTestNotification && (
+              <div className="notif-test-bar">
+                <button type="button" className="primary" onClick={onTestNotification}>
+                  🔔 {t('预览顶部消息弹窗效果', 'Preview Notification Popup')}
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
     );
   }
@@ -893,6 +1090,21 @@ export default function ProfileView({
             <span className="settings-entry-chevron" aria-hidden="true">›</span>
           </button>
         )}
+        <button
+          type="button"
+          className="settings-entry-row settings-entry-divider"
+          onClick={() => openSubView('notifications')}
+        >
+          <span className="settings-entry-icon is-notif" aria-hidden="true">🔔</span>
+          <span className="settings-entry-copy">
+            <strong>{t('消息弹窗通知', 'Message Notifications')}</strong>
+            <small>{t('顶部悬浮消息横幅、提示音、系统弹窗与消息分类开关', 'Top banner popups, sound, system alerts & categories')}</small>
+          </span>
+          <span className={`settings-entry-value ${notifPrefs.enabled ? 'is-safe' : ''}`}>
+            {notifPrefs.enabled ? t('已开启', 'On') : t('已关闭', 'Off')}
+          </span>
+          <span className="settings-entry-chevron" aria-hidden="true">›</span>
+        </button>
         <button type="button" className="settings-entry-row" onClick={() => openSettings()}>
           <span className="settings-entry-icon is-server"><TravelIcon name="settings" /></span>
           <span className="settings-entry-copy">
