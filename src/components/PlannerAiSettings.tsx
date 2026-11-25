@@ -984,10 +984,10 @@ export function PlannerAiStatusBar({
                     ? '登录周游账号即可免费体验'
                     : freeQuotaState.quota && !freeQuotaState.quota.enabled
                       ? '免费通道待启用 · 可先用外部 AI 导入'
-                      : freeQuotaState.quota?.vip
+                      : freeQuotaState.quota?.vipUnlimited
                         ? 'VIP 无限畅享'
                         : freeQuotaState.quota
-                          ? `今日余 ${formatTokenAmount(freeQuotaState.quota.daily.remaining)}/${formatTokenAmount(freeQuotaState.quota.daily.limit)} · 本月余 ${formatTokenAmount(freeQuotaState.quota.monthly.remaining)}/${formatTokenAmount(freeQuotaState.quota.monthly.limit)}`
+                          ? `${freeQuotaState.quota.vip ? `VIP ${freeQuotaState.quota.vipMultiplier ?? 3}倍 · ` : ''}今日余 ${formatTokenAmount(freeQuotaState.quota.daily.remaining)}/${formatTokenAmount(freeQuotaState.quota.daily.limit)} · 本月余 ${formatTokenAmount(freeQuotaState.quota.monthly.remaining)}/${formatTokenAmount(freeQuotaState.quota.monthly.limit)}`
                           : '每日 5万 / 每月 12万 tokens'}
                 </span>
               ) : (
@@ -1864,7 +1864,11 @@ export default function PlannerAiSettings({
                   <div className="neo-free-ai-title-row">
                     <strong>周游免费体验 AI</strong>
                     <span className="neo-free-ai-model">{freeQuota.quota?.model || 'glm-5.3-flash'}</span>
-                    {freeQuota.quota?.vip && <span className="neo-cap-pill is-ok">VIP 无限</span>}
+                    {freeQuota.quota?.vip && (
+                      <span className="neo-cap-pill is-ok">
+                        {freeQuota.quota?.vipUnlimited ? 'VIP 无限' : `VIP ${freeQuota.quota?.vipMultiplier ?? 3}倍`}
+                      </span>
+                    )}
                   </div>
                   <p className="neo-free-ai-desc">
                     登录即用，免 API Key，按实际 Token 扣减（报错不扣）
@@ -1916,19 +1920,19 @@ export default function PlannerAiSettings({
                     <div className="neo-free-ai-quota-item">
                       <div className="neo-free-ai-quota-label">
                         <span>今日剩余（0 点刷新）</span>
-                        <strong>{freeQuota.quota?.vip ? '无限' : `${formatTokenAmount(dailyRem)} / ${formatTokenAmount(dailyLimit)}`}</strong>
+                        <strong>{freeQuota.quota?.vipUnlimited ? '无限' : `${formatTokenAmount(dailyRem)} / ${formatTokenAmount(dailyLimit)}`}</strong>
                       </div>
                       <div className="neo-free-ai-bar">
-                        <div className="neo-free-ai-bar-fill" style={{ width: `${freeQuota.quota?.vip ? 100 : dailyPct}%` }} />
+                        <div className="neo-free-ai-bar-fill" style={{ width: `${freeQuota.quota?.vipUnlimited ? 100 : dailyPct}%` }} />
                       </div>
                     </div>
                     <div className="neo-free-ai-quota-item">
                       <div className="neo-free-ai-quota-label">
                         <span>本月剩余（1 日刷新）</span>
-                        <strong>{freeQuota.quota?.vip ? '无限' : `${formatTokenAmount(monthlyRem)} / ${formatTokenAmount(monthlyLimit)}`}</strong>
+                        <strong>{freeQuota.quota?.vipUnlimited ? '无限' : `${formatTokenAmount(monthlyRem)} / ${formatTokenAmount(monthlyLimit)}`}</strong>
                       </div>
                       <div className="neo-free-ai-bar">
-                        <div className="neo-free-ai-bar-fill" style={{ width: `${freeQuota.quota?.vip ? 100 : monthlyPct}%` }} />
+                        <div className="neo-free-ai-bar-fill" style={{ width: `${freeQuota.quota?.vipUnlimited ? 100 : monthlyPct}%` }} />
                       </div>
                     </div>
                   </>
