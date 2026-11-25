@@ -38,6 +38,18 @@
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --dot-color: rgba(120, 96, 76, 0.12);
   --topo-stroke: rgba(173, 134, 104, 0.16);
+  --hero-sun-aura: #ffe5a3;
+  --hero-sun-mid: #f7b787;
+  --hero-sea-aura: #8ec7bc;
+  --hero-mtn-warm-far: #e9a982;
+  --hero-mtn-warm-near: #de8c63;
+  --hero-mtn-cool-far: #6aa89b;
+  --hero-mtn-cool-near: #4e8f85;
+  --hero-cloud: #fffaf2;
+  --hero-cloud-warm: #fff4e6;
+  --hero-cloud-cool: #f3faf7;
+  --hero-bird: #b87b5e;
+  --hero-cursor-glow: rgba(255, 206, 146, 0.28);
 }
 
 :root[data-theme="dark"] {
@@ -68,6 +80,18 @@
   --shadow-lg: 0 32px 84px rgba(0, 0, 0, 0.56);
   --dot-color: rgba(255, 236, 218, 0.06);
   --topo-stroke: rgba(255, 214, 184, 0.09);
+  --hero-sun-aura: #e09c5a;
+  --hero-sun-mid: #b55f42;
+  --hero-sea-aura: #3d7d8a;
+  --hero-mtn-warm-far: #9c5b43;
+  --hero-mtn-warm-near: #7a4232;
+  --hero-mtn-cool-far: #356771;
+  --hero-mtn-cool-near: #264f5a;
+  --hero-cloud: rgba(255, 224, 192, 0.16);
+  --hero-cloud-warm: rgba(244, 184, 140, 0.14);
+  --hero-cloud-cool: rgba(130, 198, 206, 0.12);
+  --hero-bird: #e8b590;
+  --hero-cursor-glow: rgba(255, 180, 118, 0.14);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -99,6 +123,18 @@
     --shadow-lg: 0 32px 84px rgba(0, 0, 0, 0.56);
     --dot-color: rgba(255, 236, 218, 0.06);
     --topo-stroke: rgba(255, 214, 184, 0.09);
+    --hero-sun-aura: #e09c5a;
+    --hero-sun-mid: #b55f42;
+    --hero-sea-aura: #3d7d8a;
+    --hero-mtn-warm-far: #9c5b43;
+    --hero-mtn-warm-near: #7a4232;
+    --hero-mtn-cool-far: #356771;
+    --hero-mtn-cool-near: #264f5a;
+    --hero-cloud: rgba(255, 224, 192, 0.16);
+    --hero-cloud-warm: rgba(244, 184, 140, 0.14);
+    --hero-cloud-cool: rgba(130, 198, 206, 0.12);
+    --hero-bird: #e8b590;
+    --hero-cursor-glow: rgba(255, 180, 118, 0.14);
   }
 }
 
@@ -424,16 +460,70 @@ code, pre { font-family: var(--font-mono); }
   align-items: center;
   padding: 56px 0 112px;
   overflow: hidden;
+  --mx: 0;
+  --my: 0;
+}
+.hero-cursor-glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 520px;
+  height: 520px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  background: radial-gradient(circle, var(--hero-cursor-glow) 0%, transparent 68%);
+  transform: translate3d(-50%, -50%, 0);
+  transition: opacity 0.45s ease;
+  will-change: transform, opacity;
+}
+.hero-section.is-pointer-active .hero-cursor-glow {
+  opacity: 1;
 }
 .hero-topo-bg {
   position: absolute;
-  inset: -40px 0 auto;
-  height: 540px;
+  inset: 0;
+  height: 100%;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.9;
+  opacity: 1;
+  -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
 }
-.hero-topo-bg svg { width: 100%; height: 100%; }
+.hero-topo-bg svg { width: 100%; height: 100%; display: block; }
+.hero-parallax-layer {
+  will-change: transform;
+}
+.hero-sun-halo {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sunBreathe 6.5s ease-in-out infinite;
+}
+.hero-sun-rays {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: slowSpin 56s linear infinite;
+}
+.hero-sun-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: slowSpinReverse 42s linear infinite;
+}
+.hero-clouds-left {
+  animation: cloudDriftLeft 22s ease-in-out infinite alternate;
+}
+.hero-clouds-right {
+  animation: cloudDriftRight 26s ease-in-out infinite alternate;
+}
+.hero-sailboat {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: boatBob 4.6s ease-in-out infinite;
+}
+.hero-birds {
+  animation: birdsFloat 7.2s ease-in-out infinite;
+}
 .flight-dash {
   stroke-dasharray: 7 9;
   animation: dashMove 26s linear infinite;
@@ -446,6 +536,45 @@ code, pre { font-family: var(--font-mono); }
 .flight-pin.p2 { animation-delay: 0.8s; }
 .flight-pin.p3 { animation-delay: 1.6s; }
 .flight-pin.p4 { animation-delay: 2.3s; }
+
+@keyframes sunBreathe {
+  0%, 100% { transform: scale(1); opacity: 0.86; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+@keyframes slowSpinReverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+@keyframes cloudDriftLeft {
+  0% { transform: translateX(-14px); }
+  100% { transform: translateX(22px); }
+}
+@keyframes cloudDriftRight {
+  0% { transform: translateX(16px); }
+  100% { transform: translateX(-20px); }
+}
+@keyframes boatBob {
+  0%, 100% { transform: translateY(0px) rotate(-1.5deg); }
+  50% { transform: translateY(-3.5px) rotate(2deg); }
+}
+@keyframes birdsFloat {
+  0%, 100% { transform: translate(0px, 0px); }
+  50% { transform: translate(8px, -5px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-sun-halo,
+  .hero-sun-rays,
+  .hero-sun-ring,
+  .hero-clouds-left,
+  .hero-clouds-right,
+  .hero-sailboat,
+  .hero-birds,
+  .flight-dash,
+  .flight-pin {
+    animation: none !important;
+  }
+  .hero-cursor-glow { display: none; }
+}
 
 .hero-inner {
   position: relative;

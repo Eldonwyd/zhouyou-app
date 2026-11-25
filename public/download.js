@@ -795,4 +795,83 @@
       setTimeout(() => { btn.textContent = prev; }, 1800);
     });
   });
+
+  /* ---------- 11. 首屏暖阳山海背景：平滑鼠标视差与暖光跟随 ---------- */
+  const heroSection = document.querySelector('.hero-section');
+  const parallaxLayers = heroSection
+    ? Array.from(heroSection.querySelectorAll('.hero-parallax-layer'))
+    : [];
+  const cursorGlow = heroSection ? heroSection.querySelector('.hero-cursor-glow') : null;
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (heroSection && parallaxLayers.length > 0 && !reduceMotion) {
+    let targetX = 0;
+    let targetY = 0;
+    let currentX = 0;
+    let currentY = 0;
+    let glowTargetX = 0;
+    let glowTargetY = 0;
+    let glowX = 0;
+    let glowY = 0;
+    let glowReady = false;
+    let rafId = 0;
+
+    const tickParallax = () => {
+      rafId = 0;
+      currentX += (targetX - currentX) * 0.075;
+      currentY += (targetY - currentY) * 0.075;
+
+      for (const layer of parallaxLayers) {
+        const depth = Number(layer.getAttribute('data-depth') || '0.4');
+        const tx = (currentX * depth * 32).toFixed(2);
+        const ty = (currentY * depth * 20).toFixed(2);
+        layer.style.transform = `translate3d(${tx}px, ${ty}px, 0)`;
+      }
+
+      if (cursorGlow && glowReady) {
+        glowX += (glowTargetX - glowX) * 0.1;
+        glowY += (glowTargetY - glowY) * 0.1;
+        cursorGlow.style.transform = `translate3d(${(glowX - 260).toFixed(1)}px, ${(glowY - 260).toFixed(1)}px, 0)`;
+      }
+
+      const stillMoving =
+        Math.abs(targetX - currentX) > 0.0008
+        || Math.abs(targetY - currentY) > 0.0008
+        || (glowReady && (Math.abs(glowTargetX - glowX) > 0.5 || Math.abs(glowTargetY - glowY) > 0.5));
+
+      if (stillMoving) {
+        rafId = window.requestAnimationFrame(tickParallax);
+      }
+    };
+
+    const scheduleParallax = () => {
+      if (!rafId) rafId = window.requestAnimationFrame(tickParallax);
+    };
+
+    heroSection.addEventListener('pointermove', (event) => {
+      if (event.pointerType === 'touch') return;
+      const rect = heroSection.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const relX = event.clientX - rect.left;
+      const relY = event.clientY - rect.top;
+      targetX = Math.max(-1, Math.min(1, (relX / rect.width) * 2 - 1));
+      targetY = Math.max(-1, Math.min(1, (relY / rect.height) * 2 - 1));
+      glowTargetX = relX;
+      glowTargetY = relY;
+      if (!glowReady) {
+        glowX = relX;
+        glowY = relY;
+        glowReady = true;
+      }
+      heroSection.classList.add('is-pointer-active');
+      scheduleParallax();
+    }, { passive: true });
+
+    heroSection.addEventListener('pointerleave', () => {
+      targetX = 0;
+      targetY = 0;
+      heroSection.classList.remove('is-pointer-active');
+      scheduleParallax();
+    }, { passive: true });
+  }
 })();

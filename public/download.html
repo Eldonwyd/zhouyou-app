@@ -17,7 +17,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="./download.css?v=1.0.78" />
+    <link rel="stylesheet" href="./download.css?v=1.0.84" />
     <script>
       try {
         var t = localStorage.getItem('zhouyou-site-theme');
@@ -79,39 +79,161 @@
     </div>
 
     <main>
-      <!-- Hero 首屏：地形等高线 + 航迹动画 + 旋转邮戳 -->
+      <!-- Hero 首屏：暖阳山海画卷 + 鼠标视差交互 + 航迹动画 -->
       <section class="hero-section">
+        <div class="hero-cursor-glow" aria-hidden="true"></div>
         <div class="hero-topo-bg" aria-hidden="true">
-          <svg viewBox="0 0 1440 540" fill="none" preserveAspectRatio="xMidYMid slice">
-            <path d="M-80 390 C 200 260, 420 440, 720 310 C 1020 180, 1230 330, 1520 180" stroke="var(--topo-stroke)" stroke-width="1.3" />
-            <path d="M-60 450 C 240 310, 490 480, 790 350 C 1080 225, 1270 365, 1520 240" stroke="var(--topo-stroke)" stroke-width="1.1" />
-            <path d="M-90 320 C 180 200, 390 370, 680 250 C 970 130, 1180 280, 1500 120" stroke="var(--topo-stroke)" stroke-width="1" />
-            <ellipse cx="230" cy="180" rx="170" ry="74" stroke="var(--topo-stroke)" stroke-width="1" transform="rotate(-14 230 180)" />
-            <ellipse cx="1220" cy="210" rx="200" ry="82" stroke="var(--topo-stroke)" stroke-width="1" transform="rotate(12 1220 210)" />
-            <!-- 虚线飞行航迹 -->
-            <path
-              class="flight-dash"
-              d="M120 340 C 310 180, 520 120, 720 210 C 910 295, 1100 140, 1320 220"
-              stroke="var(--accent)"
-              stroke-opacity="0.34"
-              stroke-width="2"
-              stroke-linecap="round"
-            />
-            <g class="flight-pin p1">
-              <circle cx="195" cy="285" r="10" fill="var(--accent)" fill-opacity="0.14" />
-              <circle cx="195" cy="285" r="4" fill="var(--accent)" />
+          <svg viewBox="0 0 1440 720" fill="none" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <radialGradient id="heroSunAtmosphere" cx="16%" cy="20%" r="46%">
+                <stop offset="0%" stop-color="var(--hero-sun-aura)" stop-opacity="0.72" />
+                <stop offset="46%" stop-color="var(--hero-sun-mid)" stop-opacity="0.26" />
+                <stop offset="100%" stop-color="var(--hero-sun-mid)" stop-opacity="0" />
+              </radialGradient>
+              <radialGradient id="heroSeaAtmosphere" cx="86%" cy="22%" r="42%">
+                <stop offset="0%" stop-color="var(--hero-sea-aura)" stop-opacity="0.34" />
+                <stop offset="100%" stop-color="var(--hero-sea-aura)" stop-opacity="0" />
+              </radialGradient>
+              <radialGradient id="heroSunOrb" cx="42%" cy="38%" r="60%">
+                <stop offset="0%" stop-color="#fffdf4" stop-opacity="0.98" />
+                <stop offset="52%" stop-color="#ffe2a4" stop-opacity="0.92" />
+                <stop offset="100%" stop-color="#f4ad72" stop-opacity="0.78" />
+              </radialGradient>
+              <radialGradient id="heroSunInnerRing" cx="50%" cy="50%" r="50%">
+                <stop offset="60%" stop-color="#ffdfa0" stop-opacity="0.34" />
+                <stop offset="100%" stop-color="#f6b37d" stop-opacity="0" />
+              </radialGradient>
+              <linearGradient id="heroMtnFarL" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--hero-mtn-warm-far)" stop-opacity="0.36" />
+                <stop offset="100%" stop-color="var(--hero-mtn-warm-far)" stop-opacity="0.04" />
+              </linearGradient>
+              <linearGradient id="heroMtnNearL" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="var(--hero-mtn-warm-near)" stop-opacity="0.32" />
+                <stop offset="100%" stop-color="var(--hero-mtn-warm-near)" stop-opacity="0.06" />
+              </linearGradient>
+              <linearGradient id="heroMtnFarR" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--hero-mtn-cool-far)" stop-opacity="0.28" />
+                <stop offset="100%" stop-color="var(--hero-mtn-cool-far)" stop-opacity="0.04" />
+              </linearGradient>
+              <linearGradient id="heroMtnNearR" x1="1" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--hero-mtn-cool-near)" stop-opacity="0.28" />
+                <stop offset="100%" stop-color="var(--hero-mtn-cool-near)" stop-opacity="0.05" />
+              </linearGradient>
+              <linearGradient id="heroSeaWave" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="var(--hero-mtn-warm-near)" stop-opacity="0.2" />
+                <stop offset="50%" stop-color="#fff5e6" stop-opacity="0.1" />
+                <stop offset="100%" stop-color="var(--hero-mtn-cool-near)" stop-opacity="0.22" />
+              </linearGradient>
+              <filter id="heroCloudBlur" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="16" />
+              </filter>
+              <filter id="heroSunBlur" x="-40%" y="-40%" width="180%" height="180%">
+                <feGaussianBlur stdDeviation="10" />
+              </filter>
+            </defs>
+
+            <!-- 天空暖阳与海风柔光基底 -->
+            <rect width="1440" height="720" fill="url(#heroSunAtmosphere)" />
+            <rect width="1440" height="720" fill="url(#heroSeaAtmosphere)" />
+
+            <!-- 精致暖阳层（随鼠标微动 + 呼吸光晕 + 柔光射线缓转） -->
+            <g class="hero-parallax-layer" data-depth="0.65">
+              <g class="hero-sun-group" transform="translate(205, 138)">
+                <circle class="hero-sun-halo" cx="0" cy="0" r="88" fill="url(#heroSunInnerRing)" />
+                <circle cx="0" cy="0" r="56" fill="#ffd891" fill-opacity="0.26" filter="url(#heroSunBlur)" />
+                <!-- 12 道柔和暖阳微光射线 -->
+                <g class="hero-sun-rays" stroke="#f0ab6a" stroke-opacity="0.34" stroke-width="1.6" stroke-linecap="round">
+                  <line x1="0" y1="-44" x2="0" y2="-58" />
+                  <line x1="0" y1="44" x2="0" y2="58" />
+                  <line x1="-44" y1="0" x2="-58" y2="0" />
+                  <line x1="44" y1="0" x2="58" y2="0" />
+                  <line x1="31" y1="-31" x2="41" y2="-41" />
+                  <line x1="-31" y1="31" x2="-41" y2="41" />
+                  <line x1="-31" y1="-31" x2="-41" y2="-41" />
+                  <line x1="31" y1="31" x2="41" y2="41" />
+                  <line x1="22" y1="-38" x2="27" y2="-47" stroke-opacity="0.22" />
+                  <line x1="-22" y1="38" x2="-27" y2="47" stroke-opacity="0.22" />
+                  <line x1="-38" y1="-22" x2="-47" y2="-27" stroke-opacity="0.22" />
+                  <line x1="38" y1="22" x2="47" y2="27" stroke-opacity="0.22" />
+                </g>
+                <!-- 细密虚线日晕环 -->
+                <circle class="hero-sun-ring" cx="0" cy="0" r="40" stroke="#e9a462" stroke-opacity="0.32" stroke-width="1" stroke-dasharray="2.5 5.5" />
+                <!-- 暖阳主体与柔白高光 -->
+                <circle cx="0" cy="0" r="30" fill="url(#heroSunOrb)" />
+                <ellipse cx="-8" cy="-9" rx="11" ry="7" fill="#ffffff" fill-opacity="0.52" transform="rotate(-28 -8 -9)" />
+              </g>
             </g>
-            <g class="flight-pin p2">
-              <circle cx="520" cy="166" r="11" fill="var(--teal)" fill-opacity="0.16" />
-              <circle cx="520" cy="166" r="4.5" fill="var(--teal)" />
+
+            <!-- 漂浮水彩柔云层（轻缓漂移 + 视差） -->
+            <g class="hero-parallax-layer" data-depth="0.45">
+              <g class="hero-clouds-left" filter="url(#heroCloudBlur)" opacity="0.72">
+                <ellipse cx="148" cy="222" rx="126" ry="24" fill="var(--hero-cloud)" />
+                <ellipse cx="325" cy="182" rx="92" ry="18" fill="var(--hero-cloud-warm)" />
+              </g>
+              <g class="hero-clouds-right" filter="url(#heroCloudBlur)" opacity="0.68">
+                <ellipse cx="1268" cy="158" rx="145" ry="26" fill="var(--hero-cloud)" />
+                <ellipse cx="1110" cy="204" rx="90" ry="18" fill="var(--hero-cloud-cool)" />
+              </g>
             </g>
-            <g class="flight-pin p3">
-              <circle cx="945" cy="238" r="10" fill="var(--gold)" fill-opacity="0.18" />
-              <circle cx="945" cy="238" r="4" fill="var(--gold)" />
+
+            <!-- 远山层（左暖杏、右青绿） -->
+            <g class="hero-parallax-layer" data-depth="0.28">
+              <path d="M-60 560 C 100 410, 245 395, 420 475 C 525 522, 620 572, 745 598 L-60 720 Z" fill="url(#heroMtnFarL)" />
+              <path d="M725 602 C 895 512, 1050 408, 1235 390 C 1340 378, 1425 406, 1510 442 L1510 720 L725 720 Z" fill="url(#heroMtnFarR)" />
             </g>
-            <g class="flight-pin p4">
-              <circle cx="1235" cy="196" r="11" fill="var(--accent)" fill-opacity="0.16" />
-              <circle cx="1235" cy="196" r="4.5" fill="var(--accent)" />
+
+            <!-- 近山与海湾波纹、小帆船层 -->
+            <g class="hero-parallax-layer" data-depth="0.52">
+              <path d="M-60 632 C 75 512, 220 500, 365 568 C 455 610, 535 648, 635 678 L-60 720 Z" fill="url(#heroMtnNearL)" />
+              <path d="M865 678 C 1015 582, 1170 492, 1345 508 C 1410 514, 1460 534, 1510 554 L1510 720 L865 720 Z" fill="url(#heroMtnNearR)" />
+              <path d="M-30 656 Q 240 626, 480 656 T 980 652 T 1470 646 L1470 720 L-30 720 Z" fill="url(#heroSeaWave)" />
+              <path d="M175 672 Q 305 662, 428 672" stroke="var(--hero-mtn-warm-near)" stroke-opacity="0.32" stroke-width="1.5" stroke-linecap="round" />
+              <path d="M980 666 Q 1120 656, 1265 668" stroke="var(--hero-mtn-cool-near)" stroke-opacity="0.32" stroke-width="1.5" stroke-linecap="round" />
+              <!-- 轻晃小帆船 -->
+              <g transform="translate(1195, 594)">
+                <g class="hero-sailboat" opacity="0.68">
+                  <path d="M0 18 L24 18 L20 23 L4 23 Z" fill="#c96846" />
+                  <path d="M11 17 L11 0 L22 14 Z" fill="#fff6ea" stroke="#c96846" stroke-width="0.8" />
+                  <path d="M10 17 L10 4 L2 15 Z" fill="#f7d5b5" />
+                </g>
+              </g>
+            </g>
+
+            <!-- 远飞小鸟层 -->
+            <g class="hero-parallax-layer" data-depth="0.82">
+              <g class="hero-birds" stroke="var(--hero-bird)" stroke-opacity="0.48" stroke-width="1.45" stroke-linecap="round" fill="none">
+                <path d="M356 206 q 6 -6 12 0 q 6 -6 12 0" />
+                <path d="M388 188 q 4.5 -4.5 9 0 q 4.5 -4.5 9 0" />
+                <path d="M1072 164 q 5 -5 10 0 q 5 -5 10 0" />
+              </g>
+            </g>
+
+            <!-- 细腻旅途虚线航迹与坐标点 -->
+            <g class="hero-parallax-layer" data-depth="0.38">
+              <path
+                class="flight-dash"
+                d="M105 398 C 308 228, 515 156, 725 236 C 925 312, 1112 170, 1350 256"
+                stroke="var(--accent)"
+                stroke-opacity="0.32"
+                stroke-width="1.9"
+                stroke-linecap="round"
+              />
+              <g class="flight-pin p1">
+                <circle cx="195" cy="326" r="11" fill="var(--accent)" fill-opacity="0.14" />
+                <circle cx="195" cy="326" r="4" fill="var(--accent)" />
+              </g>
+              <g class="flight-pin p2">
+                <circle cx="515" cy="193" r="11" fill="var(--teal)" fill-opacity="0.16" />
+                <circle cx="515" cy="193" r="4.3" fill="var(--teal)" />
+              </g>
+              <g class="flight-pin p3">
+                <circle cx="952" cy="259" r="10" fill="var(--gold)" fill-opacity="0.2" />
+                <circle cx="952" cy="259" r="4" fill="var(--gold)" />
+              </g>
+              <g class="flight-pin p4">
+                <circle cx="1252" cy="222" r="11" fill="var(--accent)" fill-opacity="0.16" />
+                <circle cx="1252" cy="222" r="4.3" fill="var(--accent)" />
+              </g>
             </g>
           </svg>
         </div>
@@ -941,6 +1063,6 @@
       </div>
     </div>
 
-    <script src="./download.js?v=1.0.78"></script>
+    <script src="./download.js?v=1.0.84"></script>
   </body>
 </html>
