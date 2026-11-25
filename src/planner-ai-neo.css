@@ -1222,15 +1222,29 @@
   }
   .planner-ai-status:not(.is-unconfigured) .ai-dock-brand {
     flex: 1 1 100%;
-    padding-right: 114px;
+    min-width: 0;
+    padding-right: 106px;
+    align-items: flex-start;
+  }
+  .planner-ai-status:not(.is-unconfigured) .ai-dock-title-row {
+    flex-wrap: wrap;
+    row-gap: 3px;
+  }
+  .planner-ai-status:not(.is-unconfigured) .ai-dock-subline {
+    flex-wrap: wrap;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.4;
   }
   .planner-ai-status:not(.is-unconfigured) .ai-dock-settings-btn {
     position: absolute;
-    top: 11px;
-    right: 12px;
-    height: 32px;
-    padding: 0 10px;
+    top: 10px;
+    right: 10px;
+    height: 30px;
+    padding: 0 9px;
     margin-left: 0;
+    font-size: 12px;
   }
   .ai-dock-controls {
     margin-left: 0;

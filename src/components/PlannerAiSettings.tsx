@@ -973,8 +973,8 @@ export function PlannerAiStatusBar({
               ) : (
                 <strong>{providerName}</strong>
               )}
-              <span className={isSubscription ? 'ai-dock-auth-tag is-sub' : 'ai-dock-auth-tag'}>
-                {isFreeTrial ? '免费体验' : isSubscription ? '订阅' : 'API'}
+              <span className={(isSubscription || isFreeTrial) ? 'ai-dock-auth-tag is-sub' : 'ai-dock-auth-tag'}>
+                {isFreeTrial ? '免费' : isSubscription ? '订阅' : 'API'}
               </span>
             </div>
             <div className="ai-dock-subline">
@@ -982,11 +982,13 @@ export function PlannerAiStatusBar({
                 <span className="ai-dock-meta-item">
                   {!freeQuotaState.loggedIn
                     ? '登录周游账号即可免费体验'
-                    : freeQuotaState.quota?.vip
-                      ? 'VIP 无限畅享'
-                      : freeQuotaState.quota
-                        ? `今日余 ${formatTokenAmount(freeQuotaState.quota.daily.remaining)}/${formatTokenAmount(freeQuotaState.quota.daily.limit)} · 本月余 ${formatTokenAmount(freeQuotaState.quota.monthly.remaining)}/${formatTokenAmount(freeQuotaState.quota.monthly.limit)}`
-                        : '每日 5万 / 每月 12万 tokens'}
+                    : freeQuotaState.quota && !freeQuotaState.quota.enabled
+                      ? '免费通道待启用 · 可先用外部 AI 导入'
+                      : freeQuotaState.quota?.vip
+                        ? 'VIP 无限畅享'
+                        : freeQuotaState.quota
+                          ? `今日余 ${formatTokenAmount(freeQuotaState.quota.daily.remaining)}/${formatTokenAmount(freeQuotaState.quota.daily.limit)} · 本月余 ${formatTokenAmount(freeQuotaState.quota.monthly.remaining)}/${formatTokenAmount(freeQuotaState.quota.monthly.limit)}`
+                          : '每日 5万 / 每月 12万 tokens'}
                 </span>
               ) : (
                 <>
@@ -1934,6 +1936,11 @@ export default function PlannerAiSettings({
             {!freeQuota.loggedIn && (
               <p className="muted" style={{ margin: '8px 0 0', fontSize: 12 }}>
                 提示：请先在「个人中心」登录周游账号后即可启用免费额度；未登录也可使用「借用外部免费 AI 导入」零成本生成。
+              </p>
+            )}
+            {freeQuota.loggedIn && freeQuota.quota && !freeQuota.quota.enabled && (
+              <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--danger, #c62828)' }}>
+                当前服务端尚未读取到免费体验密钥（若刚在 Cloudflare Pages 添加了 FREE_AI_API_KEY，需重新部署后生效）。
               </p>
             )}
           </article>
