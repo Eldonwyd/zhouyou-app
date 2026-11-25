@@ -24,6 +24,7 @@ export const ALLOWED_SETTING_KEYS = new Set([
   'announcement_body',
   'digest_webhook_url',
   'token_cost_per_million_cny',
+  'excluded_stat_accounts',
 ]);
 
 export function getBeijingPeriodKeys(now = new Date()) {

@@ -24,7 +24,7 @@ import {
   verifySecret,
   withApiHandler,
 } from '../../../cloud-lib/cloud.js';
-import { trackDailyMetric } from '../../../cloud-lib/admin-telemetry.js';
+import { readAdminSettingsMap, trackDailyMetric } from '../../../cloud-lib/admin-telemetry.js';
 
 async function allocateFriendCode(db) {
   for (let i = 0; i < 12; i += 1) {
@@ -198,7 +198,15 @@ export const onRequest = withApiHandler(async (context) => {
     }
     const platform = String(body.platform || 'web').toLowerCase();
     const session = await createSession(db, userRow.id, body.deviceName || '', platform);
-    trackDailyMetric(context, 'auth_login', platform, 1, 0);
+    const adminCfg = await readAdminSettingsMap(db);
+    const exclRaw = adminCfg.excluded_stat_accounts !== undefined ? adminCfg.excluded_stat_accounts : 'Eldon';
+    const exclSet = new Set(String(exclRaw).split(/[,;\s]+/).map((s) => s.trim().toLowerCase()).filter(Boolean));
+    const selfKeys = [userRow.id, userRow.nickname_norm, userRow.email_norm, userRow.phone_norm, userRow.friend_code]
+      .filter(Boolean)
+      .map((s) => String(s).toLowerCase());
+    if (!selfKeys.some((k) => exclSet.has(k))) {
+      trackDailyMetric(context, 'auth_login', platform, 1, 0);
+    }
     return jsonResponse(request, 200, {
       ok: true,
       token: session.token,

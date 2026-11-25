@@ -141,10 +141,49 @@ function buildEffectiveConfig(env, settingsMap) {
     announcementBody: settingsMap.announcement_body || '',
     digestWebhookUrl: settingsMap.digest_webhook_url || '',
     tokenCostPerMillionCny: Number(settingsMap.token_cost_per_million_cny || 1),
+    excludedStatAccounts: settingsMap.excluded_stat_accounts !== undefined ? settingsMap.excluded_stat_accounts : 'Eldon',
   };
 }
 
-async function computeOverview(db, env) {
+function parseExcludedList(settingsMap) {
+  const raw = settingsMap.excluded_stat_accounts !== undefined ? settingsMap.excluded_stat_accounts : 'Eldon';
+  return Array.from(new Set(
+    String(raw || '')
+      .split(/[,;\s]+/)
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean),
+  ));
+}
+
+async function resolveExcludedUserIds(db, settingsMap, excludeSelf = true) {
+  if (!excludeSelf) return [];
+  const tokens = parseExcludedList(settingsMap);
+  if (tokens.length === 0) return [];
+  const ph = tokens.map(() => '?').join(',');
+  const rows = await safeAll(
+    db,
+    `SELECT id FROM users
+     WHERE LOWER(id) IN (${ph})
+        OR LOWER(nickname_norm) IN (${ph})
+        OR LOWER(COALESCE(email_norm, '')) IN (${ph})
+        OR LOWER(COALESCE(phone_norm, '')) IN (${ph})
+        OR LOWER(COALESCE(friend_code, '')) IN (${ph})`,
+    ...tokens,
+    ...tokens,
+    ...tokens,
+    ...tokens,
+    ...tokens,
+  );
+  return rows.map((r) => r.id).filter(Boolean);
+}
+
+function notInSql(col, ids, prefix = 'AND') {
+  if (!ids || ids.length === 0) return { sql: '', binds: [] };
+  const ph = ids.map(() => '?').join(',');
+  return { sql: `${prefix} ${col} NOT IN (${ph})`, binds: [...ids] };
+}
+
+async function computeOverview(db, env, excludeSelf = true) {
   const { dayKey, monthKey } = getBeijingPeriodKeys();
   const yesterdayKey = getBeijingDayKeyOffset(-1);
   const todayStart = beijingDayStartIso(dayKey);
@@ -155,6 +194,14 @@ async function computeOverview(db, env) {
 
   const settingsMap = await readAdminSettingsMap(db);
   const effectiveConfig = buildEffectiveConfig(env, settingsMap);
+  const excludedIds = await resolveExcludedUserIds(db, settingsMap, excludeSelf);
+
+  const uWhere = notInSql('id', excludedIds, 'WHERE');
+  const uAnd = notInSql('id', excludedIds, 'AND');
+  const sAnd = notInSql('user_id', excludedIds, 'AND');
+  const uAliasAnd = notInSql('u.id', excludedIds, 'AND');
+  const ownerAnd = notInSql('owner_id', excludedIds, 'AND');
+  const senderAnd = notInSql('sender_id', excludedIds, 'AND');
 
   const [
     totalUsers,
@@ -183,42 +230,50 @@ async function computeOverview(db, env) {
     latestGh,
     retentionCohort,
   ] = await Promise.all([
-    safeCount(db, 'SELECT COUNT(*) AS c FROM users'),
-    safeCount(db, 'SELECT COUNT(*) AS c FROM users WHERE created_at >= ?', todayStart),
-    safeCount(db, 'SELECT COUNT(*) AS c FROM users WHERE created_at >= ? AND created_at < ?', yesterdayStart, todayStart),
-    safeCount(db, 'SELECT COUNT(*) AS c FROM users WHERE created_at >= ?', d7Start),
-    safeCount(db, 'SELECT COUNT(*) AS c FROM users WHERE created_at >= ?', d30Start),
-    safeCount(db, 'SELECT COUNT(DISTINCT user_id) AS c FROM user_sessions WHERE last_seen_at >= ?', todayStart),
-    safeCount(db, 'SELECT COUNT(DISTINCT user_id) AS c FROM user_sessions WHERE last_seen_at >= ?', d7Start),
-    safeCount(db, 'SELECT COUNT(DISTINCT user_id) AS c FROM user_sessions WHERE last_seen_at >= ?', d30Start),
-    safeCount(db, 'SELECT COUNT(DISTINCT user_id) AS c FROM user_sessions WHERE last_seen_at >= ?', online15mCutoff),
+    safeCount(db, `SELECT COUNT(*) AS c FROM users ${uWhere.sql}`, ...uWhere.binds),
+    safeCount(db, `SELECT COUNT(*) AS c FROM users WHERE created_at >= ? ${uAnd.sql}`, todayStart, ...uAnd.binds),
+    safeCount(db, `SELECT COUNT(*) AS c FROM users WHERE created_at >= ? AND created_at < ? ${uAnd.sql}`, yesterdayStart, todayStart, ...uAnd.binds),
+    safeCount(db, `SELECT COUNT(*) AS c FROM users WHERE created_at >= ? ${uAnd.sql}`, d7Start, ...uAnd.binds),
+    safeCount(db, `SELECT COUNT(*) AS c FROM users WHERE created_at >= ? ${uAnd.sql}`, d30Start, ...uAnd.binds),
+    safeCount(db, `SELECT COUNT(DISTINCT user_id) AS c FROM user_sessions WHERE last_seen_at >= ? ${sAnd.sql}`, todayStart, ...sAnd.binds),
+    safeCount(db, `SELECT COUNT(DISTINCT user_id) AS c FROM user_sessions WHERE last_seen_at >= ? ${sAnd.sql}`, d7Start, ...sAnd.binds),
+    safeCount(db, `SELECT COUNT(DISTINCT user_id) AS c FROM user_sessions WHERE last_seen_at >= ? ${sAnd.sql}`, d30Start, ...sAnd.binds),
+    safeCount(db, `SELECT COUNT(DISTINCT user_id) AS c FROM user_sessions WHERE last_seen_at >= ? ${sAnd.sql}`, online15mCutoff, ...sAnd.binds),
     safeAll(
       db,
       `SELECT platform, COUNT(*) AS sessions, COUNT(DISTINCT user_id) AS users
-       FROM user_sessions WHERE last_seen_at >= ? GROUP BY platform`,
+       FROM user_sessions WHERE last_seen_at >= ? ${sAnd.sql} GROUP BY platform`,
       d30Start,
+      ...sAnd.binds,
     ),
     safeFirst(
       db,
-      'SELECT tokens_used, requests_count FROM free_ai_usage_daily WHERE user_id = ? AND day_key = ?',
-      SITE_BUCKET_ID,
+      `SELECT COALESCE(SUM(tokens_used), 0) AS tokens_used, COALESCE(SUM(requests_count), 0) AS requests_count
+       FROM free_ai_usage_daily WHERE day_key = ? AND user_id != ? ${sAnd.sql}`,
       dayKey,
+      SITE_BUCKET_ID,
+      ...sAnd.binds,
     ),
     safeFirst(
       db,
-      'SELECT SUM(tokens_used) AS tokens_used, SUM(requests_count) AS requests_count FROM free_ai_usage_monthly WHERE month_key = ?',
+      `SELECT COALESCE(SUM(tokens_used), 0) AS tokens_used, COALESCE(SUM(requests_count), 0) AS requests_count
+       FROM free_ai_usage_monthly WHERE month_key = ? AND user_id != ? ${sAnd.sql}`,
       monthKey,
+      SITE_BUCKET_ID,
+      ...sAnd.binds,
     ),
     safeCount(
       db,
-      'SELECT COUNT(*) AS c FROM free_ai_usage_daily WHERE day_key = ? AND user_id != ?',
+      `SELECT COUNT(*) AS c FROM free_ai_usage_daily WHERE day_key = ? AND user_id != ? ${sAnd.sql}`,
       dayKey,
       SITE_BUCKET_ID,
+      ...sAnd.binds,
     ),
     safeAll(
       db,
-      'SELECT status, latency_ms FROM free_ai_request_logs WHERE created_at >= ?',
+      `SELECT status, latency_ms FROM free_ai_request_logs WHERE created_at >= ? ${sAnd.sql}`,
       todayStart,
+      ...sAnd.binds,
     ),
     safeCount(
       db,
@@ -245,10 +300,10 @@ async function computeOverview(db, env) {
       "SELECT SUM(count) AS c FROM telemetry_daily WHERE day_key = ? AND metric = 'share_view'",
       dayKey,
     ),
-    safeCount(db, 'SELECT COUNT(*) AS c FROM travel_groups'),
-    safeCount(db, 'SELECT COUNT(*) AS c FROM ai_plans'),
-    safeCount(db, 'SELECT COUNT(*) AS c FROM plan_shares'),
-    safeFirst(db, 'SELECT COUNT(*) AS records, SUM(byte_size) AS total_bytes FROM user_records WHERE deleted_at IS NULL'),
+    safeCount(db, `SELECT COUNT(*) AS c FROM travel_groups WHERE 1=1 ${ownerAnd.sql}`, ...ownerAnd.binds),
+    safeCount(db, `SELECT COUNT(*) AS c FROM ai_plans WHERE 1=1 ${ownerAnd.sql}`, ...ownerAnd.binds),
+    safeCount(db, `SELECT COUNT(*) AS c FROM plan_shares WHERE 1=1 ${senderAnd.sql}`, ...senderAnd.binds),
+    safeFirst(db, `SELECT COUNT(*) AS records, SUM(byte_size) AS total_bytes FROM user_records WHERE deleted_at IS NULL ${sAnd.sql}`, ...sAnd.binds),
     safeFirst(db, 'SELECT * FROM github_daily_snapshots ORDER BY day_key DESC LIMIT 1'),
     // 简化 7 日留存：近 14~7 天注册用户中，在最近 7 天仍有活跃的比例
     safeFirst(
@@ -259,10 +314,11 @@ async function computeOverview(db, env) {
            SELECT 1 FROM user_sessions s WHERE s.user_id = u.id AND s.last_seen_at >= ?
          ) THEN 1 ELSE 0 END) AS retained
        FROM users u
-       WHERE u.created_at >= ? AND u.created_at < ?`,
+       WHERE u.created_at >= ? AND u.created_at < ? ${uAliasAnd.sql}`,
       d7Start,
       beijingDayStartIso(getBeijingDayKeyOffset(-14)),
       d7Start,
+      ...uAliasAnd.binds,
     ),
   ]);
 
@@ -363,11 +419,12 @@ export const onRequest = withApiHandler(async (context) => {
 
   const action = segments[0] || 'overview';
   const url = new URL(request.url);
+  const excludeSelf = url.searchParams.get('excludeSelf') !== '0';
 
   // GET /api/admin/overview
   if (method === 'GET' && action === 'overview') {
-    const overview = await computeOverview(db, env);
-    return jsonResponse(request, 200, { ok: true, overview });
+    const overview = await computeOverview(db, env, excludeSelf);
+    return jsonResponse(request, 200, { ok: true, excludeSelf, overview });
   }
 
   // GET /api/admin/trends?days=30
@@ -376,6 +433,10 @@ export const onRequest = withApiHandler(async (context) => {
     const dayKeys = buildRecentDayKeys(days);
     const startKey = dayKeys[0];
     const startIso = beijingDayStartIso(startKey);
+    const settingsMap = await readAdminSettingsMap(db);
+    const excludedIds = await resolveExcludedUserIds(db, settingsMap, excludeSelf);
+    const uAnd = notInSql('id', excludedIds, 'AND');
+    const sAnd = notInSql('user_id', excludedIds, 'AND');
 
     const [
       regRows,
@@ -386,15 +447,17 @@ export const onRequest = withApiHandler(async (context) => {
       safeAll(
         db,
         `SELECT substr(datetime(created_at, '+8 hours'), 1, 10) AS dk, COUNT(*) AS c
-         FROM users WHERE created_at >= ? GROUP BY dk`,
+         FROM users WHERE created_at >= ? ${uAnd.sql} GROUP BY dk`,
         startIso,
+        ...uAnd.binds,
       ),
       safeAll(
         db,
-        `SELECT day_key AS dk, tokens_used, requests_count
-         FROM free_ai_usage_daily WHERE user_id = ? AND day_key >= ?`,
+        `SELECT day_key AS dk, SUM(tokens_used) AS tokens_used, SUM(requests_count) AS requests_count
+         FROM free_ai_usage_daily WHERE user_id != ? AND day_key >= ? ${sAnd.sql} GROUP BY day_key`,
         SITE_BUCKET_ID,
         startKey,
+        ...sAnd.binds,
       ),
       safeAll(
         db,
@@ -456,6 +519,11 @@ export const onRequest = withApiHandler(async (context) => {
     const { dayKey, monthKey } = getBeijingPeriodKeys();
     const startKey = getBeijingDayKeyOffset(-(days - 1));
     const startIso = beijingDayStartIso(startKey);
+    const settingsMap = await readAdminSettingsMap(db);
+    const excludedIds = await resolveExcludedUserIds(db, settingsMap, excludeSelf);
+    const fAnd = notInSql('f.user_id', excludedIds, 'AND');
+    const lWhere = notInSql('l.user_id', excludedIds, 'WHERE');
+    const lAnd = notInSql('user_id', excludedIds, 'AND');
 
     const [
       topToday,
@@ -471,10 +539,11 @@ export const onRequest = withApiHandler(async (context) => {
                 u.nickname, u.friend_code, u.email_norm, u.phone_norm
          FROM free_ai_usage_daily f
          LEFT JOIN users u ON u.id = f.user_id
-         WHERE f.day_key = ? AND f.user_id != ?
+         WHERE f.day_key = ? AND f.user_id != ? ${fAnd.sql}
          ORDER BY f.tokens_used DESC LIMIT 20`,
         dayKey,
         SITE_BUCKET_ID,
+        ...fAnd.binds,
       ),
       safeAll(
         db,
@@ -482,10 +551,11 @@ export const onRequest = withApiHandler(async (context) => {
                 u.nickname, u.friend_code, u.email_norm, u.phone_norm
          FROM free_ai_usage_monthly f
          LEFT JOIN users u ON u.id = f.user_id
-         WHERE f.month_key = ? AND f.user_id != ?
+         WHERE f.month_key = ? AND f.user_id != ? ${fAnd.sql}
          ORDER BY f.tokens_used DESC LIMIT 20`,
         monthKey,
         SITE_BUCKET_ID,
+        ...fAnd.binds,
       ),
       safeAll(
         db,
@@ -493,13 +563,16 @@ export const onRequest = withApiHandler(async (context) => {
                 l.prompt_tokens, l.completion_tokens, l.total_tokens, l.error_code, l.created_at
          FROM free_ai_request_logs l
          LEFT JOIN users u ON u.id = l.user_id
+         ${lWhere.sql}
          ORDER BY l.created_at DESC LIMIT 60`,
+        ...lWhere.binds,
       ),
       safeAll(
         db,
         `SELECT status, COUNT(*) AS c, AVG(latency_ms) AS avg_ms
-         FROM free_ai_request_logs WHERE created_at >= ? GROUP BY status ORDER BY c DESC`,
+         FROM free_ai_request_logs WHERE created_at >= ? ${lAnd.sql} GROUP BY status ORDER BY c DESC`,
         startIso,
+        ...lAnd.binds,
       ),
       safeAll(
         db,
@@ -655,11 +728,19 @@ export const onRequest = withApiHandler(async (context) => {
     const cfg = buildEffectiveConfig(env, settingsMap);
     const vipSet = new Set(cfg.vipAccounts.map((s) => s.toLowerCase()));
 
+    const excludedIds = await resolveExcludedUserIds(db, settingsMap, excludeSelf);
     const like = `%${q}%`;
-    const whereClause = q
-      ? 'WHERE (u.nickname_norm LIKE ? OR u.email_norm LIKE ? OR u.phone_norm LIKE ? OR LOWER(u.friend_code) LIKE ? OR u.id = ?)'
-      : '';
-    const binds = q ? [like, like, like, like, q] : [];
+    const conds = [];
+    const binds = [];
+    if (q) {
+      conds.push('(u.nickname_norm LIKE ? OR u.email_norm LIKE ? OR u.phone_norm LIKE ? OR LOWER(u.friend_code) LIKE ? OR u.id = ?)');
+      binds.push(like, like, like, like, q);
+    }
+    if (excludedIds.length > 0) {
+      conds.push(`u.id NOT IN (${excludedIds.map(() => '?').join(',')})`);
+      binds.push(...excludedIds);
+    }
+    const whereClause = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
 
     const total = await safeCount(db, `SELECT COUNT(*) AS c FROM users u ${whereClause}`, ...binds);
     const rows = await safeAll(
