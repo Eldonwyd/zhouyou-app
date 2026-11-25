@@ -15,9 +15,9 @@ export interface AppearanceStyleMeta {
   colors: [string, string, string, string];
 }
 export const APPEARANCE_STYLES: AppearanceStyleMeta[] = [
+  { id: 'journal', name: '复古手账', nameEn: 'Vintage Journal', badge: '纸本拼贴', badgeEn: 'Paper Craft', description: '方格纸纹 · 和纸胶带 · 宋体标题 · 胶片邮戳', descriptionEn: 'Grid paper · Washi tape · Serif headings · Postmarks', colors: ['#f5efe4', '#866041', '#eadcc4', '#d8b47c'] },
   { id: 'candy', name: '糖果贴纸', nameEn: 'Candy Sticker', badge: '可爱活泼', badgeEn: 'Playful', description: '波点底纹 · 立体描边 · 贴纸胶带 · Q弹动效', descriptionEn: 'Polka dots · Bold outlines · Washi tape · Bouncy feel', colors: ['#fff8f2', '#eb6b56', '#ffe8cf', '#ffd97d'] },
   { id: 'white', name: '简洁纯白', nameEn: 'Minimal White', badge: '干净极简', badgeEn: 'Clean', description: '纯白干净底 · 清新彩色点缀 · 隐藏贴纸 · 利落方角', descriptionEn: 'Crisp white · Subtle accents · Sticker-free · Sharp corners', colors: ['#ffffff', '#467a58', '#ebf5ed', '#ffefe8'] },
-  { id: 'journal', name: '复古手账', nameEn: 'Vintage Journal', badge: '纸本拼贴', badgeEn: 'Paper Craft', description: '方格纸纹 · 和纸胶带 · 宋体标题 · 胶片邮戳', descriptionEn: 'Grid paper · Washi tape · Serif headings · Postmarks', colors: ['#f5efe4', '#866041', '#eadcc4', '#d8b47c'] },
   { id: 'coast', name: '海盐晴空', nameEn: 'Sea Salt Sky', badge: '清爽通透', badgeEn: 'Breezy', description: '浅蓝白底 · 纯白浮卡 · 清澈海蓝 · 胶囊圆角', descriptionEn: 'Airy sky tint · Floating cards · Ocean blue · Pill radius', colors: ['#f3f9fd', '#3c89b8', '#e1f1fa', '#9fd0ec'] },
   { id: 'warm', name: '草木暖日', nameEn: 'Warm Meadow', badge: '温柔自然', badgeEn: 'Gentle', description: '奶油纸底 · 草木新绿 · 柔和圆角 · 舒缓耐看', descriptionEn: 'Cream paper · Sage green · Soft corners · Calm palette', colors: ['#f7f6f0', '#526c48', '#e9efdf', '#f9e7dc'] },
 ];
@@ -25,7 +25,7 @@ const STORAGE_KEY = 'travel-theme';
 const STYLE_KEY = 'travel-appearance';
 const FONT_SCALE_KEY = 'travel-font-scale';
 const EVENT = 'travel-themechange';
-const DEFAULT_STYLE: AppearanceStyle = 'candy';
+const DEFAULT_STYLE: AppearanceStyle = 'journal';
 const DEFAULT_FONT_SCALE: FontScaleMode = 'standard';
 const media = () => window.matchMedia('(prefers-color-scheme: dark)');
 

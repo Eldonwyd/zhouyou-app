@@ -64,19 +64,19 @@
       'nav.download': 'Download',
       'nav.faq': 'FAQ',
       'nav.cta': 'Download',
-      'hero.title1': 'Keep Every City You Walked,',
-      'hero.title2': 'Inside Your Own Travel Booklet',
-      'hero.sub': 'An open-source cross-platform travel companion for China footprints (34 provinces & 370+ cities), multi-model AI roadbooks, friend footprint comparison, group chat & co-editing, cloud sync, and photo & voice journals.',
+      'hero.title1': 'One App for Your Entire Journey,',
+      'hero.title2': 'AI Roadbooks, Friend Co-Editing & Footprint Journals',
+      'hero.sub': 'An all-in-one cross-platform travel toolkit: one-click AI illustrated itineraries with backup plans, smooth Amap/Baidu/Google Maps & Xiaohongshu switching, friend group voting & auto AA splitting, and 370+ city footprint journals.',
       'hero.tryBtn': 'Try Interactive Web Tour',
       'tour.eyebrow': 'INTERACTIVE WEB SANDBOX',
       'tour.h2': 'Experience the Web App Right Here',
-      'tour.p': 'Click provinces, drill down to light up 370+ cities, switch 5 aesthetic skins, and explore the sample Dali roadbook & photo journal. Sign in on the client or full PWA to unlock cloud sync, friends, live AI, and photo storage.',
-      'features.eyebrow': 'CRAFTED FOR EVERY JOURNEY',
-      'features.h2': 'Everything from Planning to Memories, Solo or Together',
-      'features.p': 'No juggling five different apps. From AI roadbooks and friend co-editing to polaroid journals and cloud sync, everything stays smoothly connected.',
-      'showcase.eyebrow': 'VISUAL CRAFT & 5 SKINS',
-      'showcase.h2': 'Warm Paper Tactility, Built for Light & Night',
-      'showcase.p': 'Switch effortlessly between 5 curated visual themes and light/dark modes — whether planning at night or browsing memories offline on a train.',
+      'tour.p': 'Explore the Vintage Journal interface, light up 370+ China cities, and browse the sample Dali roadbook & photo journal. Install the client or full PWA to unlock cloud sync, friends, live AI, and photo storage.',
+      'features.eyebrow': 'ALL-IN-ONE TRAVEL TOOLKIT',
+      'features.h2': 'Everything from Planning to Memories, Seamlessly Connected',
+      'features.p': 'Stop juggling 6 separate apps. AI illustrated roadbooks with backup plans, native map & Xiaohongshu switching, friend group polls & auto AA, and footprint journals all in one place.',
+      'showcase.eyebrow': 'REAL APP SHOWCASE',
+      'showcase.h2': 'Real Interface Highlights, Built for Effortless Travel',
+      'showcase.p': 'Defaulting to the warm Vintage Journal look — switch tabs below to inspect AI roadbooks, group chat polls, auto AA settlement, footprint maps, and photo journals.',
       'compare.eyebrow': 'WEB TOUR VS CLIENT',
       'compare.h2': 'Try Online First, Unlock Full Power on Your Device',
       'compare.p': 'Web Tour lets anyone explore the interface and light up China cities immediately; install the PWA or Desktop/Mobile client to sync across devices, collaborate with friends, and unlock full AI & photo vaults.',
@@ -284,29 +284,63 @@
     tourStage.classList.remove('is-mobile-view');
   }
 
-  /* ---------- 6. 界面精选画廊：3 页面 × 5 皮肤全交互切换（共 15 张实拍图） ---------- */
+  /* ---------- 6. 核心界面精选画廊：6 核心场景（默认复古手账，支持可选 5 套皮肤预览） ---------- */
   const SKIN_META = {
+    journal: { name: '复古手账', desc: '默认主题 · 温润方格纸纹与温暖衬线标题，沉浸如翻阅纸本手账。' },
     candy: { name: '糖果贴纸', desc: '明快珊瑚红与手绘贴纸元素，轻快活泼。' },
-    white: { name: '纯白极简', desc: '干净纯白画布与松绿点缀，聚焦地图与照片本身。' },
-    journal: { name: '纸感手账', desc: '复古米黄纸张与大地棕配色，温润耐看。' },
-    coast: { name: '海风海岸', desc: '清透浅海蓝与深青色搭配，视觉清爽通透。' },
-    warm: { name: '暖日手账', desc: '柔和草木绿与暖日米白，书卷气息十足。' },
+    white: { name: '简洁纯白', desc: '干净纯白画布与松绿点缀，聚焦地图与内容本身。' },
+    coast: { name: '海盐晴空', desc: '清透浅海蓝与深青色搭配，视觉清爽通透。' },
+    warm: { name: '草木暖日', desc: '柔和草木绿与暖日米白，书卷气息十足。' },
   };
   const TAB_META = {
-    map: { label: '全国 34 省足迹地图', filePrefix: 'skin-' },
-    planner: { label: 'AI 行程路书', filePrefix: 'skin-planner-' },
-    journal: { label: '照片手账与明信片', filePrefix: 'skin-journal-' },
+    planner: {
+      label: 'AI 一键生成完整图文路书',
+      filePrefix: 'skin-planner-',
+      hasSkins: true,
+      desc: '自带景点介绍与实景配图、预算拆解、高德/百度/谷歌与小红书一键直达，右侧自带备用玩法随时调整。',
+    },
+    companions: {
+      label: '行程群聊与 AI 方案投票',
+      filePrefix: 'skin-companions-',
+      hasSkins: true,
+      desc: '面对面 4 位建群或周游口令共享路书，在群里边聊边投票，投出最高票一键让 AI 自动改好行程。',
+    },
+    aa: {
+      label: '群内随手记账 · 自动算出谁给谁转多少钱',
+      staticFile: 'desktop-companions-aa.png',
+      hasSkins: false,
+      desc: '记录谁垫付了民宿、包车与聚餐，系统按整数分精度自动生成最少转账 AA 结算单，返程 3 分钟结清。',
+    },
+    map: {
+      label: '全国 34 省 × 370+ 城足迹地图',
+      filePrefix: 'skin-',
+      hasSkins: true,
+      desc: '支持省级缩放下钻、一键点亮已去过/计划前往与按省离线缓存，坐飞机高铁无网照样看。',
+    },
+    compare: {
+      label: '好友双人中国足迹对比地图',
+      staticFile: 'desktop-footprint-compare.png',
+      hasSkins: false,
+      desc: '一键叠加查看你和好友「共同去过」「对方去过」「我去过」「共同想去」的城市清单。',
+    },
+    journal: {
+      label: '照片手账与专属城市明信片',
+      filePrefix: 'skin-journal-',
+      hasSkins: true,
+      desc: '按旅程或城市归档原图照片、短视频与现场语音评语，自动读取 EXIF 与 GPS 归属城市。',
+    },
   };
   const showcaseImg = document.getElementById('showcase-img');
   const showcaseTitle = document.getElementById('showcase-title');
   const showcaseDesc = document.getElementById('showcase-desc');
   const mapToneSwitch = document.getElementById('map-tone-switch');
+  const showcaseSkinWrap = document.getElementById('showcase-skin-wrap');
   const showcaseTabs = document.querySelectorAll('[data-shot-tab]');
   const toneBtns = document.querySelectorAll('[data-map-tone]');
   const skinBtns = document.querySelectorAll('[data-skin-preview]');
-  let activeShotTab = 'map';
-  let activeMapTone = isDarkActive() ? 'dark' : 'light';
-  let activeSkin = 'candy';
+  let activeShotTab = 'planner';
+  let activeMapTone = 'light';
+  let activeSkin = 'journal';
 
   let switchSeq = 0;
   let dimTimer = null;
@@ -316,14 +350,21 @@
     const info = TAB_META[tabKey];
     if (!info || preloadedTabs.has(tabKey)) return;
     preloadedTabs.add(tabKey);
+    if (info.staticFile) {
+      const img = new Image();
+      img.src = `./screenshots/${info.staticFile}?v=1.0.64`;
+      return;
+    }
     Object.keys(SKIN_META).forEach((skin) => {
       const img = new Image();
-      img.src = `./screenshots/${info.filePrefix}${skin}.png?v=1.0.18`;
+      img.src = `./screenshots/${info.filePrefix}${skin}.png?v=1.0.64`;
     });
   }
 
   function renderShowcase() {
     if (!showcaseImg) return;
+    const tabInfo = TAB_META[activeShotTab] || TAB_META.planner;
+    const skinInfo = SKIN_META[activeSkin] || SKIN_META.journal;
     let fileName;
     let title;
     let desc;
@@ -331,23 +372,26 @@
       fileName = 'desktop-map-dark.png';
       title = '全国 34 省 × 370+ 城市足迹地图（夜间深色）';
       desc = '深色护眼低眩光配色，夜晚翻看足迹与规划行程同样柔和清晰。';
+    } else if (tabInfo.staticFile) {
+      fileName = tabInfo.staticFile;
+      title = `复古手账 · ${tabInfo.label}`;
+      desc = tabInfo.desc;
     } else {
-      const tabInfo = TAB_META[activeShotTab] || TAB_META.map;
-      const skinInfo = SKIN_META[activeSkin] || SKIN_META.candy;
       fileName = `${tabInfo.filePrefix}${activeSkin}.png`;
       title = `${skinInfo.name} · ${tabInfo.label}`;
-      desc = skinInfo.desc;
+      desc = tabInfo.desc || skinInfo.desc;
     }
 
-    const nextLocal = `./screenshots/${fileName}?v=1.0.18`;
+    const nextLocal = `./screenshots/${fileName}?v=1.0.64`;
     const nextFallback = `${FALLBACK_SHOT_BASE}${fileName}`;
     showcaseImg.alt = title;
     if (showcaseTitle) showcaseTitle.textContent = title;
     if (showcaseDesc) showcaseDesc.textContent = desc;
     if (mapToneSwitch) mapToneSwitch.hidden = activeShotTab !== 'map';
+    if (showcaseSkinWrap) showcaseSkinWrap.hidden = !tabInfo.hasSkins;
     showcaseTabs.forEach((btn) => btn.classList.toggle('is-active', btn.getAttribute('data-shot-tab') === activeShotTab));
     toneBtns.forEach((btn) => btn.classList.toggle('is-active', btn.getAttribute('data-map-tone') === activeMapTone));
-    const showSkinActive = !(activeShotTab === 'map' && activeMapTone === 'dark');
+    const showSkinActive = Boolean(tabInfo.hasSkins) && !(activeShotTab === 'map' && activeMapTone === 'dark');
     skinBtns.forEach((btn) => btn.classList.toggle('is-active', showSkinActive && btn.getAttribute('data-skin-preview') === activeSkin));
 
     preloadTabSkins(activeShotTab);
@@ -386,9 +430,7 @@
     if (showcaseSection && 'IntersectionObserver' in window) {
       const shotIo = new IntersectionObserver((entries) => {
         if (entries.some((e) => e.isIntersecting)) {
-          preloadTabSkins('map');
-          preloadTabSkins('planner');
-          preloadTabSkins('journal');
+          ['planner', 'companions', 'aa', 'map', 'compare', 'journal'].forEach(preloadTabSkins);
           shotIo.disconnect();
         }
       }, { rootMargin: '300px 0px' });

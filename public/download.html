@@ -3,21 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>周游地图 · Zhouyou Map — 开源跨平台旅行足迹地图、同行旅伴、照片手账与 AI 行程规划</title>
+    <title>周游地图 · Zhouyou Map — 开源跨平台一站式旅行集成工具（AI 图文路书 · 多地图与小红书直连 · 好友共编 AA · 足迹手账）</title>
     <meta
       name="description"
-      content="周游地图（Zhouyou Map）官方主页与下载中心：支持全国 34 省 370+ 城市足迹地图、AI 一键路书、周游账号三端云同步与同行旅伴好友协作，提供 Windows / macOS / Linux / Android / iOS / PWA 全平台极速直下。"
+      content="周游地图（Zhouyou Map）官方主页与下载中心：一站式跨平台旅行集成工具，支持 AI 一键生成图文行程与备用计划、高德/百度/谷歌地图与小红书顺滑切换、好友共编与自动 AA 结算、34 省 370+ 城地图点亮与照片手账。"
     />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="周游地图 · Zhouyou Map — 把走过的每一座城，收进旅行小册子" />
-    <meta property="og:description" content="开源跨平台旅游集成工具：34 省 370+ 城市足迹地图、多模型 AI 路书、高德 & 小红书联动、好友足迹对比与行程群共编、三端云同步与照片语音手账。即刻在线体验或下载全平台客户端。" />
+    <meta property="og:title" content="周游地图 · Zhouyou Map — 一次旅行，一个应用就够了" />
+    <meta property="og:description" content="全周期跨平台一站式旅行集成工具：AI 一键出图文路书与备用方案、顺滑切换高德/百度/谷歌地图与小红书、好友一起看计划改计划算 AA、归来点亮 370+ 城地图与照片手账。" />
     <meta property="og:image" content="https://zhouyou.online/icons/icon-512.png" />
     <meta name="theme-color" content="#fbf8f3" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#111014" media="(prefers-color-scheme: dark)" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="./download.css?v=1.0.22" />
+    <link rel="stylesheet" href="./download.css?v=1.0.64" />
     <script>
       try {
         var t = localStorage.getItem('zhouyou-site-theme');
@@ -40,7 +40,7 @@
         <nav class="nav-center" aria-label="主导航">
           <a href="#tour" data-i18n="nav.tour">在线体验</a>
           <a href="#features" data-i18n="nav.features">核心亮点</a>
-          <a href="#showcase" data-i18n="nav.showcase">界面与皮肤</a>
+          <a href="#showcase" data-i18n="nav.showcase">界面精选</a>
           <a href="#download" data-i18n="nav.download">下载客户端</a>
           <a href="#faq" data-i18n="nav.faq">安装贴士</a>
         </nav>
@@ -137,12 +137,12 @@
           </a>
 
           <h1 class="hero-title reveal reveal-delay-1">
-            <span data-i18n="hero.title1">把走过的每一座城，</span><br />
-            <span class="hero-title-accent" data-i18n="hero.title2">收进只属于你的旅行小册子</span>
+            <span data-i18n="hero.title1">一次旅行，一个应用就够了</span><br />
+            <span class="hero-title-accent" data-i18n="hero.title2">从 AI 图文路书，到好友共编与足迹手账</span>
           </h1>
 
           <p class="hero-subtitle reveal reveal-delay-2" data-i18n="hero.sub">
-            点亮全国 34 省 370+ 座城市，把多模型 AI 路书、好友足迹对比、行程群共编聊天、照片手账与预算账本收进一本跨端小册子。登录周游账号即可电脑做攻略、手机直接用，独自出发或结伴同行都顺手。
+            一站式跨平台旅行集成工具：AI 1 分钟生成带景点介绍、实景配图与备用计划的完整行程并随时微调，顺滑直连高德 / 百度 / 谷歌地图与小红书，支持好友一起看计划、改计划、自动算 AA，归来点亮全国 370+ 城地图与照片手账。
           </p>
 
           <div class="hero-cta-row reveal reveal-delay-2">
@@ -185,31 +185,31 @@
             <a href="https://github.com/Eldonwyd/zhouyou-app/releases" target="_blank" rel="noreferrer">GitHub Releases</a>
           </div>
 
-          <!-- 核心优势 4 卡片 -->
+          <!-- 核心优势 4 卡片（严格按 1 -> 2 -> 3 -> 4 排序） -->
           <div class="trust-strip reveal reveal-delay-3">
             <div class="trust-item">
               <span class="trust-icon gold">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6 7 18.2l1.9-5.8L4 8.8h6.1z" /></svg>
               </span>
-              <div><strong>AI 一键规划路书</strong><span>多模型切换 · 离线 OCR 识票</span></div>
+              <div><strong>AI 一键生成图文行程</strong><span>介绍配图 · 备用计划随时改</span></div>
             </div>
             <div class="trust-item">
               <span class="trust-icon teal">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
               </span>
-              <div><strong>同行旅伴与行程群</strong><span>好友足迹对比 · 聊天投票 AA</span></div>
+              <div><strong>多地图 × 小红书直连</strong><span>高德/百度/谷歌顺滑切换</span></div>
             </div>
             <div class="trust-item">
               <span class="trust-icon coral">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-4.35-6-10a6 6 0 1 1 12 0c0 5.65-6 10-6 10z" /><circle cx="12" cy="11" r="2.2" /></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
               </span>
-              <div><strong>34 省 × 370+ 城地图</strong><span>高德小红书直连 · 按省离线</span></div>
+              <div><strong>好友共看共改 &amp; 算 AA</strong><span>群投票改计划 · 算清转账</span></div>
             </div>
             <div class="trust-item">
               <span class="trust-icon sage">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" /></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-4.35-6-10a6 6 0 1 1 12 0c0 5.65-6 10-6 10z" /><circle cx="12" cy="11" r="2.2" /></svg>
               </span>
-              <div><strong>三端同步 &amp; 照片手账</strong><span>电脑做攻略 · 手机直接用</span></div>
+              <div><strong>370+ 城地图手账徽章</strong><span>复古手账 · 照片语音纪念章</span></div>
             </div>
           </div>
         </div>
@@ -243,161 +243,169 @@
       <section id="features" class="page-section">
         <div class="container">
           <div class="section-head reveal">
-            <span class="section-eyebrow" data-i18n="features.eyebrow">CRAFTED FOR EVERY JOURNEY</span>
-            <h2 data-i18n="features.h2">旅途前后，一本小册子就够了</h2>
-            <p data-i18n="features.p">做攻略、查地图、记账和整理照片都在一处，不必在多个应用之间来回切换。</p>
+            <span class="section-eyebrow" data-i18n="features.eyebrow">ALL-IN-ONE TRAVEL TOOLKIT</span>
+            <h2 data-i18n="features.h2">旅途前后，一个应用全部串联</h2>
+            <p data-i18n="features.p">告别在 6 个 App 之间来回切屏：AI 出图文路书与备用方案、顺滑唤起多地图与小红书、好友共编自动算 AA、归来点亮地图写手账。</p>
+          </div>
+
+          <!-- 一站式全流程 5 步横向优势条 -->
+          <div class="journey-flow-strip reveal" aria-label="一站式旅行全流程">
+            <div class="journey-step-card">
+              <span class="journey-step-num">01<i></i></span>
+              <strong>AI 一键出图文路书</strong>
+              <span>带介绍、4A/5A 标识与实景配图，自带备用方案随时调整</span>
+            </div>
+            <div class="journey-step-card">
+              <span class="journey-step-num">02<i></i></span>
+              <strong>顺滑切地图与小红书</strong>
+              <span>高德 / 百度 / 谷歌自由切，原生唤起免复制地名</span>
+            </div>
+            <div class="journey-step-card">
+              <span class="journey-step-num">03<i></i></span>
+              <strong>好友共看共改 &amp; 算 AA</strong>
+              <span>建群发口令、群投票 AI 改计划、自动算谁给谁转钱</span>
+            </div>
+            <div class="journey-step-card">
+              <span class="journey-step-num">04<i></i></span>
+              <strong>抢票提醒 &amp; 扫票入账</strong>
+              <span>开售前 20 分钟提醒，离线 OCR 识别车票酒店截图</span>
+            </div>
+            <div class="journey-step-card">
+              <span class="journey-step-num">05<i></i></span>
+              <strong>点亮地图与手账徽章</strong>
+              <span>370+ 城下钻点亮、照片语音明信片与手作纪念章</span>
+            </div>
           </div>
 
           <div class="bento-grid">
+            <!-- TOP 1: AI 一键完整行程 & 行程管家 -->
             <article class="bento-card bento-span-7 reveal">
               <div class="bento-top">
                 <span class="bento-icon coral">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" /></svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4v1h1a3 3 0 0 1 3 3v2a3 3 0 0 1-3 3h-1v1a4 4 0 0 1-8 0v-1H7a3 3 0 0 1-3-3v-2a3 3 0 0 1 3-3h1V6a4 4 0 0 1 4-4z" /><circle cx="9.5" cy="11" r="1" /><circle cx="14.5" cy="11" r="1" /></svg>
                 </span>
-                <span class="bento-tag live">在线沙盒可直接点亮</span>
+                <span class="bento-tag live">核心引擎 · 全周期应变</span>
               </div>
-              <h3>全国 34 省 × 370+ 城市足迹地图</h3>
-              <p>支持省级缩放下钻与智能标签避让，点击即可点亮「已去过」城市，实时计算全国探索百分比；支持按省一键缓存离线地理边界，坐飞机、坐高铁无网也能流畅浏览。</p>
+              <h3>AI 一键生成完整图文行程 × 备用计划 &amp; 随时调整</h3>
+              <p>输入目的地、天数、同行人群（成人/学生/老人/儿童独立票价）与预算，1 分钟生成带景点介绍、4A/5A 等级、实景配图与预算拆解的顺路路书。自带「备用玩法」与「未去热门景点」一键替换，随时对话局部微调、锁定防误改与版本回退，还支持登录免费体验 AI 与 0 成本外部 AI 导入。</p>
               <div class="bento-chips">
-                <span>🗺️ 34 省级行政区</span>
-                <span>✨ 一键点亮与取消</span>
-                <span>✈️ 按省离线缓存</span>
-                <span>📊 探索进度总览</span>
+                <span>🖼️ 景点介绍与实景图</span>
+                <span>☔ 自带备用计划</span>
+                <span>🔄 随时对话微调/锁定</span>
+                <span>🆓 免费/外部 AI 可用</span>
+                <span>☁️ 六端准实时同步</span>
               </div>
             </article>
 
             <article class="bento-card bento-span-5 reveal reveal-delay-1">
               <div class="bento-top">
-                <span class="bento-icon teal">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4v1h1a3 3 0 0 1 3 3v2a3 3 0 0 1-3 3h-1v1a4 4 0 0 1-8 0v-1H7a3 3 0 0 1-3-3v-2a3 3 0 0 1 3-3h1V6a4 4 0 0 1 4-4z" /><circle cx="9.5" cy="11" r="1" /><circle cx="14.5" cy="11" r="1" /></svg>
+                <span class="bento-icon gold">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
                 </span>
-                <span class="bento-tag client">客户端专属 · 内置 AI</span>
+                <span class="bento-tag client">行前管家 · 省心闭环</span>
               </div>
-              <h3>多模型 AI 一键路书 + 离线 OCR</h3>
-              <p>输入目的地、天数、同行人群与预算，AI 自动规划每日顺路行程、站间交通、票价拆解与行李清单；内置本机 PP-OCRv5 离线识别高铁/机票/酒店截图，支持导出单文件离线 HTML 路书。</p>
+              <h3>抢票提前提醒 × 离线 OCR &amp; 行前工具箱</h3>
+              <p>自动汇总需预约景点与未购车次/航班进入「抢票计划」（默认提前 20 分钟可调提醒 + 红点预警）；内置本机 PP-OCRv5 离线识别高铁/机票/酒店截图入账，支持 AI 行李清单、日历导出与单文件离线 HTML 路书。</p>
               <div class="bento-chips">
-                <span>DeepSeek</span><span>OpenAI</span><span>Claude</span><span>Gemini</span><span>通义 / Kimi</span>
+                <span>🔔 提前 20 分钟抢票提醒</span>
+                <span>🧾 离线 OCR 扫票</span>
+                <span>🧳 清单与日历导出</span>
+                <span>📄 离线 HTML 路书</span>
               </div>
             </article>
 
+            <!-- TOP 2: 顺滑切换应用 & TOP 3: 好友共看共改记账 -->
             <article class="bento-card bento-span-5 reveal">
               <div class="bento-top">
-                <span class="bento-icon gold">
+                <span class="bento-icon teal">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
                 </span>
-                <span class="bento-tag">生态无缝联动</span>
+                <span class="bento-tag live">不止高德 · 顺滑切换应用</span>
               </div>
-              <h3>高德地图 × 小红书一键直达</h3>
-              <p>行程中的每一个景点、餐厅与酒店均支持一键跳转高德地图精准导航；内置分城市游玩/美食攻略入口，直连小红书查看最新实拍避坑，也能贴链接解析加入行程。</p>
+              <h3>高德 / 百度 / 谷歌地图 × 小红书一键直连</h3>
+              <p>自由切换高德地图、百度地图与谷歌地图（覆盖国内与境外旅行），手机端优先直连唤起原生 App 精准导航，告别复制地名；粘贴小红书链接或截图即可解析景点进灵感池并在地图上看顺路度，一键查实拍避坑与行李寄存。</p>
               <div class="bento-chips">
-                <span>🧭 高德精准导航</span>
-                <span>📕 小红书攻略直连</span>
+                <span>🧭 高德 / 百度 / 谷歌自由切</span>
+                <span>⚡ 原生 App 顺滑唤起</span>
+                <span>📕 小红书解析进池</span>
               </div>
             </article>
 
             <article class="bento-card bento-span-7 reveal reveal-delay-1">
               <div class="bento-top">
-                <span class="bento-icon lilac">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
-                </span>
-                <span class="bento-tag client">客户端 / PWA 解锁原图存储</span>
-              </div>
-              <h3>照片、视频与现场语音手账</h3>
-              <p>按「某次旅程」或「某座城市」珍藏原图照片、短视频、文字随记与语音评语，自动读取 EXIF 拍摄时间并校验 GPS 城市归属；每座点亮城市配备专属地标明信片与高光拍立得墙。</p>
-              <div class="bento-chips">
-                <span>📮 专属城市明信片</span>
-                <span>🎙️ 现场语音评语</span>
-                <span>📍 EXIF GPS 校验</span>
-                <span>✦ 高光拍立得墙</span>
-              </div>
-            </article>
-
-            <article class="bento-card bento-span-7 reveal">
-              <div class="bento-top">
                 <span class="bento-icon coral">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
                 </span>
-                <span class="bento-tag live">全新上线 · 结伴同行</span>
+                <span class="bento-tag live">同行旅伴 · 一起看、一起改、一起记账</span>
               </div>
-              <h3>同行旅伴、好友足迹对比 &amp; 行程群协作</h3>
-              <p>搜昵称、好友码或扫名片二维码加好友，一键对比双人中国足迹地图与「共同想去」城市；支持绑定情侣/家人/挚友/闺蜜亲密关系、面对面 4 位数字秒建行程群、站内私聊与群聊（发图/推攻略/发起投票）、景点共编投票批注与群内 AA 结算。</p>
+              <h3>好友一起看计划、改计划 &amp; 自动算清 AA 转账</h3>
+              <p>面对面 4 位数字建群或发微信/QQ「周游口令」，全员同步查看同一份最新路书；群里边聊边对景点投票，更可将 AI 给出的备选方案一键发群投票，最高票出炉后点一下「执行」自动改好行程；群内随手记账，精确到分自动算出谁给谁转多少钱，还能叠加双人中国足迹对比地图。</p>
               <div class="bento-chips">
-                <span>🗺️ 好友足迹对比</span>
-                <span>💬 实时聊天与投票</span>
-                <span>👥 面对面 4 位建群</span>
-                <span>💑 亲密关系卡片</span>
-                <span>💰 群内 AA 结算</span>
+                <span>👥 面对面建群 &amp; 周游口令</span>
+                <span>🗳️ 群投票 + AI 自动改计划</span>
+                <span>💰 自动算谁给谁转多少钱</span>
+                <span>🗺️ 双人足迹对比 &amp; 亲密关系</span>
+              </div>
+            </article>
+
+            <!-- TOP 4: 足迹地图、照片手账与旅途徽章 -->
+            <article class="bento-card bento-span-7 reveal">
+              <div class="bento-top">
+                <span class="bento-icon lilac">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" /></svg>
+                </span>
+                <span class="bento-tag live">归来珍藏 · 离线可用</span>
+              </div>
+              <h3>全国 34 省 × 370+ 城足迹地图 &amp; 照片语音手账</h3>
+              <p>省级缩放下钻一键点亮「已去过 / 计划前往」城市并支持按省离线缓存；按旅程或城市归档原图照片、短视频、文字随记与现场语音评语，自动读取 EXIF 时间线与 GPS 归属城市，每座城市配备专属地标明信片与高光拍立得墙。</p>
+              <div class="bento-chips">
+                <span>🗺️ 34 省下钻点亮</span>
+                <span>✈️ 按省离线缓存</span>
+                <span>📮 专属城市明信片</span>
+                <span>🎙️ 原图视频与语音</span>
               </div>
             </article>
 
             <article class="bento-card bento-span-5 reveal reveal-delay-1">
               <div class="bento-top">
-                <span class="bento-icon teal">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" /></svg>
-                </span>
-                <span class="bento-tag live">周游账号 · 三端互联</span>
-              </div>
-              <h3>周游账号云同步 &amp; 微信/QQ 口令分享</h3>
-              <p>手机号或邮箱注册登录，AI 攻略、城市点亮与消费账本自动跨端同步，电脑做攻略、手机直接用；支持自定义头像、攻略历史版本回退，以及一键生成「周游口令」发微信/QQ 分享副本或邀请共编。</p>
-              <div class="bento-chips">
-                <span>☁️ 三端自动云同步</span>
-                <span>🔗 微信/QQ 口令分享</span>
-                <span>🕒 攻略版本回退</span>
-                <span>📦 ZIP v3 备份</span>
-              </div>
-            </article>
-
-            <article class="bento-card bento-span-6 reveal">
-              <div class="bento-top">
                 <span class="bento-icon sage">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>
-                </span>
-                <span class="bento-tag live">在线沙盒可浏览</span>
-              </div>
-              <h3>每日预算账本 &amp; 整数分精确 AA 分账</h3>
-              <p>按交通、住宿、门票、餐饮与其他五大维度逐日记账，自动关联 AI 行程预算与实付车票，多人同行一键精确 AA 结算。</p>
-              <div class="bento-mini-bar" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-              <div class="bento-chips">
-                <span>交通 ¥140</span><span>住宿 ¥800</span><span>门票 ¥280</span><span>餐饮 ¥340</span>
-              </div>
-            </article>
-
-            <article class="bento-card bento-span-6 reveal reveal-delay-1">
-              <div class="bento-top">
-                <span class="bento-icon coral">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6" /><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" /></svg>
                 </span>
-                <span class="bento-tag live">在线沙盒可体验</span>
+                <span class="bento-tag live">旅途仪式感</span>
               </div>
               <h3>8 阶旅人成长路线 &amp; 手作纪念章</h3>
-              <p>记录从「新手小旅人」到「传奇环游家」的成长轨迹，支持自定义圆形纪念章、年度足迹回顾与一键导出高颜值成就海报。</p>
+              <p>记录从「新手小旅人」到「传奇环游家」的成长轨迹，内置 9 枚预设成就，支持手作专属圆形纪念章、一键导出成就海报与 ZIP v3 全量无损迁移。</p>
               <div class="bento-chips">
                 <span>🏆 9 枚预设成就</span>
                 <span>🎨 手作专属徽章</span>
                 <span>🖼️ 成就海报导出</span>
+                <span>📦 ZIP v3 备份</span>
               </div>
             </article>
           </div>
         </div>
       </section>
 
-      <!-- 界面精选与 5 套皮肤 (#showcase) -->
+      <!-- 核心界面精选 (#showcase) -->
       <section id="showcase" class="page-section">
         <div class="container">
           <div class="section-head reveal">
-            <span class="section-eyebrow" data-i18n="showcase.eyebrow">VISUAL CRAFT &amp; 5 SKINS</span>
-            <h2 data-i18n="showcase.h2">五套主题皮肤，浅色深色随心切换</h2>
-            <p data-i18n="showcase.p">内置 5 套独立视觉风格与明暗配色，点选下方任意色卡即可切换预览界面效果。</p>
+            <span class="section-eyebrow" data-i18n="showcase.eyebrow">REAL APP SHOWCASE</span>
+            <h2 data-i18n="showcase.h2">真实界面精选，一眼看清一站式有多顺手</h2>
+            <p data-i18n="showcase.p">默认采用温润耐看的「复古手账」界面，点选下方标签即可切换浏览 AI 图文路书、好友群聊投票、自动 AA 结算、足迹地图与照片手账。</p>
           </div>
 
           <div class="showcase-wrap reveal">
             <div class="showcase-toolbar">
-              <div class="showcase-tabs" role="tablist" aria-label="界面截图切换">
-                <button type="button" class="showcase-tab is-active" data-shot-tab="map">🗺️ 足迹地图</button>
-                <button type="button" class="showcase-tab" data-shot-tab="planner">🤖 AI 路书</button>
+              <div class="showcase-tabs" role="tablist" aria-label="核心界面预览切换">
+                <button type="button" class="showcase-tab is-active" data-shot-tab="planner">🤖 AI 图文路书</button>
+                <button type="button" class="showcase-tab" data-shot-tab="companions">🤝 好友群聊与投票</button>
+                <button type="button" class="showcase-tab" data-shot-tab="aa">💰 自动 AA 结算</button>
+                <button type="button" class="showcase-tab" data-shot-tab="map">🗺️ 足迹地图</button>
+                <button type="button" class="showcase-tab" data-shot-tab="compare">✨ 双人足迹对比</button>
                 <button type="button" class="showcase-tab" data-shot-tab="journal">📔 照片手账</button>
               </div>
-              <div id="map-tone-switch" class="map-tone-switch">
+              <div id="map-tone-switch" class="map-tone-switch" hidden>
                 <span>配色：</span>
                 <button type="button" class="tone-btn is-active" data-map-tone="light">☀ 浅色</button>
                 <button type="button" class="tone-btn" data-map-tone="dark">☾ 深色</button>
@@ -405,42 +413,47 @@
             </div>
 
             <div class="showcase-stage">
-              <img id="showcase-img" src="./screenshots/skin-candy.png" alt="周游地图界面预览" />
+              <img id="showcase-img" src="./screenshots/skin-planner-journal.png?v=1.0.64" alt="周游地图界面预览" />
             </div>
 
             <div class="showcase-caption">
               <div>
-                <strong id="showcase-title">糖果贴纸 · 全国 34 省足迹地图</strong>
-                <div id="showcase-desc">明快珊瑚红搭配贴纸手绘元素，点选下方色卡可即时切换预览 5 套内置皮肤。</div>
+                <strong id="showcase-title">复古手账 · AI 一键生成完整图文路书</strong>
+                <div id="showcase-desc">自带景点介绍与实景配图、预算拆解、高德/百度/谷歌与小红书一键直达，右侧自带备用玩法随时调整。</div>
               </div>
             </div>
 
-            <div class="skin-strip" role="group" aria-label="点击切换预览 5 套主题皮肤">
-              <button type="button" class="skin-pill is-active" data-skin-preview="candy">
-                <span class="skin-dots"><i style="background:#fff8f2"></i><i style="background:#e5634f"></i><i style="background:#ffd166"></i></span>
-                <strong>糖果贴纸</strong>
-                <small>明快珊瑚 × 贴纸手绘</small>
-              </button>
-              <button type="button" class="skin-pill" data-skin-preview="white">
-                <span class="skin-dots"><i style="background:#ffffff"></i><i style="background:#467a58"></i><i style="background:#eceef0"></i></span>
-                <strong>纯白极简</strong>
-                <small>干净留白 × 松绿点缀</small>
-              </button>
-              <button type="button" class="skin-pill" data-skin-preview="journal">
-                <span class="skin-dots"><i style="background:#f5efe3"></i><i style="background:#866041"></i><i style="background:#dfb267"></i></span>
-                <strong>纸感手账</strong>
-                <small>复古牛皮纸 × 温暖衬线</small>
-              </button>
-              <button type="button" class="skin-pill" data-skin-preview="coast">
-                <span class="skin-dots"><i style="background:#f3f9fd"></i><i style="background:#1d6478"></i><i style="background:#6cc4d4"></i></span>
-                <strong>海风海岸</strong>
-                <small>蔚蓝海风 × 清透玻璃</small>
-              </button>
-              <button type="button" class="skin-pill" data-skin-preview="warm">
-                <span class="skin-dots"><i style="background:#f7f6f0"></i><i style="background:#526c48"></i><i style="background:#d56a45"></i></span>
-                <strong>暖日手账</strong>
-                <small>草木自然 × 慢旅书卷气</small>
-              </button>
+            <div id="showcase-skin-wrap">
+              <div class="showcase-skin-bar-note">
+                <span>🎨 可选切换 5 套界面主题预览（默认「复古手账」）：</span>
+              </div>
+              <div class="skin-strip" role="group" aria-label="可选切换 5 套主题皮肤预览">
+                <button type="button" class="skin-pill is-active" data-skin-preview="journal">
+                  <span class="skin-dots"><i style="background:#f5efe3"></i><i style="background:#866041"></i><i style="background:#dfb267"></i></span>
+                  <strong>复古手账</strong>
+                  <small>默认 · 方格纸纹与温暖衬线</small>
+                </button>
+                <button type="button" class="skin-pill" data-skin-preview="candy">
+                  <span class="skin-dots"><i style="background:#fff8f2"></i><i style="background:#e5634f"></i><i style="background:#ffd166"></i></span>
+                  <strong>糖果贴纸</strong>
+                  <small>明快珊瑚 × 贴纸手绘</small>
+                </button>
+                <button type="button" class="skin-pill" data-skin-preview="white">
+                  <span class="skin-dots"><i style="background:#ffffff"></i><i style="background:#467a58"></i><i style="background:#eceef0"></i></span>
+                  <strong>简洁纯白</strong>
+                  <small>干净留白 × 松绿点缀</small>
+                </button>
+                <button type="button" class="skin-pill" data-skin-preview="coast">
+                  <span class="skin-dots"><i style="background:#f3f9fd"></i><i style="background:#1d6478"></i><i style="background:#6cc4d4"></i></span>
+                  <strong>海盐晴空</strong>
+                  <small>蔚蓝海风 × 清透浮卡</small>
+                </button>
+                <button type="button" class="skin-pill" data-skin-preview="warm">
+                  <span class="skin-dots"><i style="background:#f7f6f0"></i><i style="background:#526c48"></i><i style="background:#d56a45"></i></span>
+                  <strong>草木暖日</strong>
+                  <small>草木自然 × 慢旅书卷气</small>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -893,6 +906,6 @@
       </div>
     </div>
 
-    <script src="./download.js?v=1.0.22a"></script>
+    <script src="./download.js?v=1.0.64"></script>
   </body>
 </html>

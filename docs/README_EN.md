@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="https://eldonwyd.github.io/zhouyou-app/icons/icon-512.png" alt="Zhouyou Map Logo" width="124" height="124" />
+<img src="assets/icon.png" alt="Zhouyou Map Logo" width="124" height="124" />
 
 # Zhouyou Map · 周游地图
 
-**An All-in-One Cross-Platform Travel Toolkit — From AI Trip Planning & Amap/Xiaohongshu Links to Travel Companions, Cloud Sync, Footprint Maps & Photo Journals**
+**An All-in-One Cross-Platform Travel Toolkit — One-Click AI Illustrated Roadbooks & Backup Plans × Smooth Amap/Baidu/Google Maps & Xiaohongshu Switching × Friend Co-Editing & Auto AA × Footprint Map & Photo Journals**
 
 <p>
   <a href="../README.md">简体中文</a>
@@ -14,7 +14,7 @@
 
 <p>
   <a href="https://github.com/Eldonwyd/zhouyou-app/releases">
-    <img src="https://img.shields.io/github/v/release/Eldonwyd/zhouyou-app?style=flat-square&logo=github&color=ef6351&label=Release" alt="Latest Release" />
+    <img src="https://img.shields.io/github/v/release/Eldonwyd/zhouyou-app?style=flat-square&logo=github&color=866041&label=Release" alt="Latest Release" />
   </a>
   <a href="https://github.com/Eldonwyd/zhouyou-app/releases">
     <img src="https://img.shields.io/github/downloads/Eldonwyd/zhouyou-app/total?style=flat-square&logo=icloud&color=1d6478&label=Downloads" alt="Total Downloads" />
@@ -43,13 +43,15 @@
 
 <table>
   <tr>
-    <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/demo-ai-planner.gif" alt="AI Trip Planning -> Route Map -> Local OCR Booking Ledger" />
-      <br /><b>🤖 One-Prompt AI Plan → Auto Route Map → Local OCR Ticket Ledger</b>
+    <td align="center">
+      <img src="screenshots/demo-ai-planner.gif" width="100%" alt="All-in-One AI Trip Planning, App Switching, Backup Plans, and Live Adjustments" />
+      <br /><b>🤖 All-in-One AI Planner: Illustrated Roadbooks → App Switching &amp; Pre-Trip Tools → Backup Plans → Live AI Tweaks</b>
     </td>
-    <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/demo-map-journal.gif" alt="Light Up Map -> Warm Travel Journal -> Export Poster" />
-      <br /><b>🗺️ Light Up Footprint Map → Travel Journal → Export Poster</b>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="screenshots/demo-companions.gif" width="100%" alt="Travel Companions: Footprint Comparison, Group Chat & AI Polls, and Automatic AA Settlement" />
+      <br /><b>🤝 Travel Companions: Intimate Cards → Dual Footprint Compare → Group Chat &amp; AI Polls → Auto AA Settlement</b>
     </td>
   </tr>
 </table>
@@ -60,37 +62,45 @@
 
 ## 🌟 Core Features
 
-> Note: The in-app UI is crafted in Chinese (`zh-CN`).
+> Note: The in-app UI supports Chinese (`zh-CN`) and English (`en`), defaulting to the warm **Vintage Journal** paper aesthetic.
 
-- **🔗 Seamless Amap & Xiaohongshu Integration**: Import Xiaohongshu travel guides or screenshots directly into your plan, open curated city activity/food searches on Xiaohongshu in one click, and jump straight to **Amap (高德地图)** for exact spot locations and navigation without copy-pasting.
-- **🤖 One-Click AI Trip Planning**: Enter destination, dates, travelers, and budget to generate complete day-by-day itineraries with scenic cards, transit connectors, budgets, calendar reminders, offline HTML roadbook export, and local PP-OCRv5 booking screenshot parsing across DeepSeek, OpenAI, Claude, Gemini, Qwen, Zhipu, and Kimi.
-- **🤝 Travel Companions & Group Collaboration**: Add friends by nickname, friend code, or QR card; bind intimate bonds (couple, family, bestie) with anniversary cards; overlay and compare China footprint maps (*visited together*, *peer visited*, *mutual wishlist*); create travel groups (including 4-digit face-to-face PIN rooms) with real-time DM/group chat, image sharing, polls, itinerary co-editing, spot voting & comments, version rollback, group AA bill splitting, and WeChat/QQ share tokens.
-- **☁️ Cloud Account & Multi-Device Sync**: Plan on desktop and go on mobile — sign in with phone or email to automatically sync AI roadbooks, lit-up cities, text journals, and expenses across Windows, macOS, Linux, Android, iOS, and Web PWA, with customizable avatars and map visibility controls.
-- **🗺️ Footprint Map Recording**: Track visited and planned cities across all 34 provincial regions and 370+ cities in China, with province drill-down, exploration progress, and offline province map caching.
-- **📸 Photo & Memory Travel Journal**: Archive original photos, videos, text notes, and voice memos by trip or city with automatic timeline grouping, GPS city checks, illustrated city postcards, and full **ZIP v3** cross-device backup & restore.
+- **🤖 1. One-Click AI Roadbooks & All-in-One Trip Manager**: Generate complete day-by-day itineraries with place introductions, 4A/5A badges, real photos, transit connectors, and per-group budgets in one minute. Built-in **backup plans & unvisited hotspots**, spot locking, live conversational adjustments, ticket booking countdown reminders (default 20 min advance), local PP-OCRv5 ticket screenshot import, free-trial & zero-cost external AI import, multi-model switching (DeepSeek, OpenAI, Claude, Gemini, Qwen, Zhipu, Kimi), and near-real-time cloud sync across 6 platforms.
+- **🔗 2. Smooth App Switching — Amap / Baidu / Google Maps × Xiaohongshu**: Not limited to Amap — freely switch between **Amap, Baidu Maps, and Google Maps** (covering both China and overseas travel) with native mobile app launch and automatic web fallback. Parse Xiaohongshu links or screenshots straight into your map inspiration pool, and jump to live Xiaohongshu tips or luggage storage searches in one tap.
+- **🤝 3. Travel Companions — View, Edit & Split Bills Together**: Create groups (including 4-digit face-to-face PIN rooms) or share WeChat/QQ tokens so everyone views the latest itinerary. Chat in-app, vote/comment on stops, or push **AI-generated alternative plans to a group poll and execute the winning option automatically**. Log shared expenses anytime to compute the minimum-transfer **AA settlement** down to the cent, plus compare China footprint maps side-by-side.
+- **🗺️ 4. China Footprint Map, Photo Journals & Travel Badges**: Light up visited and planned cities across all 34 provincial regions and 370+ cities with offline province map caching; archive original photos, videos, text notes, and voice memos with EXIF/GPS checks and illustrated city postcards; unlock 8 traveler tiers, craft custom round badges, export posters, and back up everything via **ZIP v3**.
 
 ---
 
 ## 🖼️ Screenshots
 
 <div align="center">
-  <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-planner.png" alt="One-Click AI Trip Planner" width="100%" />
-  <p><i><b>🤖 One-Click AI Trip Planner</b> — scenic cards, budget breakdown, countdown, calendar export &amp; offline HTML roadbook</i></p>
+  <img src="screenshots/desktop-planner.png" alt="One-Click AI Illustrated Trip Planner" width="100%" />
+  <p><i><b>🤖 One-Click AI Illustrated Trip Planner</b> — place introductions, real photos, budget breakdown, backup plans &amp; cloud sync</i></p>
 </div>
 
 <table>
   <tr>
     <td align="center" width="50%">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-dark.png" />
-        <source media="(prefers-color-scheme: light)" srcset="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-light.png" />
-        <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-map-light.png" alt="Interactive China Travel Footprint Map" />
-      </picture>
-      <br /><b>🗺️ China Footprint Map</b> — 34 provinces × 370+ cities, drill-down &amp; exploration progress
+      <img src="screenshots/desktop-companions-chat.png" alt="Group Chat and AI Poll Co-Editing" />
+      <br /><b>🤝 Group Chat &amp; AI Polls</b> — view &amp; co-edit itineraries and vote on AI alternatives in-app
     </td>
     <td align="center" width="50%">
-      <img src="https://eldonwyd.github.io/zhouyou-app/screenshots/desktop-journal.png" alt="Travel Journal" />
-      <br /><b>📔 Travel Journal &amp; Postcards</b> — trip booklets, original photos, voice notes &amp; illustrated postcards
+      <img src="screenshots/desktop-companions-aa.png" alt="Group Expense Ledger and Auto AA Split" />
+      <br /><b>💰 Group Ledger &amp; Auto AA</b> — calculate exact minimum transfers for who owes whom
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="screenshots/desktop-map-dark.png" />
+        <source media="(prefers-color-scheme: light)" srcset="screenshots/desktop-map-light.png" />
+        <img src="screenshots/desktop-map-light.png" alt="Interactive China Travel Footprint Map" />
+      </picture>
+      <br /><b>🗺️ China Footprint Map</b> — 34 provinces × 370+ cities in Vintage Journal style
+    </td>
+    <td align="center" width="50%">
+      <img src="screenshots/desktop-footprint-compare.png" alt="Friend Footprint Comparison Map" />
+      <br /><b>✨ Dual Footprint Compare</b> — see cities visited together and mutual wishlist destinations
     </td>
   </tr>
 </table>
@@ -111,9 +121,9 @@
 
 | Platform | Target / Format | Download |
 | :--- | :--- | :---: |
-| **Web / PWA (Recommended)** | Android / iOS *Add to Home Screen* (No sideload or warning dialogs) | [![Web PWA](https://img.shields.io/badge/Web%20PWA-Launch-ef6351?style=flat-square&logo=safari&logoColor=white)](https://zhouyou.online/) |
-| **Android** | Android 8.0+ signed `.apk` | [![Android](https://img.shields.io/badge/Android-.apk-3DDC84?style=flat-square&logo=android&logoColor=white)](https://zhouyou.online/download-mobile.html) |
+| **Android (Recommended)** | Android 8.0+ signed `.apk` (native app switching & direct AI sub login) | [![Android](https://img.shields.io/badge/Android-.apk-3DDC84?style=flat-square&logo=android&logoColor=white)](https://zhouyou.online/download-mobile.html) |
 | **iOS** | Unsigned `.ipa` (AltStore / SideStore / TrollStore) | [![iOS](https://img.shields.io/badge/iOS-.ipa-000000?style=flat-square&logo=ios&logoColor=white)](https://zhouyou.online/download-mobile.html) |
+| **Web / PWA** | Android / iOS *Add to Home Screen* | [![Web PWA](https://img.shields.io/badge/Web%20PWA-Launch-866041?style=flat-square&logo=safari&logoColor=white)](https://zhouyou.online/) |
 
 See [DOWNLOAD.md](DOWNLOAD.md) for installation tips and [CHANGELOG.md](CHANGELOG.md) for release history.
 
