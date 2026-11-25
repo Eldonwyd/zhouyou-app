@@ -26,7 +26,9 @@ export function syncDocumentLanguage(lang: AppLanguage): void {
   if (typeof document === 'undefined') return;
   document.documentElement.dataset.lang = lang;
   document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
-  document.title = lang === 'en' ? 'Zhouyou Map' : '周游地图';
+  document.title = lang === 'en'
+    ? 'Zhouyou Map - Open-Source AI Travel Planner, Group Trip & Footprint Journal'
+    : '周游地图 - 免费开源 AI 旅游攻略路书、好友共编记账与足迹手账';
 }
 
 export function applyLanguage(lang: AppLanguage): void {

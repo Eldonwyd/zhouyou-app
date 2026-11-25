@@ -4,11 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#102c3b" />
-    <meta name="description" content="在地图上记录去过和计划前往的中国城市，支持多模型 AI 智能规划、周游账号三端云同步、好友足迹对比与行程群共编聊天。" />
+    <meta name="keywords" content="周游地图,Zhouyou Map,AI旅游攻略,行程规划工具,旅游路书,中国足迹地图,旅行手账,好友行程共编,旅游AA记账,小红书攻略转路线,免费开源旅行工具" />
+    <meta name="description" content="周游地图（Zhouyou Map）是一款免费开源的跨平台一站式旅行工具：AI 一键生成图文路书与备用方案、小红书攻略解析与主流地图一键导航、好友群聊投票改计划与 AA 自动记账、全国 370+ 城市足迹地图点亮与复古照片手账，支持网页版免下载直接用。" />
+    <link rel="canonical" href="https://zhouyou.online/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="周游地图" />
-    <meta property="og:title" content="周游地图 · 中国旅行足迹地图、同行旅伴、手账与 AI 行程规划" />
-    <meta property="og:description" content="点亮去过的中国城市，记录照片手账与每日预算，内置多模型 AI 智能规划、账号三端云同步、好友足迹对比与行程群共编聊天。" />
+    <meta property="og:title" content="周游地图 - 免费开源 AI 旅游攻略路书、好友共编记账与足迹手账" />
+    <meta property="og:description" content="AI 一键生成图文路书与备用计划、小红书攻略转路线、主流地图一键导航、好友群聊投票改行程与 AA 自动记账、370+ 城中国足迹地图与照片手账，免下载在线即用。" />
     <meta property="og:url" content="https://zhouyou.online/" />
     <meta property="og:image" content="https://zhouyou.online/icons/apple-touch-icon.png" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -19,7 +21,26 @@
     <link rel="icon" type="image/x-icon" href="./favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
-    <title>周游地图</title>
+    <title>周游地图 - 免费开源 AI 旅游攻略路书、好友共编记账与足迹手账</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "周游地图",
+        "alternateName": "Zhouyou Map",
+        "url": "https://zhouyou.online/",
+        "downloadUrl": "https://zhouyou.online/download.html",
+        "applicationCategory": "TravelApplication",
+        "operatingSystem": "Web, Windows, macOS, Linux, Android, iOS",
+        "isAccessibleForFree": true,
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "CNY"
+        },
+        "description": "周游地图是一款免费开源的一站式跨平台旅行工具，集 AI 图文路书与备用方案、小红书攻略解析与主流地图一键导航、好友共编投票与旅途 AA 记账、全国 370+ 城足迹地图与复古照片手账于一体。"
+      }
+    </script>
     <script>
       // 首帧前应用已保存的主题，避免深色模式下先闪白。
       try { var t = localStorage.getItem('travel-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
@@ -43,7 +64,9 @@
         var l = localStorage.getItem('travel-lang') === 'en' ? 'en' : 'zh';
         document.documentElement.dataset.lang = l;
         document.documentElement.lang = l === 'en' ? 'en' : 'zh-CN';
-        document.title = l === 'en' ? 'Zhouyou Map' : '周游地图';
+        document.title = l === 'en'
+          ? 'Zhouyou Map - Open-Source AI Travel Planner, Group Trip & Footprint Journal'
+          : '周游地图 - 免费开源 AI 旅游攻略路书、好友共编记账与足迹手账';
       } catch (e) {
         document.documentElement.dataset.lang = 'zh';
       }
