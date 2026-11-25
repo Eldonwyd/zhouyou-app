@@ -537,6 +537,11 @@ code, pre { font-family: var(--font-mono); }
   mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
 }
 .hero-topo-bg svg { width: 100%; height: 100%; display: block; }
+.hero-topo-bg .hero-scene-mobile { display: none; }
+@media (max-width: 760px) {
+  .hero-topo-bg .hero-scene-desktop { display: none; }
+  .hero-topo-bg .hero-scene-mobile { display: block; }
+}
 .hero-parallax-layer {
   will-change: transform;
 }
@@ -1560,7 +1565,11 @@ code, pre { font-family: var(--font-mono); }
 .badge.teal {
   background: linear-gradient(135deg, var(--teal), #154e60);
 }
+.dl-card:has(> .badge) .card-head {
+  padding-right: 168px;
+}
 .card-head { display: flex; align-items: center; gap: 14px; }
+.card-head > div { min-width: 0; }
 .os-icon {
   width: 46px;
   height: 46px;
@@ -1905,7 +1914,7 @@ code, pre { font-family: var(--font-mono); }
   .icon-pill { height: 32px; padding: 0 9px; font-size: 11.5px; }
   #theme-toggle-label { display: none; }
   .btn-header-cta { display: none; }
-  .hero-section { min-height: auto; display: block; padding: 30px 0 36px; }
+  .hero-section { min-height: auto; display: block; padding: 34px 0 54px; }
   .hero-pill { font-size: 11.5px; padding: 4px 10px 4px 8px; margin-bottom: 16px; }
   .hero-title { font-size: clamp(26px, 7.2vw, 34px); margin-bottom: 12px; }
   .hero-subtitle { font-size: 14px; margin-bottom: 20px; }
@@ -1998,7 +2007,15 @@ code, pre { font-family: var(--font-mono); }
 
   .mode-tab { font-size: 13px; padding: 8px 14px; }
   .compare-card { padding: 18px; }
-  .dl-card { padding: 18px; }
+  .dl-card { padding: 18px; gap: 12px; }
+  .dl-card > .badge {
+    position: static;
+    align-self: flex-start;
+    margin-bottom: -2px;
+  }
+  .dl-card:has(> .badge) .card-head {
+    padding-right: 0;
+  }
   .dl-link { padding: 10px 13px; font-size: 13.5px; }
   .pwa-actions { flex-direction: column; }
   .pwa-actions .btn { width: 100%; min-height: 44px; padding: 0 14px; font-size: 13.5px; text-align: center; }
