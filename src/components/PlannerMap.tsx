@@ -9,8 +9,50 @@ import { mapPlaceLinks, openMapAppPlace } from '../external-app-links';
 import { plannerDisplayText } from '../planner-display';
 import { XHS_PLACE_KIND_LABELS } from '../planner-xhs';
 
-const DEFAULT_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const FALLBACK_TILE_URL = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+const AMAP_TILE_URL = 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}';
+const CARTO_TILE_URL = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const DEFAULT_TILE_URL = AMAP_TILE_URL;
+
+function isInChinaMainland(lat: number, lng: number): boolean {
+  return lat >= 18 && lat <= 54 && lng >= 73.5 && lng <= 135.1;
+}
+
+/** WGS84 -> GCJ-02 转换，确保国内坐标在高德矢量底图上精准落点。 */
+function wgs84ToGcj02(lat: number, lng: number): [number, number] {
+  if (!isInChinaMainland(lat, lng)) return [lat, lng];
+  const a = 6378245.0;
+  const ee = 0.00669342162296594323;
+  const x = lng - 105.0;
+  const y = lat - 35.0;
+  let dLat = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+  dLat += ((20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0) / 3.0;
+  dLat += ((20.0 * Math.sin(y * Math.PI) + 40.0 * Math.sin((y / 3.0) * Math.PI)) * 2.0) / 3.0;
+  dLat += ((160.0 * Math.sin((y / 12.0) * Math.PI) + 320 * Math.sin((y * Math.PI) / 30.0)) * 2.0) / 3.0;
+  let dLng = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+  dLng += ((20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0) / 3.0;
+  dLng += ((20.0 * Math.sin(x * Math.PI) + 40.0 * Math.sin((x / 3.0) * Math.PI)) * 2.0) / 3.0;
+  dLng += ((150.0 * Math.sin((x / 12.0) * Math.PI) + 300.0 * Math.sin((x / 30.0) * Math.PI)) * 2.0) / 3.0;
+  const radLat = (lat / 180.0) * Math.PI;
+  let magic = Math.sin(radLat);
+  magic = 1 - ee * magic * magic;
+  const sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180.0) / (((a * (1 - ee)) / (magic * sqrtMagic)) * Math.PI);
+  dLng = (dLng * 180.0) / ((a / sqrtMagic) * Math.cos(radLat) * Math.PI);
+  return [lat + dLat, lng + dLng];
+}
+
+/** 粗略反算 GCJ-02 -> WGS84，用于手动点选高德底图时存回统一 WGS84 坐标。 */
+function gcj02ToWgs84(lat: number, lng: number): [number, number] {
+  if (!isInChinaMainland(lat, lng)) return [lat, lng];
+  const [gLat, gLng] = wgs84ToGcj02(lat, lng);
+  return [lat * 2 - gLat, lng * 2 - gLng];
+}
+
+function compactMapLabel(raw: string): string {
+  const clean = raw.replace(/（[^）]*）|\([^)]*\)/g, '').trim() || raw.trim();
+  return clean.length > 10 ? `${clean.slice(0, 10)}…` : clean;
+}
 
 /** 计划保存后自动准备坐标；只有底图在展开时加载，避免地图界面决定数据是否存在。 */
 export default function PlannerMap({ content, hotels = {}, wishlist = [], savedPositions = {}, onSavePositions, onScheduleWishlist }: {
@@ -131,12 +173,19 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
     } catch (failure) { setError(failure instanceof Error ? failure.message : '位置保存失败'); }
     finally { setSaving(false); }
   }
+  const isAmapTiles = tileUrl.includes('autonavi.com');
+  const displayCoord = (lat: number, lng: number): [number, number] =>
+    isAmapTiles ? wgs84ToGcj02(lat, lng) : [lat, lng];
+
   useEffect(() => {
     const instance = map.current;
     if (!instance || !adjustKey || saving) return;
     const click = (event: L.LeafletMouseEvent) => {
-      void saveManualPosition({ key: adjustKey, status: 'located', latitude: event.latlng.lat,
-        longitude: event.latlng.lng, source: '手动确认', coordinateSystem: 'WGS84' });
+      const [wgsLat, wgsLng] = isAmapTiles
+        ? gcj02ToWgs84(event.latlng.lat, event.latlng.lng)
+        : [event.latlng.lat, event.latlng.lng];
+      void saveManualPosition({ key: adjustKey, status: 'located', latitude: wgsLat,
+        longitude: wgsLng, source: '手动确认', coordinateSystem: 'WGS84' });
     };
     instance.on('click', click);
     return () => { instance.off('click', click); };
@@ -148,17 +197,24 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
     map.current = instance;
     setTileError(false);
     const layer = L.tileLayer(tileUrl, {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+      maxZoom: 18,
+      ...(tileUrl.includes('{s}') ? { subdomains: ['1', '2', '3', '4'] } : {}),
+      attribution: tileUrl.includes('autonavi.com')
+        ? '&copy; 高德地图'
+        : '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
     }).addTo(instance);
     let tileErrors = 0;
     layer.on('tileerror', () => {
       tileErrors++;
-      if (tileErrors >= 3 && tileUrl === DEFAULT_TILE_URL) {
-        setTileUrl(FALLBACK_TILE_URL);
+      if (tileErrors >= 3 && tileUrl === AMAP_TILE_URL) {
+        setTileUrl(CARTO_TILE_URL);
         return;
       }
-      if (tileErrors >= 3) setTileError(true);
+      if (tileErrors >= 3 && tileUrl === CARTO_TILE_URL) {
+        setTileUrl(OSM_TILE_URL);
+        return;
+      }
+      if (tileErrors >= 4) setTileError(true);
     });
     const resize = new ResizeObserver(() => {
       instance.invalidateSize({ pan: false });
@@ -178,14 +234,34 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
     const markers = L.featureGroup().addTo(instance);
     const lines = L.featureGroup().addTo(instance);
     const arrows = L.layerGroup().addTo(instance);
+
+    // 避免同一片区或同坐标的多个景点完全重合叠在一起：对距离 <80m 的点做轻量环形错开。
+    const spreadCoords = new Map<string, [number, number]>();
+    const placed: Array<{ key: string; lat: number; lng: number }> = [];
+    for (const place of visible) {
+      const position = positionMap.get(place.key);
+      if (position?.status !== 'located' || !Number.isFinite(position.latitude) || !Number.isFinite(position.longitude)) continue;
+      let [lat, lng] = displayCoord(position.latitude!, position.longitude!);
+      const cluster = placed.filter((item) => Math.hypot(item.lat - lat, item.lng - lng) < 0.0008);
+      if (cluster.length > 0) {
+        const angle = (cluster.length * 2 * Math.PI) / Math.max(6, cluster.length + 2);
+        const radius = 0.0018 * (1 + Math.floor(cluster.length / 6) * 0.6);
+        lat += Math.sin(angle) * radius;
+        lng += Math.cos(angle) * radius;
+      }
+      placed.push({ key: place.key, lat, lng });
+      spreadCoords.set(place.key, [lat, lng]);
+    }
+
     // 每天独立连线，缺失位置会断开，不跨天或跨未知地点制造虚假的连续路线。
     const segments: Array<{ from: L.LatLng; to: L.LatLng; color: string }> = [];
     for (const day of content.days.filter((item) => !date || item.date === date)) {
       const daily = stops.filter((stop) => stop.visits[0].date === day.date);
       for (let index = 1; index < daily.length; index++) {
-        const previous = positionMap.get(daily[index - 1].key), next = positionMap.get(daily[index].key);
-        if (previous?.status !== 'located' || next?.status !== 'located') continue;
-        const from = L.latLng(previous.latitude!, previous.longitude!), to = L.latLng(next.latitude!, next.longitude!);
+        const prevCoord = spreadCoords.get(daily[index - 1].key);
+        const nextCoord = spreadCoords.get(daily[index].key);
+        if (!prevCoord || !nextCoord) continue;
+        const from = L.latLng(prevCoord[0], prevCoord[1]), to = L.latLng(nextCoord[0], nextCoord[1]);
         if (from.equals(to)) continue;
         const color = colorForDate(day.date);
         L.polyline([from, to], { color, weight: 3, opacity: .75, dashArray: '7 6', interactive: false }).addTo(lines);
@@ -205,9 +281,11 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
         }).addTo(arrows);
       }
     };
+    const showPermanentTooltip = visible.length <= 4;
     for (const place of visible) {
       const position = positionMap.get(place.key);
-      if (position?.status !== 'located' || !Number.isFinite(position.latitude) || !Number.isFinite(position.longitude)) continue;
+      const coord = spreadCoords.get(place.key);
+      if (position?.status !== 'located' || !coord) continue;
       // popup 使用 DOM + textContent，模型文本不得以 HTML 注入地图。
       const popup = document.createElement('div');
       const heading = document.createElement('strong');
@@ -251,11 +329,12 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
       const numbers = visits.map((visit) => visit.order).join('/');
       const color = colorForDate(visits[0].date);
       const label = document.createElement('span');
-      label.textContent = `${!date ? `${visits[0].date.slice(5)} · ` : ''}${place.name}`;
-      L.marker([position.latitude!, position.longitude!], { title: `${numbers} · ${place.name}`,
+      const shortName = compactMapLabel(place.name);
+      label.textContent = `${!date ? `${visits[0].date.slice(5)} · ` : ''}${shortName}`;
+      L.marker([coord[0], coord[1]], { title: `${numbers} · ${place.name}`,
         icon: L.divIcon({ className: 'planner-number-marker', html: `<span style="background:${color}">${numbers}</span>`, iconSize: [32, 32], iconAnchor: [16, 16] }),
       }).bindPopup(popup, { maxWidth: 260, keepInView: true })
-        .bindTooltip(label, { permanent: true, direction: 'top', offset: [0, -17], className: 'planner-stop-label' }).addTo(markers);
+        .bindTooltip(label, { permanent: showPermanentTooltip, direction: 'top', offset: [0, -17], className: 'planner-stop-label' }).addTo(markers);
     }
     // 叠加显示小红书「待选灵感池」点位，方便用户一眼看出离哪天行程顺路。
     for (const entry of wishlistPlaces) {
@@ -342,7 +421,7 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
 
   return <section className={`card planner-map ${expanded ? 'planner-map-expanded' : ''}`} aria-label="行程地图">
     <div className="planner-map-heading">
-      <div><h2>行程地图</h2><p className="muted">按天查看行程景点（不含餐饮与酒店），点击标记可查看活动并前往高德。</p>
+      <div><h2>行程地图</h2><p className="muted">按天查看行程景点（不含餐饮与酒店），点击标记可查看活动并前往导航地图。</p>
         {!open && stage && <small role="status">{stage}</small>}
         {!open && error && <small role="alert">{error}</small>}
       </div>

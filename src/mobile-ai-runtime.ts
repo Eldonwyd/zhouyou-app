@@ -2512,14 +2512,64 @@ async function locateSingleMobilePlace(place: { key: string; name: string; city?
     .map((s) => s.replace(/(?:市|自治州|地区|县|区)$/, '').trim())
     .filter(Boolean);
   const specificCity = cityParts[cityParts.length - 1] || city.replace(/(?:市|自治州|地区)$/, '').trim();
-  const cleanName = name.replace(/[·•・]/g, ' ').replace(/市区$/g, '').trim();
+  // 去掉括号内的冗长说明（如 "和顺古镇景区（和顺图书馆、弯楼子民居博物馆…）" -> "和顺古镇景区"）
+  const baseName = name.replace(/（[^）]*）|\([^)]*\)/g, '').replace(/[·•・]/g, ' ').replace(/市区$/g, '').trim();
+  const shortScenic = baseName.replace(/(?:风景名胜区|风景区|旅游区|景区|公园|博物馆|纪念馆)$/, '').trim();
   const looksChinese = /[\u4e00-\u9fff]/.test(`${city}${name}`);
   const inChina = (lat: number, lng: number) => lat >= 17 && lat <= 55 && lng >= 72 && lng <= 136;
 
+  const scenicQueries = [...new Set([
+    specificCity && baseName && !baseName.includes(specificCity) ? `${specificCity} ${baseName}` : baseName,
+    baseName,
+    specificCity && shortScenic && shortScenic.length >= 2 && !shortScenic.includes(specificCity)
+      ? `${specificCity} ${shortScenic}`
+      : shortScenic.length >= 2 ? shortScenic : '',
+  ].filter(Boolean))];
+
+  // 0) 优先查中文维基百科精确景点坐标（国内知名景区覆盖率极高，直接返回 WGS84）
+  for (const q of scenicQueries.slice(0, 2)) {
+    const wikiCoordUrl =
+      `https://zh.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}` +
+      '&gsrlimit=5&prop=coordinates|info&inprop=url&format=json&origin=*';
+    const wiki = await fetchPublicJson<{
+      query?: {
+        pages?: Record<string, {
+          index?: number;
+          title?: string;
+          fullurl?: string;
+          coordinates?: Array<{ lat?: number; lon?: number }>;
+        }>;
+      };
+    }>(wikiCoordUrl, 5500);
+    const wikiPages = Object.values(wiki?.query?.pages ?? {}).sort((a, b) => (a.index ?? 99) - (b.index ?? 99));
+    for (const p of wikiPages) {
+      const c = p.coordinates?.[0];
+      if (!c || !Number.isFinite(c.lat) || !Number.isFinite(c.lon)) continue;
+      const lat = Number(c.lat);
+      const lng = Number(c.lon);
+      if (looksChinese && !inChina(lat, lng)) continue;
+      // 避免匹配到毫不相干词条：标题需与景点名或城市有一定重叠
+      const title = String(p.title || '');
+      if (shortScenic.length >= 2 && !title.includes(shortScenic.slice(0, 2)) && specificCity && !title.includes(specificCity)) {
+        continue;
+      }
+      return {
+        key: place.key,
+        status: 'located',
+        latitude: lat,
+        longitude: lng,
+        label: title || baseName,
+        source: '维基百科坐标',
+        sourceUrl: p.fullurl || `https://zh.wikipedia.org/wiki/${encodeURIComponent(title || q)}`,
+        precision: 'place',
+        coordinateSystem: 'WGS84',
+      };
+    }
+  }
+
   const queries = [...new Set([
-    specificCity && cleanName && !cleanName.includes(specificCity) ? `${specificCity} ${cleanName}` : cleanName,
-    cleanName,
-    specificCity && cleanName ? `${cleanName} ${specificCity}` : '',
+    ...scenicQueries,
+    specificCity && baseName ? `${baseName} ${specificCity}` : '',
     specificCity,
     cityParts[0] && cityParts[0] !== specificCity ? cityParts[0] : '',
   ].filter(Boolean))];
@@ -2635,13 +2685,13 @@ async function locateSingleMobilePlace(place: { key: string; name: string; city?
     const baseVersion = Number(payload.baseVersion ?? (payload.plan as AiTravelPlan | undefined)?.version ?? 1);
     const scopeId = typeof payload.scopeId === 'string' ? payload.scopeId : null;
     if (payload.activityGuide === true) {
-      const sys = '你是周游地图专业旅行攻略助手。请直接输出清晰、实用、分段的中文攻略正文，不要输出 JSON。';
+      const sys = '你是周游地图专业旅行攻略助手。请直接输出清晰、实用、分段的中文攻略正文，使用【短标题】分段，不要输出 JSON，不要使用 ** 星号或 Markdown 井号。';
       const res = await callMobileModel(sys, String(payload.message ?? ''), { maxTokens: 3000 });
       return { action: 'answer', answer: res.text.trim(), baseVersion, scopeId } as unknown as T;
     }
     const plan = payload.plan as AiTravelPlan | undefined;
     const sys = [
-      '你是周游地图 AI 旅行助手。请严格返回 JSON 对象，不要输出其他文本：',
+      '你是周游地图 AI 旅行助手。请严格返回 JSON 对象，不要输出其他文本；回答正文使用简洁中文分段，不要使用 ** 星号：',
       '- 若是咨询问答或方案建议，返回：{"action":"answer","answer":"你的清晰中文回答"}',
       '- 仅当用户明确要求直接修改行程时，返回：{"action":"revision","summary":"一句话改动说明","content":{修改后的完整行程content对象}}',
     ].join('\n');

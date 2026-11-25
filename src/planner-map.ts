@@ -1,7 +1,7 @@
 import type { PlannerContent } from './planner-types';
 
 // 更新查询规则时重新定位旧的未匹配条目，已确定的位置继续使用保存值。
-export const PLANNER_MAP_LOOKUP_VERSION = 7;
+export const PLANNER_MAP_LOOKUP_VERSION = 8;
 
 export interface PlannerMapPlace {
   key: string;

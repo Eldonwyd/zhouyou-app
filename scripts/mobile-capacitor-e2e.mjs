@@ -358,16 +358,32 @@ try {
   await assertNotWhiteScreen('完整行程生成');
   console.log('   ✓ 完整行程生成并通过严格校验，页面正常渲染！');
 
-  console.log('5. 测试「行程地图」（点击查看行程地图 -> 真实景点定位标点 + 高德 App 跳转）...');
+  console.log('5. 测试「行程地图」（点击查看行程地图 -> 高德底图 + 真实景点定位标点 + 无底图报错）...');
+  const allGuidesBtn = page.locator('button', { hasText: /一键生成全部攻略/ }).first();
+  await allGuidesBtn.waitFor({ timeout: 8000 });
+  console.log('   ✓ 「一键生成全部攻略」按钮已就绪！');
+
   const openMapBtn = page.getByRole('button', { name: '查看行程地图' });
   await openMapBtn.waitFor({ timeout: 10000 });
   await openMapBtn.click();
   await page.locator('.planner-number-marker').first().waitFor({ timeout: 45000 });
   const markerCount = await page.locator('.planner-number-marker').count();
   assert.ok(markerCount >= 1, 'Expected at least 1 located attraction marker on itinerary map');
+  const hasTileFail = await page.getByText('地图底图加载失败').isVisible().catch(() => false);
+  assert.equal(hasTileFail, false, 'Map basemap tiles should load cleanly without tile error');
   await assertNotWhiteScreen('行程地图');
-  console.log(`   ✓ 行程地图真实定位成功（${markerCount} 个景点标点）！`);
+  console.log(`   ✓ 行程地图底图正常加载且真实定位成功（${markerCount} 个景点标点）！`);
   await page.getByRole('button', { name: '收起地图' }).click();
+
+  // Test single detailed guide generation and assert zero literal ** asterisks
+  const guideBtn = page.locator('button', { hasText: '详细攻略' }).first();
+  if (await guideBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await guideBtn.click();
+    await page.locator('.planner-activity-guide .ai-rich-text').first().waitFor({ timeout: 60000 });
+    const guideText = await page.locator('.planner-activity-guide .ai-rich-text').first().innerText();
+    assert.equal(guideText.includes('**'), false, `Guide text should not contain literal ** asterisks: ${guideText.slice(0, 120)}`);
+    console.log('   ✓ 详细攻略排版渲染正常，无原始 ** 星号！');
+  }
 
   // Verify Amap deep link on activity card
   const amapLink = page.locator('a', { hasText: '高德地图' }).first();

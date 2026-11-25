@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { AiTravelPlan, XhsReference } from '../planner-types';
 import { isExecutablePlannerSuggestion, plannerSuggestions } from '../planner-domain';
 import { plannerDisplayText, splitAnswerLinks } from '../planner-display';
+import RichAiText from './RichAiText';
 
 interface PlannerConversationProps {
   plan: AiTravelPlan;
@@ -113,7 +114,7 @@ export default function PlannerConversation({
                     </>;
                     const { body, links } = splitAnswerLinks(text);
                     return <>
-                      <p>{body}</p>
+                      <RichAiText text={body} />
                       {links.length > 0 && <div className="planner-links">
                         <strong>相关链接</strong>
                         <ul>

@@ -7,6 +7,7 @@ import PlannerTripTimeline, { plannerDayAnchor } from './PlannerTripTimeline';
 import RequestFields, { PlannerLuggageField } from './PlannerRequestFields';
 import PlannerConversation from './PlannerConversation';
 import PlannerMap from './PlannerMap';
+import RichAiText from './RichAiText';
 import PlannerPhotoSettings from './PlannerPhotoSettings';
 import PlannerAiSettings, { PlannerAiStatusBar, normalizeAiStatus, type AiStatus } from './PlannerAiSettings';
 import PlannerPlanCard from './PlannerPlanCard';
@@ -1485,6 +1486,50 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
       }, current.version);
     }, () => generateActivityGuide(activity));
   }
+
+  /** 一键为当前行程内所有尚未生成攻略的景点依次生成详细攻略，每完成一个即落盘保存。 */
+  async function generateAllActivityGuides() {
+    if (!activePlan || busy) return;
+    const planId = activePlan.id;
+    const allSights = activePlan.content.days.flatMap((day) =>
+      plannerActivitiesByTime(day.activities).filter(
+        (activity) => activity.kind === 'sight' && !activity.bookingId,
+      ),
+    );
+    if (!allSights.length) return;
+    const missing = allSights.filter((activity) => !activePlan.activityGuides?.[activity.id]);
+    const targets = missing.length ? missing : allSights;
+
+    await task(async (signal) => {
+      for (let i = 0; i < targets.length; i += 1) {
+        if (signal.aborted) return;
+        const activity = targets[i];
+        const latest = plansRef.current.find((plan) => plan.id === planId);
+        if (!latest) return;
+        setStage(`生成攻略 ${i + 1}/${targets.length}：${activity.title}`);
+        const result = await plannerApi<{ action: string; answer?: string }>('chat', {
+          plan: { ...latest, content: plannerContentForAi(latest), bookings: undefined, hotels: undefined, history: [], messages: [] },
+          baseVersion: latest.version,
+          scopeId: activity.id,
+          mode: 'auto',
+          activityGuide: true,
+          message: `请仅提供「${activity.city}·${activity.title}」的详细实用攻略，不修改行程，不提出行程修改方案。结合当前日期、活动时间、同行人群和偏好，分段说明推荐游览顺序与时间分配、必看亮点、入口与交通、预约与费用、拍照建议、天气及避坑事项。区分已核实资料与经验建议，不编造营业时间或票价。直接给实用内容，使用中文【短标题】分段，不要使用 ** 星号。`,
+        }, signal, () => {});
+        if (signal.aborted) return;
+        if (result.action !== 'answer' || !result.answer?.trim()) continue;
+        const current = plansRef.current.find((plan) => plan.id === planId);
+        if (!current) return;
+        const now = new Date().toISOString();
+        await props.onSaveAi({
+          ...current,
+          version: current.version + 1,
+          contentVersion: current.contentVersion ?? current.version,
+          updatedAt: now,
+          activityGuides: { ...current.activityGuides, [activity.id]: { text: result.answer, createdAt: now } },
+        }, current.version);
+      }
+    }, generateAllActivityGuides);
+  }
   /** Answers append dialogue only. A validated revision additionally captures
    * the prior content for undo and calculates its budget delta without AI math.
    */
@@ -2510,6 +2555,29 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                   }}>
                     ＋ 导入车次 / 酒店
                   </button>
+                  {(() => {
+                    const sightList = activePlan.content.days.flatMap((d) =>
+                      plannerActivitiesByTime(d.activities).filter((a) => a.kind === 'sight' && !a.bookingId),
+                    );
+                    if (!sightList.length) return null;
+                    const missingCount = sightList.filter((a) => !activePlan.activityGuides?.[a.id]).length;
+                    return (
+                      <button
+                        className="primary"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                          if (webTourMode) {
+                            props.onRequireClient?.('ai');
+                            return;
+                          }
+                          void generateAllActivityGuides();
+                        }}
+                      >
+                        {missingCount > 0 ? `✦ 一键生成全部攻略 (${missingCount})` : '✦ 重生成全部攻略'}
+                      </button>
+                    );
+                  })()}
                   <button
                     className="secondary"
                     disabled={busy}
@@ -2909,7 +2977,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                                     const { body, links } = splitAnswerLinks(plannerDisplayText(guide.text, activePlan.content));
                                     return <details className="planner-activity-guide planner-notes" aria-label={`${activity.title}详细攻略`}>
                                       <summary>AI 详细攻略</summary>
-                                      <p>{body}</p>
+                                      <RichAiText text={body} />
                                       {links.length > 0 && <div className="planner-sources">相关链接：{links.map((link) =>
                                         <a key={link.url} href={link.url} target="_blank" rel="noreferrer">{link.title}</a>)}</div>}
                                       <small>生成于 {new Date(guide.createdAt).toLocaleString('zh-CN')}</small>
