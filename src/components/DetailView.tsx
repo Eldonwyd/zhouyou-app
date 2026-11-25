@@ -7,7 +7,7 @@ import type {
 import { getMediaBlob, getMediaPreview } from '../db';
 import type { JourneyLinkResult } from '../db';
 import { cityFromGps, loadNationalMap, loadProvinceMap } from '../map-data';
-import { createLocalId, describeStorageError, localDay, periodFromDate } from '../utils';
+import { createLocalId, describeStorageError, isQuotaStorageError, localDay, periodFromDate } from '../utils';
 import TravelCityBrowser from './TravelCityBrowser';
 import JournalWelcome from './JournalWelcome';
 import CityGuideLinks from './CityGuideLinks';
@@ -153,7 +153,7 @@ function parseExifDate(value: unknown): Date | null {
 
 /** Image EXIF wins; browsers normally expose only file time for video. */
 async function readCaptureMetadata(file: File): Promise<{ date: Date; latitude: number | null; longitude: number | null }> {
-  if (file.type.startsWith('image/')) {
+  if (file.type.startsWith('image/') || /\.(jpe?g|heic|heif|webp|png)$/i.test(file.name)) {
     try {
       const metadata = await exifr.parse(file, { tiff: true, exif: true, gps: true }) as Record<string, unknown> | undefined;
       const date = parseExifDate(metadata?.DateTimeOriginal ?? metadata?.CreateDate ?? metadata?.ModifyDate);
@@ -166,7 +166,30 @@ async function readCaptureMetadata(file: File): Promise<{ date: Date; latitude: 
 }
 
 function isSupportedFile(file: File): boolean {
-  return file.type.startsWith('image/') || file.type.startsWith('video/') || /\.(heic|heif|mov|mp4|m4v|webm)$/i.test(file.name);
+  return file.type.startsWith('image/')
+    || file.type.startsWith('video/')
+    || /\.(jpe?g|png|webp|gif|bmp|avif|heic|heif|mov|mp4|m4v|webm|3gp|mkv)$/i.test(file.name);
+}
+
+function inferMediaMimeType(file: File, kind: 'photo' | 'video'): string {
+  if (file.type) return file.type;
+  const lower = file.name.toLowerCase();
+  if (kind === 'video') {
+    if (lower.endsWith('.mov')) return 'video/quicktime';
+    if (lower.endsWith('.webm')) return 'video/webm';
+    if (lower.endsWith('.m4v')) return 'video/x-m4v';
+    if (lower.endsWith('.3gp')) return 'video/3gpp';
+    if (lower.endsWith('.mkv')) return 'video/x-matroska';
+    return 'video/mp4';
+  }
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  if (lower.endsWith('.avif')) return 'image/avif';
+  if (lower.endsWith('.bmp')) return 'image/bmp';
+  if (lower.endsWith('.heic')) return 'image/heic';
+  if (lower.endsWith('.heif')) return 'image/heif';
+  return 'image/jpeg';
 }
 
 /** A trip form can add cities from any province without loading all 34 maps. */
@@ -523,7 +546,9 @@ export default function DetailView(props: DetailViewProps) {
   }
 
   async function uploadFiles(files: FileList | null, memoryPlace?: JourneyPlace): Promise<void> {
-    if (!files?.length || (!memoryPlace && !uploadCityCode)) return;
+    // Snapshot FileList immediately before any await so mobile/desktop WebViews cannot clear or invalidate it.
+    const pickedFiles = files ? Array.from(files) : [];
+    if (!pickedFiles.length || (!memoryPlace && !uploadCityCode)) return;
     // 地点页直接使用本条地点的城市和旅行，避免上传区之前所选的其他城市影响归档。
     const selectedPlaceForUpload = memoryPlace ?? (uploadPlaceId ? selectedUploadPlace : await ensureWholeCityPlace());
     if (!selectedPlaceForUpload) { onError('请先选择已保存的地点'); return; }
@@ -536,7 +561,7 @@ export default function DetailView(props: DetailViewProps) {
     setUploadFailures([]);
     setUploadProgress('正在读取拍摄时间…');
     try {
-      for (const file of Array.from(files)) {
+      for (const file of pickedFiles) {
         if (!isSupportedFile(file)) { failures.push(`${file.name}：不支持的格式`); continue; }
         try { candidates.push({ file, ...await readCaptureMetadata(file) }); }
         catch { failures.push(`${file.name}：无法读取文件`); }
@@ -559,40 +584,106 @@ export default function DetailView(props: DetailViewProps) {
       const includeOutside = !outside.length || window.confirm(`${outside.length} 个文件的拍摄或文件日期不在旅行日期内。确定：仍导入；取消：跳过这些文件。`);
       const accepted = includeOutside ? candidates : candidates.filter((item) => !outside.includes(item));
       if (!includeOutside) failures.push(...outside.map(({ file }) => `${file.name}：日期不在旅行范围，已跳过`));
+
+      // Chunk by both item count and total bytes so large videos/photos save in
+      // small transactions without spiking WebView memory.
+      const MAX_BATCH_COUNT = 5;
+      const MAX_BATCH_BYTES = 12 * 1024 * 1024;
+      const batches: Array<typeof accepted> = [];
+      let currentBatch: typeof accepted = [];
+      let currentBytes = 0;
+      for (const item of accepted) {
+        const size = item.file.size || 0;
+        const isVideo = item.file.type.startsWith('video/') || /\.(mov|mp4|m4v|webm|3gp|mkv)$/i.test(item.file.name);
+        if (currentBatch.length > 0 && (isVideo || currentBatch.length >= MAX_BATCH_COUNT || currentBytes + size > MAX_BATCH_BYTES)) {
+          batches.push(currentBatch);
+          currentBatch = [];
+          currentBytes = 0;
+        }
+        currentBatch.push(item);
+        currentBytes += size;
+        if (isVideo || size > MAX_BATCH_BYTES) {
+          batches.push(currentBatch);
+          currentBatch = [];
+          currentBytes = 0;
+        }
+      }
+      if (currentBatch.length > 0) batches.push(currentBatch);
+
       const workingEntries = [...entries];
-      let completed = 0;
-      for (let start = 0; start < accepted.length; start += 10) {
-        const batch = accepted.slice(start, start + 10);
+      const buildBatchPayload = (group: typeof accepted) => {
+        const previewEntries = [...workingEntries];
         const newEntries: DayEntry[] = [];
-        const items = batch.map(({ file, date, latitude, longitude }) => {
+        const items = group.map(({ file, date, latitude, longitude }) => {
           const day = localDay(date);
           const period = periodFromDate(date);
-          let entry = workingEntries.find((row) => row.tripId === activeTripId
+          let entry = previewEntries.find((row) => row.tripId === activeTripId
             && row.placeId === targetPlaceId && row.date === day && row.period === period);
           if (!entry) {
             entry = { id: createLocalId(), tripId: activeTripId, placeId: targetPlaceId,
               cityCode: targetCityCode, date: day, period, note: '', place: selectedPlaceForUpload.name,
-              order: Date.now() + workingEntries.length, highlight: false };
-            workingEntries.push(entry);
+              order: Date.now() + previewEntries.length, highlight: false };
+            previewEntries.push(entry);
             newEntries.push(entry);
           }
-          const kind = file.type.startsWith('video/') || /\.(mov|mp4|m4v|webm)$/i.test(file.name) ? 'video' : 'photo';
+          const kind = file.type.startsWith('video/') || /\.(mov|mp4|m4v|webm|3gp|mkv)$/i.test(file.name) ? 'video' : 'photo';
           const mediaItem: TravelMedia = { id: createLocalId(), cityCode: targetCityCode,
             tripId: activeTripId, placeId: targetPlaceId, entryId: entry.id,
-            kind, fileName: file.name, mimeType: file.type || (kind === 'video' ? 'video/mp4' : 'image/jpeg'),
+            kind, fileName: file.name, mimeType: inferMediaMimeType(file, kind),
             capturedAt: date.toISOString(), placeName: selectedPlaceForUpload.name,
             latitude, longitude };
           return { media: mediaItem, blob: file as Blob };
         });
+        return { items, newEntries };
+      };
+
+      let completed = 0;
+      let stoppedByQuota = false;
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex += 1) {
+        const batch = batches[batchIndex];
+        const { items, newEntries } = buildBatchPayload(batch);
         try {
           await onSaveMediaGroup(items, newEntries);
+          workingEntries.push(...newEntries);
           completed += items.length;
           setUploadProgress(`已保存 ${completed} / ${accepted.length} 个文件`);
         } catch (error) {
-          const reason = describeStorageError(error);
-          failures.push(...accepted.slice(start).map(({ file }) => `${file.name}：保存失败（${reason}）`));
-          onError(reason);
-          break;
+          if (isQuotaStorageError(error)) {
+            const reason = describeStorageError(error);
+            const remaining = batches.slice(batchIndex).flat();
+            failures.push(...remaining.map(({ file }) => `${file.name}：保存失败（${reason}）`));
+            onError(reason);
+            stoppedByQuota = true;
+            break;
+          }
+          if (batch.length === 1) {
+            const reason = describeStorageError(error);
+            failures.push(`${batch[0].file.name}：保存失败（${reason}）`);
+            onError(reason);
+            continue;
+          }
+          // Isolate single bad files so one failed item never blocks the rest of the batch.
+          for (let itemIndex = 0; itemIndex < batch.length; itemIndex += 1) {
+            const single = batch[itemIndex];
+            const singlePayload = buildBatchPayload([single]);
+            try {
+              await onSaveMediaGroup(singlePayload.items, singlePayload.newEntries);
+              workingEntries.push(...singlePayload.newEntries);
+              completed += 1;
+              setUploadProgress(`已保存 ${completed} / ${accepted.length} 个文件`);
+            } catch (singleError) {
+              const reason = describeStorageError(singleError);
+              if (isQuotaStorageError(singleError)) {
+                const remaining = [...batch.slice(itemIndex), ...batches.slice(batchIndex + 1).flat()];
+                failures.push(...remaining.map(({ file }) => `${file.name}：保存失败（${reason}）`));
+                onError(reason);
+                stoppedByQuota = true;
+                break;
+              }
+              failures.push(`${single.file.name}：保存失败（${reason}）`);
+            }
+          }
+          if (stoppedByQuota) break;
         }
       }
       setUploadFailures(failures);

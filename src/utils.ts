@@ -45,8 +45,15 @@ export function downloadBlob(blob: Blob, filename: string): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+export function isQuotaStorageError(error: unknown): boolean {
+  if (error instanceof DOMException) {
+    return error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED' || error.code === 22;
+  }
+  return false;
+}
+
 export function describeStorageError(error: unknown): string {
-  if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+  if (isQuotaStorageError(error)) {
     return '设备或浏览器存储空间不足。请先导出备份并清理部分媒体。';
   }
   return error instanceof Error ? error.message : '操作失败，请重试。';
