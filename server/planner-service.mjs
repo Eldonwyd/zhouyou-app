@@ -545,6 +545,58 @@ export function createPlannerService({
     }
   }
 
+  const TRAD_TO_SIMP_MAP = {
+    園: '园', 臺: '台', 門: '门', 雲: '云', 麗: '丽', 縣: '县', 館: '馆', 區: '区',
+    廣: '广', 場: '场', 東: '东', 國: '国', 長: '长', 陽: '阳', 這: '这', 華: '华',
+    會: '会', 廟: '庙', 橋: '桥', 樓: '楼', 島: '岛', 嶺: '岭', 峽: '峡', 灣: '湾',
+    學: '学', 院: '院', 寺: '寺', 塔: '塔', 湖: '湖', 山: '山', 街: '街', 鎮: '镇',
+  };
+  const normPhotoText = (value = '') =>
+    String(value)
+      .replace(/[園臺門雲麗縣館區廣場東國長陽這華會廟橋樓島嶺峽灣學]/g, (ch) => TRAD_TO_SIMP_MAP[ch] || ch)
+      .replace(/[\s·•・（）()《》「」【】\-—–_]+/g, '')
+      .toLowerCase();
+
+  const isUndesirablePhotoMeta = (text = '', url = '') => {
+    const combined = `${text} ${url}`;
+    if (/\.(svg|pdf|tif|tiff|ogv|webm|gif)(?:$|\?)/i.test(url)) return true;
+    if (/map|locator|flag|coat_of_arms|logo|icon|symbol|emblem|blank|signature|seal|stamp|diagram|chart|blueprint|poster|newspaper/i.test(url)) return true;
+    // 拦截新闻视频截图、水印图、人群围观、人物肖像与活动照
+    if (/china\s*news\s*service|中新网|中新社|新华社|xinhua|cctv|cgtn|视频|video|screenshot|screencap|news\s*clip|press\s*conference|发布会|采访|记者/i.test(combined)) return true;
+    if (/portrait|selfie|headshot|crowd|visitors|tourists|audience|people\s+(?:at|in|visiting|watching)|group\s*photo|ceremony|opening\s*ceremony|speech|lecture|performance|concert|parade|游客|观众|人群|人山人海|人像|肖像|人物|合照|合影|自拍|仪式|典礼|演讲|会议|演出|活动现场/i.test(combined)) return true;
+    return false;
+  };
+
+  const isWikiBiographyPage = (title = '', description = '', extract = '') => {
+    const combined = `${title} ${description} ${extract}`;
+    return /\b(born|died|politician|general|emperor|king|queen|actor|actress|singer|author|writer|painter|scientist|athlete|footballer|businessman|military|officer|prime minister|president|statesman)\b|人物|政治家|军人|将军|陆军|海军|元帅|首相|总理|大臣|皇帝|演员|歌手|作家|画家|运动员|科学家|企业家|出生于|生于\d|逝世|（\d{4}年[—–-]\d{4}年）|\(\d{4}[—–-]\d{4}\)/i.test(combined);
+  };
+
+  const isRelevantWikiTitle = (pageTitle = '', placeName = '', shortPlace = '') => {
+    const normTitle = normPhotoText(pageTitle);
+    const normPlace = normPhotoText(placeName);
+    const normShort = normPhotoText(shortPlace);
+    if (!normTitle) return false;
+    if (normPlace.length >= 2 && (normTitle.includes(normPlace) || normPlace.includes(normTitle))) return true;
+    if (normShort.length >= 2 && (normTitle.includes(normShort) || normShort.includes(normTitle))) return true;
+    return false;
+  };
+
+  const scoreSceneryCandidate = (text = '', width = 0, height = 0) => {
+    let score = 0;
+    if (width > 0 && height > 0) {
+      const ratio = width / height;
+      if (ratio >= 1.15 && ratio <= 2.4) score += 30;
+      else if (ratio >= 0.95) score += 10;
+      else score -= 35; // 竖构图多为人物肖像或海报，降权
+    }
+    if (width >= 640) score += 10;
+    if (/exterior|building|facade|entrance|view|scenery|landscape|night|panorama|street|plaza|square|hall|外观|全景|夜景|建筑|大门|风景|实景|正门|外景/i.test(text)) {
+      score += 25;
+    }
+    return score;
+  };
+
   /** 真正的图片索引检索：可选的全网图片接口，以及无需额外 Key 的开放图库。
    * 每次响应按顺序检查，第一张合格即停止下载，不向用户展示候选列表。
    */
@@ -556,6 +608,7 @@ export function createPlannerService({
         const result = await requestJson(url, { headers: { 'X-Subscription-Token': imageSearchKey, Accept: 'application/json' } }, signal, 12000);
         for (const item of result.results ?? []) {
           if (!plannerPhotoMatches(item.title ?? '', city, place) || !isPublicWebUrl(item.url) || !isPublicWebUrl(item.properties?.url)) continue;
+          if (isUndesirablePhotoMeta(`${item.title ?? ''} ${item.source ?? ''}`, item.properties.url)) continue;
           // 小红书结果继续走公开笔记验证，不能因全网结果而绕过登录或地点校验。
           if (new URL(item.url).hostname.endsWith('xiaohongshu.com')) continue;
           const photo = await saveMatchedPhoto(query, { url: item.properties.url, sourceUrl: item.url, attribution: `图片来源：${item.source ?? new URL(item.url).hostname} · ${item.title}` }, signal, onDiagnostic);
@@ -568,23 +621,33 @@ export function createPlannerService({
       try {
         const url = new URL('https://commons.wikimedia.org/w/api.php');
         url.search = new URLSearchParams({ action: 'query', generator: 'search', gsrsearch: `${city.replace(/市$/, '')} ${place} ${suffix}`.trim(),
-          gsrnamespace: '6', gsrlimit: '5', prop: 'imageinfo', iiprop: 'url|extmetadata|size', iiurlwidth: '1000', format: 'json' });
+          gsrnamespace: '6', gsrlimit: '10', prop: 'imageinfo', iiprop: 'url|extmetadata|size', iiurlwidth: '1000', format: 'json' });
         const result = await requestJson(url, { headers: { 'User-Agent': 'TravelFootprints/1.0 (personal itinerary photos)' } }, signal, 8000);
-        const pages = Object.values(result.query?.pages ?? {}).sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+        const plain = (html = '') => String(html).replace(/<[^>]*>/g, ' ').replace(/&[^;]+;/g, ' ').trim();
+        const pages = Object.values(result.query?.pages ?? {})
+          .map((page) => {
+            const info = page.imageinfo?.[0];
+            const metadata = info?.extmetadata ?? {};
+            const artist = plain(metadata.Artist?.value);
+            const desc = plain(metadata.ImageDescription?.value);
+            const evidence = `${page.title} ${desc}`;
+            const score = scoreSceneryCandidate(`${evidence} ${artist}`, Number(info?.width || 0), Number(info?.height || 0));
+            return { page, info, metadata, artist, desc, evidence, score };
+          })
+          .sort((a, b) => b.score - a.score || (a.page.index ?? 0) - (b.page.index ?? 0));
         if (!pages.length) onDiagnostic(suffix ? '开放图库按月份检索无结果，正在去掉月份重查' : '开放图库未找到相关图片');
         let matched = false;
-        for (const page of pages) {
-          const info = page.imageinfo?.[0];
-          const plain = (html = '') => String(html).replace(/<[^>]*>/g, ' ').replace(/&[^;]+;/g, ' ').trim();
-          const metadata = info?.extmetadata ?? {};
-          const evidence = `${page.title} ${plain(metadata.ImageDescription?.value)}`;
-          if (!info || !plannerPhotoMatches(evidence, city, place) || !isPublicWebUrl(info.descriptionurl) || !isPublicWebUrl(info.thumburl ?? info.url)) continue;
+        for (const { page, info, metadata, artist, evidence } of pages) {
+          const imgUrl = info?.thumburl ?? info?.url ?? '';
+          if (!info || !plannerPhotoMatches(evidence, city, place) || !isPublicWebUrl(info.descriptionurl) || !isPublicWebUrl(imgUrl)) continue;
+          if (isUndesirablePhotoMeta(`${evidence} ${artist}`, imgUrl)) continue;
+          if (info.width && info.height && info.height > info.width * 1.15) continue;
           matched = true;
-          const photo = await saveMatchedPhoto(query, { url: info.thumburl ?? info.url, sourceUrl: info.descriptionurl,
-            attribution: `维基共享资源 · ${plain(metadata.Artist?.value) || page.title} · ${plain(metadata.LicenseShortName?.value) || '许可见原文'}` }, signal, onDiagnostic);
+          const photo = await saveMatchedPhoto(query, { url: imgUrl, sourceUrl: info.descriptionurl,
+            attribution: `维基共享资源 · ${artist || page.title} · ${plain(metadata.LicenseShortName?.value) || '许可见原文'}` }, signal, onDiagnostic);
           if (photo) return photo;
         }
-        if (pages.length && !matched) onDiagnostic('开放图库返回了图片，但城市或景点证据不足，未采用');
+        if (pages.length && !matched) onDiagnostic('开放图库返回了图片，但城市或景点证据不足或以人物/新闻为主，未采用');
       } catch (error) { if (signal.aborted) throw error; onDiagnostic('开放图库暂时无法读取，继续检查其他来源'); }
     }
     return null;
@@ -695,17 +758,13 @@ export function createPlannerService({
         .trim();
       const shortCity = String(city || '').replace(/(?:市|自治州|地区)$/, '').trim();
       const wikiQueries = [...new Set([
-        shortPlace && shortPlace.length >= 2 ? shortPlace : '',
-        placeName,
-        shortCity && shortPlace && !shortPlace.includes(shortCity) ? `${shortCity} ${shortPlace}` : '',
         shortCity && !placeName.includes(shortCity) ? `${shortCity} ${placeName}` : '',
-        shortCity,
+        shortCity && shortPlace && shortPlace.length >= 2 && !shortPlace.includes(shortCity) ? `${shortCity} ${shortPlace}` : '',
+        placeName,
+        shortPlace && shortPlace.length >= 2 ? shortPlace : '',
       ].filter(Boolean))];
-      const isBadWikiImg = (u) =>
-        /\.(svg|pdf|tif|tiff|ogv|webm)(?:$|\?)/i.test(u) ||
-        /map|locator|flag|coat_of_arms|logo|icon|symbol|emblem|blank/i.test(u);
 
-      // 1) 中文维基百科模糊搜索（可自动命中“五大道文化旅游区”->“五大道”）
+      // 1) 中文维基百科搜索：严格校验词条名与景点匹配、排除人物传记与竖版人像
       for (const q of wikiQueries) {
         if (photo || signal.aborted) break;
         try {
@@ -714,11 +773,14 @@ export function createPlannerService({
             action: 'query',
             generator: 'search',
             gsrsearch: q,
-            gsrlimit: '5',
-            prop: 'pageimages|info',
+            gsrlimit: '6',
+            prop: 'pageimages|info|description|extracts',
             piprop: 'thumbnail|original',
             pithumbsize: '960',
             inprop: 'url',
+            exintro: '1',
+            exchars: '160',
+            explaintext: '1',
             format: 'json',
           }).toString();
           const result = await requestJson(
@@ -730,8 +792,14 @@ export function createPlannerService({
           const pages = Object.values(result.query?.pages ?? {}).sort((a, b) => (a.index ?? 99) - (b.index ?? 99));
           for (const page of pages) {
             const img = page.thumbnail?.source || page.original?.source || '';
-            if (!img || !isPublicWebUrl(img) || isBadWikiImg(img)) continue;
-            if (page.thumbnail?.width && page.thumbnail.width < 220) continue;
+            if (!img || !isPublicWebUrl(img)) continue;
+            if (!isRelevantWikiTitle(page.title, placeName, shortPlace)) continue;
+            if (isWikiBiographyPage(page.title, page.description, page.extract)) continue;
+            if (isUndesirablePhotoMeta(`${page.title} ${page.description || ''}`, img)) continue;
+            const w = Number(page.thumbnail?.width || 0);
+            const h = Number(page.thumbnail?.height || 0);
+            if (w && w < 240) continue;
+            if (w && h && h > w * 1.15) continue;
             photo = await saveMatchedPhoto(key, {
               url: img,
               sourceUrl: page.fullurl || `https://zh.wikipedia.org/?curid=${page.pageid}`,
@@ -744,7 +812,7 @@ export function createPlannerService({
         }
       }
 
-      // 2) Wikimedia Commons 实景图兜底（支持中文/拼音地名实景照）
+      // 2) Wikimedia Commons 实景图兜底（严格过滤新闻视频/人群/人像，优先横版建筑风景照）
       for (const q of wikiQueries.slice(0, 3)) {
         if (photo || signal.aborted) break;
         try {
@@ -754,9 +822,9 @@ export function createPlannerService({
             generator: 'search',
             gsrnamespace: '6',
             gsrsearch: q,
-            gsrlimit: '6',
+            gsrlimit: '10',
             prop: 'imageinfo',
-            iiprop: 'url',
+            iiprop: 'url|extmetadata|size',
             iiurlwidth: '960',
             format: 'json',
           }).toString();
@@ -766,10 +834,29 @@ export function createPlannerService({
             signal,
             10000,
           );
-          for (const page of Object.values(result.query?.pages ?? {})) {
-            const info = page.imageinfo?.[0];
+          const plain = (html = '') => String(html).replace(/<[^>]*>/g, ' ').replace(/&[^;]+;/g, ' ').trim();
+          const ranked = Object.values(result.query?.pages ?? {})
+            .map((page) => {
+              const info = page.imageinfo?.[0];
+              const metadata = info?.extmetadata ?? {};
+              const artist = plain(metadata.Artist?.value);
+              const desc = plain(metadata.ImageDescription?.value);
+              const evidence = `${page.title} ${desc}`;
+              return {
+                page,
+                info,
+                artist,
+                evidence,
+                score: scoreSceneryCandidate(`${evidence} ${artist}`, Number(info?.width || 0), Number(info?.height || 0)),
+              };
+            })
+            .sort((a, b) => b.score - a.score || (a.page.index ?? 99) - (b.page.index ?? 99));
+          for (const { page, info, artist, evidence } of ranked) {
             const img = info?.thumburl || info?.url || '';
-            if (!img || !isPublicWebUrl(img) || isBadWikiImg(img)) continue;
+            if (!img || !isPublicWebUrl(img)) continue;
+            if (!isRelevantWikiTitle(evidence, placeName, shortPlace)) continue;
+            if (isUndesirablePhotoMeta(`${evidence} ${artist}`, img)) continue;
+            if (info?.width && info?.height && info.height > info.width * 1.15) continue;
             photo = await saveMatchedPhoto(key, {
               url: img,
               sourceUrl: info?.descriptionurl || img,

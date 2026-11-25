@@ -2743,7 +2743,9 @@ async function fetchPublicJson<T>(url: string, timeoutMs = 8000): Promise<T | nu
   }
 }
 
-/** 通过维基百科 / Wikimedia Commons 公开 API 搜索真实景点/城市实景图（免 Key、支持浏览器 CORS 与安卓原生）。 */
+/** 通过维基百科 / Wikimedia Commons 公开 API 搜索真实景点/城市实景图（免 Key、支持浏览器 CORS 与安卓原生）。
+ * 严格校验词条名与景点匹配，过滤人物传记、新闻视频截图、人群围观与竖版人像，优先横版建筑与风景实景图。
+ */
 async function searchMobilePlacePhoto(
   city: string,
   title: string,
@@ -2752,28 +2754,75 @@ async function searchMobilePlacePhoto(
   const shortTitle = cleanTitle
     .replace(/(?:文化旅游区|风景名胜区|旅游度假区|历史文化街区|生态旅游区|森林公园|地质公园|旅游区|风景区|景区)$/g, '')
     .trim();
-  const cleanCity = city.replace(/市$/, '').trim();
+  const cleanCity = city.replace(/(?:市|自治州|地区)$/, '').trim();
   const queries = [...new Set([
+    cleanCity && !cleanTitle.includes(cleanCity) ? `${cleanCity} ${cleanTitle}` : '',
+    cleanCity && shortTitle && shortTitle.length >= 2 && !shortTitle.includes(cleanCity) ? `${cleanCity} ${shortTitle}` : '',
     cleanTitle,
     shortTitle && shortTitle.length >= 2 ? shortTitle : '',
-    cleanCity && shortTitle && !shortTitle.includes(cleanCity) ? `${cleanCity} ${shortTitle}` : '',
-    cleanCity && cleanTitle && !cleanTitle.includes(cleanCity) ? `${cleanCity} ${cleanTitle}` : '',
-    cleanCity,
   ].filter(Boolean))];
 
-  const isBadImage = (url: string) =>
-    /\.(svg|pdf|tif|tiff|ogv|webm)(?:$|\?)/i.test(url) ||
-    /map|locator|flag|coat_of_arms|logo|icon|symbol|emblem|blank/i.test(url);
+  const tradMap: Record<string, string> = {
+    園: '园', 臺: '台', 門: '门', 雲: '云', 麗: '丽', 縣: '县', 館: '馆', 區: '区',
+    廣: '广', 場: '场', 東: '东', 國: '国', 長: '长', 陽: '阳', 這: '这', 華: '华',
+    會: '会', 廟: '庙', 橋: '桥', 樓: '楼', 島: '岛', 嶺: '岭', 峽: '峡', 灣: '湾', 學: '学',
+  };
+  const norm = (s = '') =>
+    s
+      .replace(/[園臺門雲麗縣館區廣場東國長陽這華會廟橋樓島嶺峽灣學]/g, (c) => tradMap[c] || c)
+      .replace(/[\s·•・（）()《》「」【】\-—–_]+/g, '')
+      .toLowerCase();
+
+  const matchesPlace = (text = '') => {
+    const nt = norm(text);
+    const n1 = norm(cleanTitle);
+    const n2 = norm(shortTitle);
+    if (!nt) return false;
+    if (n1.length >= 2 && (nt.includes(n1) || n1.includes(nt))) return true;
+    if (n2.length >= 2 && (nt.includes(n2) || n2.includes(nt))) return true;
+    return false;
+  };
+
+  const isBiography = (pageTitle = '', description = '', extract = '') =>
+    /\b(born|died|politician|general|emperor|king|queen|actor|actress|singer|author|writer|painter|scientist|athlete|footballer|businessman|military|officer|prime minister|president|statesman)\b|人物|政治家|军人|将军|陆军|海军|元帅|首相|总理|大臣|皇帝|演员|歌手|作家|画家|运动员|科学家|企业家|出生于|生于\d|逝世|（\d{4}年[—–-]\d{4}年）|\(\d{4}[—–-]\d{4}\)/i.test(
+      `${pageTitle} ${description} ${extract}`,
+    );
+
+  const isBadImage = (url: string, meta = '') => {
+    const combined = `${meta} ${url}`;
+    if (/\.(svg|pdf|tif|tiff|ogv|webm|gif)(?:$|\?)/i.test(url)) return true;
+    if (/map|locator|flag|coat_of_arms|logo|icon|symbol|emblem|blank|signature|seal|stamp|diagram|chart|blueprint|poster|newspaper/i.test(url)) return true;
+    if (/china\s*news\s*service|中新网|中新社|新华社|xinhua|cctv|cgtn|视频|video|screenshot|screencap|news\s*clip|press\s*conference|发布会|采访|记者/i.test(combined)) return true;
+    if (/portrait|selfie|headshot|crowd|visitors|tourists|audience|people\s+(?:at|in|visiting|watching)|group\s*photo|ceremony|opening\s*ceremony|speech|lecture|performance|concert|parade|游客|观众|人群|人山人海|人像|肖像|人物|合照|合影|自拍|仪式|典礼|演讲|会议|演出|活动现场/i.test(combined)) return true;
+    return false;
+  };
+
+  const scoreScenery = (text = '', width = 0, height = 0) => {
+    let score = 0;
+    if (width > 0 && height > 0) {
+      const ratio = width / height;
+      if (ratio >= 1.15 && ratio <= 2.4) score += 30;
+      else if (ratio >= 0.95) score += 10;
+      else score -= 35;
+    }
+    if (width >= 640) score += 10;
+    if (/exterior|building|facade|entrance|view|scenery|landscape|night|panorama|street|plaza|square|hall|外观|全景|夜景|建筑|大门|风景|实景|正门|外景/i.test(text)) {
+      score += 25;
+    }
+    return score;
+  };
 
   for (const q of queries) {
     const wikiUrl =
       `https://zh.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}` +
-      '&gsrlimit=5&prop=pageimages|info&piprop=thumbnail|original&pithumbsize=960&inprop=url&format=json&origin=*';
+      '&gsrlimit=6&prop=pageimages|info|description|extracts&piprop=thumbnail|original&pithumbsize=960&inprop=url&exintro=1&exchars=160&explaintext=1&format=json&origin=*';
     const data = await fetchPublicJson<{
       query?: {
         pages?: Record<string, {
           index?: number;
           title?: string;
+          description?: string;
+          extract?: string;
           fullurl?: string;
           thumbnail?: { source?: string; width?: number; height?: number };
           original?: { source?: string };
@@ -2783,8 +2832,14 @@ async function searchMobilePlacePhoto(
     const pages = Object.values(data?.query?.pages ?? {}).sort((a, b) => (a.index ?? 99) - (b.index ?? 99));
     for (const p of pages) {
       const img = p.thumbnail?.source || p.original?.source || '';
-      if (!img || !img.startsWith('https://') || isBadImage(img)) continue;
-      if (p.thumbnail?.width && p.thumbnail.width < 240) continue;
+      if (!img || !img.startsWith('https://')) continue;
+      if (!matchesPlace(p.title || '')) continue;
+      if (isBiography(p.title, p.description, p.extract)) continue;
+      if (isBadImage(img, `${p.title || ''} ${p.description || ''}`)) continue;
+      const w = Number(p.thumbnail?.width || 0);
+      const h = Number(p.thumbnail?.height || 0);
+      if (w && w < 240) continue;
+      if (w && h && h > w * 1.15) continue;
       return {
         url: img,
         sourceUrl: p.fullurl || `https://zh.wikipedia.org/wiki/${encodeURIComponent(p.title || q)}`,
@@ -2793,23 +2848,52 @@ async function searchMobilePlacePhoto(
     }
   }
 
-  // 兜底：Wikimedia Commons 实景图搜索
-  for (const q of queries.slice(0, 2)) {
+  // 兜底：Wikimedia Commons 实景图搜索（过滤新闻视频截图/人群/人像，优先横版建筑风景图）
+  const stripHtml = (html = '') => html.replace(/<[^>]*>/g, ' ').replace(/&[^;]+;/g, ' ').trim();
+  for (const q of queries.slice(0, 3)) {
     const commonsUrl =
       `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(q)}` +
-      '&gsrlimit=6&prop=imageinfo&iiprop=url&iiurlwidth=960&format=json&origin=*';
+      '&gsrlimit=10&prop=imageinfo&iiprop=url|extmetadata|size&iiurlwidth=960&format=json&origin=*';
     const data = await fetchPublicJson<{
       query?: {
         pages?: Record<string, {
+          index?: number;
           title?: string;
-          imageinfo?: Array<{ thumburl?: string; url?: string; descriptionurl?: string }>;
+          imageinfo?: Array<{
+            thumburl?: string;
+            url?: string;
+            descriptionurl?: string;
+            width?: number;
+            height?: number;
+            extmetadata?: {
+              Artist?: { value?: string };
+              ImageDescription?: { value?: string };
+            };
+          }>;
         }>;
       };
     }>(commonsUrl, 7000);
-    for (const p of Object.values(data?.query?.pages ?? {})) {
-      const info = p.imageinfo?.[0];
+    const ranked = Object.values(data?.query?.pages ?? {})
+      .map((p) => {
+        const info = p.imageinfo?.[0];
+        const artist = stripHtml(info?.extmetadata?.Artist?.value || '');
+        const desc = stripHtml(info?.extmetadata?.ImageDescription?.value || '');
+        const evidence = `${p.title || ''} ${desc}`;
+        return {
+          p,
+          info,
+          artist,
+          evidence,
+          score: scoreScenery(`${evidence} ${artist}`, Number(info?.width || 0), Number(info?.height || 0)),
+        };
+      })
+      .sort((a, b) => b.score - a.score || (a.p.index ?? 99) - (b.p.index ?? 99));
+    for (const { info, artist, evidence } of ranked) {
       const img = info?.thumburl || info?.url || '';
-      if (!img || !img.startsWith('https://') || isBadImage(img)) continue;
+      if (!img || !img.startsWith('https://')) continue;
+      if (!matchesPlace(evidence)) continue;
+      if (isBadImage(img, `${evidence} ${artist}`)) continue;
+      if (info?.width && info?.height && info.height > info.width * 1.15) continue;
       return {
         url: img,
         sourceUrl: info?.descriptionurl || img,
