@@ -31,6 +31,7 @@ interface ChatRoomViewProps {
   onOpenShareCode: (code: string) => void;
   onRespondIntimacy?: (bondId: string, decision: 'accept' | 'reject') => Promise<void>;
   onJoinedGroup?: (groupId: string) => void;
+  onMessageSent?: () => void;
   onNotice: (message: string) => void;
   onError: (message: string) => void;
 }
@@ -107,6 +108,7 @@ export default function ChatRoomView({
   onOpenShareCode,
   onRespondIntimacy,
   onJoinedGroup,
+  onMessageSent,
   onNotice,
   onError,
 }: ChatRoomViewProps) {
@@ -247,6 +249,7 @@ export default function ChatRoomView({
       });
       setMessages((prev) => [...prev, res.message]);
       prevCountRef.current += 1;
+      onMessageSent?.();
       setTimeout(() => scrollToBottom(true), 30);
     } catch (err) {
       setDraft(text);
@@ -269,6 +272,7 @@ export default function ChatRoomView({
       });
       setMessages((prev) => [...prev, res.message]);
       prevCountRef.current += 1;
+      onMessageSent?.();
       setTimeout(() => scrollToBottom(true), 30);
     } catch (err) {
       onError(err instanceof Error ? err.message : '发送图片失败');

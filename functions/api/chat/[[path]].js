@@ -224,6 +224,30 @@ export const onRequest = withApiHandler(async (context) => {
 
     const messages = await attachPollVotes(db, rows);
 
+    // 打开聊天室（首次全量拉取）时自动将该会话对应的未读聊天通知标为已读
+    if (!after) {
+      if (roomType === 'dm') {
+        await db
+          .prepare(
+            `UPDATE notifications SET read_at = ?
+             WHERE user_id = ? AND actor_id = ? AND type = 'chat_message' AND read_at IS NULL`,
+          )
+          .bind(nowIso(), user.id, targetId)
+          .run()
+          .catch(() => undefined);
+      } else {
+        await db
+          .prepare(
+            `UPDATE notifications SET read_at = ?
+             WHERE user_id = ? AND type IN ('chat_message', 'packing_reminder', 'trip_reminder')
+               AND target_ref_json LIKE ? AND read_at IS NULL`,
+          )
+          .bind(nowIso(), user.id, `%"groupId":"${targetId}"%`)
+          .run()
+          .catch(() => undefined);
+      }
+    }
+
     let pollUpdates;
     if (after && rawPollIds) {
       const pollIds = rawPollIds
@@ -343,6 +367,28 @@ export const onRequest = withApiHandler(async (context) => {
         createdAt,
       )
       .run();
+
+    // 在聊天室回复消息时，顺手把对方发给自己的未读聊天通知也标为已读，彻底消除红点
+    if (roomType === 'dm' && targetId !== user.id) {
+      await db
+        .prepare(
+          `UPDATE notifications SET read_at = ?
+           WHERE user_id = ? AND actor_id = ? AND type = 'chat_message' AND read_at IS NULL`,
+        )
+        .bind(createdAt, user.id, targetId)
+        .run()
+        .catch(() => undefined);
+    } else if (roomType === 'group') {
+      await db
+        .prepare(
+          `UPDATE notifications SET read_at = ?
+           WHERE user_id = ? AND type IN ('chat_message', 'packing_reminder', 'trip_reminder')
+             AND target_ref_json LIKE ? AND read_at IS NULL`,
+        )
+        .bind(createdAt, user.id, `%"groupId":"${targetId}"%`)
+        .run()
+        .catch(() => undefined);
+    }
 
     // 私聊发攻略/邀请/行前清单/出行提醒时顺带写入提醒通知，方便对方在消息页与弹窗看到
     if (

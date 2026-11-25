@@ -596,6 +596,43 @@ export default function CompanionsView({
     }
   }
 
+  // 打开私聊/群聊或在聊天室回复后，自动消除该会话对应的未读消息红点并同步服务端
+  const clearRoomNotifications = useCallback((roomType: 'dm' | 'group', targetId: string) => {
+    if (!cloudUser || !targetId) return;
+    const matchedIds = notifications
+      .filter((n) => {
+        if (n.readAt) return false;
+        if (roomType === 'dm') {
+          return n.type === 'chat_message' && (n.actorId === targetId || n.targetRef?.dmPeerId === targetId);
+        }
+        return (
+          (n.type === 'chat_message' || n.type === 'packing_reminder' || n.type === 'trip_reminder')
+          && n.targetRef?.groupId === targetId
+        );
+      })
+      .map((n) => n.id);
+    if (matchedIds.length === 0) return;
+    const now = new Date().toISOString();
+    const idSet = new Set(matchedIds);
+    const remainingUnread = notifications.filter((n) => !n.readAt && !idSet.has(n.id)).length;
+    setNotifications((prev) => prev.map((n) => (idSet.has(n.id) ? { ...n, readAt: now } : n)));
+    setOverview((prev) => (prev ? { ...prev, unreadCount: remainingUnread } : prev));
+    onUnreadChange(remainingUnread);
+    void cloudApi.markNotificationsRead(matchedIds).catch(() => undefined);
+  }, [cloudUser, notifications, onUnreadChange]);
+
+  useEffect(() => {
+    if (activeChatFriend && !activeGroup) {
+      clearRoomNotifications('dm', activeChatFriend.id);
+    }
+  }, [activeChatFriend, activeGroup, clearRoomNotifications]);
+
+  useEffect(() => {
+    if (activeGroup && groupRoomTab === 'chat') {
+      clearRoomNotifications('group', activeGroup.id);
+    }
+  }, [activeGroup, groupRoomTab, clearRoomNotifications]);
+
   // 切到「消息」页时，自动把加好友/亲密关系等非攻略类消息标记为已读；攻略/行程邀请类需点进去才算已读
   useEffect(() => {
     if (tab !== 'notifications' || !cloudUser) return;
@@ -888,6 +925,7 @@ export default function CompanionsView({
             setTab('groups');
             void refreshAll().then(() => loadGroupDetail(gid));
           }}
+          onMessageSent={() => clearRoomNotifications('dm', activeChatFriend.id)}
           onNotice={onNotice}
           onError={onError}
         />
@@ -1416,6 +1454,7 @@ export default function CompanionsView({
               showHeader={false}
               onOpenPlan={onOpenPlan}
               onOpenShareCode={onOpenShareCode}
+              onMessageSent={() => clearRoomNotifications('group', activeGroup.id)}
               onNotice={onNotice}
               onError={onError}
             />
