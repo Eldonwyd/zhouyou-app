@@ -1565,43 +1565,80 @@ async function callMobileModel(
       throw new Error('请先登录周游账号即可使用免费体验 AI（每日 5 万 / 每月 12 万 tokens），或点击「借用外部免费 AI 导入」零门槛生成');
     }
     const cloudOrigin = getCloudOrigin();
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    let resp: Response;
-    try {
-      resp = await fetch(`${cloudOrigin}/api/free-ai/chat`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${cloudToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          maxTokens,
-        }),
-        signal: controller.signal,
-      });
-    } catch {
-      throw new Error('连接周游免费体验通道超时，请检查网络后重试，或点击「借用外部免费 AI 导入」');
-    } finally {
-      clearTimeout(timer);
+    const freeUrl = `${cloudOrigin}/api/free-ai/chat`;
+    const freeHeaders = {
+      Authorization: `Bearer ${cloudToken}`,
+      'Content-Type': 'application/json',
+    };
+    const freeBody = JSON.stringify({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      maxTokens,
+    });
+    const nativeBridge = getNativeBridge();
+    let statusCode = 0;
+    let rawBody = '';
+    if (nativeBridge) {
+      try {
+        const nativeResp = await nativeBridge.httpRequest({
+          url: freeUrl,
+          method: 'POST',
+          headers: freeHeaders,
+          body: freeBody,
+          timeoutMs,
+        });
+        statusCode = nativeResp.status;
+        rawBody = nativeResp.body;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : '';
+        throw new Error(
+          /timeout|timed out|abort/i.test(msg)
+            ? '连接周游免费体验通道超时，请稍后重试，或点击「借用外部免费 AI 导入」'
+            : `无法连接周游免费体验通道（${msg || '网络异常'}），请检查网络后重试，或点击「借用外部免费 AI 导入」`,
+        );
+      }
+    } else {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const resp = await fetch(freeUrl, {
+          method: 'POST',
+          headers: freeHeaders,
+          body: freeBody,
+          signal: controller.signal,
+        });
+        statusCode = resp.status;
+        rawBody = await resp.text().catch(() => '');
+      } catch (err) {
+        const isAbort = err instanceof Error && (err.name === 'AbortError' || /abort|timeout/i.test(err.message));
+        if (isAbort) {
+          throw new Error('连接周游免费体验通道超时，请稍后重试，或点击「借用外部免费 AI 导入」');
+        }
+        throw new Error(`无法连接周游免费体验通道（${err instanceof Error ? err.message : '网络异常'}），请检查网络后重试，或点击「借用外部免费 AI 导入」`);
+      } finally {
+        clearTimeout(timer);
+      }
     }
-    const data = (await resp.json().catch(() => ({}))) as {
+    let data: {
       ok?: boolean;
       content?: string;
       error?: string;
       model?: string;
       usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
       quota?: FreeAiQuotaSnapshot;
-    };
+    } = {};
+    try {
+      data = JSON.parse(rawBody) as typeof data;
+    } catch {
+      // non-json response
+    }
     if (data.quota) {
       setCachedFreeAiQuota(data.quota);
     }
-    if (!resp.ok || !data.ok) {
-      throw new Error(data.error || `免费体验 AI 请求失败（HTTP ${resp.status}）`);
+    if (statusCode < 200 || statusCode >= 300 || !data.ok) {
+      throw new Error(data.error || `免费体验 AI 请求失败（HTTP ${statusCode || 502}）`);
     }
     text = String(data.content || '');
     inputTokens = Number(data.usage?.promptTokens) || 0;

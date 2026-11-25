@@ -237,8 +237,12 @@ function buildUpstreamPayload(config, messages, { maxTokens, jsonMode }) {
   };
   const lowerUrl = config.baseUrl.toLowerCase();
   const lowerModel = config.model.toLowerCase();
-  // 智谱 GLM-4.5+/5.x 与 DeepSeek 免费体验默认关闭深度思考，省 30%~50% Token 且更快
-  if (lowerUrl.includes('bigmodel.cn') || lowerUrl.includes('deepseek.com') || lowerModel.startsWith('glm-')) {
+  // 智谱 GLM-5.x（如 glm-5.3-flash）始终思考，不支持 thinking.type='disabled'（会报 400/1210），
+  // 改用 reasoning_effort='low' 既能正常返回又保持零/极低思考 token 与最快响应；
+  // 智谱 GLM-4.x 与 DeepSeek 默认关闭深度思考，省 30%~50% Token 且更快。
+  if (lowerModel.startsWith('glm-5')) {
+    body.reasoning_effort = 'low';
+  } else if (lowerUrl.includes('bigmodel.cn') || lowerUrl.includes('deepseek.com') || lowerModel.startsWith('glm-')) {
     body.thinking = { type: 'disabled' };
   } else if (lowerUrl.includes('dashscope.aliyuncs.com') || lowerModel.startsWith('qwen')) {
     body.enable_thinking = false;
@@ -253,25 +257,37 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function callUpstreamWithRetry(config, body) {
+async function fetchWithTimeout(url, options, timeoutMs = 75000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function callUpstreamWithRetry(config, initialBody) {
   const endpoint = /\/chat\/completions$/i.test(config.baseUrl)
     ? config.baseUrl
     : `${config.baseUrl}/chat/completions`;
   const delays = [0, 1200, 2400];
   let lastStatus = 502;
+  let body = { ...initialBody };
+  let retriedWithoutThinking = false;
 
   for (let attempt = 0; attempt < delays.length; attempt += 1) {
     if (delays[attempt] > 0) await sleep(delays[attempt]);
     let resp;
     try {
-      resp = await fetch(endpoint, {
+      resp = await fetchWithTimeout(endpoint, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${config.apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
-      });
+      }, 75000);
     } catch {
       lastStatus = 504;
       continue;
@@ -285,6 +301,22 @@ async function callUpstreamWithRetry(config, body) {
 
     const rawText = await resp.text().catch(() => '');
     if (!resp.ok) {
+      // 若上游模型不支持关闭思考（如智谱 1210 错误），自动降级为 reasoning_effort='low' 重试一次
+      if (
+        resp.status === 400
+        && !retriedWithoutThinking
+        && (body.thinking || body.enable_thinking !== undefined)
+        && /thinking|思考|1210|reasoning_effort/i.test(rawText)
+      ) {
+        retriedWithoutThinking = true;
+        const nextBody = { ...body };
+        delete nextBody.thinking;
+        delete nextBody.enable_thinking;
+        nextBody.reasoning_effort = 'low';
+        body = nextBody;
+        attempt -= 1;
+        continue;
+      }
       // 严禁把上游 Key 或敏感内部信息透传给前端
       if (resp.status === 401 || resp.status === 403) {
         throw Object.assign(
