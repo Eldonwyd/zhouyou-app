@@ -1,9 +1,11 @@
 import {
+  areFriends,
+  createId,
   createNotification,
   errorResponse,
   getDb,
+  isGroupMember,
   jsonResponse,
-  newId,
   nowIso,
   parseRouteSegments,
   readJsonBody,
@@ -62,26 +64,15 @@ function makeDmRoomId(userA, userB) {
 async function assertCanAccessDm(db, userId, peerId) {
   if (!peerId) throw Object.assign(new Error('缺少好友 ID'), { status: 400, code: 'BAD_PEER' });
   if (peerId === userId) return;
-  const rel = await db
-    .prepare(
-      `SELECT 1 FROM friendships
-       WHERE status = 'accepted'
-         AND ((user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?))
-       LIMIT 1`,
-    )
-    .bind(userId, peerId, peerId, userId)
-    .first();
-  if (!rel) {
+  const ok = await areFriends(db, userId, peerId);
+  if (!ok) {
     throw Object.assign(new Error('你们还不是好友，添加好友后即可聊天'), { status: 403, code: 'NOT_FRIENDS' });
   }
 }
 
 async function assertCanAccessGroup(db, userId, groupId) {
   if (!groupId) throw Object.assign(new Error('缺少行程群 ID'), { status: 400, code: 'BAD_GROUP' });
-  const member = await db
-    .prepare('SELECT role FROM travel_group_members WHERE group_id = ? AND user_id = ? LIMIT 1')
-    .bind(groupId, userId)
-    .first();
+  const member = await isGroupMember(db, groupId, userId);
   if (!member) {
     throw Object.assign(new Error('你不在该行程群中'), { status: 403, code: 'NOT_GROUP_MEMBER' });
   }
@@ -130,12 +121,14 @@ async function attachPollVotes(db, rows) {
   });
 }
 
-export const onRequest = withApiHandler(async ({ request, env }) => {
-  const db = getDb(env);
+export const onRequest = withApiHandler(async (context) => {
+  const { request } = context;
+  const db = getDb(context);
   await ensureChatTables(db);
-  const auth = await requireAuth(request, env);
+  const auth = await requireAuth(db, request);
   const user = auth.user;
-  const segments = parseRouteSegments(request, '/api/chat');
+  const userAvatar = user.avatar_preset || user.avatar || '';
+  const segments = parseRouteSegments(context);
   const method = request.method.toUpperCase();
 
   // GET /api/chat/dm/:peerId or /api/chat/group/:groupId
@@ -209,7 +202,7 @@ export const onRequest = withApiHandler(async ({ request, env }) => {
     }
 
     const roomId = roomType === 'dm' ? makeDmRoomId(user.id, targetId) : targetId;
-    const id = newId('msg');
+    const id = createId('msg');
     const createdAt = nowIso();
     const payloadJson = JSON.stringify(rawPayload);
 
@@ -226,7 +219,7 @@ export const onRequest = withApiHandler(async ({ request, env }) => {
         roomId,
         user.id,
         user.nickname || '旅伴',
-        user.avatar || '',
+        userAvatar,
         msgType,
         textContent,
         payloadJson,
@@ -263,7 +256,7 @@ export const onRequest = withApiHandler(async ({ request, env }) => {
         roomId,
         senderId: user.id,
         senderNickname: user.nickname || '旅伴',
-        senderAvatar: user.avatar || '',
+        senderAvatar: userAvatar,
         msgType,
         textContent,
         payload: rawPayload,
