@@ -3,6 +3,7 @@ import { cacheProvinceMap, listCachedProvinceCodes, loadNationalMap, removeCache
 import { provinceDisplayName, useI18n } from '../i18n';
 import type { AdministrativeFeature } from '../types';
 import MobileDisclosure from './MobileDisclosure';
+import ThemedSelect, { type ThemedSelectOption } from './ThemedSelect';
 
 interface OfflineMapSettingsProps {
   initialProvinceCode: string | null;
@@ -66,6 +67,15 @@ export default function OfflineMapSettings({ initialProvinceCode, onError, onNot
   }
 
   const cachedCountText = t(`已缓存 ${cachedCodes.length} 个地区`, `${cachedCodes.length} cached`);
+  const regionOptions: ThemedSelectOption[] = provinces.map(({ properties }) => {
+    const code = String(properties.adcode);
+    const display = provinceDisplayName(code, properties.name, lang);
+    return {
+      value: code,
+      label: display,
+      sublabel: cachedCodes.includes(code) ? t('已缓存离线地图', 'Cached offline') : undefined,
+    };
+  });
 
   return (
     <section id="settings-offline-maps" className="card profile-offline-maps" aria-labelledby="offline-maps-title">
@@ -80,18 +90,16 @@ export default function OfflineMapSettings({ initialProvinceCode, onError, onNot
             {loadState === 'failed' && <p role="alert">{t('离线地图列表加载失败，请联网后重新打开设置。', 'Failed to load region list. Connect to the internet and reopen Settings.')}</p>}
             <div className="profile-offline-map-controls">
               <label htmlFor="offline-map-province">{t('省级地区', 'Province / Region')}</label>
-              <select id="offline-map-province" value={selectedProvince ? selectedCode : ''} disabled={busy || loadState !== 'ready'} onChange={(event) => setSelectedCode(event.target.value)}>
-                <option value="">{loadState === 'loading' ? t('正在加载地区…', 'Loading regions…') : t('请选择地区', 'Select a region')}</option>
-                {provinces.map(({ properties }) => {
-                  const code = String(properties.adcode);
-                  const display = provinceDisplayName(code, properties.name, lang);
-                  return (
-                    <option key={properties.adcode} value={properties.adcode}>
-                      {display}{cachedCodes.includes(code) ? t('（已缓存）', ' (Cached)') : ''}
-                    </option>
-                  );
-                })}
-              </select>
+              <ThemedSelect
+                id="offline-map-province"
+                className="offline-map-select"
+                value={selectedProvince ? selectedCode : ''}
+                options={regionOptions}
+                placeholder={loadState === 'loading' ? t('正在加载地区…', 'Loading regions…') : t('请选择地区', 'Select a region')}
+                title={t('选择省级地区', 'Select Province / Region')}
+                disabled={busy || loadState !== 'ready'}
+                onChange={setSelectedCode}
+              />
               <button type="button" className={isCached ? 'secondary' : 'primary'} disabled={!selectedProvince || busy} onClick={() => void toggleSelectedCache()}>
                 {busy ? t('处理中…', 'Working…') : isCached ? t('删除离线地图', 'Remove Offline Map') : t('缓存离线地图', 'Cache Offline Map')}
               </button>

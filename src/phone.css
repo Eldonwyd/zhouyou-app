@@ -901,7 +901,8 @@ div.mobile-disclosure-body,
     padding-inline: 4px;
   }
   .warm-profile .profile-offline-map-controls { grid-template-columns: minmax(0, 1fr); }
-  .warm-profile .profile-offline-map-controls > button { min-height: 44px; }
+  .warm-profile .profile-offline-map-controls .offline-map-select { max-width: none; width: 100%; }
+  .warm-profile .profile-offline-map-controls > button { min-height: 44px; width: 100%; }
 }
 
 /* 320px 超窄屏兜底：确保市级地图返回按钮与缩放控件之间留出清晰间隔，不发生重叠。 */

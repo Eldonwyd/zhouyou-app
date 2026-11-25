@@ -8,6 +8,7 @@ export interface ThemedSelectOption {
 }
 
 interface ThemedSelectProps {
+  id?: string;
   value: string;
   options: ThemedSelectOption[];
   placeholder?: string;
@@ -23,6 +24,7 @@ interface ThemedSelectProps {
  * - 电脑端弹出贴合主题色的柔和浮层菜单
  */
 export default function ThemedSelect({
+  id,
   value,
   options,
   placeholder = '请选择…',
@@ -76,6 +78,7 @@ export default function ThemedSelect({
     <>
       <button
         ref={triggerRef}
+        id={id}
         type="button"
         className={`themed-select-trigger${open ? ' is-open' : ''}${!selected ? ' is-placeholder' : ''}${className ? ` ${className}` : ''}`}
         aria-haspopup="listbox"

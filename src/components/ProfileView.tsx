@@ -1,7 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { AppSnapshot, Badge, CityMark, DayEntry, LocalProfile } from '../types';
 import { exportBackup, importBackup } from '../backup';
-import { getPlannerApiOrigin, setPlannerApiOrigin } from '../api-base';
 import { applyLanguage, useI18n, type AppLanguage } from '../i18n';
 import { MAP_APP_OPTIONS, readMapAppProvider, writeMapAppProvider, type MapAppProvider } from '../external-app-links';
 import { TravelIcon } from './TravelArt';
@@ -115,8 +114,6 @@ export default function ProfileView({
   const [lastBackup, setLastBackup] = useState(() => {
     try { return localStorage.getItem('travel-last-backup') ?? ''; } catch { return ''; }
   });
-  const [apiOrigin, setApiOrigin] = useState(() => getPlannerApiOrigin());
-  const [testingApi, setTestingApi] = useState(false);
   const [vipQuota, setVipQuota] = useState<FreeAiQuotaSnapshot | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const avatarUploadRef = useRef<HTMLInputElement>(null);
@@ -331,29 +328,6 @@ export default function ProfileView({
       onError(error instanceof Error ? error.message : t('导入失败', 'Import failed'));
     } finally {
       setBackupAction(null);
-    }
-  }
-
-  async function handleSaveApiOrigin(): Promise<void> {
-    try {
-      const saved = setPlannerApiOrigin(apiOrigin);
-      setApiOrigin(saved);
-      if (!saved) {
-        onNotice(t('已恢复使用当前地址的本地 AI 服务。', 'Restored default local AI server.'));
-        return;
-      }
-      setTestingApi(true);
-      try {
-        const res = await fetch(`${saved}/api/planner/health`, { signal: AbortSignal.timeout(5000) });
-        if (res.ok) onNotice(t(`已保存并连上远程 AI 服务：${saved}`, `Saved and connected to remote AI server: ${saved}`));
-        else onNotice(t(`已保存地址（返回状态 ${res.status}），请确认服务端已启动。`, `Address saved (HTTP ${res.status}). Make sure the server is running.`));
-      } catch {
-        onNotice(t('地址已保存，但暂时未能连通，请确认电脑端或服务器已启动且在同一网络下。', 'Address saved, but could not connect yet. Ensure the server is running on the same network.'));
-      } finally {
-        setTestingApi(false);
-      }
-    } catch (error) {
-      onError(error instanceof Error ? error.message : t('地址格式无效', 'Invalid URL format'));
     }
   }
 
@@ -606,7 +580,6 @@ export default function ProfileView({
       { id: 'travel-data-backup', label: t('数据导出与导入', 'Backup & Export') },
       { id: 'settings-offline-maps', label: t('离线地图', 'Offline Maps') },
       { id: 'app-update-card', label: t('应用更新', 'Updates') },
-      { id: 'settings-more', label: t('更多', 'More') },
     ];
 
     return (
@@ -621,7 +594,7 @@ export default function ProfileView({
               <span aria-hidden="true">←</span> {t('返回个人中心', 'Back to Profile')}
             </button>
             <h1>{t('偏好与设置', 'Preferences & Settings')}</h1>
-            <p>{t('切换界面语言、导出导入备份、管理离线地图、检查应用更新与 AI 服务。', 'Switch language, export or import backups, manage offline maps, check updates, and configure AI server.')}</p>
+            <p>{t('切换界面语言、导出导入备份、管理离线地图与检查应用更新。', 'Switch language, export or import backups, manage offline maps, and check updates.')}</p>
           </div>
         </div>
 
@@ -779,40 +752,6 @@ export default function ProfileView({
           onNotice={onNotice}
           onError={onError}
         />
-
-        {/* 6. 远程 AI 服务 */}
-        <div id="settings-more" className="settings-more-grid">
-          <section className="card" aria-labelledby="remote-ai-server-title">
-            <h2 id="remote-ai-server-title">{t('远程 / 局域网 AI 服务', 'Remote / LAN AI Server')}</h2>
-            <p className="muted">{t('桌面版已内置本地 AI 服务，通常保持留空即可。在手机 App 或网页版使用时，可填写电脑桌面版或自建服务器的地址以启用完整 AI 行程规划。', 'Desktop includes a built-in AI server (leave blank). On mobile or web, enter your desktop or self-hosted server URL to enable full AI trip planning.')}</p>
-            <div className="heading-actions" style={{ marginTop: 10, flexWrap: 'wrap', gap: 8 }}>
-              <input
-                type="url"
-                value={apiOrigin}
-                onChange={(event) => setApiOrigin(event.target.value)}
-                placeholder={t('例如 http://192.168.1.100:14173（留空为默认同源）', 'e.g. http://192.168.1.100:14173 (blank = same origin)')}
-                style={{ flex: '1 1 240px', minWidth: 0 }}
-              />
-              <button type="button" className="primary" disabled={testingApi} onClick={() => void handleSaveApiOrigin()}>
-                {testingApi ? t('检测连接中…', 'Testing…') : t('保存并检测', 'Save & Test')}
-              </button>
-              {apiOrigin ? (
-                <button
-                  type="button"
-                  className="secondary"
-                  disabled={testingApi}
-                  onClick={() => {
-                    setPlannerApiOrigin('');
-                    setApiOrigin('');
-                    onNotice(t('已清空远程地址，恢复默认本地服务。', 'Cleared remote URL and restored local default.'));
-                  }}
-                >
-                  {t('恢复默认', 'Reset Default')}
-                </button>
-              ) : null}
-            </div>
-          </section>
-        </div>
       </div>
     );
   }
