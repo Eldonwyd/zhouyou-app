@@ -37,6 +37,9 @@ import {
   checkCloudSyncNeeded,
   extractZhouyouActionFromUrl,
   extractZhouyouShareCode,
+  markCloudRecordDeleted,
+  markCloudRecordDirty,
+  markCloudStoreDirty,
   resetCloudSyncCursor,
   syncSinglePlannerPhotoToCloud,
   syncWithCloud,
@@ -604,10 +607,20 @@ export default function App() {
     scheduleCloudSync();
   }, [reload, requestClientForTour, scheduleCloudSync, tourMode]);
   const publishPlan = useCallback(async (plan: AiTravelPlan, initialFinance?: TripPlan) => {
-    const updated = await publishAiPlan(plan, initialFinance); await reload(); scheduleCloudSync(); return updated;
+    const updated = await publishAiPlan(plan, initialFinance);
+    markCloudStoreDirty('trips');
+    markCloudStoreDirty('marks');
+    markCloudStoreDirty('plans');
+    await reload();
+    scheduleCloudSync();
+    return updated;
   }, [reload, scheduleCloudSync]);
   const saveJournalVisit = useCallback(async (...args: Parameters<typeof recordPlannerJournalVisit>) => {
     const result = await recordPlannerJournalVisit(...args);
+    markCloudStoreDirty('trips');
+    markCloudStoreDirty('marks');
+    markCloudStoreDirty('places');
+    markCloudStoreDirty('entries');
     await reload();
     scheduleCloudSync();
     return result;
@@ -619,19 +632,30 @@ export default function App() {
     setPage('detail');
   }, []);
   const savePlannerPreferences = useCallback(async (preferences: PlannerPreferences) => {
-    await saveItem('plannerPreferences', preferences); await reload(); scheduleCloudSync();
+    await saveItem('plannerPreferences', preferences);
+    markCloudRecordDirty('plannerPreferences', preferences.id);
+    await reload();
+    scheduleCloudSync();
   }, [reload, scheduleCloudSync]);
   const recommendProvince = useCallback((name: string) => {
     setPlannerProvince({ name, token: Date.now() }); openPage('plan');
   }, [openPage]);
 
   const saveMark = useCallback(async (mark: CityMark) => {
-    try { await saveItem('marks', mark); await reload(); scheduleCloudSync(); }
-    catch (error) { showError(describeStorageError(error)); throw error; }
+    try {
+      await saveItem('marks', mark);
+      markCloudRecordDirty('marks', mark.id);
+      await reload();
+      scheduleCloudSync();
+    } catch (error) { showError(describeStorageError(error)); throw error; }
   }, [reload, scheduleCloudSync, showError]);
   const saveEntry = useCallback(async (entry: DayEntry) => {
-    try { await saveItem('entries', entry); await reload(); scheduleCloudSync(); }
-    catch (error) { showError(describeStorageError(error)); throw error; }
+    try {
+      await saveItem('entries', entry);
+      markCloudRecordDirty('entries', entry.id);
+      await reload();
+      scheduleCloudSync();
+    } catch (error) { showError(describeStorageError(error)); throw error; }
   }, [reload, scheduleCloudSync, showError]);
   const saveMedia = useCallback(async (media: TravelMedia, blob: Blob) => {
     if (tourMode) {
@@ -661,29 +685,58 @@ export default function App() {
     } catch (error) { showError(describeStorageError(error)); }
   }, [reload, showError, showNotice]);
   const saveTrip = useCallback(async (trip: Journey) => {
-    try { const linked = await saveJourneyAndLinkCityRecords(trip); await reload(); scheduleCloudSync(); return linked; }
-    catch (error) { showError(describeStorageError(error)); throw error; }
+    try {
+      const linked = await saveJourneyAndLinkCityRecords(trip);
+      markCloudStoreDirty('trips');
+      markCloudStoreDirty('marks');
+      markCloudStoreDirty('places');
+      markCloudStoreDirty('entries');
+      await reload();
+      scheduleCloudSync();
+      return linked;
+    } catch (error) { showError(describeStorageError(error)); throw error; }
   }, [reload, scheduleCloudSync, showError]);
   const savePlace = useCallback(async (place: JourneyPlace) => {
-    try { await saveItem('places', place); await reload(); scheduleCloudSync(); }
-    catch (error) { showError(describeStorageError(error)); throw error; }
+    try {
+      await saveItem('places', place);
+      markCloudRecordDirty('places', place.id);
+      await reload();
+      scheduleCloudSync();
+    } catch (error) { showError(describeStorageError(error)); throw error; }
   }, [reload, scheduleCloudSync, showError]);
   const savePlan = useCallback(async (plan: TripPlan) => {
-    try { await saveItem('plans', plan); await reload(); scheduleCloudSync(); }
-    catch (error) { showError(describeStorageError(error)); throw error; }
+    try {
+      await saveItem('plans', plan);
+      markCloudRecordDirty('plans', plan.id);
+      await reload();
+      scheduleCloudSync();
+    } catch (error) { showError(describeStorageError(error)); throw error; }
   }, [reload, scheduleCloudSync, showError]);
   const movePlan = useCallback(async (legacyId: string, plan: TripPlan) => {
-    try { await moveLegacyPlanToJourney(legacyId, plan); await reload(); scheduleCloudSync(); }
-    catch (error) { showError(describeStorageError(error)); throw error; }
+    try {
+      await moveLegacyPlanToJourney(legacyId, plan);
+      markCloudStoreDirty('plans');
+      markCloudRecordDeleted('plans', legacyId);
+      await reload();
+      scheduleCloudSync();
+    } catch (error) { showError(describeStorageError(error)); throw error; }
   }, [reload, scheduleCloudSync, showError]);
   const saveBadge = useCallback(async (badge: Badge) => {
-    try { await saveItem('badges', badge); await reload(); scheduleCloudSync(); }
-    catch (error) { showError(describeStorageError(error)); throw error; }
+    try {
+      await saveItem('badges', badge);
+      markCloudRecordDirty('badges', badge.id);
+      await reload();
+      scheduleCloudSync();
+    } catch (error) { showError(describeStorageError(error)); throw error; }
   }, [reload, scheduleCloudSync, showError]);
   const saveProfile = useCallback(async (profile: LocalProfile) => {
-    try { await saveItem('profile', profile); await reload(); }
-    catch (error) { showError(describeStorageError(error)); throw error; }
-  }, [reload, showError]);
+    try {
+      await saveItem('profile', profile);
+      markCloudRecordDirty('profile', profile.id);
+      await reload();
+      scheduleCloudSync();
+    } catch (error) { showError(describeStorageError(error)); throw error; }
+  }, [reload, scheduleCloudSync, showError]);
 
   // Only confirmed visits light the map. Keep legacy planned data and future
   // journey budgets intact, but never count them as a completed city visit.
@@ -974,7 +1027,7 @@ export default function App() {
               cloudUser={cloudUser}
               syncingCloud={syncingCloud}
               onOpenAuth={(m) => openAuthModal(m)}
-              onSyncNow={() => runCloudSync(false)}
+              onSyncNow={() => runCloudSync(false, true)}
               onCloudUserUpdated={(u) => setCloudUser(u)}
               onUpdateFound={setAvailableUpdate}
               onSaveProfile={saveProfile}

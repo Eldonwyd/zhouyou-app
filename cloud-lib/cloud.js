@@ -17,6 +17,7 @@ export const SYNCABLE_STORES = new Set([
   'entries',
   'plans',
   'plannerPreferences',
+  'profile',
 ]);
 
 export const SECURITY_QUESTIONS = [

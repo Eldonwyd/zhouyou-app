@@ -7,6 +7,9 @@ import { plannerApiUrl } from './api-base';
 const LAST_SYNC_KEY = 'zhouyou-cloud-last-sync';
 const LAST_CLOUD_VERSION_KEY = 'zhouyou-cloud-version';
 const PLAN_META_KEY = 'zhouyou-cloud-plan-meta';
+const DIRTY_RECORDS_KEY = 'zhouyou-cloud-dirty-records';
+const SYNC_SCHEMA_KEY = 'zhouyou-cloud-sync-schema';
+const SYNC_SCHEMA_VERSION = '2';
 const ASSET_ID_RE = /^[a-f0-9]{64}$/;
 
 /** 当前会话内已确认完成云端/本地双向同步的行程照片 assetId，避免高频轮询重复检查。 */
@@ -24,8 +27,55 @@ export interface CloudPlanMeta {
 
 export type CloudPlanMetaMap = Record<string, CloudPlanMeta>;
 
-const SYNC_STORES = ['marks', 'badges', 'trips', 'places', 'entries', 'plans', 'plannerPreferences'] as const;
-type SyncStore = typeof SYNC_STORES[number];
+const SYNC_STORES = ['marks', 'badges', 'trips', 'places', 'entries', 'plans', 'plannerPreferences', 'profile'] as const;
+export type SyncStore = typeof SYNC_STORES[number];
+
+interface DirtyRecordEntry {
+  store: SyncStore;
+  id: string;
+  updatedAt: string;
+  deleted?: boolean;
+  allStore?: boolean;
+}
+
+function readDirtyRecords(): Record<string, DirtyRecordEntry> {
+  try {
+    const raw = localStorage.getItem(DIRTY_RECORDS_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, DirtyRecordEntry>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeDirtyRecords(map: Record<string, DirtyRecordEntry>): void {
+  try {
+    if (Object.keys(map).length === 0) localStorage.removeItem(DIRTY_RECORDS_KEY);
+    else localStorage.setItem(DIRTY_RECORDS_KEY, JSON.stringify(map));
+  } catch { /* ignore */ }
+}
+
+/** 标记单条本地记录已变更，确保下次同步无视设备时钟偏差强制推送到云端。 */
+export function markCloudRecordDirty(store: SyncStore, id: string): void {
+  if (!id) return;
+  const map = readDirtyRecords();
+  map[`${store}:${id}`] = { store, id, updatedAt: new Date().toISOString() };
+  writeDirtyRecords(map);
+}
+
+/** 标记单条本地记录已删除，同步时推送软删除到云端。 */
+export function markCloudRecordDeleted(store: SyncStore, id: string): void {
+  if (!id) return;
+  const map = readDirtyRecords();
+  map[`${store}:${id}`] = { store, id, updatedAt: new Date().toISOString(), deleted: true };
+  writeDirtyRecords(map);
+}
+
+/** 标记整类数据表发生多条联动写入（如新建旅程联动点亮城市），下次同步自动推送该表全量最新状态。 */
+export function markCloudStoreDirty(store: SyncStore): void {
+  const map = readDirtyRecords();
+  map[`${store}:*`] = { store, id: '*', updatedAt: new Date().toISOString(), allStore: true };
+  writeDirtyRecords(map);
+}
 
 export function getLastSyncTime(): string {
   try { return localStorage.getItem(LAST_SYNC_KEY) || ''; } catch { return ''; }
@@ -50,6 +100,7 @@ export function resetCloudSyncCursor(): void {
   try {
     localStorage.removeItem(LAST_SYNC_KEY);
     localStorage.removeItem(LAST_CLOUD_VERSION_KEY);
+    localStorage.removeItem(DIRTY_RECORDS_KEY);
   } catch { /* ignore */ }
   syncedPhotoIdsCache.clear();
 }
@@ -312,8 +363,18 @@ export async function syncWithCloud(forceFull = false): Promise<SyncResult> {
 
 async function runSyncWithCloudInternal(forceFull: boolean): Promise<SyncResult> {
   const local = await loadSnapshot();
-  const prevLastSync = forceFull ? '' : getLastSyncTime();
+  let needsSchemaFullSync = false;
+  try {
+    needsSchemaFullSync = localStorage.getItem(SYNC_SCHEMA_KEY) !== SYNC_SCHEMA_VERSION;
+  } catch { /* ignore */ }
+  const effectiveForceFull = forceFull || needsSchemaFullSync;
+  const prevLastSync = effectiveForceFull ? '' : getLastSyncTime();
   const isIncremental = Boolean(prevLastSync);
+  // 留出 5 分钟时钟偏差容差，避免手机/电脑本地时间略慢于服务端导致增量推送漏推
+  const prevLastSyncWithSkew = prevLastSync
+    ? new Date(Math.max(0, Date.parse(prevLastSync) - 5 * 60 * 1000)).toISOString()
+    : '';
+  const dirtySnapshot = readDirtyRecords();
   const pull = await cloudApi.pullSync(prevLastSync);
   const metaMap = getCloudPlanMetaMap();
 
@@ -322,21 +383,28 @@ async function runSyncWithCloudInternal(forceFull: boolean): Promise<SyncResult>
   let pushedRecords = 0;
   let pushedPlans = 0;
 
-  // 1. 合并个人纯文本记录
+  // 1. 合并个人纯文本记录（含地图点亮 marks、旅程 trips、地点 places、日记 entries、账本 plans、徽章 badges、偏好与个人资料 profile）
   const cloudRecordMap = new Map<string, { payload: unknown; updatedAt: string; deletedAt: string | null }>();
   for (const rec of pull.records) {
     cloudRecordMap.set(`${rec.store}:${rec.id}`, rec);
   }
 
-  const recordsToPush: Array<{ store: string; id: string; payload: unknown; updatedAt: string }> = [];
+  const recordsToPush: Array<{ store: string; id: string; payload?: unknown; updatedAt?: string; deleted?: boolean; force?: boolean }> = [];
+  const pushedDirtyKeys = new Set<string>();
 
   for (const store of SYNC_STORES) {
     const localList = (local[store] as Array<{ id: string }>) || [];
     const localById = new Map<string, { id: string }>(localList.map((item) => [item.id, item]));
+    const wholeStoreDirty = Boolean(dirtySnapshot[`${store}:*`]);
 
     // 云端 -> 本地（含软删除同步）
     for (const rec of pull.records) {
       if (rec.store !== store) continue;
+      const dirtyEntry = dirtySnapshot[`${store}:${rec.id}`];
+      if (dirtyEntry) {
+        // 本地刚有显式修改/删除，且本地时间更新时，保留本地变更并推向云端
+        if (dirtyEntry.updatedAt >= (rec.updatedAt || '')) continue;
+      }
       if (rec.deletedAt) {
         if (localById.has(rec.id)) {
           await deleteItem(store as SyncStore, rec.id);
@@ -349,31 +417,75 @@ async function runSyncWithCloudInternal(forceFull: boolean): Promise<SyncResult>
       const localItem = localById.get(rec.id);
       const localTs = getRecordTimestamp(localItem);
       const cloudTs = rec.updatedAt || getRecordTimestamp(rec.payload);
-      if (!localItem || (cloudTs && (!localTs || cloudTs > localTs))) {
+      // 增量拉取回来的记录一定是其他端在上次同步后更新过的，若本地没有待推脏标记则直接覆盖，不受两端时钟误差影响
+      const shouldAccept = !localItem
+        || (isIncremental && !dirtyEntry && !wholeStoreDirty)
+        || (cloudTs && (!localTs || cloudTs > localTs));
+      if (shouldAccept) {
         await saveItem(store as SyncStore, rec.payload as never);
         localById.set(rec.id, rec.payload as { id: string });
         pulledRecords += 1;
       }
     }
 
+    // 推送本表的显式删除墓碑
+    for (const [key, entry] of Object.entries(dirtySnapshot)) {
+      if (entry.store !== store || !entry.deleted || entry.allStore) continue;
+      if (!localById.has(entry.id)) {
+        recordsToPush.push({ store, id: entry.id, deleted: true, updatedAt: entry.updatedAt, force: true });
+        pushedDirtyKeys.add(key);
+      }
+    }
+
     // 本地 -> 云端
     for (const item of localById.values()) {
-      const cloudRec = cloudRecordMap.get(`${store}:${item.id}`);
+      const key = `${store}:${item.id}`;
+      const dirtyEntry = dirtySnapshot[key];
+      const cloudRec = cloudRecordMap.get(key);
       const localTs = getRecordTimestamp(item);
+
+      if (dirtyEntry && !dirtyEntry.deleted) {
+        recordsToPush.push({
+          store,
+          id: item.id,
+          payload: item,
+          updatedAt: dirtyEntry.updatedAt || localTs || new Date().toISOString(),
+          force: true,
+        });
+        pushedDirtyKeys.add(key);
+        continue;
+      }
+
+      if (wholeStoreDirty) {
+        if (!cloudRec || !cloudRec.deletedAt) {
+          recordsToPush.push({
+            store,
+            id: item.id,
+            payload: item,
+            updatedAt: localTs || new Date().toISOString(),
+            force: true,
+          });
+        }
+        continue;
+      }
+
       if (isIncremental) {
-        // 增量模式下仅推送上次同步之后本地有更新的记录，避免重复推全量老数据
         if (cloudRec?.deletedAt) continue;
-        if (localTs && localTs > prevLastSync && (!cloudRec || !cloudRec.updatedAt || localTs > cloudRec.updatedAt)) {
-          recordsToPush.push({ store, id: item.id, payload: item, updatedAt: localTs });
+        if (localTs && localTs > prevLastSyncWithSkew && (!cloudRec || !cloudRec.updatedAt || localTs > cloudRec.updatedAt)) {
+          recordsToPush.push({ store, id: item.id, payload: item, updatedAt: localTs, force: true });
         }
       } else {
         if (cloudRec?.deletedAt) continue;
         if (!cloudRec) {
-          recordsToPush.push({ store, id: item.id, payload: item, updatedAt: localTs || new Date().toISOString() });
+          recordsToPush.push({ store, id: item.id, payload: item, updatedAt: localTs || new Date().toISOString(), force: true });
         } else if (localTs && cloudRec.updatedAt && localTs > cloudRec.updatedAt) {
-          recordsToPush.push({ store, id: item.id, payload: item, updatedAt: localTs });
+          recordsToPush.push({ store, id: item.id, payload: item, updatedAt: localTs, force: true });
         }
       }
+    }
+
+    if (wholeStoreDirty) {
+      pushedDirtyKeys.add(`${store}:*`);
     }
   }
 
@@ -476,9 +588,23 @@ async function runSyncWithCloudInternal(forceFull: boolean): Promise<SyncResult>
   // 3. 双向同步旅行计划里搜索到的参考照片（上传本地已有、拉取云端已有）
   const photoSync = await syncPlannerPhotosWithCloud([...localPlansById.values()]).catch(() => ({ uploaded: 0, downloaded: 0 }));
 
+  // 仅清理本次已成功推送且未被同步期间新写入覆盖的脏标记
+  if (pushedDirtyKeys.size > 0) {
+    const latestDirty = readDirtyRecords();
+    for (const key of pushedDirtyKeys) {
+      const before = dirtySnapshot[key];
+      const nowEntry = latestDirty[key];
+      if (before && nowEntry && nowEntry.updatedAt === before.updatedAt) {
+        delete latestDirty[key];
+      }
+    }
+    writeDirtyRecords(latestDirty);
+  }
+
   setCloudPlanMetaMap(metaMap);
   setLastSyncTime(serverTime);
   setLastCloudVersion(serverTime);
+  try { localStorage.setItem(SYNC_SCHEMA_KEY, SYNC_SCHEMA_VERSION); } catch { /* ignore */ }
   const refreshed = await loadSnapshot();
 
   return {
