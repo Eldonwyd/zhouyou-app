@@ -1380,6 +1380,36 @@ code, pre { font-family: var(--font-mono); }
   font-family: var(--font-mono);
   white-space: nowrap;
 }
+.dl-github-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 2px;
+  padding: 8px 12px;
+  border-radius: 11px;
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+.dl-github-link svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.dl-github-link:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+  background: var(--teal-soft);
+}
+.dl-github-arrow {
+  font-size: 12px;
+  line-height: 1;
+}
 
 /* PWA 推荐大卡片 */
 .pwa-hero-card {
@@ -1436,6 +1466,25 @@ code, pre { font-family: var(--font-mono); }
   transition: border-color 0.16s ease, color 0.16s ease;
 }
 .shortlink-copy:hover { border-color: var(--accent); color: var(--accent); }
+.shortlink-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  text-decoration: none;
+  color: var(--teal);
+  background: var(--teal-soft);
+  border-color: rgba(29, 100, 120, 0.24);
+  font-family: var(--font-sans);
+}
+.shortlink-github svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+.shortlink-github:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+}
 
 /* ---------- 本地优先隐私宣言 ---------- */
 .privacy-banner {

@@ -687,9 +687,12 @@
     if (desktopRelease) {
       boundDesktop = true;
       if (desktopTagEl) {
-        desktopTagEl.textContent = `✨ 电脑版最新 ${desktopRelease.tag_name} · 查看 Release`;
+        desktopTagEl.textContent = `✨ 电脑版最新 ${desktopRelease.tag_name} · GitHub Release ↗`;
         desktopTagEl.href = desktopRelease.html_url;
       }
+      document.querySelectorAll('a[data-release-kind="desktop"]').forEach((el) => {
+        el.href = desktopRelease.html_url;
+      });
       bindAssets(desktopRelease, {
         'win-setup': (n) => /win.*setup\.exe$/i.test(n),
         'win-portable': (n) => /win.*portable\.exe$/i.test(n),
@@ -703,9 +706,12 @@
     if (mobileRelease) {
       boundMobile = true;
       if (mobileTagEl) {
-        mobileTagEl.textContent = `✨ 手机版最新 ${mobileRelease.tag_name} · 查看 Release`;
+        mobileTagEl.textContent = `✨ 手机版最新 ${mobileRelease.tag_name} · GitHub Release ↗`;
         mobileTagEl.href = mobileRelease.html_url;
       }
+      document.querySelectorAll('a[data-release-kind="mobile"]').forEach((el) => {
+        el.href = mobileRelease.html_url;
+      });
       bindAssets(mobileRelease, {
         'android-apk': (n) => /\.apk$/i.test(n),
         'ios-ipa': (n) => /\.ipa$/i.test(n),
