@@ -75,6 +75,11 @@ async function patchAndroid() {
       manifest = manifest.replace('</manifest>', `    <uses-permission android:name="${perm}" />\n</manifest>`);
     }
   }
+  // 注册 zhouyou:// 自定义协议深链，支持从微信/浏览器分享预览页直接唤起 App
+  if (!manifest.includes('android:scheme="zhouyou"')) {
+    const deepLinkFilter = `\n            <intent-filter>\n                <action android:name="android.intent.action.VIEW" />\n                <category android:name="android.intent.category.DEFAULT" />\n                <category android:name="android.intent.category.BROWSABLE" />\n                <data android:scheme="zhouyou" />\n            </intent-filter>`;
+    manifest = manifest.replace('</activity>', `${deepLinkFilter}\n        </activity>`);
+  }
   await writeFile(manifestPath, manifest, 'utf8');
 
   // 2. Patch strings.xml display name to 周游地图
@@ -900,6 +905,10 @@ async function patchIos() {
     if (!plist.includes('<key>NSAppTransportSecurity</key>')) {
       const ats = `\t<key>NSAppTransportSecurity</key>\n\t<dict>\n\t\t<key>NSAllowsLocalNetworking</key>\n\t\t<true/>\n\t\t<key>NSAllowsArbitraryLoads</key>\n\t\t<true/>\n\t</dict>\n`;
       plist = plist.replace('</dict>\n</plist>', `${ats}</dict>\n</plist>`);
+    }
+    if (!plist.includes('<string>zhouyou</string>')) {
+      const urlTypes = `\t<key>CFBundleURLTypes</key>\n\t<array>\n\t\t<dict>\n\t\t\t<key>CFBundleURLName</key>\n\t\t\t<string>app.zhouyou.map</string>\n\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>zhouyou</string>\n\t\t\t</array>\n\t\t</dict>\n\t</array>\n`;
+      plist = plist.replace('</dict>\n</plist>', `${urlTypes}</dict>\n</plist>`);
     }
     await writeFile(plistPath, plist, 'utf8');
   }

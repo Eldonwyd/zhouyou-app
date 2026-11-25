@@ -46,4 +46,9 @@ contextBridge.exposeInMainWorld('zhouyouDesktop', {
     ipcRenderer.on('zhouyou:open-updater', handler);
     return () => ipcRenderer.removeListener('zhouyou:open-updater', handler);
   },
+  onDeepLink: (listener) => {
+    const handler = (_event, url) => listener(url);
+    ipcRenderer.on('zhouyou:deep-link', handler);
+    return () => ipcRenderer.removeListener('zhouyou:deep-link', handler);
+  },
 });

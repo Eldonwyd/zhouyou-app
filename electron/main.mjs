@@ -453,20 +453,47 @@ const singleLock = app.requestSingleInstanceLock();
 if (!singleLock) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  let pendingDeepLink = process.argv.find((arg) => /^zhouyou:\/\//i.test(arg)) || '';
+
+  const dispatchDeepLink = (url) => {
+    if (!url || !/^zhouyou:\/\//i.test(url)) return;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      mainWindow.webContents.send('zhouyou:deep-link', url);
+    } else {
+      pendingDeepLink = url;
+    }
+  };
+
+  app.on('second-instance', (_event, argv) => {
+    const deepUrl = (argv || []).find((arg) => /^zhouyou:\/\//i.test(arg));
+    if (deepUrl) dispatchDeepLink(deepUrl);
     if (!mainWindow) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
   });
 
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    dispatchDeepLink(url);
+  });
+
   app.whenReady().then(async () => {
     app.setName('周游地图');
+    try { app.setAsDefaultProtocolClient('zhouyou'); } catch { /* ignore */ }
     await initRuntimeState();
     setupUpdateIpc();
     await loadPrefs();
     await startEmbeddedServer();
     buildAppMenu();
     createWindow();
+    if (pendingDeepLink && mainWindow) {
+      mainWindow.webContents.once('did-finish-load', () => {
+        dispatchDeepLink(pendingDeepLink);
+        pendingDeepLink = '';
+      });
+    }
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();

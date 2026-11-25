@@ -98,6 +98,8 @@ import { BUDGET_LABELS, type TripPlan } from '../types';
 import { createLocalId, currency, downloadBlob } from '../utils';
 import { useI18n } from '../i18n';
 import { isWebTourMode, type TourRestrictedFeature } from '../web-tour';
+import type { CloudSelfUser } from '../cloud-api';
+import PlanCollabBar from './PlanCollabBar';
 
 const isNativeMobileApp = () => Boolean(
   (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.(),
@@ -117,6 +119,10 @@ interface PlannerWorkspaceProps extends ComponentProps<typeof FinanceView> {
   onSavePreferences: (preferences: PlannerPreferences) => Promise<void>;
   webTourMode?: boolean;
   onRequireClient?: (feature: TourRestrictedFeature) => void;
+  cloudUser?: CloudSelfUser | null;
+  targetPlanId?: string | null;
+  onOpenAuth?: () => void;
+  onSyncNow?: () => Promise<void>;
 }
 
 type PlannerTab = 'discover' | 'itineraries' | 'finance';
@@ -988,6 +994,13 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
   );
   const [serviceToolsExpanded, setServiceToolsExpanded] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(props.aiPlans[0]?.id ?? null);
+  useEffect(() => {
+    if (props.targetPlanId && props.aiPlans.some((p) => p.id === props.targetPlanId)) {
+      setActiveId(props.targetPlanId);
+      setCreating(false);
+      setTab('itineraries');
+    }
+  }, [props.targetPlanId, props.aiPlans]);
   const [financeKey, setFinanceKey] = useState<string | null>(null);
   const [creating, setCreating] = useState(props.aiPlans.length === 0);
   const [request, setRequest] = useState(() =>
@@ -2543,6 +2556,19 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                     </label>
                   )}
                 </header>
+                {props.onOpenAuth && props.onSyncNow && (
+                  <PlanCollabBar
+                    plan={activePlan}
+                    cloudUser={props.cloudUser ?? null}
+                    onOpenAuth={props.onOpenAuth}
+                    onPlanReverted={async (restored) => {
+                      await props.onSaveAi(restored, null);
+                    }}
+                    onSyncNow={props.onSyncNow}
+                    onNotice={props.onNotice}
+                    onError={props.onError}
+                  />
+                )}
                 <div className="planner-overview-timeline" key={activePlan.id}>
                   <PlannerTripTimeline content={activePlan.content} />
                   <PlannerCalendarExport plan={activePlan} disabled={busy}

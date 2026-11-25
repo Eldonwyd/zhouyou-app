@@ -1,6 +1,6 @@
 {
   "name": "zhouyou-map",
-  "version": "1.0.31",
+  "version": "1.0.32",
   "description": "周游地图（Zhouyou Map）—— 跨平台中国旅行足迹地图、旅行手账与多模型 AI 行程规划器",
   "author": "Eldonwyd",
   "license": "MIT",
@@ -56,6 +56,7 @@
     "jsonrepair": "3.15.0",
     "leaflet": "^1.9.4",
     "onnxruntime-node": "^1.31.1",
+    "qrcode": "^1.5.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "sharp": "^0.35.5"
@@ -66,6 +67,7 @@
     "@capacitor/core": "^8.6.2",
     "@capacitor/ios": "^8.6.2",
     "@types/leaflet": "^1.9.21",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "electron": "^45.4.1",

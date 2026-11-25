@@ -1,6 +1,6 @@
 import type { AiTravelPlan, PlannerPreferences } from './planner-types';
 
-export type PageName = 'map' | 'detail' | 'plan' | 'achievements' | 'profile';
+export type PageName = 'map' | 'plan' | 'companions' | 'detail' | 'achievements' | 'profile';
 export type VisitStatus = 'empty' | 'visited';
 export type DayPeriod = 'morning' | 'afternoon' | 'evening' | 'all-day';
 export type MediaKind = 'photo' | 'video' | 'audio';

@@ -6,6 +6,7 @@ import { createLocalId, downloadBlob } from '../utils';
 import { themeColor } from '../theme';
 import { useI18n, type AppLanguage } from '../i18n';
 import type { TourRestrictedFeature } from '../web-tour';
+import { RELATION_META, type IntimacyBond } from '../cloud-api';
 
 // 每站沿用应用内的旅行图标，等级数超过现有图标时仍可显示默认地图图标。
 const travelerStopIcons = ['leaf', 'detail', 'map', 'camera', 'mountain', 'train', 'sun', 'plane'];
@@ -16,6 +17,7 @@ interface AchievementsViewProps {
   trips: Journey[];
   media: TravelMedia[];
   badges: Badge[];
+  intimacyBonds?: IntimacyBond[];
   onSaveBadge: (badge: Badge) => Promise<void>;
   onOpenEntry: (entry: DayEntry) => void;
   onError: (message: string) => void;
@@ -179,6 +181,7 @@ export default function AchievementsView({
   trips,
   media,
   badges,
+  intimacyBonds = [],
   onSaveBadge,
   onOpenEntry,
   onError,
@@ -432,6 +435,47 @@ export default function AchievementsView({
           </div>
         </div>
       </section>
+
+      {/* 亲密关系与同行成就（联动「同行旅伴」） */}
+      {(() => {
+        const activeBonds = intimacyBonds.filter((b) => b.status === 'active');
+        if (!activeBonds.length) return null;
+        const maxShared = Math.max(0, ...activeBonds.map((b) => b.sharedVisitedCount || 0));
+        const socialBadges = [
+          { id: 'intimate-first', emoji: '💞', title: '初次绑定同行', unlocked: activeBonds.length >= 1, hint: `已绑定 ${activeBonds.length} 位亲密旅伴` },
+          { id: 'intimate-five', emoji: '🗺️', title: '携手五城', unlocked: maxShared >= 5, hint: maxShared >= 5 ? `与旅伴共同点亮 ${maxShared} 座城市` : `与亲密旅伴共同去过 5 城解锁（当前 ${maxShared}/5）` },
+          { id: 'intimate-ten', emoji: '🏆', title: '携手十城', unlocked: maxShared >= 10, hint: maxShared >= 10 ? `与旅伴共同点亮 ${maxShared} 座城市` : `与亲密旅伴共同去过 10 城解锁（当前 ${maxShared}/10）` },
+          ...activeBonds.slice(0, 4).map((b) => ({
+            id: `bond-${b.id}`,
+            emoji: RELATION_META[b.relationType].emoji,
+            title: `${RELATION_META[b.relationType].badgeTitle} · ${b.peer.nickname}`,
+            unlocked: true,
+            hint: `${b.customLabel || RELATION_META[b.relationType].label} · 共同点亮 ${b.sharedVisitedCount} 城${b.anniversaryDate ? ` · 纪念日 ${b.anniversaryDate}` : ''}`,
+          })),
+        ];
+        return (
+          <section className="card warm-badges intimacy-achievements-card">
+            <div className="card-heading">
+              <div>
+                <h2>{t('亲密同行徽章', 'Companion & Intimacy Badges')}</h2>
+                <p className="muted">{t('在「同行旅伴」绑定情侣、家人、挚友或闺蜜并共同点亮城市后自动解锁。', 'Unlocked automatically by bonding with companions and lighting shared cities.')}</p>
+              </div>
+            </div>
+            <div className="badge-grid">
+              {socialBadges.map((sb) => (
+                <div key={sb.id} className={`badge-card preset-badge ${sb.unlocked ? 'is-unlocked' : 'locked'}`}>
+                  <span className={`badge-status-pill ${sb.unlocked ? 'is-done' : ''}`}>
+                    {sb.unlocked ? '已点亮 ✦' : '待解锁'}
+                  </span>
+                  <div className="badge-art custom-badge-art" style={{ fontSize: 34 }}>{sb.emoji}</div>
+                  <h3>{sb.title}</h3>
+                  <p>{sb.hint}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      })()}
 
       {/* 徽章集章墙 */}
       <section className="card warm-badges">

@@ -10,7 +10,9 @@ import AppearanceSettings from './AppearanceSettings';
 import OfflineMapSettings from './OfflineMapSettings';
 import AppUpdateCard from './AppUpdateCard';
 import AiUsageSettingsCard from './AiUsageSettingsCard';
+import CloudSyncCard from './CloudSyncCard';
 import type { AppUpdateInfo } from '../app-updater';
+import type { CloudSelfUser } from '../cloud-api';
 
 interface ProfileViewProps {
   snapshot: AppSnapshot;
@@ -19,6 +21,11 @@ interface ProfileViewProps {
   availableUpdate?: AppUpdateInfo | null;
   updateFocusToken?: number;
   updateCheckToken?: number;
+  cloudUser?: CloudSelfUser | null;
+  syncingCloud?: boolean;
+  onOpenAuth?: (mode: 'login' | 'register') => void;
+  onSyncNow?: () => Promise<void>;
+  onCloudUserUpdated?: (user: CloudSelfUser | null) => void;
   onUpdateFound?: (info: AppUpdateInfo | null) => void;
   onSaveProfile: (profile: LocalProfile) => Promise<void>;
   onImported: (snapshot: AppSnapshot) => void;
@@ -42,6 +49,11 @@ export default function ProfileView({
   availableUpdate,
   updateFocusToken,
   updateCheckToken,
+  cloudUser = null,
+  syncingCloud = false,
+  onOpenAuth,
+  onSyncNow,
+  onCloudUserUpdated,
   onUpdateFound,
   onSaveProfile,
   onImported,
@@ -459,9 +471,21 @@ export default function ProfileView({
       <div className="section-heading">
         <div>
           <h1>{t('个人中心', 'Personal Center')}</h1>
-          <p>{t('装扮你的旅人小护照，随时切换页面风格；语言、备份与离线地图等均收纳在下方设置中。', 'Customize your traveler passport and page style; language, backups, and offline maps live inside Settings below.')}</p>
+          <p>{t('装扮你的旅人小护照，随时切换页面风格；云端账号同步、语言、备份与离线地图等均在此管理。', 'Customize your traveler passport, cloud sync account, language, backups, and offline maps.')}</p>
         </div>
       </div>
+
+      {onOpenAuth && onSyncNow && onCloudUserUpdated && (
+        <CloudSyncCard
+          cloudUser={cloudUser}
+          syncing={syncingCloud}
+          onOpenAuth={onOpenAuth}
+          onSyncNow={onSyncNow}
+          onUserUpdated={onCloudUserUpdated}
+          onNotice={onNotice}
+          onError={onError}
+        />
+      )}
 
       {/* 旅人护照横幅 + 内联装扮面板 */}
       <section className="warm-profile-banner">

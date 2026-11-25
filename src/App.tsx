@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AdministrativeFeature, AppSnapshot, Badge, CityMark, DayEntry, Journey, JourneyPlace, LocalProfile, PageName, TravelMedia, TripPlan } from './types';
 import { deleteMediaRecord, loadSnapshot, moveLegacyPlanToJourney, recordPlannerJournalVisit, saveItem, saveJourneyAndLinkCityRecords, saveMediaBatch, saveAiPlan as saveAiPlanRecord, saveAiPlanPhoto, publishAiPlan } from './db';
 import type { AiTravelPlan, PlannerPhoto, PlannerPreferences } from './planner-types';
@@ -8,6 +8,15 @@ import { applyThemeMode, useThemeMode, type ThemeMode } from './theme';
 import { readLanguage, syncDocumentLanguage, useI18n } from './i18n';
 import { checkForAppUpdate, isNativeAppPlatform, type AppUpdateInfo } from './app-updater';
 import {
+  CLOUD_AUTH_EVENT,
+  cloudApi,
+  getCachedCloudUser,
+  getCloudToken,
+  type CloudSelfUser,
+  type IntimacyBond,
+} from './cloud-api';
+import { extractZhouyouActionFromUrl, extractZhouyouShareCode, syncWithCloud } from './cloud-sync';
+import {
   isEmbeddedTour,
   isWebTourMode,
   openDownloadFromTour,
@@ -16,8 +25,11 @@ import {
   type TourRestrictedFeature,
 } from './web-tour';
 import MapView from './components/MapView';
+import AuthModal from './components/AuthModal';
+import ShareReceiveModal from './components/ShareReceiveModal';
 
 const DEMO_ACTIVE_KEY = 'zhouyou-demo-active';
+const AUTH_DISMISSED_KEY = 'zhouyou-auth-dismissed';
 import { TravelCover, TravelIcon } from './components/TravelArt';
 import { CuteSticker, TravelAvatar } from './components/CuteArt';
 
@@ -25,6 +37,7 @@ import { CuteSticker, TravelAvatar } from './components/CuteArt';
 // arrive only when the user opens their respective sections.
 const DetailView = lazy(() => import('./components/DetailView'));
 const PlanView = lazy(() => import('./components/PlannerWorkspace'));
+const CompanionsView = lazy(() => import('./components/CompanionsView'));
 const AchievementsView = lazy(() => import('./components/AchievementsView'));
 const ProfileView = lazy(() => import('./components/ProfileView'));
 
@@ -86,6 +99,18 @@ export default function App() {
   const [updateFocusToken, setUpdateFocusToken] = useState(0);
   const [updateCheckToken, setUpdateCheckToken] = useState(0);
 
+  // 云端账号、同步、同行旅伴小红点与分享口令状态
+  const [cloudUser, setCloudUser] = useState<CloudSelfUser | null>(() => (getCloudToken() ? getCachedCloudUser() : null));
+  const [syncingCloud, setSyncingCloud] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('register');
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [intimacyBonds, setIntimacyBonds] = useState<IntimacyBond[]>([]);
+  const [pendingShareCode, setPendingShareCode] = useState<string | null>(null);
+  const [targetPlanId, setTargetPlanId] = useState<string | null>(null);
+  const syncTimerRef = useRef<number | null>(null);
+  const seenClipboardCodesRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     syncDocumentLanguage(lang);
   }, [lang]);
@@ -93,6 +118,7 @@ export default function App() {
   const navItems: Array<{ id: PageName; label: string; icon: string }> = [
     { id: 'map', label: t('地图足迹', 'Footprints'), icon: '◎' },
     { id: 'plan', label: t('行程规划', 'Planner'), icon: '▦' },
+    { id: 'companions', label: t('同行旅伴', 'Companions'), icon: '◈' },
     { id: 'detail', label: t('旅行手账', 'Journal'), icon: '▤' },
     { id: 'achievements', label: t('旅途成就', 'Badges'), icon: '✦' },
     { id: 'profile', label: t('个人中心', 'Profile'), icon: '◉' },
@@ -192,9 +218,164 @@ export default function App() {
   }, []);
 
   const reload = useCallback(async () => setSnapshot(await loadSnapshot()), []);
+
+  const runCloudSync = useCallback(async (silent = false) => {
+    if (!getCloudToken()) return;
+    setSyncingCloud(true);
+    try {
+      const res = await syncWithCloud();
+      setSnapshot(res.snapshot);
+      if (!silent) {
+        const parts: string[] = [];
+        if (res.pulledPlans || res.pulledRecords) parts.push(`拉取 ${res.pulledPlans} 份攻略 / ${res.pulledRecords} 条记录`);
+        if (res.pushedPlans || res.pushedRecords) parts.push(`上传 ${res.pushedPlans} 份攻略 / ${res.pushedRecords} 条记录`);
+        showNotice(parts.length ? `☁️ 云同步完成（${parts.join('，')}）` : '☁️ 云端已是最新状态');
+      }
+      if (res.conflicts.length > 0) {
+        showNotice(`提示：${res.conflicts[0].reason}，已自动拉取最新版本`);
+      }
+    } catch (err) {
+      if (!silent) showError(err instanceof Error ? err.message : '云同步失败');
+    } finally {
+      setSyncingCloud(false);
+    }
+  }, [showError, showNotice]);
+
+  const scheduleCloudSync = useCallback(() => {
+    if (!getCloudToken()) return;
+    if (syncTimerRef.current) window.clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = window.setTimeout(() => {
+      syncTimerRef.current = null;
+      void runCloudSync(true);
+    }, 3000);
+  }, [runCloudSync]);
+
+  const refreshSocialBadges = useCallback(async () => {
+    if (!getCloudToken()) return;
+    try {
+      const ov = await cloudApi.getSocialOverview();
+      setUnreadCount(ov.unreadCount);
+      setIntimacyBonds(ov.intimacyBonds);
+    } catch { /* ignore offline */ }
+  }, []);
+
+  const openAuthModal = useCallback((mode: 'login' | 'register' = 'login') => {
+    setAuthModalMode(mode);
+    setAuthModalOpen(true);
+  }, []);
+
+  // 监听跨组件登录态变化
+  useEffect(() => {
+    const onAuthEvent = () => {
+      const token = getCloudToken();
+      setCloudUser(token ? getCachedCloudUser() : null);
+      if (!token) {
+        setUnreadCount(0);
+        setIntimacyBonds([]);
+      }
+    };
+    window.addEventListener(CLOUD_AUTH_EVENT, onAuthEvent);
+    return () => window.removeEventListener(CLOUD_AUTH_EVENT, onAuthEvent);
+  }, []);
+
+  // 首次启动：若已登录自动静默云同步；若未登录且非漫游模式，展示一次欢迎注册/登录弹窗（可跳过本地用）
+  useEffect(() => {
+    if (!ready) return;
+    if (getCloudToken()) {
+      void runCloudSync(true);
+      void refreshSocialBadges();
+    } else if (!tourMode) {
+      try {
+        if (!sessionStorage.getItem(AUTH_DISMISSED_KEY)) {
+          setAuthModalMode('register');
+          setAuthModalOpen(true);
+        }
+      } catch { /* ignore */ }
+    }
+  }, [ready, tourMode, runCloudSync, refreshSocialBadges]);
+
+  // 处理网页 URL 参数与自定义协议深链（?share=CODE / ?addFriend=ZY-XXXX / ?joinGroup=CODE）
+  const handleIncomingUrl = useCallback((urlStr: string) => {
+    const parsed = extractZhouyouActionFromUrl(urlStr);
+    if (parsed.shareCode) {
+      setPendingShareCode(parsed.shareCode);
+      return;
+    }
+    if (parsed.friendCode) {
+      if (!getCloudToken()) {
+        showNotice(`请先登录后自动添加好友 ${parsed.friendCode}`);
+        openAuthModal('login');
+        return;
+      }
+      void cloudApi.requestFriend({ friendCode: parsed.friendCode })
+        .then((res) => { showNotice(res.message); setPage('companions'); })
+        .catch((err) => showError(err instanceof Error ? err.message : '添加好友失败'));
+      return;
+    }
+    if (parsed.groupCode) {
+      if (!getCloudToken()) {
+        showNotice(`请先登录后自动加入行程群 ${parsed.groupCode}`);
+        openAuthModal('login');
+        return;
+      }
+      void cloudApi.joinGroupByCode(parsed.groupCode)
+        .then((res) => { showNotice(`已加入行程群「${res.group.name}」`); setPage('companions'); void runCloudSync(true); })
+        .catch((err) => showError(err instanceof Error ? err.message : '加入行程群失败'));
+    }
+  }, [openAuthModal, runCloudSync, showError, showNotice]);
+
+  useEffect(() => {
+    if (!ready) return;
+    handleIncomingUrl(window.location.href);
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('share') || params.has('addFriend') || params.has('joinGroup')) {
+      params.delete('share');
+      params.delete('addFriend');
+      params.delete('joinGroup');
+      const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}${window.location.hash}`;
+      window.history.replaceState({}, '', nextUrl);
+    }
+  }, [ready, handleIncomingUrl]);
+
+  // 监听桌面端 Electron zhouyou:// 深链与切回前台时自动检测周游口令 & 刷新云同步
+  useEffect(() => {
+    const desktopApi = window.zhouyouDesktop as unknown as { onDeepLink?: (cb: (url: string) => void) => () => void } | undefined;
+    const unsubDeepLink = desktopApi?.onDeepLink?.((url) => handleIncomingUrl(url));
+
+    const checkClipboardToken = async () => {
+      try {
+        if (!navigator.clipboard?.readText) return;
+        if (navigator.permissions?.query) {
+          const perm = await navigator.permissions.query({ name: 'clipboard-read' as PermissionName });
+          if (perm.state !== 'granted') return;
+        }
+        const text = await navigator.clipboard.readText();
+        const code = extractZhouyouShareCode(text);
+        if (code && !seenClipboardCodesRef.current.has(code)) {
+          seenClipboardCodesRef.current.add(code);
+          setPendingShareCode(code);
+        }
+      } catch { /* ignore */ }
+    };
+
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      void checkClipboardToken();
+      if (getCloudToken()) {
+        void runCloudSync(true);
+        void refreshSocialBadges();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      unsubDeepLink?.();
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [handleIncomingUrl, refreshSocialBadges, runCloudSync]);
+
   const saveAiPlan = useCallback(async (plan: AiTravelPlan, expectedVersion: number | null) => {
-    await saveAiPlanRecord(plan, expectedVersion); await reload();
-  }, [reload]);
+    await saveAiPlanRecord(plan, expectedVersion); await reload(); scheduleCloudSync();
+  }, [reload, scheduleCloudSync]);
   const saveAiPhoto = useCallback(async (planId: string, activityId: string, photo: PlannerPhoto) => {
     if (tourMode) {
       requestClientForTour('photo');
@@ -203,13 +384,14 @@ export default function App() {
     await saveAiPlanPhoto(planId, activityId, photo); await reload();
   }, [reload, requestClientForTour, tourMode]);
   const publishPlan = useCallback(async (plan: AiTravelPlan, initialFinance?: TripPlan) => {
-    const updated = await publishAiPlan(plan, initialFinance); await reload(); return updated;
-  }, [reload]);
+    const updated = await publishAiPlan(plan, initialFinance); await reload(); scheduleCloudSync(); return updated;
+  }, [reload, scheduleCloudSync]);
   const saveJournalVisit = useCallback(async (...args: Parameters<typeof recordPlannerJournalVisit>) => {
     const result = await recordPlannerJournalVisit(...args);
     await reload();
+    scheduleCloudSync();
     return result;
-  }, [reload]);
+  }, [reload, scheduleCloudSync]);
   const openJournalPlace = useCallback((placeId: string) => {
     setSelectedCityCode(null);
     setTargetEntryId(null);
@@ -217,20 +399,20 @@ export default function App() {
     setPage('detail');
   }, []);
   const savePlannerPreferences = useCallback(async (preferences: PlannerPreferences) => {
-    await saveItem('plannerPreferences', preferences); await reload();
-  }, [reload]);
+    await saveItem('plannerPreferences', preferences); await reload(); scheduleCloudSync();
+  }, [reload, scheduleCloudSync]);
   const recommendProvince = useCallback((name: string) => {
     setPlannerProvince({ name, token: Date.now() }); openPage('plan');
   }, [openPage]);
 
   const saveMark = useCallback(async (mark: CityMark) => {
-    try { await saveItem('marks', mark); await reload(); }
+    try { await saveItem('marks', mark); await reload(); scheduleCloudSync(); }
     catch (error) { showError(describeStorageError(error)); throw error; }
-  }, [reload, showError]);
+  }, [reload, scheduleCloudSync, showError]);
   const saveEntry = useCallback(async (entry: DayEntry) => {
-    try { await saveItem('entries', entry); await reload(); }
+    try { await saveItem('entries', entry); await reload(); scheduleCloudSync(); }
     catch (error) { showError(describeStorageError(error)); throw error; }
-  }, [reload, showError]);
+  }, [reload, scheduleCloudSync, showError]);
   const saveMedia = useCallback(async (media: TravelMedia, blob: Blob) => {
     if (tourMode) {
       requestClientForTour(media.kind === 'audio' ? 'voice' : 'photo');
@@ -259,25 +441,25 @@ export default function App() {
     } catch (error) { showError(describeStorageError(error)); }
   }, [reload, showError, showNotice]);
   const saveTrip = useCallback(async (trip: Journey) => {
-    try { const linked = await saveJourneyAndLinkCityRecords(trip); await reload(); return linked; }
+    try { const linked = await saveJourneyAndLinkCityRecords(trip); await reload(); scheduleCloudSync(); return linked; }
     catch (error) { showError(describeStorageError(error)); throw error; }
-  }, [reload, showError]);
+  }, [reload, scheduleCloudSync, showError]);
   const savePlace = useCallback(async (place: JourneyPlace) => {
-    try { await saveItem('places', place); await reload(); }
+    try { await saveItem('places', place); await reload(); scheduleCloudSync(); }
     catch (error) { showError(describeStorageError(error)); throw error; }
-  }, [reload, showError]);
+  }, [reload, scheduleCloudSync, showError]);
   const savePlan = useCallback(async (plan: TripPlan) => {
-    try { await saveItem('plans', plan); await reload(); }
+    try { await saveItem('plans', plan); await reload(); scheduleCloudSync(); }
     catch (error) { showError(describeStorageError(error)); throw error; }
-  }, [reload, showError]);
+  }, [reload, scheduleCloudSync, showError]);
   const movePlan = useCallback(async (legacyId: string, plan: TripPlan) => {
-    try { await moveLegacyPlanToJourney(legacyId, plan); await reload(); }
+    try { await moveLegacyPlanToJourney(legacyId, plan); await reload(); scheduleCloudSync(); }
     catch (error) { showError(describeStorageError(error)); throw error; }
-  }, [reload, showError]);
+  }, [reload, scheduleCloudSync, showError]);
   const saveBadge = useCallback(async (badge: Badge) => {
-    try { await saveItem('badges', badge); await reload(); }
+    try { await saveItem('badges', badge); await reload(); scheduleCloudSync(); }
     catch (error) { showError(describeStorageError(error)); throw error; }
-  }, [reload, showError]);
+  }, [reload, scheduleCloudSync, showError]);
   const saveProfile = useCallback(async (profile: LocalProfile) => {
     try { await saveItem('profile', profile); await reload(); }
     catch (error) { showError(describeStorageError(error)); throw error; }
@@ -388,6 +570,9 @@ export default function App() {
               {item.id === 'profile' && availableUpdate && (
                 <i className="nav-update-dot" aria-label={t('有新版本可更新', 'Update available')} />
               )}
+              {item.id === 'companions' && unreadCount > 0 && (
+                <i className="nav-update-dot" aria-label={t(`有 ${unreadCount} 条未读旅伴消息`, `${unreadCount} unread notifications`)} />
+              )}
             </span>
             {item.label}
           </button>
@@ -439,8 +624,25 @@ export default function App() {
             >
               {t('在线体验 · 下载客户端', 'Web Tour · Download')}
             </button>
+          ) : cloudUser ? (
+            <button
+              type="button"
+              className="local-pill cloud-pill-btn"
+              disabled={syncingCloud}
+              onClick={() => void runCloudSync(false)}
+              title={t('点击立即同步云端攻略与足迹', 'Click to sync cloud plans & footprints')}
+            >
+              {syncingCloud ? t('☁️ 同步中…', '☁️ Syncing…') : `☁️ ${cloudUser.nickname}`}
+            </button>
           ) : (
-            <span className="local-pill">{t('本机版', 'Local')}</span>
+            <button
+              type="button"
+              className="local-pill cloud-pill-btn"
+              onClick={() => openAuthModal('login')}
+              title={t('登录或注册开启电脑-手机云同步', 'Sign in to enable cloud sync')}
+            >
+              {t('登录 / 云同步', 'Sign In')}
+            </button>
           )}
           <button
             type="button"
@@ -493,7 +695,7 @@ export default function App() {
         {/* 保持规划组件挂载，让 AI 请求和小红书解析在浏览其他页面时继续。 */}
         {plannerOpened && <div hidden={page !== 'plan'}>
           <Suspense fallback={<div className="empty-state">{t('正在打开页面…', 'Opening page…')}</div>}>
-            <PlanView visible={page === 'plan'} onReturnToPlanner={() => openPage('plan')} city={selectedCity} marks={effectiveMarks} trips={snapshot.trips} plans={snapshot.plans} onSave={savePlan} onMoveLegacy={movePlan} onCreateJourney={() => openPage('detail')} onError={showError} onNotice={showNotice} aiPlans={snapshot.aiPlans} preferences={snapshot.plannerPreferences[0]} provinceIntent={plannerProvince} onSaveAi={saveAiPlan} onSaveAiPhoto={saveAiPhoto} onPublishAi={publishPlan} onSavePreferences={savePlannerPreferences} onSaveJournalVisit={saveJournalVisit} onOpenJournalPlace={openJournalPlace} webTourMode={tourMode} onRequireClient={requestClientForTour} />
+            <PlanView visible={page === 'plan'} onReturnToPlanner={() => openPage('plan')} city={selectedCity} marks={effectiveMarks} trips={snapshot.trips} plans={snapshot.plans} onSave={savePlan} onMoveLegacy={movePlan} onCreateJourney={() => openPage('detail')} onError={showError} onNotice={showNotice} aiPlans={snapshot.aiPlans} preferences={snapshot.plannerPreferences[0]} provinceIntent={plannerProvince} onSaveAi={saveAiPlan} onSaveAiPhoto={saveAiPhoto} onPublishAi={publishPlan} onSavePreferences={savePlannerPreferences} onSaveJournalVisit={saveJournalVisit} onOpenJournalPlace={openJournalPlace} webTourMode={tourMode} onRequireClient={requestClientForTour} cloudUser={cloudUser} targetPlanId={targetPlanId} onOpenAuth={() => openAuthModal('login')} onSyncNow={() => runCloudSync(true)} />
           </Suspense>
         </div>}
         {/* 保持足迹地图挂载，从其他页面切回地图时秒开无重载。 */}
@@ -501,9 +703,27 @@ export default function App() {
           <MapView visible={page === 'map'} marks={effectiveMarks} activeProvinceCode={activeProvinceCode} setActiveProvinceCode={setActiveProvinceCode} onSelectCity={selectCity} onError={showError} onRecommendProvince={recommendProvince} />
         </div>
         <Suspense fallback={<div className="empty-state">{t('正在打开页面…', 'Opening page…')}</div>}>
+          {page === 'companions' && (
+            <CompanionsView
+              cloudUser={cloudUser}
+              myMarks={effectiveMarks}
+              aiPlans={snapshot.aiPlans}
+              onOpenAuth={(m) => openAuthModal(m)}
+              onOpenPlan={(planId) => {
+                setTargetPlanId(planId);
+                openPage('plan');
+              }}
+              onOpenShareCode={(code) => setPendingShareCode(code)}
+              onUnreadChange={setUnreadCount}
+              onIntimacyLoaded={setIntimacyBonds}
+              onSyncNow={() => runCloudSync(true)}
+              onNotice={showNotice}
+              onError={showError}
+            />
+          )}
           {page === 'detail' && <DetailView city={selectedCity} marks={effectiveMarks} entries={snapshot.entries} media={snapshot.media} trips={snapshot.trips} aiPlans={snapshot.aiPlans} places={snapshot.places} targetEntryId={targetEntryId} targetPlaceId={targetPlaceId} onOpenMap={() => openPage('map')} onSaveEntry={saveEntry} onSaveMedia={saveMedia} onSaveMediaGroup={saveMediaGroup} onUpdateMedia={updateMedia} onDeleteMedia={deleteMedia} onSaveTrip={saveTrip} onSavePlace={savePlace} onSaveCityMark={saveMark} onUpdateMark={updateSelectedMark} onError={showError} onNotice={showNotice} webTourMode={tourMode} onRequireClient={requestClientForTour} />}
-          {page === 'achievements' && <AchievementsView marks={effectiveMarks} entries={snapshot.entries} trips={snapshot.trips} media={snapshot.media} badges={snapshot.badges} onSaveBadge={saveBadge} onOpenEntry={openEntry} onError={showError} onNotice={showNotice} webTourMode={tourMode} onRequireClient={requestClientForTour} />}
-          {page === 'profile' && <ProfileView snapshot={snapshot} activeProvinceCode={activeProvinceCode} resetSettingsToken={profileResetToken} availableUpdate={availableUpdate} updateFocusToken={updateFocusToken} updateCheckToken={updateCheckToken} onUpdateFound={setAvailableUpdate} onSaveProfile={saveProfile} onImported={(data) => {
+          {page === 'achievements' && <AchievementsView marks={effectiveMarks} entries={snapshot.entries} trips={snapshot.trips} media={snapshot.media} badges={snapshot.badges} intimacyBonds={intimacyBonds} onSaveBadge={saveBadge} onOpenEntry={openEntry} onError={showError} onNotice={showNotice} webTourMode={tourMode} onRequireClient={requestClientForTour} />}
+          {page === 'profile' && <ProfileView snapshot={snapshot} activeProvinceCode={activeProvinceCode} resetSettingsToken={profileResetToken} availableUpdate={availableUpdate} updateFocusToken={updateFocusToken} updateCheckToken={updateCheckToken} cloudUser={cloudUser} syncingCloud={syncingCloud} onOpenAuth={(m) => openAuthModal(m)} onSyncNow={() => runCloudSync(false)} onCloudUserUpdated={(u) => setCloudUser(u)} onUpdateFound={setAvailableUpdate} onSaveProfile={saveProfile} onImported={(data) => {
             // 恢复备份会替换行程数据，清除上一份数据上打开的规划会话。
             setPlannerOpened(false);
             setSnapshot(data);
@@ -571,6 +791,38 @@ export default function App() {
         </div>
       );
     })()}
+    <AuthModal
+      open={authModalOpen}
+      initialMode={authModalMode}
+      defaultNickname={activeProfile?.nickname || ''}
+      defaultAvatar={activeProfile?.avatar || 'bear'}
+      onSuccess={(user, isNew) => {
+        setCloudUser(user);
+        setAuthModalOpen(false);
+        try { sessionStorage.setItem(AUTH_DISMISSED_KEY, '1'); } catch { /* ignore */ }
+        showNotice(isNew ? `欢迎加入周游地图，${user.nickname}！正在合并同步本机数据…` : `欢迎回来，${user.nickname}！正在同步云端数据…`);
+        void runCloudSync(false);
+        void refreshSocialBadges();
+      }}
+      onDismiss={() => {
+        setAuthModalOpen(false);
+        try { sessionStorage.setItem(AUTH_DISMISSED_KEY, '1'); } catch { /* ignore */ }
+      }}
+    />
+    <ShareReceiveModal
+      shareCode={pendingShareCode}
+      loggedIn={Boolean(cloudUser)}
+      onRequireLogin={() => openAuthModal('login')}
+      onAccepted={async (plan, mode) => {
+        await saveAiPlanRecord(plan, null);
+        await reload();
+        setTargetPlanId(plan.id);
+        openPage('plan');
+        showNotice(mode === 'collab' ? '已加入行程群并打开共享攻略' : '攻略已保存到「行程规划」');
+        void runCloudSync(true);
+      }}
+      onClose={() => setPendingShareCode(null)}
+    />
     {notice && (
       <div className="toast" role="status">
         {notice}
