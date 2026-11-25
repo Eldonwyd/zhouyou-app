@@ -823,8 +823,8 @@
 
       for (const layer of parallaxLayers) {
         const depth = Number(layer.getAttribute('data-depth') || '0.4');
-        const tx = (currentX * depth * 32).toFixed(2);
-        const ty = (currentY * depth * 20).toFixed(2);
+        const tx = (currentX * depth * 42).toFixed(2);
+        const ty = (currentY * depth * 26).toFixed(2);
         layer.style.transform = `translate3d(${tx}px, ${ty}px, 0)`;
       }
 

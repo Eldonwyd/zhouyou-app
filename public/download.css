@@ -38,18 +38,33 @@
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --dot-color: rgba(120, 96, 76, 0.12);
   --topo-stroke: rgba(173, 134, 104, 0.16);
-  --hero-sun-aura: #ffe5a3;
-  --hero-sun-mid: #f7b787;
-  --hero-sea-aura: #8ec7bc;
-  --hero-mtn-warm-far: #e9a982;
-  --hero-mtn-warm-near: #de8c63;
-  --hero-mtn-cool-far: #6aa89b;
-  --hero-mtn-cool-near: #4e8f85;
-  --hero-cloud: #fffaf2;
-  --hero-cloud-warm: #fff4e6;
-  --hero-cloud-cool: #f3faf7;
-  --hero-bird: #b87b5e;
-  --hero-cursor-glow: rgba(255, 206, 146, 0.28);
+  --hero-sky-1: #fbf0e3;
+  --hero-sky-2: #faf4eb;
+  --hero-sky-3: #f0f2eb;
+  --hero-center-glow: #fffdf9;
+  --hero-mtn-far-1: #e4b698;
+  --hero-mtn-far-2: #d6c5ab;
+  --hero-mtn-far-3: #9ebdb4;
+  --hero-mtn-near-1: #d99f7e;
+  --hero-mtn-near-2: #c9b59d;
+  --hero-mtn-near-3: #7ea89e;
+  --hero-wave-1: #e6bfa5;
+  --hero-wave-2: #f7ece0;
+  --hero-wave-3: #a8c7bf;
+  --hero-cloud: #fffcf7;
+  --hero-cloud-soft: #fff6ea;
+  --hero-cloud-opacity: 0.78;
+  --hero-bird: #a87f68;
+  --hero-bird-sea: #668a82;
+  --hero-balloon-1: #e48b6c;
+  --hero-balloon-2: #6ba89b;
+  --hero-cream: #fffaf2;
+  --hero-sail-2: #f3d2b6;
+  --hero-boat-hull: #b9775a;
+  --hero-lighthouse-trim: #6b8d86;
+  --hero-mote: #d8a24a;
+  --hero-prop-opacity: 0.72;
+  --hero-cursor-glow: rgba(255, 214, 165, 0.28);
 }
 
 :root[data-theme="dark"] {
@@ -78,20 +93,35 @@
   --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.28);
   --shadow-md: 0 18px 44px rgba(0, 0, 0, 0.42);
   --shadow-lg: 0 32px 84px rgba(0, 0, 0, 0.56);
-  --dot-color: rgba(255, 236, 218, 0.06);
-  --topo-stroke: rgba(255, 214, 184, 0.09);
-  --hero-sun-aura: #e09c5a;
-  --hero-sun-mid: #b55f42;
-  --hero-sea-aura: #3d7d8a;
-  --hero-mtn-warm-far: #9c5b43;
-  --hero-mtn-warm-near: #7a4232;
-  --hero-mtn-cool-far: #356771;
-  --hero-mtn-cool-near: #264f5a;
-  --hero-cloud: rgba(255, 224, 192, 0.16);
-  --hero-cloud-warm: rgba(244, 184, 140, 0.14);
-  --hero-cloud-cool: rgba(130, 198, 206, 0.12);
-  --hero-bird: #e8b590;
-  --hero-cursor-glow: rgba(255, 180, 118, 0.14);
+  --dot-color: rgba(255, 236, 218, 0.05);
+  --topo-stroke: rgba(255, 214, 184, 0.08);
+  --hero-sky-1: #373954;
+  --hero-sky-2: #32435c;
+  --hero-sky-3: #2d4d5c;
+  --hero-center-glow: rgba(212, 198, 224, 0.26);
+  --hero-mtn-far-1: #726a8f;
+  --hero-mtn-far-2: #5b7290;
+  --hero-mtn-far-3: #4e8394;
+  --hero-mtn-near-1: #5a5475;
+  --hero-mtn-near-2: #485e7a;
+  --hero-mtn-near-3: #3c6c7d;
+  --hero-wave-1: #686285;
+  --hero-wave-2: #4e6982;
+  --hero-wave-3: #447a8c;
+  --hero-cloud: rgba(232, 238, 252, 0.24);
+  --hero-cloud-soft: rgba(246, 220, 208, 0.18);
+  --hero-cloud-opacity: 0.85;
+  --hero-bird: #dfd6eb;
+  --hero-bird-sea: #bee3ea;
+  --hero-balloon-1: #eb9075;
+  --hero-balloon-2: #72b8bf;
+  --hero-cream: #f5efe6;
+  --hero-sail-2: #c9b7aa;
+  --hero-boat-hull: #ba8470;
+  --hero-lighthouse-trim: #9cbac4;
+  --hero-mote: #fae3a8;
+  --hero-prop-opacity: 0.8;
+  --hero-cursor-glow: rgba(210, 226, 248, 0.22);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -121,20 +151,35 @@
     --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.28);
     --shadow-md: 0 18px 44px rgba(0, 0, 0, 0.42);
     --shadow-lg: 0 32px 84px rgba(0, 0, 0, 0.56);
-    --dot-color: rgba(255, 236, 218, 0.06);
-    --topo-stroke: rgba(255, 214, 184, 0.09);
-    --hero-sun-aura: #e09c5a;
-    --hero-sun-mid: #b55f42;
-    --hero-sea-aura: #3d7d8a;
-    --hero-mtn-warm-far: #9c5b43;
-    --hero-mtn-warm-near: #7a4232;
-    --hero-mtn-cool-far: #356771;
-    --hero-mtn-cool-near: #264f5a;
-    --hero-cloud: rgba(255, 224, 192, 0.16);
-    --hero-cloud-warm: rgba(244, 184, 140, 0.14);
-    --hero-cloud-cool: rgba(130, 198, 206, 0.12);
-    --hero-bird: #e8b590;
-    --hero-cursor-glow: rgba(255, 180, 118, 0.14);
+    --dot-color: rgba(255, 236, 218, 0.05);
+    --topo-stroke: rgba(255, 214, 184, 0.08);
+    --hero-sky-1: #373954;
+    --hero-sky-2: #32435c;
+    --hero-sky-3: #2d4d5c;
+    --hero-center-glow: rgba(212, 198, 224, 0.26);
+    --hero-mtn-far-1: #726a8f;
+    --hero-mtn-far-2: #5b7290;
+    --hero-mtn-far-3: #4e8394;
+    --hero-mtn-near-1: #5a5475;
+    --hero-mtn-near-2: #485e7a;
+    --hero-mtn-near-3: #3c6c7d;
+    --hero-wave-1: #686285;
+    --hero-wave-2: #4e6982;
+    --hero-wave-3: #447a8c;
+    --hero-cloud: rgba(232, 238, 252, 0.24);
+    --hero-cloud-soft: rgba(246, 220, 208, 0.18);
+    --hero-cloud-opacity: 0.85;
+    --hero-bird: #dfd6eb;
+    --hero-bird-sea: #bee3ea;
+    --hero-balloon-1: #eb9075;
+    --hero-balloon-2: #72b8bf;
+    --hero-cream: #f5efe6;
+    --hero-sail-2: #c9b7aa;
+    --hero-boat-hull: #ba8470;
+    --hero-lighthouse-trim: #9cbac4;
+    --hero-mote: #fae3a8;
+    --hero-prop-opacity: 0.8;
+    --hero-cursor-glow: rgba(210, 226, 248, 0.22);
   }
 }
 
@@ -521,8 +566,43 @@ code, pre { font-family: var(--font-mono); }
   transform-origin: center bottom;
   animation: boatBob 4.6s ease-in-out infinite;
 }
-.hero-birds {
-  animation: birdsFloat 7.2s ease-in-out infinite;
+.hero-balloon {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: balloonBob 6.8s ease-in-out infinite;
+}
+.hero-balloon-alt {
+  animation-delay: -2.6s;
+  animation-duration: 7.8s;
+}
+.hero-lighthouse-glow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: beaconPulse 3.6s ease-in-out infinite;
+}
+.hero-water-sparkles {
+  animation: sparkleFade 4.4s ease-in-out infinite;
+}
+.hero-seagulls-left {
+  animation: gullsGlideL 8.5s ease-in-out infinite alternate;
+}
+.hero-seagulls-right {
+  animation: gullsGlideR 9.5s ease-in-out infinite alternate;
+}
+.hero-gull {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: gullFlap 3.4s ease-in-out infinite;
+}
+.hero-gull.g2 { animation-delay: 0.9s; animation-duration: 3.9s; }
+.hero-gull.g3 { animation-delay: 1.7s; animation-duration: 4.3s; }
+.hero-paper-plane {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: planeGlide 5.4s ease-in-out infinite;
+}
+.hero-motes {
+  animation: motesFloat 7.6s ease-in-out infinite alternate;
 }
 .flight-dash {
   stroke-dasharray: 7 9;
@@ -557,18 +637,52 @@ code, pre { font-family: var(--font-mono); }
   0%, 100% { transform: translateY(0px) rotate(-1.5deg); }
   50% { transform: translateY(-3.5px) rotate(2deg); }
 }
-@keyframes birdsFloat {
-  0%, 100% { transform: translate(0px, 0px); }
-  50% { transform: translate(8px, -5px); }
+@keyframes balloonBob {
+  0%, 100% { transform: translateY(0px) rotate(-1.2deg); }
+  50% { transform: translateY(-8px) rotate(1.4deg); }
+}
+@keyframes beaconPulse {
+  0%, 100% { transform: scale(0.85); opacity: 0.35; }
+  50% { transform: scale(1.45); opacity: 0.8; }
+}
+@keyframes sparkleFade {
+  0%, 100% { opacity: 0.32; }
+  50% { opacity: 0.78; }
+}
+@keyframes gullsGlideL {
+  0% { transform: translate(0px, 0px); }
+  100% { transform: translate(16px, -8px); }
+}
+@keyframes gullsGlideR {
+  0% { transform: translate(0px, 0px); }
+  100% { transform: translate(-18px, -7px); }
+}
+@keyframes gullFlap {
+  0%, 100% { transform: scaleY(1) translateY(0px); }
+  50% { transform: scaleY(0.76) translateY(-2.5px); }
+}
+@keyframes planeGlide {
+  0%, 100% { transform: translate(0px, 0px) rotate(0deg); }
+  50% { transform: translate(6px, -5px) rotate(-3deg); }
+}
+@keyframes motesFloat {
+  0% { transform: translateY(0px); opacity: 0.65; }
+  100% { transform: translateY(-10px); opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
   .hero-sun-halo,
-  .hero-sun-rays,
   .hero-sun-ring,
   .hero-clouds-left,
   .hero-clouds-right,
   .hero-sailboat,
-  .hero-birds,
+  .hero-balloon,
+  .hero-lighthouse-glow,
+  .hero-water-sparkles,
+  .hero-seagulls-left,
+  .hero-seagulls-right,
+  .hero-gull,
+  .hero-paper-plane,
+  .hero-motes,
   .flight-dash,
   .flight-pin {
     animation: none !important;
