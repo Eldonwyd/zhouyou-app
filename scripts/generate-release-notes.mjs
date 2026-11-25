@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { readdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -26,6 +27,76 @@ function classify(name) {
   return { order: 99, platform: '其他构建', device: '-' };
 }
 
+function cleanCommitSubject(raw) {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return '';
+  if (/^merge\b/i.test(trimmed)) return '';
+  if (/^chore\(release\):/i.test(trimmed)) return '';
+  if (/^(?:chore|ci):\s*(?:bump version|递增版本号|trigger cloudflare)/i.test(trimmed)) return '';
+  if (/^bump version/i.test(trimmed)) return '';
+
+  const stripped = trimmed
+    .replace(/^(?:feat|fix|style|perf|refactor|ui|docs|chore|ci|build)(?:\([^)]*\))?!?:\s*/i, '')
+    .replace(/\s*\(v?\d+\.\d+\.\d+[^)]*\)\s*$/i, '')
+    .trim();
+
+  if (!stripped || /^递增版本号/.test(stripped)) return '';
+  return stripped;
+}
+
+function collectChangelogItems() {
+  const tagPrefix = kind === 'desktop' ? 'desktop-v' : kind === 'mobile' ? 'mobile-v' : '';
+  const currentTag = tagPrefix ? `${tagPrefix}${version}` : `v${version}`;
+  let prevTag = '';
+
+  try {
+    const pattern = tagPrefix ? `${tagPrefix}*` : 'v*';
+    const tagsRaw = execFileSync('git', ['tag', '--list', pattern, '--sort=-v:refname'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const tags = tagsRaw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    prevTag = tags.find((t) => t !== currentTag) || '';
+  } catch {
+    prevTag = '';
+  }
+
+  let subjects = [];
+  try {
+    const range = prevTag ? `${prevTag}..HEAD` : '-n 8';
+    const args = prevTag
+      ? ['log', range, '--no-merges', '--format=%s']
+      : ['log', '-n', '8', '--no-merges', '--format=%s'];
+    const logRaw = execFileSync('git', args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    subjects = logRaw.split(/\r?\n/).map(cleanCommitSubject).filter(Boolean);
+  } catch {
+    subjects = [];
+  }
+
+  // 若区间内只有发版 commit，回退读取最近 5 条非发版提交中最新的一条
+  if (subjects.length === 0) {
+    try {
+      const logRaw = execFileSync('git', ['log', '-n', '10', '--no-merges', '--format=%s'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      subjects = logRaw.split(/\r?\n/).map(cleanCommitSubject).filter(Boolean).slice(0, 1);
+    } catch {
+      subjects = [];
+    }
+  }
+
+  const unique = [];
+  for (const item of subjects) {
+    if (!unique.includes(item)) unique.push(item);
+    if (unique.length >= 5) break;
+  }
+  return unique;
+}
+
 const rows = [];
 for (const name of entries) {
   const info = await stat(path.join(filesDir, name));
@@ -37,37 +108,25 @@ const tableLines = rows.length
   ? rows.map((r) => `| **${r.platform}** | ${r.device} | \`${r.name}\` | ${r.size} |`).join('\n')
   : '| _暂无构建产物_ | - | - | - |';
 
+const changelogItems = collectChangelogItems();
+const changelogBlock = changelogItems.length
+  ? `### ✨ 更新内容\n\n${changelogItems.map((item) => `- ${item}`).join('\n')}`
+  : `### ✨ 更新内容\n\n- 常规体验优化与问题修复`;
+
 let heading = `## 🎉 周游地图 Zhouyou Map v${version}`;
-let intro = '全平台客户端已自动构建完成。';
-let tips = '';
+let portalLink = `> 🌐 **官网下载中心**：[https://zhouyou.online/download.html](https://zhouyou.online/download.html)`;
 
 if (kind === 'desktop') {
   heading = `## 💻 周游地图 电脑桌面版 v${version}`;
-  intro = '电脑桌面版独立安装包已自动构建完成，内置完整本地 AI 行程规划与离线 OCR 引擎，支持 **Windows / macOS / Linux**，无需安装 Node.js 开箱即用。';
-  tips = `> 🌐 **电脑版官网下载页（推荐）**：[https://zhouyou.online/download.html#desktop](https://zhouyou.online/download.html#desktop)
-> 📱 需要手机版？请前往 [手机版官网下载区](https://zhouyou.online/download.html#mobile)
-
-### 🛠️ 电脑端安装提示
-- **Windows**：若弹出 SmartScreen 安全提示，点击「更多信息」→「仍要运行」。
-- **macOS**：首次打开如提示“已损坏”或“无法验证开发者”，在终端运行：\`xattr -cr "/Applications/Zhouyou Map.app"\`。
-- **Linux**：AppImage 需赋予执行权限：\`chmod +x Zhouyou-Map-*.AppImage && ./Zhouyou-Map-*.AppImage\`；Debian/Ubuntu 可执行 \`sudo apt install ./Zhouyou-Map-*.deb\`。`;
+  portalLink = `> 🌐 **电脑版官网下载页**：[https://zhouyou.online/download.html#desktop](https://zhouyou.online/download.html#desktop)`;
 } else if (kind === 'mobile') {
   heading = `## 📱 周游地图 手机移动版 v${version}`;
-  intro = '手机移动版独立安装包已自动构建完成，安卓推荐优先安装 **Android (`.apk`)**（完整支持免电脑 AI 订阅登录），同时提供 **iOS (`.ipa`)** 与 **Web PWA** 轻体验方式。';
-  tips = `> 🌐 **手机版官网下载页（推荐）**：[https://zhouyou.online/download.html#mobile](https://zhouyou.online/download.html#mobile)
-> 💻 需要电脑版？请前往 [电脑版官网下载区](https://zhouyou.online/download.html#desktop)
-
-### 🛠️ 手机端安装提示
-- **Android (安卓 · 推荐)**：下载 \`.apk\` 后直接点击安装（国产手机若提示第三方应用提醒，勾选「已知悉风险 → 继续安装」即可）。
-- **iOS (苹果)**：通过 AltStore / SideStore / TrollStore / Sideloadly 安装 \`.ipa\`。
-- **Web PWA（轻体验）**：用浏览器打开 [https://zhouyou.online/](https://zhouyou.online/) 添加到主屏幕——打开快、免安装，但 AI 订阅使用受限（建议搭配 API Key）。`;
-} else {
-  tips = `> 🌐 **官网下载中心（推荐）**：[电脑版下载](https://zhouyou.online/download.html#desktop) · [手机版下载](https://zhouyou.online/download.html#mobile) · [在线 PWA](https://zhouyou.online/)`;
+  portalLink = `> 🌐 **手机版官网下载页**：[https://zhouyou.online/download.html#mobile](https://zhouyou.online/download.html#mobile)`;
 }
 
 const markdown = `${heading}
 
-${intro}
+${changelogBlock}
 
 ### 📦 下载列表
 
@@ -75,10 +134,10 @@ ${intro}
 | :--- | :--- | :--- | :---: |
 ${tableLines}
 
-${tips}
+${portalLink}
 
 完整校验值见附件 \`SHA256SUMS.txt\`。
 `;
 
 await writeFile(outFile, markdown, 'utf8');
-process.stdout.write(`Wrote ${kind} release notes (${rows.length} files) to ${outFile}\n`);
+process.stdout.write(`Wrote ${kind} release notes (${rows.length} files, ${changelogItems.length} changes) to ${outFile}\n`);

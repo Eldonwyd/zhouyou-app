@@ -90,7 +90,15 @@ const GITHUB_API_RELEASES_URL = 'https://api.github.com/repos/Eldonwyd/zhouyou-a
 export const DOWNLOAD_PORTAL_URL = 'https://zhouyou.online/download.html';
 export const GITHUB_RELEASES_URL = 'https://github.com/Eldonwyd/zhouyou-app/releases';
 
-const NativeAiBridgeForBrowser = registerPlugin<{ openExternalUrl(opts: { url: string }): Promise<{ ok: boolean }> }>('NativeAiBridge');
+const NativeAiBridgeForBrowser = registerPlugin<{
+  openExternalUrl(opts: { url: string }): Promise<{ ok: boolean }>;
+  httpRequest(opts: {
+    url: string;
+    method?: string;
+    headers?: Record<string, string>;
+    timeoutMs?: number;
+  }): Promise<{ status: number; body: string }>;
+}>('NativeAiBridge');
 
 const NativeAppUpdater = registerPlugin<NativeAppUpdaterPlugin>('AppUpdater');
 
@@ -355,25 +363,39 @@ function cleanMarkdownLine(line: string): string {
 export function summarizeNotes(rawBody: string): string {
   const withoutCodeBlocks = String(rawBody || '').replace(/```[\s\S]*?```/g, '');
   const parsed: Array<{ text: string; isHeading: boolean }> = [];
+  let skippingSection = false;
 
   for (const rawLine of withoutCodeBlocks.split(/\r?\n/)) {
     const trimmed = rawLine.trim();
     if (!trimmed) continue;
     if (trimmed.startsWith('|') || trimmed.startsWith('<!--')) continue;
-    if (/^#{1,2}\s*.*周游地图.*v\d+/i.test(trimmed)) continue;
-    if (/^#{1,3}\s*(?:📦\s*)?下载列表/i.test(trimmed)) continue;
-    if (/^>\s*(?:🌐|📱|💻)?\s*(?:\*\*)?(?:电脑版官网下载页|手机版官网下载页|官网下载中心|需要手机版|需要电脑版)/i.test(trimmed)) continue;
-    if (/^#{1,3}\s*校验|SHA256|完整校验值见附件/i.test(trimmed)) continue;
 
     const isHeading = /^#{1,6}\s+/.test(trimmed);
+    if (isHeading) {
+      // 跳过安装提示、下载列表、校验值等样板区块
+      if (/安装提示|下载列表|校验|SHA256/i.test(trimmed)) {
+        skippingSection = true;
+        continue;
+      }
+      skippingSection = false;
+      // 跳过版本号总标题与“更新内容”小标题本身，只保留简洁要点
+      if (/^#{1,2}\s*.*周游地图.*v\d+/i.test(trimmed)) continue;
+      if (/^#{1,4}\s*(?:✨\s*)?(?:更新内容|本次更新|更新日志|What'?s Changed|Changelog)/i.test(trimmed)) continue;
+    }
+
+    if (skippingSection) continue;
+    if (/^>\s*(?:🌐|📱|💻)?\s*(?:\*\*)?(?:电脑版官网下载页|手机版官网下载页|官网下载中心|需要手机版|需要电脑版)/i.test(trimmed)) continue;
+    if (/^(?:电脑桌面版独立安装包已自动构建完成|手机移动版独立安装包已自动构建完成|全平台客户端已自动构建完成)/.test(trimmed)) continue;
+    if (/完整校验值见附件|SHA256SUMS\.txt/i.test(trimmed)) continue;
+
     const cleaned = cleanMarkdownLine(trimmed);
     if (!cleaned) continue;
     parsed.push({ text: cleaned, isHeading });
   }
 
   const kept: Array<{ text: string; isHeading: boolean }> = [];
-  const maxLines = 6;
-  const maxChars = 420;
+  const maxLines = 4;
+  const maxChars = 240;
   let usedChars = 0;
 
   for (const item of parsed) {
@@ -383,7 +405,7 @@ export function summarizeNotes(rawBody: string): string {
     if (usedChars + sepLen + itemLen <= maxChars) {
       kept.push(item);
       usedChars += sepLen + itemLen;
-    } else if (!item.isHeading && maxChars - usedChars - sepLen >= 24) {
+    } else if (!item.isHeading && maxChars - usedChars - sepLen >= 20) {
       kept.push({ text: sliceCodePoints(item.text, maxChars - usedChars - sepLen), isHeading: false });
       break;
     } else {
@@ -444,7 +466,31 @@ async function fetchHotUpdateManifest(
         return { manifest, zipAsset };
       }
     } catch {
-      /* 尝试下一个清单地址 */
+      /* 尝试下一个清单地址或原生兜底 */
+    }
+  }
+
+  // Android 原生兜底：绕过 WebView 潜在的 CORS/代理限制直接通过原生 HTTP 读取热更新清单
+  if (!signal?.aborted && Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('NativeAiBridge')) {
+    for (const url of urls) {
+      try {
+        const res = await NativeAiBridgeForBrowser.httpRequest({
+          url,
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+          timeoutMs: 10000,
+        });
+        if (res.status < 200 || res.status >= 300 || !res.body) continue;
+        const manifest = JSON.parse(res.body) as RemoteHotManifest;
+        const zipAsset = assets.find(
+          (a) => (manifest.bundleFile && a.name === manifest.bundleFile) || /-hot-update\.zip$/i.test(a.name),
+        );
+        if (zipAsset && manifest.bundleSha256) {
+          return { manifest, zipAsset };
+        }
+      } catch {
+        /* 继续尝试下一个地址 */
+      }
     }
   }
   return null;

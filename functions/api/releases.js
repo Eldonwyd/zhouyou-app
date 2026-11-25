@@ -29,6 +29,16 @@ function sliceCodePoints(text, max) {
   return chars.length <= max ? chars.join('') : chars.slice(0, max).join('');
 }
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Accept',
+};
+
+export async function onRequestOptions() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
 /**
  * 代理 GitHub Releases 列表并做边缘缓存，避免国内手机直连 api.github.com 超时或被限流。
  */
@@ -50,7 +60,7 @@ export async function onRequestGet(context) {
     if (!upstream.ok) {
       return new Response(JSON.stringify({ error: `GitHub API HTTP ${upstream.status}` }), {
         status: upstream.status,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json; charset=utf-8' },
       });
     }
 
@@ -80,6 +90,7 @@ export async function onRequestGet(context) {
     return new Response(JSON.stringify(slim), {
       status: 200,
       headers: {
+        ...CORS_HEADERS,
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'public, max-age=300, s-maxage=600',
       },
@@ -87,7 +98,7 @@ export async function onRequestGet(context) {
   } catch (err) {
     return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'fetch-failed' }), {
       status: 502,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json; charset=utf-8' },
     });
   }
 }
