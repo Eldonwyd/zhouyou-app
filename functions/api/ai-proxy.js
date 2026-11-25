@@ -26,6 +26,8 @@ const ALLOWED_HOSTS = new Set([
   'zh.wikipedia.org',
   'en.wikipedia.org',
   'commons.wikimedia.org',
+  'baike.baidu.com',
+  'cn.bing.com',
   'photon.komoot.io',
   'nominatim.openstreetmap.org',
 ]);

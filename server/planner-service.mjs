@@ -237,7 +237,7 @@ export function createPlannerService({
   photoStore = createPlannerPhotoStore({ fetchImpl }),
   photoInspector = null, // 由服务入口创建并共享；未提供时不检查，小红书只用正文图
   photoTimeoutMs = 60000,
-  xhsPhotoTimeoutMs = 45000,
+  xhsPhotoTimeoutMs = 25000,
 }) {
   const evidenceCache = new Map();
   const dateNow = () =>
@@ -560,10 +560,10 @@ export function createPlannerService({
   const isUndesirablePhotoMeta = (text = '', url = '') => {
     const combined = `${text} ${url}`;
     if (/\.(svg|pdf|tif|tiff|ogv|webm|gif)(?:$|\?)/i.test(url)) return true;
-    if (/map|locator|flag|coat_of_arms|logo|icon|symbol|emblem|blank|signature|seal|stamp|diagram|chart|blueprint|poster|newspaper/i.test(url)) return true;
-    // 拦截新闻视频截图、水印图、人群围观、人物肖像与活动照
-    if (/china\s*news\s*service|中新网|中新社|新华社|xinhua|cctv|cgtn|视频|video|screenshot|screencap|news\s*clip|press\s*conference|发布会|采访|记者/i.test(combined)) return true;
-    if (/portrait|selfie|headshot|crowd|visitors|tourists|audience|people\s+(?:at|in|visiting|watching)|group\s*photo|ceremony|opening\s*ceremony|speech|lecture|performance|concert|parade|游客|观众|人群|人山人海|人像|肖像|人物|合照|合影|自拍|仪式|典礼|演讲|会议|演出|活动现场/i.test(combined)) return true;
+    if (/locator|flag|coat_of_arms|logo|icon|symbol|emblem|blank|signature|seal|stamp|diagram|chart|blueprint|poster|newspaper|qrcode|avatar/i.test(url)) return true;
+    // 拦截新闻视频截图、水印图与人物肖像/会议照，不误杀含“游客”描述的正常景区风景照
+    if (/china\s*news\s*service|中新网|中新社|新华社|xinhua|cctv|cgtn|视频截图|screenshot|screencap|news\s*clip|press\s*conference|发布会|采访|记者/i.test(combined)) return true;
+    if (/portrait|selfie|headshot|group\s*photo|ceremony|opening\s*ceremony|speech|lecture|人像|肖像|合照|合影|自拍|仪式|典礼|演讲|会议/i.test(combined)) return true;
     return false;
   };
 
@@ -664,7 +664,7 @@ export function createPlannerService({
     progress('AI 正在选择合适的参考图');
     try {
       const response = await chatModel.chat({
-        json: true, maxTokens: 700, signal, timeout: 15000, fast: true,
+        json: true, maxTokens: 700, signal, timeout: 8000, fast: true,
         messages: [{ role: 'user', content: JSON.stringify({
           task: '选择旅行参考配图', city, place, travelDate: date || null,
           preference: '要一张不带文字的风景实拍照，地点相似即可。优先选风景摄影、实拍、随手拍、出片分享类笔记；攻略、合集、清单、避坑、路线、价格、排行、教程类笔记的图片常带大段文字，排在最后或不选。月份只在多个合适候选间作为加分项。',
@@ -684,19 +684,157 @@ export function createPlannerService({
     }
   }
 
+  /** 高速高命中公开图源（百度百科 + 必应图片），含可选城市实景兜底。 */
+  async function fastPublicPhotoLookup(city, placeName, location, key, signal, onDiagnostic, progress, { allowCityFallback = false } = {}) {
+    const shortPlace = placeName
+      .replace(/（[^）]*）|\([^)]*\)/g, '')
+      .replace(/(?:国家级?)?(?:文化旅游区|风景名胜区|旅游度假区|历史文化街区|民俗风貌区|生态旅游区|森林公园|地质公园|遗址公园|步行街|商业街|旅游区|风景区|景区)$/g, '')
+      .trim();
+    const shortCity = String(city || '').replace(/(?:市|自治州|地区|盟)$/, '').trim();
+    const cleanLocation = location ? plannerPhotoPlaceName(location) : '';
+    const placeCandidates = [...new Set([
+      placeName,
+      shortPlace && shortPlace.length >= 2 ? shortPlace : '',
+      cleanLocation && cleanLocation.length >= 2 && cleanLocation !== placeName ? cleanLocation : '',
+    ].filter(Boolean))];
+
+    const tryBaike = async (keyword, checkCityConflict = true, attributionPrefix = '') => {
+      if (signal.aborted) return null;
+      try {
+        const url = new URL('https://baike.baidu.com/api/openapi/BaikeLemmaCardApi');
+        url.search = new URLSearchParams({ scope: '103', format: 'json', appid: '379020', bk_key: keyword }).toString();
+        const data = await requestJson(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } }, signal, 5500);
+        const img = typeof data?.image === 'string' ? data.image : '';
+        if (!img || !isPublicWebUrl(img)) return null;
+        if (isWikiBiographyPage(data.title || '', data.desc || '', data.abstract || '')) return null;
+        if (isUndesirablePhotoMeta(`${data.title || ''} ${data.desc || ''}`, img)) return null;
+        const w = Number(data.imageWidth || 0);
+        const h = Number(data.imageHeight || 0);
+        if (w && w < 200) return null;
+        if (w && h && h > w * 2.2) return null;
+        if (checkCityConflict && shortCity) {
+          const metaText = `${data.desc || ''} ${data.abstract || ''}`;
+          const explicitCities = [...metaText.matchAll(/([\u4e00-\u9fff]{2,5})市/g)].map((m) => m[1]);
+          if (explicitCities.length && !explicitCities.some((c) => c === shortCity || c.endsWith(shortCity) || shortCity.endsWith(c))) {
+            return null;
+          }
+        }
+        const sourceUrl = (typeof data.url === 'string' ? data.url : '').replace(/^http:\/\//i, 'https://')
+          || `https://baike.baidu.com/item/${encodeURIComponent(data.title || keyword)}`;
+        return await saveMatchedPhoto(key, {
+          url: img,
+          sourceUrl: isPublicWebUrl(sourceUrl) ? sourceUrl : `https://baike.baidu.com/item/${encodeURIComponent(data.title || keyword)}`,
+          attribution: attributionPrefix ? `${attributionPrefix} · 百度百科` : `百度百科 · ${data.title || keyword}`,
+        }, signal, onDiagnostic);
+      } catch (error) {
+        if (signal.aborted) throw error;
+        return null;
+      }
+    };
+
+    const tryBing = async (keyword, labelSuffix = '') => {
+      if (signal.aborted) return null;
+      try {
+        const url = new URL('https://cn.bing.com/images/async');
+        url.search = new URLSearchParams({ q: keyword, first: '0', count: '12', mmasync: '1' }).toString();
+        const response = await fetchImpl(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', Accept: 'text/html' },
+          signal: AbortSignal.any([signal, AbortSignal.timeout(6500)]),
+        });
+        if (!response.ok) return null;
+        const html = await response.text();
+        const items = [];
+        for (const match of html.matchAll(/m="([^"]+)"/g)) {
+          try {
+            const parsed = JSON.parse(match[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
+            const t = String(parsed.t || '');
+            const murl = String(parsed.murl || '');
+            const turl = String(parsed.turl || '');
+            const purl = String(parsed.purl || '');
+            if (isUndesirablePhotoMeta(t, murl || turl)) continue;
+            if (/地图|路线图|导览图|平面图|攻略图|手绘|票价|时刻表|二维码|微信|小红书封面/i.test(t)) continue;
+            const urls = [murl, turl].filter((u) => isPublicWebUrl(u));
+            if (!urls.length) continue;
+            items.push({ t, urls, purl, score: scoreSceneryCandidate(t) + (isPublicWebUrl(turl) ? 10 : 0) });
+          } catch {
+            // ignore malformed item
+          }
+        }
+        items.sort((a, b) => b.score - a.score);
+        for (const item of items.slice(0, 5)) {
+          const fallbackSource = `https://cn.bing.com/images/search?q=${encodeURIComponent(keyword)}`;
+          const sourceUrl = isPublicWebUrl(item.purl) ? item.purl : fallbackSource;
+          for (const candidateUrl of item.urls) {
+            const saved = await saveMatchedPhoto(key, {
+              url: candidateUrl,
+              sourceUrl,
+              attribution: labelSuffix ? `必应实景参考 · ${labelSuffix}` : `必应实景参考 · ${placeName || keyword}`,
+            }, signal, onDiagnostic);
+            if (saved) return saved;
+          }
+        }
+        return null;
+      } catch (error) {
+        if (signal.aborted) throw error;
+        return null;
+      }
+    };
+
+    if (!allowCityFallback) {
+      progress('正在检索百度百科与公开实景图');
+      const baikeKeywords = [...new Set([
+        ...placeCandidates,
+        ...(shortCity ? placeCandidates.filter((p) => !p.includes(shortCity)).map((p) => `${shortCity}${p}`) : []),
+      ])].slice(0, 4);
+      for (const kw of baikeKeywords) {
+        const saved = await tryBaike(kw, true);
+        if (saved) return saved;
+      }
+      progress('正在检索全网公开风景实景图');
+      const bingQuery = [shortCity && !placeName.includes(shortCity) ? shortCity : '', placeName, '风景 实景'].filter(Boolean).join(' ');
+      const bingSaved = await tryBing(bingQuery);
+      if (bingSaved) return bingSaved;
+      return null;
+    }
+
+    if (shortCity) {
+      progress(`正在补充 ${shortCity} 城市实景参考图`);
+      const cityBaike = await tryBaike(shortCity, false, `${shortCity} 城市实景参考`);
+      if (cityBaike) return cityBaike;
+      const cityBing = await tryBing(`${shortCity} 风景 地标`, `${shortCity} 城市实景`);
+      if (cityBing) return cityBing;
+    }
+    return null;
+  }
+
   async function photoFor(title, city, signal, refresh = false, onDiagnostic = () => {}, context = {}) {
     signal.throwIfAborted();
-    // 总预算覆盖排队、搜索、详情及下载；超时仅结束配图，不能拖住整份行程。
+    // 总预算覆盖排队、搜索、详情及下载；超时仅结束主流程，仍留独立收尾窗口走高速公开图库，避免首次冷启动空手而归。
     const deadline = AbortSignal.timeout(photoTimeoutMs);
     const boundedSignal = AbortSignal.any([signal, deadline]);
     try {
-      return await waitForPlannerOperation(
+      const found = await waitForPlannerOperation(
         lookupPhoto(title, city, boundedSignal, refresh, onDiagnostic, context), boundedSignal,
       );
+      if (found) return found;
     } catch (error) {
       if (signal.aborted) throw error;
       if (!deadline.aborted) throw error;
-      onDiagnostic(`查找已达 ${Math.ceil(photoTimeoutMs / 1000)} 秒上限，请稍后重试或打开小红书查看`);
+      onDiagnostic('主配图通道耗时较长，已切换高速公开实景图库补全');
+    }
+    if (signal.aborted) return null;
+    const placeName = plannerPhotoPlaceName(title);
+    const normCity = plannerPhotoCityName(city);
+    if (!placeName) return null;
+    const month = plannerPhotoMonth(context.date);
+    const key = `${normCity}:${placeName}:${month}`;
+    const rescueSignal = AbortSignal.any([signal, AbortSignal.timeout(16000)]);
+    const progress = context.onProgress ?? (() => {});
+    try {
+      return (await fastPublicPhotoLookup(normCity, placeName, context.location || '', key, rescueSignal, onDiagnostic, progress, { allowCityFallback: false }))
+        ?? (await fastPublicPhotoLookup(normCity, placeName, context.location || '', key, rescueSignal, onDiagnostic, progress, { allowCityFallback: true }));
+    } catch (error) {
+      if (signal.aborted) throw error;
       return null;
     }
   }
@@ -720,8 +858,12 @@ export function createPlannerService({
       const xhsDeadline = AbortSignal.timeout(xhsPhotoTimeoutMs);
       const xhsSignal = AbortSignal.any([signal, xhsDeadline]);
       try {
-        // 本地检查（文字/拼图/人像）可用时，封面先检查后可直接使用，省掉读详情；不可用时只用正文图。
-        const inspect = await inspectorReady() ? (bytes) => photoInspector.check(bytes) : null;
+        // 本地检查（文字/拼图/人像）可用时，封面先检查后可直接使用，省掉读详情；首次冷启动加载模型超过 6 秒不阻塞本次查图。
+        const ready = await Promise.race([
+          inspectorReady(),
+          new Promise((resolve) => setTimeout(() => resolve(false), 6000)),
+        ]);
+        const inspect = ready ? (bytes) => photoInspector.check(bytes) : null;
         photo = await waitForPlannerOperation(xhsBridge.firstPhoto(city, placeName, xhsSignal,
           (candidate) => saveMatchedPhoto(key, candidate, xhsSignal, onDiagnostic, inspect), progress,
           (candidates) => chooseReferenceCandidates(candidates, city, placeName, context.date, xhsSignal, progress),
@@ -736,7 +878,7 @@ export function createPlannerService({
       progress('正在检索公开小红书图片');
       try {
         const result = { results: await web.search(`site:xiaohongshu.com ${city} ${placeName} 实景 图片`.slice(0, 128),
-          { count: 5, needContent: true, signal, timeout: 12000 }) };
+          { count: 5, needContent: true, signal, timeout: 8000 }) };
         if (!result.results?.length) onDiagnostic('小红书公开检索未返回相关笔记，未取得站内搜索图片');
         photo = await photoFromSearchResults(result.results ?? [], city, placeName, signal, true, key, onDiagnostic);
         if (!photo && result.results?.length) onDiagnostic('小红书公开笔记未提供可匹配的图片，可能需要登录查看');
@@ -746,6 +888,9 @@ export function createPlannerService({
         // 登录要求、不可公开访问或检索失败只触发回退，不收集 Cookie 或绕过验证。
       }
     } else if (!web.available && !photo) onDiagnostic('尚未配置联网检索服务，无法检索小红书公开笔记');
+    if (!photo) {
+      photo = await fastPublicPhotoLookup(city, placeName, context.location || '', key, signal, onDiagnostic, progress, { allowCityFallback: false });
+    }
     if (!photo) {
       progress('正在检索其他图片来源');
       photo = await indexedPhoto(city, placeName, '', key, signal, onDiagnostic);
@@ -798,8 +943,8 @@ export function createPlannerService({
             if (isUndesirablePhotoMeta(`${page.title} ${page.description || ''}`, img)) continue;
             const w = Number(page.thumbnail?.width || 0);
             const h = Number(page.thumbnail?.height || 0);
-            if (w && w < 240) continue;
-            if (w && h && h > w * 1.15) continue;
+            if (w && w < 220) continue;
+            if (w && h && h > w * 2.2) continue;
             photo = await saveMatchedPhoto(key, {
               url: img,
               sourceUrl: page.fullurl || `https://zh.wikipedia.org/?curid=${page.pageid}`,
@@ -856,7 +1001,7 @@ export function createPlannerService({
             if (!img || !isPublicWebUrl(img)) continue;
             if (!isRelevantWikiTitle(evidence, placeName, shortPlace)) continue;
             if (isUndesirablePhotoMeta(`${evidence} ${artist}`, img)) continue;
-            if (info?.width && info?.height && info.height > info.width * 1.15) continue;
+            if (info?.width && info?.height && info.height > info.width * 2.2) continue;
             photo = await saveMatchedPhoto(key, {
               url: img,
               sourceUrl: info?.descriptionurl || img,
@@ -881,6 +1026,9 @@ export function createPlannerService({
         onDiagnostic('其他公开图片来源暂时无法读取');
         /* Keep an honest placeholder if all public sources fail. */
       }
+    }
+    if (!photo && !signal.aborted) {
+      photo = await fastPublicPhotoLookup(city, placeName, context.location || '', key, signal, onDiagnostic, progress, { allowCityFallback: true });
     }
     signal.throwIfAborted();
     return photo;

@@ -13,6 +13,7 @@ import {
   updatePlannerDates,
   validatePlannerContent,
 } from './planner-domain';
+import { plannerPhotoCityName, plannerPhotoPlaceName } from './planner-photo';
 import type {
   AiTravelPlan,
   DestinationRecommendation,
@@ -125,6 +126,8 @@ const PROXY_ALLOWED_HOSTS = new Set([
   'zh.wikipedia.org',
   'en.wikipedia.org',
   'commons.wikimedia.org',
+  'baike.baidu.com',
+  'cn.bing.com',
   'photon.komoot.io',
   'nominatim.openstreetmap.org',
 ]);
@@ -1854,7 +1857,7 @@ export async function handleMobilePlannerApi<T>(
 
   if (endpoint === 'normalize-external') {
     const raw = (payload.raw && typeof payload.raw === 'object' ? payload.raw : {}) as Record<string, unknown>;
-    return normalizeMobilePlanContent(raw, payload.request) as unknown as T;
+    return normalizeMobilePlanContent(raw, payload.request, { patchMode: Boolean(payload.patchMode) }) as unknown as T;
   }
 
   if (endpoint === 'ai-settings') {
@@ -2169,21 +2172,33 @@ function normalizeMobileCosts(
     const qty = Number.isSafeInteger(rawQty) && rawQty >= 1 ? rawQty : 1;
     const rawOcc = Number(item.occurrences ?? item.nights ?? 1);
     const occ = Number.isSafeInteger(rawOcc) && rawOcc >= 1 ? rawOcc : 1;
+    const studentPriceCents =
+      typeof item.studentPriceCents === 'number' && Number.isFinite(item.studentPriceCents) && item.studentPriceCents >= 0
+        ? Math.round(item.studentPriceCents)
+        : parseFlexibleYuanToCents(item.studentYuan);
+    const seniorPriceCents =
+      typeof item.seniorPriceCents === 'number' && Number.isFinite(item.seniorPriceCents) && item.seniorPriceCents >= 0
+        ? Math.round(item.seniorPriceCents)
+        : parseFlexibleYuanToCents(item.seniorYuan);
+    const childPriceCents =
+      typeof item.childPriceCents === 'number' && Number.isFinite(item.childPriceCents) && item.childPriceCents >= 0
+        ? Math.round(item.childPriceCents)
+        : parseFlexibleYuanToCents(item.childYuan);
     out.push({
       id,
       label: String(item.label ?? item.name ?? item.title ?? fallbackLabel ?? '预估费用').trim() || '预估费用',
       category: cat,
       unit,
       unitPriceCents,
-      studentPriceCents: typeof item.studentPriceCents === 'number' && Number.isFinite(item.studentPriceCents) && item.studentPriceCents >= 0 ? Math.round(item.studentPriceCents) : null,
-      seniorPriceCents: typeof item.seniorPriceCents === 'number' && Number.isFinite(item.seniorPriceCents) && item.seniorPriceCents >= 0 ? Math.round(item.seniorPriceCents) : null,
-      childPriceCents: typeof item.childPriceCents === 'number' && Number.isFinite(item.childPriceCents) && item.childPriceCents >= 0 ? Math.round(item.childPriceCents) : null,
+      studentPriceCents,
+      seniorPriceCents,
+      childPriceCents,
       quantity: qty,
       occurrences: occ,
       status: unitPriceCents === null ? 'unknown' : 'estimate',
       qualification: String(item.qualification ?? item.basis ?? '').trim(),
       sourceIds: [],
-      includedIn: null,
+      includedIn: typeof item.includedIn === 'string' && item.includedIn.trim() ? item.includedIn.trim() : null,
     });
   }
   if (!out.length && typeof fallbackCents === 'number' && Number.isFinite(fallbackCents) && fallbackCents > 0) {
@@ -2250,9 +2265,17 @@ function normalizeMobileRequest(rawReq: unknown): PlannerRequest {
   return synced;
 }
 
-function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: unknown): PlannerContent {
+function normalizeMobilePlanContent(
+  raw: Record<string, unknown>,
+  rawRequest: unknown,
+  options: { patchMode?: boolean } = {},
+): PlannerContent {
   const req = normalizeMobileRequest(rawRequest);
-  const expectedDays = req.endDate ? plannerDayCount(req.startDate, req.endDate) : (req.days ?? 3);
+  const patchMode = Boolean(options.patchMode);
+  const rawDays = Array.isArray(raw.days) ? raw.days : [];
+  const expectedDays = patchMode
+    ? Math.max(1, rawDays.length)
+    : (req.endDate ? plannerDayCount(req.startDate, req.endDate) : (req.days ?? 3));
   const rawCities = Array.isArray(raw.cities) ? raw.cities : [];
   const cities: JourneyCity[] = rawCities
     .map((item) => {
@@ -2267,10 +2290,11 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
   }
   const primaryCity = cities[0].name;
 
-  const rawDays = Array.isArray(raw.days) ? raw.days : [];
   const usedActIds = new Set<string>();
   const usedCostIds = new Set<string>();
   const days: PlannerDay[] = [];
+  const extraWarnings: string[] = [];
+  let inferredRooms: number | null = null;
 
   for (let d = 0; d < expectedDays; d += 1) {
     const srcDay = (rawDays[d] && typeof rawDays[d] === 'object' ? rawDays[d] : {}) as Record<string, unknown>;
@@ -2295,29 +2319,36 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
     for (let i = 0; i < rawActs.length; i += 1) {
       const a = rawActs[i] as Record<string, unknown> | null;
       if (!a || typeof a !== 'object') continue;
-      let id = typeof a.id === 'string' && a.id.trim() ? a.id.trim() : `d${d + 1}-a${i + 1}`;
-      while (usedActIds.has(id)) id = `d${d + 1}-a${i + 1}-${usedActIds.size + 1}`;
-      usedActIds.add(id);
-
       const kind = normalizeMobileKind(a.kind ?? a.type ?? a.category);
       // 兼容 "09:00-11:30" 或 "09:00 ~ 11:30" 这样的单字段时间区间
       const timeRangeText = typeof a.time === 'string' ? a.time : (typeof a.timeRange === 'string' ? a.timeRange : '');
       const rangeParts = timeRangeText.split(/[-~至到—–]+/).map((s) => s.trim()).filter(Boolean);
-      const parsedStart = parseMobileMinutes(a.startTime ?? a.start) ?? parseMobileMinutes(rangeParts[0]) ?? cursor;
-      const startMin = Math.min(22 * 60 + 30, Math.max(6 * 60, parsedStart));
+      const explicitStart = parseMobileMinutes(a.startTime ?? a.start) ?? parseMobileMinutes(rangeParts[0]);
+      // 有显式时间时保留完整 24 小时制（00:00–23:58），不再把凌晨看日出/深夜航班强裁到 06:00–22:30。
+      const startMin = explicitStart !== null
+        ? Math.min(23 * 60 + 58, Math.max(0, explicitStart))
+        : Math.min(22 * 60 + 30, Math.max(6 * 60, cursor));
       const dur = typeof a.durationMinutes === 'number' && a.durationMinutes > 0 ? Math.min(360, Math.round(a.durationMinutes)) : 90;
       const parsedEnd = parseMobileMinutes(a.endTime ?? a.end) ?? (rangeParts[1] ? parseMobileMinutes(rangeParts[1]) : null);
       const endMin = parsedEnd !== null && parsedEnd > startMin
-        ? Math.min(23 * 60 + 55, parsedEnd)
-        : Math.min(23 * 60 + 55, startMin + Math.max(30, dur));
+        ? Math.min(23 * 60 + 59, parsedEnd)
+        : Math.min(23 * 60 + 59, startMin + Math.max(1, dur));
       cursor = Math.min(22 * 60, endMin + 30);
 
+      const title = String(a.title ?? a.name ?? a.spot ?? a.place ?? `${dayCity}行程安排`).trim() || `${dayCity}行程安排`;
       let meal = normalizeMobileMeal(a.meal, kind, startMin);
+      // 勾选「不安排早餐」时直接过滤早餐餐饮活动，避免只清空 meal 字段导致早餐卡残留并照常计费。
+      if (req.skipBreakfast && kind === 'food' && (meal === 'breakfast' || (/早餐|早饭/.test(title) && startMin < 10 * 60 + 30))) {
+        continue;
+      }
       if (req.skipBreakfast && meal === 'breakfast') meal = null;
+
+      let id = typeof a.id === 'string' && a.id.trim() ? a.id.trim() : `d${d + 1}-a${i + 1}`;
+      while (usedActIds.has(id)) id = `d${d + 1}-a${i + 1}-${usedActIds.size + 1}`;
+      usedActIds.add(id);
 
       const defaultCat: PlannerCost['category'] =
         kind === 'food' ? 'food' : kind === 'transport' ? 'transport' : kind === 'sight' ? 'tickets' : 'other';
-      const title = String(a.title ?? a.name ?? a.spot ?? a.place ?? `${dayCity}行程安排`).trim() || `${dayCity}行程安排`;
       const fallbackCostCents =
         typeof a.estimatedCostCents === 'number'
           ? a.estimatedCostCents
@@ -2346,6 +2377,7 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
           ? normalizeSingleTransferOptions(a.transferOptions, isSelfDriveTransport(req.transport))
           : undefined;
 
+      const rawPhotoQuery = typeof a.photoQuery === 'string' ? a.photoQuery.trim() : '';
       activities.push({
         id,
         kind,
@@ -2355,12 +2387,13 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
         title,
         city: String(a.city ?? dayCity).trim() || dayCity,
         location: String(a.location ?? a.address ?? title).trim() || title,
+        ...(rawPhotoQuery ? { photoQuery: rawPhotoQuery } : {}),
         description: descParts.join(' · '),
         transportMode: kind === 'transport' ? (String(a.transportMode ?? req.transport).trim() || '公共交通') : '',
         ...(rawDistanceKm !== undefined ? { distanceKm: rawDistanceKm } : {}),
         ...(rawTransferOpts?.length ? { transferOptions: rawTransferOpts } : {}),
         meal,
-        locked: false,
+        locked: Boolean(a.locked),
         photo: null,
         sourceIds: [],
         costs,
@@ -2372,16 +2405,17 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
     if (!activities.length) {
       const id = `d${d + 1}-a1`;
       usedActIds.add(id);
+      extraWarnings.push(`第 ${d + 1} 天未解析到具体活动，已暂填待补充项，请确认 AI 回复是否完整。`);
       activities.push({
         id,
-        kind: 'sight',
+        kind: 'rest',
         period: 'morning',
         startTime: '09:30',
         endTime: '12:00',
-        title: `${dayCity}核心地标漫游`,
+        title: `${dayCity}自由安排（待补充）`,
         city: dayCity,
         location: `${dayCity}市区`,
-        description: '自由探索当地代表性街区与风物。',
+        description: '该日暂无具体活动，可自由补充景点或美食安排。',
         transportMode: '',
         meal: null,
         locked: false,
@@ -2393,9 +2427,10 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
       });
     }
 
-    const isLastDay = d === expectedDays - 1;
+    const isLastDay = !patchMode && d === expectedDays - 1;
     let lodging: PlannerDay['lodging'] = null;
-    if (!isLastDay) {
+    const hasExplicitLodging = Object.prototype.hasOwnProperty.call(srcDay, 'lodging') || Object.prototype.hasOwnProperty.call(srcDay, 'stayArea');
+    if (!isLastDay && (!patchMode || (hasExplicitLodging && srcDay.lodging !== null))) {
       const rawLodging = srcDay.lodging && typeof srcDay.lodging === 'object'
         ? (srcDay.lodging as Record<string, unknown>)
         : null;
@@ -2411,9 +2446,12 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
         lodgingNightlyCents,
         `${lodgingCity}住宿`,
       );
-      if (lodgingCosts.length === 1 && typeof rawLodging?.roomCount === 'number' && Number.isSafeInteger(rawLodging.roomCount) && rawLodging.roomCount >= 1) {
-        lodgingCosts[0].quantity = rawLodging.roomCount;
-        lodgingCosts[0].unit = 'room';
+      if (typeof rawLodging?.roomCount === 'number' && Number.isSafeInteger(rawLodging.roomCount) && rawLodging.roomCount >= 1) {
+        if (inferredRooms === null) inferredRooms = rawLodging.roomCount;
+        if (lodgingCosts.length === 1) {
+          lodgingCosts[0].quantity = rawLodging.roomCount;
+          lodgingCosts[0].unit = 'room';
+        }
       }
       lodging = {
         city: lodgingCity,
@@ -2432,6 +2470,10 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
       activities,
       lodging,
     });
+  }
+
+  if (req.rooms === null && inferredRooms !== null) {
+    req.rooms = inferredRooms;
   }
 
   const rawAlts = Array.isArray(raw.alternatives) ? raw.alternatives : [];
@@ -2460,7 +2502,7 @@ function normalizeMobilePlanContent(raw: Record<string, unknown>, rawRequest: un
     request: req,
     cities,
     constraints: toStringList(raw.constraints),
-    warnings: toStringList(raw.warnings ?? raw.tips),
+    warnings: [...new Set([...toStringList(raw.warnings ?? raw.tips), ...extraWarnings])],
     days,
     alternatives,
     ...(unvisitedHighlights.length ? { unvisitedHighlights } : {}),
@@ -2712,54 +2754,106 @@ function normalizeMobileTransfers(
   return { legs };
 }
 
-/** 通用公开 GET JSON 请求：原生 APK 走 NativeAiBridge，浏览器/PWA 直接 fetch（支持 CORS 的公开 API）。 */
-async function fetchPublicJson<T>(url: string, timeoutMs = 8000): Promise<T | null> {
-  try {
-    const bridge = getNativeBridge();
-    if (bridge) {
-      const resp = await bridge.httpRequest({
-        url,
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-          'User-Agent': 'ZhouyouMap/1.0 (https://zhouyou.online)',
-        },
-        timeoutMs,
-      });
-      if (resp.status >= 200 && resp.status < 300) {
-        return JSON.parse(resp.body) as T;
+/** 通用公开 GET 文本请求：原生 APK 走 NativeAiBridge（国内受阻域名自动降级走边缘代理），浏览器/PWA 走边缘代理避开 CORS 与网络拦截。 */
+async function fetchPublicText(url: string, timeoutMs = 8000, accept = 'application/json'): Promise<string | null> {
+  const headers = {
+    Accept: accept,
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+  };
+  const bridge = getNativeBridge();
+  if (bridge) {
+    try {
+      const resp = await bridge.httpRequest({ url, method: 'GET', headers, timeoutMs });
+      if (resp.status >= 200 && resp.status < 300 && resp.body) {
+        return resp.body;
       }
-      return null;
+    } catch {
+      // 直连失败时尝试边缘代理（如国内访问维基百科）
     }
+    if (shouldUseEdgeProxy(url)) {
+      try {
+        const proxyResp = await bridge.httpRequest({
+          url: resolveAiProxyEndpoint(),
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ url, method: 'GET', headers, timeoutMs }),
+          timeoutMs: timeoutMs + 4000,
+        });
+        if (proxyResp.status >= 200 && proxyResp.status < 300) {
+          const parsed = JSON.parse(proxyResp.body) as { status?: number; body?: string };
+          if (typeof parsed.status === 'number' && parsed.status >= 200 && parsed.status < 300 && typeof parsed.body === 'string') {
+            return parsed.body;
+          }
+        }
+      } catch {
+        // ignore proxy fallback error
+      }
+    }
+    return null;
+  }
+
+  // 浏览器 / PWA：白名单域名优先走边缘代理，避免 CORS 与国内直连超时
+  if (shouldUseEdgeProxy(url)) {
+    try {
+      const resp = await transportHttpRequest({ url, method: 'GET', headers, timeoutMs });
+      if (resp.status >= 200 && resp.status < 300 && resp.body) {
+        return resp.body;
+      }
+    } catch {
+      // 边缘代理不可用时回退直接 fetch（适用于支持 CORS 的接口）
+    }
+  }
+  try {
     const resp = await fetch(url, {
       method: 'GET',
-      headers: { Accept: 'application/json' },
+      headers: { Accept: accept },
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!resp.ok) return null;
-    return (await resp.json()) as T;
+    return await resp.text();
   } catch {
     return null;
   }
 }
 
-/** 通过维基百科 / Wikimedia Commons 公开 API 搜索真实景点/城市实景图（免 Key、支持浏览器 CORS 与安卓原生）。
- * 严格校验词条名与景点匹配，过滤人物传记、新闻视频截图、人群围观与竖版人像，优先横版建筑与风景实景图。
+/** 通用公开 GET JSON 请求：自动兼容原生 APK 与浏览器/PWA 边缘代理。 */
+async function fetchPublicJson<T>(url: string, timeoutMs = 8000): Promise<T | null> {
+  const text = await fetchPublicText(url, timeoutMs, 'application/json');
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+}
+
+/** 通过多源公开图库（百度百科 → 必应图片 → 中文/英文维基百科 → Wikimedia Commons → 城市实景兜底）搜索真实景点实景图。
+ * 优先国内直连高速图源，确保全端、任意景点都能稳定搜到清晰实景图。
  */
 async function searchMobilePlacePhoto(
   city: string,
   title: string,
+  location = '',
 ): Promise<{ url: string; sourceUrl: string; attribution: string } | null> {
-  const cleanTitle = title.replace(/[·•｜|].*$/, '').replace(/（.*?）|\(.*?\)/g, '').trim();
+  const normalizedPlace = plannerPhotoPlaceName(title);
+  const cleanTitle = normalizedPlace.replace(/[·•｜|].*$/, '').replace(/（.*?）|\(.*?\)/g, '').trim() || title.trim();
   const shortTitle = cleanTitle
-    .replace(/(?:文化旅游区|风景名胜区|旅游度假区|历史文化街区|生态旅游区|森林公园|地质公园|旅游区|风景区|景区)$/g, '')
+    .replace(/(?:国家级?)?(?:文化旅游区|风景名胜区|旅游度假区|历史文化街区|民俗风貌区|生态旅游区|森林公园|地质公园|遗址公园|步行街|商业街|旅游区|风景区|景区)$/g, '')
     .trim();
-  const cleanCity = city.replace(/(?:市|自治州|地区)$/, '').trim();
-  const queries = [...new Set([
-    cleanCity && !cleanTitle.includes(cleanCity) ? `${cleanCity} ${cleanTitle}` : '',
-    cleanCity && shortTitle && shortTitle.length >= 2 && !shortTitle.includes(cleanCity) ? `${cleanCity} ${shortTitle}` : '',
+  const cleanCity = plannerPhotoCityName(city).replace(/(?:市|自治州|地区|盟)$/, '').trim();
+  const cleanLocation = location ? plannerPhotoPlaceName(location).replace(/[·•｜|].*$/, '').replace(/（.*?）|\(.*?\)/g, '').trim() : '';
+
+  const placeCandidates = [...new Set([
     cleanTitle,
     shortTitle && shortTitle.length >= 2 ? shortTitle : '',
+    cleanLocation && cleanLocation.length >= 2 && cleanLocation !== cleanTitle ? cleanLocation : '',
+  ].filter(Boolean))];
+
+  const queries = [...new Set([
+    ...placeCandidates.flatMap((p) => [
+      cleanCity && !p.includes(cleanCity) ? `${cleanCity} ${p}` : '',
+      p,
+    ]),
   ].filter(Boolean))];
 
   const tradMap: Record<string, string> = {
@@ -2775,11 +2869,11 @@ async function searchMobilePlacePhoto(
 
   const matchesPlace = (text = '') => {
     const nt = norm(text);
-    const n1 = norm(cleanTitle);
-    const n2 = norm(shortTitle);
     if (!nt) return false;
-    if (n1.length >= 2 && (nt.includes(n1) || n1.includes(nt))) return true;
-    if (n2.length >= 2 && (nt.includes(n2) || n2.includes(nt))) return true;
+    for (const candidate of placeCandidates) {
+      const nc = norm(candidate);
+      if (nc.length >= 2 && (nt.includes(nc) || nc.includes(nt))) return true;
+    }
     return false;
   };
 
@@ -2791,9 +2885,9 @@ async function searchMobilePlacePhoto(
   const isBadImage = (url: string, meta = '') => {
     const combined = `${meta} ${url}`;
     if (/\.(svg|pdf|tif|tiff|ogv|webm|gif)(?:$|\?)/i.test(url)) return true;
-    if (/map|locator|flag|coat_of_arms|logo|icon|symbol|emblem|blank|signature|seal|stamp|diagram|chart|blueprint|poster|newspaper/i.test(url)) return true;
-    if (/china\s*news\s*service|中新网|中新社|新华社|xinhua|cctv|cgtn|视频|video|screenshot|screencap|news\s*clip|press\s*conference|发布会|采访|记者/i.test(combined)) return true;
-    if (/portrait|selfie|headshot|crowd|visitors|tourists|audience|people\s+(?:at|in|visiting|watching)|group\s*photo|ceremony|opening\s*ceremony|speech|lecture|performance|concert|parade|游客|观众|人群|人山人海|人像|肖像|人物|合照|合影|自拍|仪式|典礼|演讲|会议|演出|活动现场/i.test(combined)) return true;
+    if (/locator|flag|coat_of_arms|logo|icon|symbol|emblem|blank|signature|seal|stamp|diagram|chart|blueprint|poster|newspaper|qrcode|avatar/i.test(url)) return true;
+    if (/china\s*news\s*service|中新网|中新社|新华社|xinhua|cctv|cgtn|视频截图|screenshot|screencap|press\s*conference|发布会|采访|记者/i.test(combined)) return true;
+    if (/portrait|selfie|headshot|group\s*photo|ceremony|opening\s*ceremony|speech|lecture|人像|肖像|合照|合影|自拍|仪式|典礼|演讲|会议/i.test(combined)) return true;
     return false;
   };
 
@@ -2802,8 +2896,8 @@ async function searchMobilePlacePhoto(
     if (width > 0 && height > 0) {
       const ratio = width / height;
       if (ratio >= 1.15 && ratio <= 2.4) score += 30;
-      else if (ratio >= 0.95) score += 10;
-      else score -= 35;
+      else if (ratio >= 0.85) score += 10;
+      else score -= 15;
     }
     if (width >= 640) score += 10;
     if (/exterior|building|facade|entrance|view|scenery|landscape|night|panorama|street|plaza|square|hall|外观|全景|夜景|建筑|大门|风景|实景|正门|外景/i.test(text)) {
@@ -2812,7 +2906,101 @@ async function searchMobilePlacePhoto(
     return score;
   };
 
-  for (const q of queries) {
+  const searchBaike = async (keyword: string, checkCityConflict = true) => {
+    const baikeUrl = `https://baike.baidu.com/api/openapi/BaikeLemmaCardApi?scope=103&format=json&appid=379020&bk_key=${encodeURIComponent(keyword)}`;
+    const data = await fetchPublicJson<{
+      title?: string;
+      desc?: string;
+      abstract?: string;
+      url?: string;
+      image?: string;
+      imageWidth?: number;
+      imageHeight?: number;
+    }>(baikeUrl, 5500);
+    if (!data?.image || !data.image.startsWith('https://')) return null;
+    if (isBiography(data.title || '', data.desc || '', data.abstract || '')) return null;
+    if (isBadImage(data.image, `${data.title || ''} ${data.desc || ''}`)) return null;
+    const w = Number(data.imageWidth || 0);
+    const h = Number(data.imageHeight || 0);
+    if (w && w < 200) return null;
+    if (w && h && h > w * 2.2) return null;
+    if (checkCityConflict && cleanCity) {
+      const metaText = `${data.desc || ''} ${data.abstract || ''}`;
+      const explicitCities = [...metaText.matchAll(/([\u4e00-\u9fff]{2,5})市/g)].map((m) => m[1]);
+      if (explicitCities.length && !explicitCities.some((c) => c === cleanCity || c.endsWith(cleanCity) || cleanCity.endsWith(c))) {
+        return null;
+      }
+    }
+    const pageUrl = (data.url || '').replace(/^http:\/\//i, 'https://') || `https://baike.baidu.com/item/${encodeURIComponent(data.title || keyword)}`;
+    return {
+      url: data.image,
+      sourceUrl: pageUrl,
+      attribution: `百度百科 · ${data.title || keyword}`,
+    };
+  };
+
+  const searchBingImages = async (keyword: string, labelSuffix = '') => {
+    const bingUrl = `https://cn.bing.com/images/async?q=${encodeURIComponent(keyword)}&first=0&count=12&mmasync=1`;
+    const html = await fetchPublicText(bingUrl, 6500, 'text/html');
+    if (!html) return null;
+    const items: Array<{ t: string; murl: string; turl: string; purl: string; score: number }> = [];
+    for (const match of html.matchAll(/m="([^"]+)"/g)) {
+      try {
+        const parsed = JSON.parse(match[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&')) as {
+          t?: string;
+          murl?: string;
+          turl?: string;
+          purl?: string;
+        };
+        const t = String(parsed.t || '');
+        const murl = String(parsed.murl || '');
+        const turl = String(parsed.turl || '');
+        const purl = String(parsed.purl || '');
+        const bestUrl = turl.startsWith('https://') ? turl : (murl.startsWith('https://') ? murl : '');
+        if (!bestUrl) continue;
+        if (isBadImage(murl || bestUrl, t)) continue;
+        if (/地图|路线图|导览图|平面图|攻略图|手绘|票价|时刻表|二维码|微信|小红书封面/i.test(t)) continue;
+        const score = scoreScenery(t) + (turl.startsWith('https://') ? 15 : 0);
+        items.push({ t, murl, turl, purl, score });
+      } catch {
+        // skip malformed item
+      }
+    }
+    items.sort((a, b) => b.score - a.score);
+    const chosen = items[0];
+    if (!chosen) return null;
+    const finalUrl = chosen.turl.startsWith('https://') ? chosen.turl : chosen.murl;
+    const sourceUrl = chosen.purl.startsWith('https://')
+      ? chosen.purl
+      : chosen.purl.startsWith('http://')
+        ? chosen.purl
+        : `https://cn.bing.com/images/search?q=${encodeURIComponent(keyword)}`;
+    return {
+      url: finalUrl,
+      sourceUrl,
+      attribution: labelSuffix ? `必应实景参考 · ${labelSuffix}` : `必应实景参考 · ${cleanTitle || keyword}`,
+    };
+  };
+
+  // 1) 百度百科（国内直连 HTTPS、覆盖率高、秒开）
+  const baikeKeywords = [...new Set([
+    ...placeCandidates,
+    ...(cleanCity ? placeCandidates.filter((p) => !p.includes(cleanCity)).map((p) => `${cleanCity}${p}`) : []),
+  ])].slice(0, 4);
+  for (const kw of baikeKeywords) {
+    const found = await searchBaike(kw, true);
+    if (found) return found;
+  }
+
+  // 2) 必应图片（全网高覆盖率，使用必应官方 HTTPS CDN，稳定不挂）
+  const bingQuery = [cleanCity && !cleanTitle.includes(cleanCity) ? cleanCity : '', cleanTitle, '风景 实景']
+    .filter(Boolean)
+    .join(' ');
+  const bingFound = await searchBingImages(bingQuery);
+  if (bingFound) return bingFound;
+
+  // 3) 中文维基百科
+  for (const q of queries.slice(0, 3)) {
     const wikiUrl =
       `https://zh.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}` +
       '&gsrlimit=6&prop=pageimages|info|description|extracts&piprop=thumbnail|original&pithumbsize=960&inprop=url&exintro=1&exchars=160&explaintext=1&format=json&origin=*';
@@ -2838,8 +3026,8 @@ async function searchMobilePlacePhoto(
       if (isBadImage(img, `${p.title || ''} ${p.description || ''}`)) continue;
       const w = Number(p.thumbnail?.width || 0);
       const h = Number(p.thumbnail?.height || 0);
-      if (w && w < 240) continue;
-      if (w && h && h > w * 1.15) continue;
+      if (w && w < 220) continue;
+      if (w && h && h > w * 2.2) continue;
       return {
         url: img,
         sourceUrl: p.fullurl || `https://zh.wikipedia.org/wiki/${encodeURIComponent(p.title || q)}`,
@@ -2848,9 +3036,9 @@ async function searchMobilePlacePhoto(
     }
   }
 
-  // 兜底：Wikimedia Commons 实景图搜索（过滤新闻视频截图/人群/人像，优先横版建筑风景图）
+  // 4) Wikimedia Commons 实景图
   const stripHtml = (html = '') => html.replace(/<[^>]*>/g, ' ').replace(/&[^;]+;/g, ' ').trim();
-  for (const q of queries.slice(0, 3)) {
+  for (const q of queries.slice(0, 2)) {
     const commonsUrl =
       `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(q)}` +
       '&gsrlimit=10&prop=imageinfo&iiprop=url|extmetadata|size&iiurlwidth=960&format=json&origin=*';
@@ -2893,7 +3081,7 @@ async function searchMobilePlacePhoto(
       if (!img || !img.startsWith('https://')) continue;
       if (!matchesPlace(evidence)) continue;
       if (isBadImage(img, `${evidence} ${artist}`)) continue;
-      if (info?.width && info?.height && info.height > info.width * 1.15) continue;
+      if (info?.width && info?.height && info.height > info.width * 2.2) continue;
       return {
         url: img,
         sourceUrl: info?.descriptionurl || img,
@@ -2901,6 +3089,17 @@ async function searchMobilePlacePhoto(
       };
     }
   }
+
+  // 5) 最终保底：放宽为城市风景实景图，确保每张景点卡片都能展示真实实景参考
+  if (cleanCity) {
+    const cityBaike = await searchBaike(cleanCity, false);
+    if (cityBaike) {
+      return { ...cityBaike, attribution: `${cleanCity} 城市实景参考 · 百度百科` };
+    }
+    const cityBing = await searchBingImages(`${cleanCity} 风景 地标`, `${cleanCity} 城市实景`);
+    if (cityBing) return cityBing;
+  }
+
   return null;
 }
 
@@ -3084,7 +3283,7 @@ async function locateSingleMobilePlace(place: { key: string; name: string; city?
       '你是周游地图专业中文旅行规划师。请严格返回紧凑合法 JSON 对象，不要输出任何额外说明或注释。',
       `必须严格按以下结构返回，共 ${expectedDays} 天（从 ${req.startDate} 起连续每一天，每天 3~5 个核心活动，简洁实用勿冗长）：`,
       '{"title":"行程标题","summary":"行程亮点概要","cities":[{"name":"城市名"}],"constraints":["约束说明"],"warnings":["实用提醒"],"days":[{"date":"YYYY-MM-DD","title":"当天主题","weather":"当季天气参考","activities":[{"id":"d1-a1","kind":"sight|food|transport|rest","period":"morning|noon|afternoon|evening","startTime":"09:00","endTime":"11:30","title":"活动名","city":"城市","location":"具体地点","description":"国家5A级景区 · 简明点出核心特色（如民国时期建筑群），25~50字","transportMode":"","meal":null,"costs":[{"id":"c1","label":"门票","category":"tickets","unit":"ticket","unitPriceCents":6000,"quantity":1,"occurrences":1}]}],"lodging":{"city":"城市","area":"推荐住宿片区","searchKeyword":"酒店搜索词","reason":"选址理由","costs":[{"id":"l1","label":"住宿","category":"lodging","unit":"room","unitPriceCents":35000,"quantity":1,"occurrences":1}]}}],"alternatives":[{"title":"备选景点","city":"城市","reason":"推荐理由","rainyDay":true}],"unvisitedHighlights":[{"title":"未排入的热门景点名","city":"城市","grade":"5A或4A或空串","feature":"15字内一句话特色","location":"所在区或地址"}]}',
-      '景点简介要求：每个 sight 活动的 description 必须简明写出特色（如历史年代/建筑/自然看点），若是国家4A或5A级景区须写明（如“国家5A级景区 · ...”），不要太长；unvisitedHighlights 列出 4~6 个目的地热门但本次未去的景点。',
+      '景点简介要求：每个 sight 活动的 description 必须简明写出特色（如历史年代/建筑/自然看点），若是国家4A或5A级景区须写明（如“国家5A级景区 · ...”），不要太长；每个 sight 额外写 photoQuery 为规范景点名（不加玩法词或括号，方便精准配图）；unvisitedHighlights 列出 4~6 个目的地热门但本次未去的景点。',
       transitRule,
       '注意：非交通卡省略 distanceKm 与 transferOptions；最后一天 lodging 必须为 null；所有金额为人民币整数分（如 60 元填 6000）；kind 仅取 sight/food/transport/rest；period 仅取 morning/noon/afternoon/evening。',
     ].join('\n');
@@ -3267,7 +3466,8 @@ async function locateSingleMobilePlace(place: { key: string; name: string; city?
     onProgress('搜索图片…');
     const title = String(payload.title ?? '').trim();
     const city = String(payload.city ?? '').trim();
-    const photo = await searchMobilePlacePhoto(city, title);
+    const location = String(payload.location ?? '').trim();
+    const photo = await searchMobilePlacePhoto(city, title, location);
     return {
       photo,
       queryLabel: [city, title].filter(Boolean).join(' '),

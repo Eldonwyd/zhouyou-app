@@ -35,7 +35,7 @@ import {
   xiaohongshuSearchUrl,
 } from '../planner-xhs';
 import { plannerLuggageNoteText } from '../planner-luggage';
-import { applyBookingToLedger, seedAiExpenses } from '../finance';
+import { applyBookingToLedger, removeBookingFromLedger } from '../finance';
 import { BUDGET_CATEGORIES, emptyAmounts } from '../types';
 import type {
   AiTravelPlan,
@@ -138,6 +138,11 @@ interface PlannerWorkspaceProps extends ComponentProps<typeof FinanceView> {
   onSaveAi: (plan: AiTravelPlan, expectedVersion: number | null) => Promise<void>;
   onSaveAiPhoto: (planId: string, activityId: string, photo: PlannerPhoto) => Promise<void>;
   onPublishAi: (plan: AiTravelPlan, initialFinance?: TripPlan) => Promise<AiTravelPlan>;
+  onSaveAiWithLedger?: (
+    plan: AiTravelPlan,
+    expectedVersion: number,
+    ledgerUpdate: { kind: 'update'; sheet: TripPlan } | { kind: 'publish'; initialFinance: TripPlan } | null,
+  ) => Promise<AiTravelPlan>;
   onSaveJournalVisit: typeof recordPlannerJournalVisit;
   onOpenJournalPlace: (placeId: string) => void;
   onSavePreferences: (preferences: PlannerPreferences) => Promise<void>;
@@ -292,6 +297,7 @@ function PlacePhoto({
   photo,
   title,
   city,
+  location,
   date,
   autoLoad = false,
   onResolved,
@@ -299,6 +305,7 @@ function PlacePhoto({
   photo: PlannerPhoto | null;
   title: string;
   city: string;
+  location?: string;
   date?: string;
   autoLoad?: boolean;
   onResolved: (photo: PlannerPhoto) => void;
@@ -360,12 +367,15 @@ function PlacePhoto({
     return () => { mounted.current = false; controller.current?.abort(); };
   }, []);
   useEffect(() => {
-    // 行程先显示，没有照片的卡片自动排队补图；每张卡只自动查一次。
+    // 行程先显示，没有照片的卡片自动排队补图；若排队或首次请求因切换/重挂载被取消，允许下次挂载自动重试。
     if (isWebTourMode() || !autoLoad || photo || autoTried.current) return;
     autoTried.current = true;
     setQueued(true);
     queueAutoPhoto(async () => {
-      if (!mounted.current) return;
+      if (!mounted.current) {
+        autoTried.current = false;
+        return;
+      }
       setQueued(false);
       await retry();
     });
@@ -394,7 +404,7 @@ function PlacePhoto({
     try {
       const result = await plannerApi<{ photo: PlannerPhoto | null; message?: string; queryLabel?: string }>(
         'photo',
-        { title, city, stream: true, ...(date ? { date } : {}) },
+        { title, city, ...(location ? { location } : {}), stream: true, ...(date ? { date } : {}) },
         signal,
         (stage) => { if (controller.current === currentRequest && !signal.aborted) setPhotoStage(stage); },
       );
@@ -1623,7 +1633,11 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
           messages: [],
           history: [],
         };
-        for (const booking of draftBookings) plan = applyBookingToPlan(plan, booking, { updatePlan: true });
+        for (const booking of draftBookings) {
+          const inRange = isTransportBooking(booking) || booking.kind === 'hotel'
+            || plan.content.days.some((day) => day.date === booking.date);
+          plan = applyBookingToPlan(plan, booking, { updatePlan: inRange });
+        }
         if (draftBookings.length) {
           // 首次保存已经包含全部预订，历史从用户实际看到的版本开始。
           plan = { ...plan, version: 1, contentVersion: 1, history: [] };
@@ -2002,7 +2016,11 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
       messages: [],
       history: [],
     };
-    for (const booking of draftBookings) plan = applyBookingToPlan(plan, booking, { updatePlan: true });
+    for (const booking of draftBookings) {
+      const inRange = isTransportBooking(booking) || booking.kind === 'hotel'
+        || plan.content.days.some((day) => day.date === booking.date);
+      plan = applyBookingToPlan(plan, booking, { updatePlan: inRange });
+    }
     if (draftBookings.length) {
       plan = { ...plan, version: 1, contentVersion: 1, history: [] };
       validatePlannerContent(plan.content);
@@ -2180,14 +2198,14 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
       backfilledToLedger: options.updateLedger,
     });
     validatePlannerContent(updatedPlan.content);
-    await props.onSaveAi(updatedPlan, current.version);
 
+    let ledgerUpdate: { kind: 'update'; sheet: TripPlan } | { kind: 'publish'; initialFinance: TripPlan } | null = null;
     if (options.updateLedger && booking.amountYuan != null) {
-      // 用导入前的行程预填新账本，订单金额由下方的回填步骤只记一次。
+      // 不再静默调用 seedAiExpenses 灌入整程 AI 估算，新账本保持实际花费干净，只写入本笔真实订单。
       if (updatedPlan.linkedTripId) {
         const existingSheet = props.plans.find((sheet) => sheet.tripId === updatedPlan.linkedTripId);
         const content = updatedPlan.content;
-        const baseSheet: TripPlan = existingSheet ?? seedAiExpenses({
+        const baseSheet: TripPlan = existingSheet ?? {
           id: updatedPlan.linkedTripId,
           tripId: updatedPlan.linkedTripId,
           cityCode: content.cities[0]?.code ?? '',
@@ -2198,14 +2216,14 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
           actual: emptyAmounts(),
           manualActualTotal: null,
           reminderDays: updatedPlan.reminderDays ?? 1,
-        }, current.content);
-        await props.onSave(applyBookingToLedger(baseSheet, booking, options.ledgerMode));
+        };
+        ledgerUpdate = { kind: 'update', sheet: applyBookingToLedger(baseSheet, booking, options.ledgerMode) };
       } else {
         const content = updatedPlan.content;
         const categories = calculatePlannerBudget(plannerFillEstimates(content)).categories;
         const initialBudget = emptyAmounts();
         for (const cat of BUDGET_CATEGORIES) initialBudget[cat] = categories[cat] / 100;
-        const seeded = seedAiExpenses({
+        const emptySheet: TripPlan = {
           id: updatedPlan.id,
           cityCode: content.cities[0]?.code ?? '',
           startDate: content.days[0]?.date ?? '',
@@ -2215,10 +2233,17 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
           actual: emptyAmounts(),
           manualActualTotal: null,
           reminderDays: updatedPlan.reminderDays ?? 1,
-        }, current.content);
-        const withBooking = applyBookingToLedger(seeded, booking, options.ledgerMode);
-        await props.onPublishAi(updatedPlan, withBooking);
+        };
+        ledgerUpdate = { kind: 'publish', initialFinance: applyBookingToLedger(emptySheet, booking, options.ledgerMode) };
       }
+    }
+
+    if (props.onSaveAiWithLedger) {
+      await props.onSaveAiWithLedger(updatedPlan, current.version, ledgerUpdate);
+    } else {
+      await props.onSaveAi(updatedPlan, current.version);
+      if (ledgerUpdate?.kind === 'update') await props.onSave(ledgerUpdate.sheet);
+      else if (ledgerUpdate?.kind === 'publish') await props.onPublishAi(updatedPlan, ledgerUpdate.initialFinance);
     }
     const notes = [
       options.updatePlan ? '已回填到行程' : '已保存到预订列表',
@@ -2234,8 +2259,20 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
     try {
       const next = removeBookingFromPlan(current, bookingId);
       validatePlannerContent(next.content);
-      await props.onSaveAi(next, current.version);
-      props.onNotice('已移除预订并更新对应行程。');
+      const existingSheet = current.linkedTripId
+        ? props.plans.find((sheet) => sheet.tripId === current.linkedTripId)
+        : undefined;
+      const hasLedgerEntry = Boolean(existingSheet?.bookingLedgerEntries?.[bookingId]);
+      const ledgerUpdate = existingSheet && hasLedgerEntry
+        ? { kind: 'update' as const, sheet: removeBookingFromLedger(existingSheet, bookingId) }
+        : null;
+      if (props.onSaveAiWithLedger) {
+        await props.onSaveAiWithLedger(next, current.version, ledgerUpdate);
+      } else {
+        await props.onSaveAi(next, current.version);
+        if (ledgerUpdate) await props.onSave(ledgerUpdate.sheet);
+      }
+      props.onNotice(hasLedgerEntry ? '已移除预订，更新行程并同步扣回账本金额。' : '已移除预订并更新对应行程。');
     } catch (error) {
       props.onError(error instanceof Error ? error.message : '移除预订失败。');
     }
@@ -2913,7 +2950,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                     cloudUser={props.cloudUser ?? null}
                     onOpenAuth={props.onOpenAuth}
                     onPlanReverted={async (restored) => {
-                      await props.onSaveAi(restored, null);
+                      await props.onSaveAi({ ...restored, version: activePlan.version + 1 }, activePlan.version);
                     }}
                     onSyncNow={props.onSyncNow}
                     onExecutePollOption={(prompt) => {
@@ -3279,9 +3316,23 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                               </label>
                             )}
                             <small className="planner-ticket-reminder-preview">
-                              {schedule.triggerMs != null
-                                ? `${enabled ? '将在' : '开启后将于'} ${formatReminderClock(schedule.triggerMs)} 提醒`
-                                : '填写开售日期与时刻后即可按时提醒'}
+                              {(() => {
+                                const nowMs = Date.now();
+                                const playDateEndMs = item.travelDate ? Date.parse(`${item.travelDate}T23:59:59`) : NaN;
+                                if (Number.isFinite(playDateEndMs) && nowMs > playDateEndMs) {
+                                  return '已过期（出行游玩日已过）';
+                                }
+                                if (schedule.saleMs != null && nowMs > schedule.saleMs + 30 * 60_000) {
+                                  return `已开售（${formatReminderClock(schedule.saleMs)}，建议前往查看余票或候补）`;
+                                }
+                                if (schedule.saleMs != null && nowMs >= schedule.saleMs) {
+                                  return `🔥 正在开抢（${formatReminderClock(schedule.saleMs)}）`;
+                                }
+                                if (schedule.triggerMs != null) {
+                                  return `${enabled ? '将在' : '开启后将于'} ${formatReminderClock(schedule.triggerMs)} 提醒（关页时建议导出日历）`;
+                                }
+                                return '填写开售日期与时刻后即可按时提醒';
+                              })()}
                             </small>
                           </div>
                         </article>
@@ -3405,6 +3456,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                                       photo={activity.photo}
                                       title={activity.photoQuery || activity.title}
                                       city={activity.city}
+                                      location={activity.location}
                                       date={day.date}
                                       autoLoad
                                       onResolved={(photo) =>
@@ -3745,7 +3797,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                               }, current.version).catch(report);
                             }}>
                             <label>具体酒店名称<input name="hotel" aria-label={`${day.date}具体酒店名称`} maxLength={150}
-                              placeholder="填写酒店全名，保存后显示到当天地图"
+                              placeholder="填写酒店全名，保存后便于查看与一键跳转地图导航"
                               defaultValue={activePlan.hotels?.[day.date] || ''} /></label>
                             <button className="secondary" disabled={busy} type="submit">保存酒店</button>
                             {activePlan.hotels?.[day.date] && <a

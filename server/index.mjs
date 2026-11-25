@@ -572,7 +572,7 @@ export async function createPlannerRequestHandler(options = {}) {
           try {
             const photo = await planner.photoFor(body.title, body.city, controller.signal, true,
               (message) => { diagnostics.push(message); emitPhoto({ type: 'progress', stage: message }); },
-              { date: body.date, onProgress: (stage) => emitPhoto({ type: 'progress', stage }) });
+              { date: body.date, location: typeof body.location === 'string' ? body.location : '', onProgress: (stage) => emitPhoto({ type: 'progress', stage }) });
             const result = { photo, message: [...new Set(diagnostics)].join('；'), queryLabel };
             if (!streaming) return sendJson(200, result);
             emitPhoto({ type: 'result', result });
