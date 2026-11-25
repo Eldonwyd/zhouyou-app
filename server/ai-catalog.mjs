@@ -5,10 +5,11 @@ import { googleProvider } from '@earendil-works/pi-ai/providers/google';
 import { kimiCodingProvider } from '@earendil-works/pi-ai/providers/kimi-coding';
 import { moonshotaiCnProvider } from '@earendil-works/pi-ai/providers/moonshotai-cn';
 import { openaiProvider } from '@earendil-works/pi-ai/providers/openai';
+import { openaiCodexProvider } from '@earendil-works/pi-ai/providers/openai-codex';
 import { qwenTokenPlanCnProvider } from '@earendil-works/pi-ai/providers/qwen-token-plan-cn';
 import { zaiProvider } from '@earendil-works/pi-ai/providers/zai';
 
-export const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+export const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high'];
 export const DEFAULT_THINKING_LEVEL = 'low';
 
 export const THINKING_LABELS = {
@@ -17,12 +18,18 @@ export const THINKING_LABELS = {
   low: '轻度',
   medium: '标准',
   high: '深度',
-  xhigh: '超深',
-  max: '极致',
 };
+
+/** 兼容历史保存过的 xhigh/max 档位，统一收口到最高「深度（high）」。 */
+export function normalizeThinkingLevel(level) {
+  const raw = String(level ?? '').trim();
+  if (raw === 'xhigh' || raw === 'max') return 'high';
+  return THINKING_LEVELS.includes(raw) ? raw : DEFAULT_THINKING_LEVEL;
+}
 
 const PI_PROVIDER_INSTANCES = {
   openai: openaiProvider(),
+  'openai-codex': openaiCodexProvider(),
   anthropic: anthropicProvider(),
   'kimi-coding': kimiCodingProvider(),
   google: googleProvider(),
@@ -34,7 +41,7 @@ const PI_PROVIDER_INSTANCES = {
 
 /** 从我们的服务商 ID（含 sub:* 与 API）映射到 pi-ai 内置目录源。 */
 const CATALOG_SOURCE = {
-  'sub:chatgpt': { piId: 'openai' },
+  'sub:chatgpt': { piId: 'openai-codex' },
   'sub:claude': { piId: 'anthropic' },
   'sub:kimi': { piId: 'kimi-coding' },
   'sub:gemini': { piId: 'google' },
@@ -152,7 +159,15 @@ export function sortModelsLatestFirst(entries) {
 }
 
 function modelToEntry(model, overrides = {}) {
-  const levels = getSupportedThinkingLevels(model);
+  const rawLevels = getSupportedThinkingLevels(model).filter((level) => THINKING_LEVELS.includes(level));
+  // 若模型将 minimal 与 low 映射到同一个底层档位（如 Codex gpt-6.2-sol），去掉重复的 minimal，保持精简清晰。
+  const map = model.thinkingLevelMap;
+  const levels = rawLevels.filter((level) => {
+    if (level === 'minimal' && rawLevels.includes('low') && map && map.minimal === map.low) {
+      return false;
+    }
+    return true;
+  });
   const vision =
     typeof overrides.vision === 'boolean'
       ? overrides.vision
@@ -258,10 +273,11 @@ export function resolveEffectiveThinkingLevel(providerId, modelId, requestedLeve
   const src = CATALOG_SOURCE[providerId];
   const piProvider = src?.piId ? PI_PROVIDER_INSTANCES[src.piId] : null;
   const piModel = piProvider?.getModels().find((m) => m.id === modelId);
-  const target = fast ? 'off' : (THINKING_LEVELS.includes(requestedLevel) ? requestedLevel : DEFAULT_THINKING_LEVEL);
+  const target = fast ? 'off' : normalizeThinkingLevel(requestedLevel);
 
   if (piModel) {
-    return clampThinkingLevel(piModel, target);
+    const clamped = clampThinkingLevel(piModel, target);
+    return normalizeThinkingLevel(clamped);
   }
   const meta = resolveModelMeta(providerId, modelId);
   const supported = meta.thinkingLevels?.length ? meta.thinkingLevels : ['off'];

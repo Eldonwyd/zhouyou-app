@@ -364,10 +364,10 @@ const SUB_CATALOG: Record<string, { name: string; defaultModel: string; manageUr
     loginKind: 'oauth_browser',
     vision: true,
     models: [
-      { id: 'gpt-6.2-sol', name: 'GPT-6.2 Sol', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-      { id: 'gpt-6.2-astra', name: 'GPT-6.2 Astra', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-      { id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-      { id: 'gpt-6.1-terra', name: 'GPT-6.1 Terra', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high', 'xhigh', 'max'], latest: true },
+      { id: 'gpt-6.2-sol', name: 'GPT-6.2 Sol', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
+      { id: 'gpt-6.2-astra', name: 'GPT-6.2 Astra', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
+      { id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
+      { id: 'gpt-6.1-terra', name: 'GPT-6.1 Terra', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true },
     ],
   },
   claude: {
@@ -377,10 +377,10 @@ const SUB_CATALOG: Record<string, { name: string; defaultModel: string; manageUr
     loginKind: 'oauth_browser',
     vision: true,
     models: [
-      { id: 'claude-opus-5-5', name: 'Claude Opus 5.5', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-      { id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-      { id: 'claude-haiku-5-5', name: 'Claude Haiku 5.5', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-      { id: 'claude-fable-5-2', name: 'Claude Fable 5.2', vision: true, reasoning: true, thinkingLevels: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'], latest: true },
+      { id: 'claude-opus-5-5', name: 'Claude Opus 5.5', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
+      { id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
+      { id: 'claude-haiku-5-5', name: 'Claude Haiku 5.5', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true },
+      { id: 'claude-fable-5-2', name: 'Claude Fable 5.2', vision: true, reasoning: true, thinkingLevels: ['minimal', 'low', 'medium', 'high'], latest: true },
     ],
   },
   kimi: {
@@ -390,9 +390,9 @@ const SUB_CATALOG: Record<string, { name: string; defaultModel: string; manageUr
     loginKind: 'device_code',
     vision: true,
     models: [
-      { id: 'k3.1-pro-highspeed', name: 'Kimi K3.1 Pro Highspeed', vision: true, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
-      { id: 'k3.1-pro', name: 'Kimi K3.1 Pro', vision: true, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
-      { id: 'k3', name: 'Kimi K3', vision: true, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
+      { id: 'k3.1-pro-highspeed', name: 'Kimi K3.1 Pro Highspeed', vision: true, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
+      { id: 'k3.1-pro', name: 'Kimi K3.1 Pro', vision: true, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
+      { id: 'k3', name: 'Kimi K3', vision: true, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
     ],
   },
   gemini: {
@@ -402,7 +402,7 @@ const SUB_CATALOG: Record<string, { name: string; defaultModel: string; manageUr
     loginKind: 'gemini_cli',
     vision: false,
     models: [
-      { id: 'gemini-4-neon', name: 'Gemini 4 Neon', vision: false, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh'], latest: true },
+      { id: 'gemini-4-neon', name: 'Gemini 4 Neon', vision: false, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
       { id: 'gemini-4-argon', name: 'Gemini 4 Argon', vision: false, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
     ],
   },
@@ -416,8 +416,8 @@ const API_PROVIDERS: AiProviderMeta[] = [
     model: 'deepseek-flash',
     keyUrl: 'https://platform.deepseek.com/api_keys',
     models: [
-      { id: 'deepseek-flash', name: 'DeepSeek V4.1 Flash', vision: false, reasoning: true, thinkingLevels: ['off', 'low', 'high', 'max'], latest: true },
-      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', vision: false, reasoning: true, thinkingLevels: ['off', 'high', 'max'], latest: true },
+      { id: 'deepseek-flash', name: 'DeepSeek V4.1 Flash', vision: false, reasoning: true, thinkingLevels: ['off', 'low', 'high'], latest: true },
+      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', vision: false, reasoning: true, thinkingLevels: ['off', 'high'], latest: true },
       { id: 'deepseek-chat', name: 'DeepSeek Chat', vision: false, reasoning: false, thinkingLevels: ['off', 'low'], latest: false },
     ],
   },
@@ -444,7 +444,7 @@ const API_PROVIDERS: AiProviderMeta[] = [
     model: 'gemini-4-neon',
     keyUrl: 'https://aistudio.google.com/apikey',
     models: [
-      { id: 'gemini-4-neon', name: 'Gemini 4 Neon', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh'], latest: true },
+      { id: 'gemini-4-neon', name: 'Gemini 4 Neon', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
       { id: 'gemini-4-argon', name: 'Gemini 4 Argon', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
       { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: false },
     ],
@@ -456,9 +456,9 @@ const API_PROVIDERS: AiProviderMeta[] = [
     model: 'qwen4-max-preview',
     keyUrl: 'https://bailian.console.aliyun.com/',
     models: [
-      { id: 'qwen4-max-preview', name: 'Qwen4 Max Preview', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'xhigh'], latest: true },
-      { id: 'qwen3.8-flash', name: 'Qwen3.8 Flash', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'xhigh'], latest: false },
-      { id: 'qwen3.8-max', name: 'Qwen3.8 Max', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'xhigh'], latest: false },
+      { id: 'qwen4-max-preview', name: 'Qwen4 Max Preview', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
+      { id: 'qwen3.8-flash', name: 'Qwen3.8 Flash', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: false },
+      { id: 'qwen3.8-max', name: 'Qwen3.8 Max', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: false },
     ],
   },
   {
@@ -468,9 +468,9 @@ const API_PROVIDERS: AiProviderMeta[] = [
     model: 'glm-5.3-highspeed',
     keyUrl: 'https://open.bigmodel.cn/usercenter/apikeys',
     models: [
-      { id: 'glm-5.3-highspeed', name: 'GLM-5.3 Highspeed', vision: false, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
-      { id: 'glm-5.3-flash', name: 'GLM-5.3-Flash', vision: true, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
-      { id: 'glm-5.3', name: 'GLM-5.3', vision: false, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
+      { id: 'glm-5.3-highspeed', name: 'GLM-5.3 Highspeed', vision: false, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
+      { id: 'glm-5.3-flash', name: 'GLM-5.3-Flash', vision: true, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
+      { id: 'glm-5.3', name: 'GLM-5.3', vision: false, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
     ],
   },
   {
@@ -480,9 +480,9 @@ const API_PROVIDERS: AiProviderMeta[] = [
     model: 'kimi-k3.1-pro-highspeed',
     keyUrl: 'https://platform.moonshot.cn/console/api-keys',
     models: [
-      { id: 'kimi-k3.1-pro-highspeed', name: 'Kimi K3.1 Pro Highspeed', vision: true, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
-      { id: 'kimi-k3.1-pro', name: 'Kimi K3.1 Pro', vision: true, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
-      { id: 'kimi-k3', name: 'Kimi K3', vision: true, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
+      { id: 'kimi-k3.1-pro-highspeed', name: 'Kimi K3.1 Pro Highspeed', vision: true, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
+      { id: 'kimi-k3.1-pro', name: 'Kimi K3.1 Pro', vision: true, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
+      { id: 'kimi-k3', name: 'Kimi K3', vision: true, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
     ],
   },
   {

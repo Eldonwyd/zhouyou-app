@@ -13,7 +13,13 @@ import { createLocalOcr } from './local-ocr.mjs';
 import { writeAiSettings, writePhotoSettings } from './server-settings.mjs';
 import { AI_PROVIDERS, createAiClient, publicProviderList } from './ai-provider.mjs';
 import { createSubscriptionManager, isSubscriptionProvider } from './ai-subscriptions.mjs';
-import { classifySpeedTier, DEFAULT_THINKING_LEVEL, getProviderModelCatalog, THINKING_LEVELS } from './ai-catalog.mjs';
+import {
+  classifySpeedTier,
+  DEFAULT_THINKING_LEVEL,
+  getProviderModelCatalog,
+  normalizeThinkingLevel,
+  THINKING_LEVELS,
+} from './ai-catalog.mjs';
 import { createWebSearch, SEARCH_KIND } from './web-search.mjs';
 import { getDataPath, getDistDir } from './runtime-paths.mjs';
 
@@ -61,7 +67,7 @@ export async function createPlannerRequestHandler(options = {}) {
       apiKey: await readServerKey(envName('AI_KEY', provider)),
       model: await readServerKey(envName('AI_MODEL', provider)),
       baseUrl: await readServerKey(envName('AI_BASE_URL', provider)),
-      thinking: THINKING_LEVELS.includes(rawThinking) ? rawThinking : DEFAULT_THINKING_LEVEL,
+      thinking: normalizeThinkingLevel(rawThinking),
     };
     if (provider === activeProvider && !profile.apiKey) {
       profile.apiKey = await readServerKey('AI_API_KEY');
@@ -208,8 +214,9 @@ export async function createPlannerRequestHandler(options = {}) {
     const model = typeof body.model === 'string' ? body.model.trim() : '';
     const baseUrl = typeof body.baseUrl === 'string' ? body.baseUrl.trim().replace(/\/+$/, '') : '';
     const rawThinking = typeof body.thinking === 'string' ? body.thinking.trim() : '';
+    const isValidThinking = (v) => THINKING_LEVELS.includes(v) || v === 'xhigh' || v === 'max';
     const thinking = rawThinking
-      ? (THINKING_LEVELS.includes(rawThinking) ? rawThinking : (() => { throw new Error('思考档位无效'); })())
+      ? (isValidThinking(rawThinking) ? normalizeThinkingLevel(rawThinking) : (() => { throw new Error('思考档位无效'); })())
       : (profiles[provider]?.thinking ?? DEFAULT_THINKING_LEVEL);
     if (inputKey && !/^[\x21-\x7e]{8,500}$/.test(inputKey)) throw new Error('API Key 格式无效');
     if (model && !/^[\w.:/@-]{1,120}$/.test(model)) throw new Error('模型名称格式无效');
@@ -345,10 +352,11 @@ export async function createPlannerRequestHandler(options = {}) {
         if (route === 'ai-switch') {
           const provider = String(body.provider ?? '');
           const requestedModel = typeof body.model === 'string' ? body.model.trim() : '';
-          const requestedThinking = typeof body.thinking === 'string' ? body.thinking.trim() : '';
-          if (requestedThinking && !THINKING_LEVELS.includes(requestedThinking)) {
+          const rawRequestedThinking = typeof body.thinking === 'string' ? body.thinking.trim() : '';
+          if (rawRequestedThinking && !THINKING_LEVELS.includes(rawRequestedThinking) && rawRequestedThinking !== 'xhigh' && rawRequestedThinking !== 'max') {
             return sendJson(400, { error: '思考档位无效' });
           }
+          const requestedThinking = rawRequestedThinking ? normalizeThinkingLevel(rawRequestedThinking) : '';
           if (isSubscriptionProvider(provider)) {
             if (!(await subscriptions.isConnected(provider)))
               return sendJson(400, { error: '该订阅尚未连接，请先完成登录授权' });
@@ -381,8 +389,9 @@ export async function createPlannerRequestHandler(options = {}) {
         }
         if (route === 'ai-test') {
           let client;
-          const requestedThinking = typeof body.thinking === 'string' && THINKING_LEVELS.includes(body.thinking.trim())
-            ? body.thinking.trim()
+          const rawTestThinking = typeof body.thinking === 'string' ? body.thinking.trim() : '';
+          const requestedThinking = rawTestThinking && (THINKING_LEVELS.includes(rawTestThinking) || rawTestThinking === 'xhigh' || rawTestThinking === 'max')
+            ? normalizeThinkingLevel(rawTestThinking)
             : '';
           if (isSubscriptionProvider(String(body.provider ?? ''))) {
             const subId = String(body.provider);
@@ -396,17 +405,20 @@ export async function createPlannerRequestHandler(options = {}) {
             const discoveredMap = await subscriptions.getAllDiscoveredModels();
             client = createAiClient({ ...next, remoteModelIds: discoveredMap[next.provider] ?? [] });
           }
+          const effectiveTestThinking = requestedThinking || client.thinking || DEFAULT_THINKING_LEVEL;
+          const isDeepThinking = effectiveTestThinking === 'high';
           const started = Date.now();
           try {
-            // 测试连接与响应速度：默认按当前所选档位测真实速度（传 fast=true 时测极速档）。
+            // 测试连接与响应速度：默认按当前所选档位测真实速度（传 fast=true 时测极速档）；
+            // 深度思考档位放宽超时与 maxTokens，避免推理阶段超时或输出额度被思考占满。
             const answer = await client.chat({
               messages: [{ role: 'user', content: '连接与测速：只返回 json {"ok":true}' }],
-              maxTokens: 512,
+              maxTokens: isDeepThinking ? 2048 : 1024,
               json: true,
               fast: body.fast === true,
               thinking: requestedThinking || undefined,
               signal: controller.signal,
-              timeout: 45000,
+              timeout: isDeepThinking ? 120000 : 60000,
             });
             const seconds = Math.round((Date.now() - started) / 100) / 10;
             return sendJson(200, {

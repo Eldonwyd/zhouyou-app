@@ -110,7 +110,14 @@ try {
     assert.equal(switched.data.provider, 'sub:claude');
     assert.equal(switched.data.model, 'claude-opus-5-5');
     assert.equal(switched.data.thinking, 'high');
-    assert.ok(switched.data.thinkingLevels.includes('xhigh'));
+    assert.ok(switched.data.thinkingLevels.includes('high'));
+    assert.equal(switched.data.thinkingLevels.includes('xhigh'), false);
+    assert.equal(switched.data.thinkingLevels.includes('max'), false);
+
+    // 历史 xhigh/max 档位应自动兼容收口到 high
+    const legacyClamped = await post('ai-switch', { provider: 'sub:claude', model: 'claude-opus-5-5', thinking: 'xhigh' });
+    assert.equal(legacyClamped.status, 200);
+    assert.equal(legacyClamped.data.thinking, 'high');
 
     // 切到 claude-fable-5-2 并设极轻思考档位
     const fable = await post('ai-sub-model', {

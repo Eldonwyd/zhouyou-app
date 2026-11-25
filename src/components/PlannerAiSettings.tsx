@@ -133,15 +133,30 @@ interface LoginSession {
   installError?: string;
 }
 
+const ALLOWED_THINKING_LEVELS = new Set(['off', 'minimal', 'low', 'medium', 'high']);
+
 const THINKING_LABEL: Record<string, string> = {
   off: '关闭',
   minimal: '极轻',
   low: '轻度',
   medium: '标准',
   high: '深度',
-  xhigh: '超深',
-  max: '极致',
 };
+
+function thinkingOptionLabel(level: string): string {
+  if (level === 'low') return '轻度 · 推荐';
+  return THINKING_LABEL[level] ?? level;
+}
+
+function filterThinkingLevels(levels?: string[]): string[] {
+  const filtered = (levels ?? []).filter((level) => ALLOWED_THINKING_LEVELS.has(level));
+  return filtered.length ? filtered : ['off'];
+}
+
+function clampUiThinking(level?: string): string {
+  if (level === 'xhigh' || level === 'max') return 'high';
+  return level && ALLOWED_THINKING_LEVELS.has(level) ? level : 'low';
+}
 
 const SEARCH_TEXT = { direct: '可联网', citation: '可联网', none: '不支持联网' } as const;
 
@@ -156,7 +171,7 @@ const FALLBACK_OFFLINE_STATE: AiState = {
   baseUrl: 'https://api.deepseek.com',
   keyConfigured: false,
   thinking: 'low',
-  thinkingLevels: ['off', 'low', 'high', 'max'],
+  thinkingLevels: ['off', 'low', 'high'],
   vision: false,
   searchAvailable: false,
   searchLabel: '',
@@ -172,13 +187,13 @@ const FALLBACK_OFFLINE_STATE: AiState = {
       model: 'gpt-6.2-sol',
       defaultModel: 'gpt-6.2-sol',
       thinking: 'low',
-      thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'],
+      thinkingLevels: ['low', 'medium', 'high'],
       vision: true,
       models: [
-        { id: 'gpt-6.2-sol', name: 'GPT-6.2 Sol', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-        { id: 'gpt-6.2-astra', name: 'GPT-6.2 Astra', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-        { id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-        { id: 'gpt-6.1-terra', name: 'GPT-6.1 Terra', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high', 'xhigh', 'max'], latest: true },
+        { id: 'gpt-6.2-sol', name: 'GPT-6.2 Sol', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
+        { id: 'gpt-6.2-astra', name: 'GPT-6.2 Astra', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
+        { id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
+        { id: 'gpt-6.1-terra', name: 'GPT-6.1 Terra', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true },
       ],
       manageUrl: 'https://chatgpt.com/#settings/DataControls',
       search: 'direct',
@@ -194,13 +209,13 @@ const FALLBACK_OFFLINE_STATE: AiState = {
       model: 'claude-sonnet-5-5',
       defaultModel: 'claude-sonnet-5-5',
       thinking: 'low',
-      thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'],
+      thinkingLevels: ['low', 'medium', 'high'],
       vision: true,
       models: [
-        { id: 'claude-opus-5-5', name: 'Claude Opus 5.5', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-        { id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-        { id: 'claude-haiku-5-5', name: 'Claude Haiku 5.5', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-        { id: 'claude-fable-5-2', name: 'Claude Fable 5.2', vision: true, reasoning: true, thinkingLevels: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'], latest: true },
+        { id: 'claude-opus-5-5', name: 'Claude Opus 5.5', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
+        { id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
+        { id: 'claude-haiku-5-5', name: 'Claude Haiku 5.5', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true },
+        { id: 'claude-fable-5-2', name: 'Claude Fable 5.2', vision: true, reasoning: true, thinkingLevels: ['minimal', 'low', 'medium', 'high'], latest: true },
       ],
       manageUrl: 'https://claude.ai/settings/usage',
       search: 'direct',
@@ -216,12 +231,12 @@ const FALLBACK_OFFLINE_STATE: AiState = {
       model: 'k3.1-pro-highspeed',
       defaultModel: 'k3.1-pro-highspeed',
       thinking: 'low',
-      thinkingLevels: ['low', 'high', 'max'],
+      thinkingLevels: ['low', 'high'],
       vision: true,
       models: [
-        { id: 'k3.1-pro-highspeed', name: 'Kimi K3.1 Pro Highspeed', vision: true, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
-        { id: 'k3.1-pro', name: 'Kimi K3.1 Pro', vision: true, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
-        { id: 'k3', name: 'Kimi K3', vision: true, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
+        { id: 'k3.1-pro-highspeed', name: 'Kimi K3.1 Pro Highspeed', vision: true, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
+        { id: 'k3.1-pro', name: 'Kimi K3.1 Pro', vision: true, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
+        { id: 'k3', name: 'Kimi K3', vision: true, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
       ],
       manageUrl: 'https://www.kimi.com/code/console',
       search: 'none',
@@ -237,12 +252,12 @@ const FALLBACK_OFFLINE_STATE: AiState = {
       model: 'gemini-4-neon',
       defaultModel: 'gemini-4-neon',
       thinking: 'low',
-      thinkingLevels: ['low', 'medium', 'high', 'xhigh'],
+      thinkingLevels: ['low', 'medium', 'high'],
       vision: false,
       models: [
-        { id: 'gemini-4-neon', name: 'Gemini 4 Neon', vision: false, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh'], latest: true },
+        { id: 'gemini-4-neon', name: 'Gemini 4 Neon', vision: false, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
         { id: 'gemini-4-argon', name: 'Gemini 4 Argon', vision: false, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
-        { id: 'gemini-4-hydrogen', name: 'Gemini 4 Hydrogen', vision: false, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh'], latest: true },
+        { id: 'gemini-4-hydrogen', name: 'Gemini 4 Hydrogen', vision: false, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
         { id: 'gemini-4-carbon', name: 'Gemini 4 Carbon', vision: false, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
         { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', vision: false, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: false },
       ],
@@ -261,8 +276,8 @@ const FALLBACK_OFFLINE_STATE: AiState = {
       model: 'deepseek-flash',
       keyUrl: 'https://platform.deepseek.com/api_keys',
       models: [
-        { id: 'deepseek-flash', name: 'DeepSeek V4.1 Flash', vision: false, reasoning: true, thinkingLevels: ['off', 'low', 'high', 'max'], latest: true },
-        { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', vision: false, reasoning: true, thinkingLevels: ['off', 'high', 'max'], latest: true },
+        { id: 'deepseek-flash', name: 'DeepSeek V4.1 Flash', vision: false, reasoning: true, thinkingLevels: ['off', 'low', 'high'], latest: true },
+        { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', vision: false, reasoning: true, thinkingLevels: ['off', 'high'], latest: true },
       ],
     },
     {
@@ -272,10 +287,10 @@ const FALLBACK_OFFLINE_STATE: AiState = {
       model: 'claude-sonnet-5-5',
       keyUrl: 'https://platform.claude.com/settings/keys',
       models: [
-        { id: 'claude-opus-5-5', name: 'Claude Opus 5.5', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-        { id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-        { id: 'claude-haiku-5-5', name: 'Claude Haiku 5.5', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-        { id: 'claude-fable-5-2', name: 'Claude Fable 5.2', vision: true, reasoning: true, thinkingLevels: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'], latest: true },
+        { id: 'claude-opus-5-5', name: 'Claude Opus 5.5', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
+        { id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
+        { id: 'claude-haiku-5-5', name: 'Claude Haiku 5.5', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true },
+        { id: 'claude-fable-5-2', name: 'Claude Fable 5.2', vision: true, reasoning: true, thinkingLevels: ['minimal', 'low', 'medium', 'high'], latest: true },
       ],
     },
     {
@@ -285,10 +300,10 @@ const FALLBACK_OFFLINE_STATE: AiState = {
       model: 'gpt-6.2-sol',
       keyUrl: 'https://platform.openai.com/api-keys',
       models: [
-        { id: 'gpt-6.2-sol', name: 'GPT-6.2 Sol', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-        { id: 'gpt-6.2-astra', name: 'GPT-6.2 Astra', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-        { id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'], latest: true },
-        { id: 'gpt-6.1-terra', name: 'GPT-6.1 Terra', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high', 'xhigh', 'max'], latest: true },
+        { id: 'gpt-6.2-sol', name: 'GPT-6.2 Sol', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
+        { id: 'gpt-6.2-astra', name: 'GPT-6.2 Astra', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
+        { id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
+        { id: 'gpt-6.1-terra', name: 'GPT-6.1 Terra', vision: true, reasoning: true, thinkingLevels: ['off', 'low', 'medium', 'high'], latest: true },
       ],
     },
     {
@@ -298,9 +313,9 @@ const FALLBACK_OFFLINE_STATE: AiState = {
       model: 'gemini-4-neon',
       keyUrl: 'https://aistudio.google.com/apikey',
       models: [
-        { id: 'gemini-4-neon', name: 'Gemini 4 Neon', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh'], latest: true },
+        { id: 'gemini-4-neon', name: 'Gemini 4 Neon', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
         { id: 'gemini-4-argon', name: 'Gemini 4 Argon', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
-        { id: 'gemini-4-hydrogen', name: 'Gemini 4 Hydrogen', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high', 'xhigh'], latest: true },
+        { id: 'gemini-4-hydrogen', name: 'Gemini 4 Hydrogen', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
         { id: 'gemini-4-carbon', name: 'Gemini 4 Carbon', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
         { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: false },
       ],
@@ -312,9 +327,9 @@ const FALLBACK_OFFLINE_STATE: AiState = {
       model: 'qwen4-max-preview',
       keyUrl: 'https://bailian.console.aliyun.com/',
       models: [
-        { id: 'qwen4-max-preview', name: 'Qwen4 Max Preview', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'xhigh'], latest: true },
-        { id: 'qwen3.8-flash', name: 'Qwen3.8 Flash', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'xhigh'], latest: false },
-        { id: 'qwen3.8-max', name: 'Qwen3.8 Max', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'xhigh'], latest: false },
+        { id: 'qwen4-max-preview', name: 'Qwen4 Max Preview', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: true },
+        { id: 'qwen3.8-flash', name: 'Qwen3.8 Flash', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: false },
+        { id: 'qwen3.8-max', name: 'Qwen3.8 Max', vision: true, reasoning: true, thinkingLevels: ['low', 'medium', 'high'], latest: false },
       ],
     },
     {
@@ -324,9 +339,9 @@ const FALLBACK_OFFLINE_STATE: AiState = {
       model: 'glm-5.3-highspeed',
       keyUrl: 'https://open.bigmodel.cn/usercenter/apikeys',
       models: [
-        { id: 'glm-5.3-highspeed', name: 'GLM-5.3 Highspeed', vision: false, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
-        { id: 'glm-5.3-flash', name: 'GLM-5.3-Flash', vision: true, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
-        { id: 'glm-5.3', name: 'GLM-5.3', vision: false, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
+        { id: 'glm-5.3-highspeed', name: 'GLM-5.3 Highspeed', vision: false, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
+        { id: 'glm-5.3-flash', name: 'GLM-5.3-Flash', vision: true, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
+        { id: 'glm-5.3', name: 'GLM-5.3', vision: false, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
       ],
     },
     {
@@ -336,9 +351,9 @@ const FALLBACK_OFFLINE_STATE: AiState = {
       model: 'kimi-k3.1-pro-highspeed',
       keyUrl: 'https://platform.moonshot.cn/console/api-keys',
       models: [
-        { id: 'kimi-k3.1-pro-highspeed', name: 'Kimi K3.1 Pro Highspeed', vision: true, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
-        { id: 'kimi-k3.1-pro', name: 'Kimi K3.1 Pro', vision: true, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
-        { id: 'kimi-k3', name: 'Kimi K3', vision: true, reasoning: true, thinkingLevels: ['low', 'high', 'max'], latest: true },
+        { id: 'kimi-k3.1-pro-highspeed', name: 'Kimi K3.1 Pro Highspeed', vision: true, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
+        { id: 'kimi-k3.1-pro', name: 'Kimi K3.1 Pro', vision: true, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
+        { id: 'kimi-k3', name: 'Kimi K3', vision: true, reasoning: true, thinkingLevels: ['low', 'high'], latest: true },
       ],
     },
     {
@@ -582,7 +597,8 @@ function ThinkingLevelSelector({
   disabled?: boolean;
   onChange: (next: string) => void;
 }) {
-  const usable = levels.length ? levels : ['off'];
+  const usable = filterThinkingLevels(levels);
+  const current = clampUiThinking(value);
   if (usable.length <= 1) {
     return (
       <div className="neo-thinking-row">
@@ -595,7 +611,7 @@ function ThinkingLevelSelector({
     <div className="neo-thinking-block">
       <div className="neo-thinking-header">
         <span className="neo-thinking-caption">思考档位</span>
-        <small className="muted">轻度/关闭速度更快，深度适合复杂多城规划</small>
+        <small className="muted">推荐使用轻度（响应快且稳定），深度适合复杂多城规划</small>
       </div>
       <div className="neo-thinking-pills" role="radiogroup" aria-label="思考档位">
         {usable.map((level) => (
@@ -603,12 +619,12 @@ function ThinkingLevelSelector({
             key={level}
             type="button"
             role="radio"
-            aria-checked={value === level}
+            aria-checked={current === level}
             disabled={disabled}
-            className={value === level ? 'neo-thinking-pill active' : 'neo-thinking-pill'}
+            className={current === level ? 'neo-thinking-pill active' : 'neo-thinking-pill'}
             onClick={() => onChange(level)}
           >
-            {THINKING_LABEL[level] ?? level}
+            {thinkingOptionLabel(level)}
           </button>
         ))}
       </div>
@@ -1005,15 +1021,18 @@ export function PlannerAiStatusBar({
           </div>
 
           {/* 2. 思考强度分段控制器 */}
-          {thinkingLevels.length > 1 ? (
-            <div className="ai-dock-thinking" title="调节思考强度：关闭/轻度响应更快，深度/极致适合复杂规划">
+          {(() => {
+            const visibleLevels = filterThinkingLevels(thinkingLevels);
+            const activeThinking = clampUiThinking(currentThinking);
+            return visibleLevels.length > 1 ? (
+            <div className="ai-dock-thinking" title="调节思考强度：推荐轻度（响应快且稳定），深度适合复杂规划">
               <span className="ai-dock-thinking-label">
                 <SparkIcon />
                 <span>思考</span>
               </span>
               <div className="ai-dock-seg-track" role="radiogroup" aria-label="思考强度">
-                {thinkingLevels.map((level) => {
-                  const active = currentThinking === level;
+                {visibleLevels.map((level) => {
+                  const active = activeThinking === level;
                   return (
                     <button
                       key={level}
@@ -1024,7 +1043,7 @@ export function PlannerAiStatusBar({
                       className={active ? 'ai-dock-seg-btn is-active' : 'ai-dock-seg-btn'}
                       onClick={() => void selectThinking(level)}
                     >
-                      {THINKING_LABEL[level] ?? level}
+                      {thinkingOptionLabel(level)}
                     </button>
                   );
                 })}
@@ -1034,10 +1053,11 @@ export function PlannerAiStatusBar({
             <div className="ai-dock-thinking is-fixed" title="当前模型为固定思考模式">
               <span className="ai-dock-thinking-label">
                 <SparkIcon />
-                <span>思考 · {THINKING_LABEL[thinkingLevels[0]] ?? thinkingLevels[0]}</span>
+                <span>思考 · {THINKING_LABEL[visibleLevels[0]] ?? visibleLevels[0]}</span>
               </span>
             </div>
-          )}
+          );
+          })()}
 
           {/* 3. 服务与订阅管理入口 */}
           <button
@@ -1477,11 +1497,12 @@ export default function PlannerAiSettings({
       return next;
     });
     try {
+      const testTimeout = clampUiThinking(sub.thinking) === 'high' ? 130000 : 65000;
       const result = await request<SpeedResult>('ai-test', {
         provider: sub.id,
         model: sub.model,
-        thinking: sub.thinking,
-      });
+        thinking: clampUiThinking(sub.thinking),
+      }, testTimeout);
       setSpeedResults((prev) => ({ ...prev, [sub.id]: result }));
       const speedAdvice =
         result.ok && result.speedTier === 'slow'
@@ -1513,10 +1534,11 @@ export default function PlannerAiSettings({
       await Promise.all(
         state.saved.map(async (item) => {
           try {
+            const itemThinking = clampUiThinking(item.thinking);
             const result = await request<SpeedResult>(
               'ai-test',
-              { provider: item.id, model: item.model, thinking: item.thinking },
-              45000,
+              { provider: item.id, model: item.model, thinking: itemThinking },
+              itemThinking === 'high' ? 130000 : 65000,
             );
             setSpeedResults((prev) => ({ ...prev, [item.id]: result }));
           } catch (error) {
@@ -1612,7 +1634,8 @@ export default function PlannerAiSettings({
     setBusyKey('api:test');
     setApiMessage(null);
     try {
-      const result = await request<SpeedResult>('ai-test', apiPayload());
+      const apiTestTimeout = clampUiThinking(apiThinking) === 'high' ? 130000 : 65000;
+      const result = await request<SpeedResult>('ai-test', apiPayload(), apiTestTimeout);
       setSpeedResults((prev) => ({ ...prev, [apiProvider]: result }));
       const speedAdvice =
         result.ok && result.speedTier === 'slow'

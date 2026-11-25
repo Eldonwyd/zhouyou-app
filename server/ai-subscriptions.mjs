@@ -16,6 +16,7 @@ import {
   THINKING_LEVELS,
   fetchRemoteModelIds,
   getProviderModelCatalog,
+  normalizeThinkingLevel,
   pickDefaultModel,
   resolveEffectiveThinkingLevel,
   resolveModelMeta,
@@ -207,7 +208,7 @@ function createFileStore(filePath) {
     async getThinking(key) {
       const data = await load();
       const stored = data.thinking[key];
-      return THINKING_LEVELS.includes(stored) ? stored : DEFAULT_THINKING_LEVEL;
+      return normalizeThinkingLevel(stored);
     },
     async setThinking(key, level) {
       return serialize(`__thinking__${key}`, async () => {
@@ -327,7 +328,8 @@ function formatAuthError(spec, error) {
 }
 
 function formatChatError(spec, rawMessage) {
-  const text = String(rawMessage ?? '');
+  const text = String(rawMessage ?? '').trim();
+  const snippet = text.replace(/\s+/g, ' ').slice(0, 180);
   if (/401|403|unauthorized|invalid_grant|token refresh|not configured|re-login|reconnect/i.test(text)) {
     return `${spec.name} 订阅授权已失效，请在“配置 AI”中重新连接`;
   }
@@ -337,10 +339,16 @@ function formatChatError(spec, rawMessage) {
   if (/429|rate.?limit|quota|usage.?limit|insufficient|credit/i.test(text)) {
     return `${spec.name} 订阅请求过于频繁或额度不足，请稍后重试`;
   }
-  if (/fetch failed|ECONNRESET|ENOTFOUND|ETIMEDOUT|network|socket/i.test(text)) {
-    return `无法连接 ${spec.name} 服务，请检查网络或代理后重试`;
+  if (/TimeoutError|timed?\s*out|aborted due to timeout|ETIMEDOUT/i.test(text)) {
+    return `${spec.name} 思考响应超时（可切回「轻度（推荐）」或稍后重试）${snippet ? `：${snippet}` : ''}`;
   }
-  return `${spec.name} 调用失败：${text.slice(0, 180) || '请稍后重试'}`;
+  if (/websocket|ws\s+closed|socket\s+closed/i.test(text)) {
+    return `${spec.name} 实时连接中途断开（长思考时代理可能中断长连接，请重试或切回「轻度（推荐）」）${snippet ? `：${snippet}` : ''}`;
+  }
+  if (/fetch failed|ECONNRESET|ENOTFOUND|ECONNREFUSED|network/i.test(text)) {
+    return `无法连接 ${spec.name} 服务，请检查网络或代理后重试${snippet ? `（${snippet}）` : ''}`;
+  }
+  return `${spec.name} 调用失败：${snippet || '请稍后重试'}`;
 }
 
 /**
@@ -930,10 +938,11 @@ export async function createSubscriptionManager(options = {}) {
   async function setThinking(idOrKey, level) {
     const spec = resolveSpec(idOrKey);
     if (!spec) throw new Error('不支持的订阅服务商');
-    const normalized = String(level ?? '').trim();
-    if (!THINKING_LEVELS.includes(normalized)) {
+    const raw = String(level ?? '').trim();
+    if (!THINKING_LEVELS.includes(raw) && raw !== 'xhigh' && raw !== 'max') {
       throw new Error('思考档位无效');
     }
+    const normalized = normalizeThinkingLevel(raw);
     await store.setThinking(spec.key, normalized);
     return normalized;
   }
@@ -1223,13 +1232,17 @@ export async function createSubscriptionManager(options = {}) {
           result = await models.completeSimple(piModel, context, {
             maxTokens: Math.min(maxTokens ?? piModel.maxTokens ?? 16000, piModel.maxTokens ?? 32000),
             reasoning: reasoningLevel === 'off' ? undefined : reasoningLevel,
+            ...(piModel.api === 'openai-codex-responses' ? { transport: 'sse' } : {}),
             signal: combinedSignal,
           });
         } catch (error) {
           if (signal?.aborted) throw error;
-          const raw = error instanceof Error ? error.message : String(error);
+          const baseMsg = error instanceof Error ? error.message : String(error);
+          const raw = error instanceof Error && error.name === 'TimeoutError' && !/timeout/i.test(baseMsg)
+            ? `TimeoutError: ${baseMsg}`
+            : baseMsg;
           throw new SubscriptionAiError(formatChatError(spec, raw), {
-            retryable: /429|5\d\d|network|timeout|fetch failed/i.test(raw),
+            retryable: /429|5\d\d|network|timeout|fetch failed|websocket/i.test(raw),
           });
         }
         if (result.stopReason === 'aborted' && signal?.aborted) {
