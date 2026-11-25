@@ -44,7 +44,8 @@ self.addEventListener('fetch', (event) => {
     url.pathname.includes('/api/releases') ||
     url.pathname.includes('/api/download') ||
     url.pathname.includes('/install/') ||
-    url.pathname.endsWith('/releases.json')
+    url.pathname.endsWith('/releases.json') ||
+    url.pathname.includes('/download')
   ) return;
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
   if (/\/maps\/\d{6}\.json$/.test(url.pathname)) {
