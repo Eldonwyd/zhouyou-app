@@ -1,6 +1,6 @@
 {
   "name": "zhouyou-map",
-  "version": "1.0.73",
+  "version": "1.0.74",
   "description": "周游地图（Zhouyou Map）—— 跨平台中国旅行足迹地图、旅行手账与多模型 AI 行程规划器",
   "author": "Eldonwyd",
   "license": "MIT",
@@ -33,6 +33,8 @@
     "mobile:ios": "npm run build && (npx cap add ios || true) && node scripts/prepare-mobile.mjs ios && npx cap sync ios",
     "preview": "node server/index.mjs --production",
     "check": "tsc --noEmit",
+    "test": "npm run test:unit",
+    "test:unit": "node scripts/planner-domain-test.mjs && node scripts/planner-display-test.mjs && node scripts/planner-normalize-test.mjs && node scripts/planner-normalize-activity-test.mjs && node scripts/planner-service-test.mjs && node scripts/ai-subscriptions-test.mjs && node scripts/planner-xhs-import-test.mjs && node scripts/planner-photo-test.mjs && node scripts/planner-photo-cover-test.mjs && node scripts/planner-options-map-test.mjs && node scripts/planner-open-map-test.mjs && node scripts/ticket-plan-test.mjs && node scripts/travel-plus-features-test.mjs && node scripts/audit-fixes-test.mjs",
     "test:planner": "node scripts/planner-domain-test.mjs && node scripts/planner-display-test.mjs && node scripts/planner-normalize-test.mjs && node scripts/planner-normalize-activity-test.mjs && node scripts/planner-service-test.mjs && node scripts/ai-subscriptions-test.mjs && node scripts/planner-xhs-import-test.mjs && node scripts/planner-photo-test.mjs && node scripts/planner-photo-cover-test.mjs && node scripts/planner-options-map-test.mjs && node scripts/planner-smoke.mjs && node scripts/planner-options-map-smoke.mjs && node scripts/planner-photo-smoke.mjs && node scripts/planner-launcher-smoke.mjs",
     "test:planner:live": "node scripts/planner-live.mjs",
     "test:photos": "node scripts/planner-photo-test.mjs && node scripts/planner-xhs-test.mjs && node scripts/planner-photo-speed-test.mjs && node scripts/planner-photo-cover-test.mjs && node scripts/photo-inspector-test.mjs && node scripts/planner-photo-smoke.mjs",

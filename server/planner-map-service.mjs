@@ -303,7 +303,7 @@ function createBreaker(threshold = 2, cooldownMs = 180000) {
 export function createPlannerMapService({
   apiKey = '',
   fetchImpl = fetch,
-  tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  tileUrl = '',
   photonUrl = 'https://photon.komoot.io/api/',
   nominatimUrl = 'https://nominatim.openstreetmap.org/search',
   overpassUrl = 'https://maps.mail.ru/osm/tools/overpass/api/interpreter',

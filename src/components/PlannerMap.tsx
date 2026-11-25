@@ -13,6 +13,11 @@ const AMAP_TILE_URL = 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&s
 const CARTO_TILE_URL = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
 const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const DEFAULT_TILE_URL = AMAP_TILE_URL;
+const FALLBACK_TILE_URLS = [AMAP_TILE_URL, CARTO_TILE_URL, OSM_TILE_URL] as const;
+
+function isValidTileUrl(url: string): boolean {
+  return /^https:\/\/[^@\s]+$/.test(url) && url.includes('{z}') && url.includes('{x}') && url.includes('{y}');
+}
 
 function isInChinaMainland(lat: number, lng: number): boolean {
   return lat >= 18 && lat <= 54 && lng >= 73.5 && lng <= 135.1;
@@ -77,6 +82,7 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
   const [error, setError] = useState('');
   const [tileError, setTileError] = useState(false);
   const [tileUrl, setTileUrl] = useState(DEFAULT_TILE_URL);
+  const triedTileUrlsRef = useRef<Set<string>>(new Set());
   const host = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const places = useMemo(() => datedPlannerMapPlaces(content, hotels), [content, hotels]);
@@ -153,7 +159,10 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
         for (const position of resolved) savedRef.current[position.key] = position;
         setPositions(Object.values(savedRef.current));
         if (result.notice) setNotice(result.notice);
-        if (/^https:\/\/[^@\s]+\{z\}.*\{x\}.*\{y\}/.test(result.tileUrl)) setTileUrl(result.tileUrl);
+        // 仅采纳服务端显式配置的自定义底图模板，避免旧版默认 OSM 地址覆盖国内默认的高德底图。
+        if (isValidTileUrl(result.tileUrl) && result.tileUrl !== OSM_TILE_URL) {
+          setTileUrl(result.tileUrl);
+        }
       }
     })().catch((failure: unknown) => {
       if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : '地点查询失败，请重试');
@@ -192,7 +201,12 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
   }, [adjustKey, saving, open, tileUrl, retry]);
 
   useEffect(() => {
-    if (!open || !host.current) return;
+    if (!open || !host.current) {
+      if (!open) triedTileUrlsRef.current.clear();
+      return;
+    }
+    let disposed = false;
+    triedTileUrlsRef.current.add(tileUrl);
     const instance = L.map(host.current, { scrollWheelZoom: true, fadeAnimation: false }).setView([35, 105], 4);
     map.current = instance;
     setTileError(false);
@@ -203,18 +217,30 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
         ? '&copy; 高德地图'
         : '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
     }).addTo(instance);
-    let tileErrors = 0;
+    let tileLoads = 0;
+    let consecutiveErrors = 0;
+    layer.on('tileload', () => {
+      if (disposed) return;
+      tileLoads++;
+      consecutiveErrors = 0;
+      setTileError(false);
+    });
     layer.on('tileerror', () => {
-      tileErrors++;
-      if (tileErrors >= 3 && tileUrl === AMAP_TILE_URL) {
-        setTileUrl(CARTO_TILE_URL);
-        return;
+      if (disposed) return;
+      consecutiveErrors++;
+      // 已有底图瓦片正常渲染时，偶发单块瓦片超时或缩放取消不误报“底图加载失败”。
+      if (tileLoads > 0 && consecutiveErrors < 6) return;
+      if (consecutiveErrors >= 3) {
+        const nextUrl = FALLBACK_TILE_URLS.find((candidate) => !triedTileUrlsRef.current.has(candidate));
+        if (nextUrl) {
+          triedTileUrlsRef.current.add(nextUrl);
+          setTileUrl(nextUrl);
+          return;
+        }
+        if (tileLoads === 0 && consecutiveErrors >= 4) {
+          setTileError(true);
+        }
       }
-      if (tileErrors >= 3 && tileUrl === CARTO_TILE_URL) {
-        setTileUrl(OSM_TILE_URL);
-        return;
-      }
-      if (tileErrors >= 4) setTileError(true);
     });
     const resize = new ResizeObserver(() => {
       instance.invalidateSize({ pan: false });
@@ -225,7 +251,7 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
       });
     });
     resize.observe(host.current);
-    return () => { resize.disconnect(); instance.remove(); map.current = null; };
+    return () => { disposed = true; resize.disconnect(); instance.remove(); map.current = null; };
   }, [open, tileUrl, retry]);
 
   useEffect(() => {
@@ -393,7 +419,8 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
       }
       const label = document.createElement('span');
       label.textContent = `★ ${entry.item.name}`;
-      L.marker([position.latitude!, position.longitude!], {
+      const [wishlistLat, wishlistLng] = displayCoord(position.latitude!, position.longitude!);
+      L.marker([wishlistLat, wishlistLng], {
         title: `待选 · ${entry.item.name}`,
         icon: L.divIcon({
           className: 'planner-wishlist-marker',
@@ -439,7 +466,18 @@ export default function PlannerMap({ content, hotels = {}, wishlist = [], savedP
             {content.days.map((day) => <option key={day.date} value={day.date}>{day.date}</option>)}
           </select>
         </label>
-        <button className="secondary planner-map-retry-btn" disabled={Boolean(stage)} onClick={() => setRetry(retry + 1)}>重试定位与地图</button>
+        <button
+          className="secondary planner-map-retry-btn"
+          disabled={Boolean(stage)}
+          onClick={() => {
+            triedTileUrlsRef.current.clear();
+            setTileError(false);
+            setTileUrl(DEFAULT_TILE_URL);
+            setRetry(retry + 1);
+          }}
+        >
+          重试定位与地图
+        </button>
       </div>
       {stage && <p role="status">{stage}</p>}
       {/* 直接展示覆盖率，避免地图上的少数点被误认为整份行程只有这些景点。 */}
