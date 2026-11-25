@@ -114,6 +114,13 @@ div.mobile-disclosure-body,
   .main-shell {
     padding-bottom: calc(84px + var(--safe-bottom));
   }
+  /* 软键盘弹出 / 输入框聚焦时隐藏底部导航栏，避免固定底栏被键盘顶起并遮挡输入框与上方文字。 */
+  :root[data-keyboard-open="true"] .app-shell .sidebar {
+    display: none !important;
+  }
+  :root[data-keyboard-open="true"] .main-shell {
+    padding-bottom: 0 !important;
+  }
   .dialog-backdrop {
     padding: max(16px, calc(var(--safe-top) + 10px)) max(12px, var(--safe-right)) max(16px, calc(var(--safe-bottom) + 10px)) max(12px, var(--safe-left));
   }

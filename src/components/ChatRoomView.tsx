@@ -218,14 +218,21 @@ export default function ChatRoomView({
         void fetchMessages(true);
       }
     };
+    const onViewportResize = () => {
+      if (document.documentElement.dataset.keyboardOpen === 'true') {
+        window.requestAnimationFrame(() => scrollToBottom(false));
+      }
+    };
     document.addEventListener('visibilitychange', onWake);
     window.addEventListener('focus', onWake);
+    window.visualViewport?.addEventListener('resize', onViewportResize);
     return () => {
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', onWake);
       window.removeEventListener('focus', onWake);
+      window.visualViewport?.removeEventListener('resize', onViewportResize);
     };
-  }, [fetchMessages]);
+  }, [fetchMessages, scrollToBottom]);
 
   async function handleSendText() {
     const text = draft.trim();
@@ -736,7 +743,10 @@ export default function ChatRoomView({
           placeholder={`发消息给 ${title}…`}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onFocus={() => setTray('none')}
+          onFocus={() => {
+            setTray('none');
+            window.setTimeout(() => scrollToBottom(false), 120);
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
@@ -756,6 +766,7 @@ export default function ChatRoomView({
           type="button"
           className="primary im-send-btn"
           disabled={sending || !draft.trim()}
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => void handleSendText()}
         >
           发送

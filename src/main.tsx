@@ -106,6 +106,141 @@ createRoot(document.getElementById('root')!).render(
 // 挂载后同步状态栏颜色与图标深浅（兼容 Capacitor 原生端与 PWA 浏览器）。
 requestAnimationFrame(() => syncThemeColor());
 
+// 移动端软键盘适配：打字聚焦时隐藏底部导航栏，避免固定底栏被软键盘顶起遮挡输入框与聊天内容，
+// 并实时同步可视视口高度（--app-vvh），确保输入框紧贴软键盘上方、消息区完整可见。
+function setupMobileKeyboardViewport() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  const root = document.documentElement;
+  const vv = window.visualViewport;
+  const isTouchDevice = () =>
+    window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window;
+  const isNarrowViewport = () => window.innerWidth <= 850;
+
+  const NON_TEXT_INPUT_TYPES = new Set([
+    'button', 'checkbox', 'color', 'file', 'hidden', 'image', 'radio', 'range', 'reset', 'submit',
+  ]);
+  const isEditableElement = (el: EventTarget | null): el is HTMLElement => {
+    if (!(el instanceof HTMLElement)) return false;
+    if (el.isContentEditable) return true;
+    if (el.tagName === 'TEXTAREA') return !(el as HTMLTextAreaElement).readOnly && !(el as HTMLTextAreaElement).disabled;
+    if (el.tagName === 'INPUT') {
+      const input = el as HTMLInputElement;
+      if (input.readOnly || input.disabled) return false;
+      return !NON_TEXT_INPUT_TYPES.has((input.type || 'text').toLowerCase());
+    }
+    return false;
+  };
+
+  let lastWidth = window.innerWidth;
+  let baseHeight = Math.max(window.innerHeight, vv?.height ?? 0);
+  let wasShrunkByKeyboard = false;
+  let blurTimer: number | null = null;
+
+  const setKeyboardState = (open: boolean, viewportHeight?: number) => {
+    if (open && isNarrowViewport()) {
+      root.dataset.keyboardOpen = 'true';
+      if (viewportHeight && viewportHeight > 120) {
+        root.style.setProperty('--app-vvh', `${Math.round(viewportHeight)}px`);
+      }
+    } else {
+      delete root.dataset.keyboardOpen;
+      root.style.removeProperty('--app-vvh');
+    }
+  };
+
+  const syncFromViewport = () => {
+    const currentWidth = window.innerWidth;
+    const currentHeight = vv ? vv.height : window.innerHeight;
+
+    if (!isNarrowViewport()) {
+      wasShrunkByKeyboard = false;
+      setKeyboardState(false);
+      return;
+    }
+
+    // 横竖屏切换时重置基准高度
+    if (Math.abs(currentWidth - lastWidth) > 40) {
+      lastWidth = currentWidth;
+      baseHeight = Math.max(window.innerHeight, currentHeight);
+      wasShrunkByKeyboard = false;
+    }
+
+    const activeEditable = isEditableElement(document.activeElement);
+    const shrinkDelta = baseHeight - currentHeight;
+
+    if (!activeEditable && shrinkDelta < 80) {
+      baseHeight = Math.max(baseHeight, window.innerHeight, currentHeight);
+      wasShrunkByKeyboard = false;
+      setKeyboardState(false);
+      return;
+    }
+
+    if (shrinkDelta > 100) {
+      wasShrunkByKeyboard = true;
+      setKeyboardState(true, currentHeight);
+      return;
+    }
+
+    if (wasShrunkByKeyboard && shrinkDelta < 80) {
+      // 用户点击了系统软键盘自带的“收起”按钮，即使输入框仍保留焦点也恢复底部导航栏
+      wasShrunkByKeyboard = false;
+      setKeyboardState(false);
+      return;
+    }
+
+    if (activeEditable && isTouchDevice()) {
+      setKeyboardState(true, currentHeight);
+    } else {
+      setKeyboardState(false);
+    }
+  };
+
+  document.addEventListener('focusin', (e) => {
+    if (blurTimer !== null) {
+      window.clearTimeout(blurTimer);
+      blurTimer = null;
+    }
+    if (!isNarrowViewport() || !isEditableElement(e.target)) return;
+    wasShrunkByKeyboard = false;
+    const currentHeight = vv ? vv.height : window.innerHeight;
+    if (isTouchDevice() || baseHeight - currentHeight > 100) {
+      setKeyboardState(true, currentHeight);
+    }
+  }, true);
+
+  document.addEventListener('focusout', () => {
+    if (blurTimer !== null) window.clearTimeout(blurTimer);
+    blurTimer = window.setTimeout(() => {
+      blurTimer = null;
+      if (!isEditableElement(document.activeElement)) {
+        wasShrunkByKeyboard = false;
+        setKeyboardState(false);
+      }
+    }, 120);
+  }, true);
+
+  // 若用户曾手动收起软键盘但输入框仍保有焦点，再次轻触该输入框时立即隐藏底栏
+  document.addEventListener('pointerdown', (e) => {
+    if (!isNarrowViewport() || !isTouchDevice()) return;
+    if (e.target === document.activeElement && isEditableElement(e.target) && root.dataset.keyboardOpen !== 'true') {
+      const currentHeight = vv ? vv.height : window.innerHeight;
+      setKeyboardState(true, currentHeight);
+    }
+  }, true);
+
+  vv?.addEventListener('resize', syncFromViewport);
+  window.addEventListener('resize', syncFromViewport);
+  window.addEventListener('orientationchange', () => {
+    window.setTimeout(() => {
+      lastWidth = window.innerWidth;
+      baseHeight = Math.max(window.innerHeight, vv?.height ?? 0);
+      syncFromViewport();
+    }, 180);
+  });
+}
+
+setupMobileKeyboardViewport();
+
 // Service workers need a secure origin. Vite's localhost and HTTPS both qualify.
 // 原生端（Capacitor Android/iOS、Electron 桌面端）所有静态资源已打包在本地，
 // 绝不能由 Service Worker 缓存 App Shell，否则覆盖升级后仍会停留在旧版页面。

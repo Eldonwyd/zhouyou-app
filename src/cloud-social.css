@@ -2686,6 +2686,7 @@
 .im-chat-header {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   gap: 10px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--line, rgba(0, 0, 0, 0.07));
@@ -2735,6 +2736,7 @@
 }
 .im-chat-messages {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 14px 14px 16px;
   display: flex;
@@ -2936,6 +2938,7 @@
 .im-composer {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   gap: 6px;
   padding: 8px 10px;
   border-top: 1px solid var(--line, rgba(0, 0, 0, 0.08));
@@ -3467,14 +3470,26 @@
     height: 20px;
   }
   .im-chat-shell {
-    height: calc(100dvh - 148px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
-    min-height: 360px;
+    height: calc(var(--app-vvh, 100dvh) - 148px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+    min-height: 0;
     max-height: none;
     border-radius: 16px;
   }
   .chat-room-view .im-chat-shell {
-    height: calc(100dvh - 230px - env(safe-area-inset-bottom, 0px));
-    min-height: 360px;
+    height: calc(var(--app-vvh, 100dvh) - 230px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+    min-height: 0;
+  }
+  /* 软键盘弹出时底部导航栏已隐藏：聊天窗口随可视视口自适应，确保输入框与上方消息均清晰可见。 */
+  :root[data-keyboard-open="true"] .chat-shell.is-in-chat {
+    padding: 4px 6px 4px;
+  }
+  :root[data-keyboard-open="true"] .im-chat-shell {
+    height: calc(var(--app-vvh, 100dvh) - 66px - var(--safe-top, 0px));
+    min-height: 0;
+  }
+  :root[data-keyboard-open="true"] .chat-room-view .im-chat-shell {
+    height: calc(var(--app-vvh, 100dvh) - 146px - var(--safe-top, 0px));
+    min-height: 0;
   }
   .im-chat-header {
     padding: 10px 12px;
@@ -3622,10 +3637,14 @@
   }
   /* 手机端进入群聊 Tab 时，整体锁定在单屏内，外层不可滚动，仅消息列表内部流畅滚动 */
   .chat-shell.is-group-chat {
-    height: calc(100dvh - 58px - var(--safe-top, 0px) - 70px - var(--safe-bottom, 0px));
+    height: calc(var(--app-vvh, 100dvh) - 58px - var(--safe-top, 0px) - 70px - var(--safe-bottom, 0px));
     overflow: hidden;
     padding: 6px 10px 6px;
     gap: 6px;
+  }
+  :root[data-keyboard-open="true"] .chat-shell.is-group-chat {
+    height: calc(var(--app-vvh, 100dvh) - 58px - var(--safe-top, 0px));
+    padding: 4px 8px 4px;
   }
   .chat-shell.is-group-chat .chat-room-view {
     flex: 1;
