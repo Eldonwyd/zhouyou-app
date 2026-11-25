@@ -5,7 +5,7 @@ import {
   validatePlannerContent,
 } from './planner-domain';
 import { extractJsonObject, handleMobilePlannerApi } from './mobile-ai-runtime';
-import type { PlannerBudget, PlannerContent, PlannerRequest } from './planner-types';
+import type { AiTravelPlan, PlannerActivity, PlannerBudget, PlannerContent, PlannerDay, PlannerRequest } from './planner-types';
 
 const EXTERNAL_JSON_TEMPLATE = `{
   "title": "成都 4 日悠闲漫游",
@@ -234,4 +234,294 @@ export async function parseExternalAiResponse(
   validatePlannerContent(content);
   const budget = calculatePlannerBudget(content);
   return { content, budget, warnings: content.warnings };
+}
+
+export interface ExternalAiEditDayDiff {
+  dayNumber: number;
+  date: string;
+  title: string;
+  added: string[];
+  removed: string[];
+  kept: number;
+}
+
+export interface ExternalAiEditPreview {
+  mode: 'patch_days' | 'full';
+  summary: string;
+  content: PlannerContent;
+  budget: PlannerBudget;
+  budgetDeltaCents: number;
+  changedDays: ExternalAiEditDayDiff[];
+  lockedWarnings: string[];
+}
+
+function normalizePlaceKey(city = '', title = ''): string {
+  return `${city.replace(/市$/, '')}${title}`
+    .replace(/[\s·•・（）()《》「」【】\-—–_]+/g, '')
+    .toLowerCase();
+}
+
+function buildCompactPlanSnapshot(content: PlannerContent): Record<string, unknown> {
+  return {
+    title: content.title,
+    summary: content.summary,
+    days: content.days.map((day, idx) => {
+      const dayCity = day.lodging?.city || day.activities.find((a) => a.city)?.city || content.request.destination;
+      const firstLodgingCost = day.lodging?.costs?.[0];
+      return {
+        day: idx + 1,
+        date: day.date,
+        city: dayCity,
+        title: day.title,
+        ...(day.lodging
+          ? {
+              lodging: {
+                area: day.lodging.area,
+                nightlyCostYuan: firstLodgingCost?.unitPriceCents ? Math.round(firstLodgingCost.unitPriceCents / 100) : 0,
+                roomCount: firstLodgingCost?.quantity || 1,
+              },
+            }
+          : { lodging: null }),
+        activities: day.activities.map((act) => ({
+          kind: act.kind,
+          startTime: act.startTime,
+          endTime: act.endTime,
+          title: act.title,
+          city: act.city,
+          location: act.location,
+          description: act.description,
+          ...(act.locked ? { locked: true } : {}),
+          costs: act.costs.map((c) => ({
+            category: c.category,
+            label: c.label,
+            unitAmountYuan: c.unitPriceCents ? Math.round(c.unitPriceCents / 100) : 0,
+            unit: c.unit,
+          })),
+        })),
+      };
+    }),
+  };
+}
+
+/** 导出当前行程的精简 JSON + 修改提示词，供用户发给豆包 / DeepSeek / Kimi / ChatGPT 讨论并按固定格式导回。 */
+export function buildExternalAiEditPrompt(plan: AiTravelPlan, userHint = ''): string {
+  const snapshot = buildCompactPlanSnapshot(plan.content);
+  const lockedTitles = plan.content.days
+    .flatMap((d, idx) => d.activities.filter((a) => a.locked).map((a) => `第${idx + 1}天「${a.title}」`));
+  const hint = userHint.trim();
+
+  return [
+    '你是一位资深中国旅行路线规划师。下面是我当前在「周游地图」App 里的精简行程 JSON，请帮我一起讨论并修改这份行程：',
+    '',
+    '【我的修改想法】',
+    hint || '（请先听我接下来告诉你的具体修改需求，我们可以多轮讨论；等我确认方案后，你再按下方固定 JSON 格式输出最终结果）',
+    ...(lockedTitles.length ? ['', `【已锁定条目（除非我明确要求，请勿删除或改动）】`, lockedTitles.join('、')] : []),
+    '',
+    '【当前行程精简 JSON】',
+    '```json',
+    JSON.stringify(snapshot, null, 2),
+    '```',
+    '',
+    '【最终输出格式要求（聊定后请严格按此格式输出，方便我一键导回 App）】',
+    '1. 只输出一个 ```json ... ``` 代码块，不要在 JSON 中写注释，确保是合法 JSON。',
+    '2. 如果只修改了其中某几天，推荐使用局部模式（省字数、不易截断）：',
+    '   - 顶层写 `"mode": "patch_days"`、`"summary": "一句话概括改动"`，`"days"` 数组里只需包含**被修改的那几天**（每项必须带正确的 `"day"` 序号，如 2 代表第 2 天）。',
+    '3. 如果增减了总天数或整体重排，顶层写 `"mode": "full"`，`"days"` 包含全部天数。',
+    '4. 活动字段保持与上方一致：kind 只能是 "sight" | "meal" | "transfer" | "rest" | "shopping" | "lodging"；costs 的 category 只能是 "tickets" | "food" | "transport" | "lodging" | "shopping" | "other"，unit 只能是 "person" | "room" | "vehicle" | "group"。',
+    '5. 原来未改动的景点名称请尽量保持原样，这样 App 导入时能自动保留我已保存的景点实景图和详细攻略。',
+  ].join('\n');
+}
+
+function preserveExistingActivityMeta(nextDays: PlannerDay[], prevDays: PlannerDay[]): PlannerDay[] {
+  const byCityTitle = new Map<string, PlannerActivity>();
+  const byTitle = new Map<string, PlannerActivity>();
+  for (const day of prevDays) {
+    for (const act of day.activities) {
+      const k1 = normalizePlaceKey(act.city, act.title);
+      const k2 = normalizePlaceKey('', act.title);
+      if (k1 && !byCityTitle.has(k1)) byCityTitle.set(k1, act);
+      if (k2 && !byTitle.has(k2)) byTitle.set(k2, act);
+    }
+  }
+  return nextDays.map((day) => ({
+    ...day,
+    activities: day.activities.map((act) => {
+      const prev = byCityTitle.get(normalizePlaceKey(act.city, act.title)) ?? byTitle.get(normalizePlaceKey('', act.title));
+      if (!prev) return act;
+      return {
+        ...act,
+        id: prev.id,
+        locked: act.locked || prev.locked,
+        photo: act.photo ?? prev.photo,
+        photoQuery: act.photoQuery || prev.photoQuery,
+        bookingId: act.bookingId ?? prev.bookingId,
+        transferOptions: act.transferOptions ?? prev.transferOptions,
+        luggageNote: act.luggageNote ?? prev.luggageNote,
+      };
+    }),
+  }));
+}
+
+/** 解析外部 AI 返回的修改 JSON，支持按天局部补丁（patch_days）与整份替换（full），生成差异预览而不直接修改原行程。 */
+export async function previewExternalAiEdit(
+  rawText: string,
+  currentPlan: AiTravelPlan,
+): Promise<ExternalAiEditPreview> {
+  const trimmed = String(rawText || '').trim();
+  if (!trimmed) {
+    throw new Error('请先粘贴外部 AI 回复的修改 JSON 内容');
+  }
+  if (!trimmed.includes('{') && !trimmed.includes('[')) {
+    throw new Error('未检测到 JSON 内容。请让外部 AI 按提示词中的 ```json ... ``` 格式输出最终修改结果后再粘贴');
+  }
+
+  let parsedRaw: unknown;
+  try {
+    const fenceMatches = [...trimmed.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)];
+    let best: Record<string, unknown> | null = null;
+    for (const m of fenceMatches) {
+      try {
+        const candidate = unwrapExternalPlanObject(extractJsonObject<unknown>(m[1]));
+        if (candidate && Array.isArray(candidate.days) && candidate.days.length > 0) {
+          best = candidate;
+          break;
+        }
+      } catch {
+        // 尝试下一个代码块
+      }
+    }
+    parsedRaw = best ?? extractJsonObject<unknown>(trimmed);
+  } catch {
+    throw new Error('粘贴的内容无法解析为有效 JSON，请确认已复制完整代码块（从 { 到 }）');
+  }
+
+  const parsed = unwrapExternalPlanObject(parsedRaw);
+  if (!parsed || !Array.isArray(parsed.days) || parsed.days.length === 0) {
+    throw new Error('JSON 中缺少有效的 days 数组，请让外部 AI 按格式重新输出');
+  }
+
+  const prevContent = currentPlan.content;
+  const prevDays = prevContent.days;
+  const rawMode = String(parsed.mode || '').toLowerCase();
+  const explicitDayNums = parsed.days.map((d) => {
+    const rec = (d && typeof d === 'object' ? d : {}) as Record<string, unknown>;
+    const n = Number(rec.day ?? rec.dayNumber ?? rec.dayIndex ?? 0);
+    return Number.isInteger(n) && n >= 1 ? n : 0;
+  });
+  const looksLikePatch =
+    rawMode === 'patch_days'
+    || rawMode === 'patch'
+    || (
+      rawMode !== 'full'
+      && parsed.days.length < prevDays.length
+      && explicitDayNums.every((n) => n >= 1 && n <= prevDays.length)
+    );
+
+  const normalizedIncoming = await handleMobilePlannerApi<PlannerContent>(
+    'normalize-external',
+    {
+      raw: parsed,
+      request: {
+        ...prevContent.request,
+        days: looksLikePatch ? parsed.days.length : parsed.days.length,
+        endDate: addPlannerDays(prevContent.request.startDate, Math.max(1, looksLikePatch ? prevDays.length : parsed.days.length) - 1),
+      },
+    },
+    new AbortController().signal,
+    () => {},
+  );
+
+  let mergedDays: PlannerDay[];
+  const touchedDayIndices = new Set<number>();
+
+  if (looksLikePatch) {
+    mergedDays = prevDays.map((d) => ({ ...d, activities: [...d.activities] }));
+    normalizedIncoming.days.forEach((incomingDay, i) => {
+      const targetNum = explicitDayNums[i] || (i + 1);
+      const targetIdx = targetNum - 1;
+      if (targetIdx < 0 || targetIdx >= mergedDays.length) return;
+      const prevDay = mergedDays[targetIdx];
+      mergedDays[targetIdx] = {
+        ...incomingDay,
+        date: prevDay.date,
+        lodging: targetIdx === mergedDays.length - 1 ? null : (incomingDay.lodging ?? prevDay.lodging),
+      };
+      touchedDayIndices.add(targetIdx);
+    });
+  } else {
+    mergedDays = normalizedIncoming.days.map((d, idx) => ({
+      ...d,
+      date: prevDays[idx]?.date || addPlannerDays(prevContent.request.startDate, idx),
+      lodging: idx === normalizedIncoming.days.length - 1 ? null : d.lodging,
+    }));
+    mergedDays.forEach((_, idx) => touchedDayIndices.add(idx));
+  }
+
+  mergedDays = preserveExistingActivityMeta(mergedDays, prevDays);
+
+  const nextContent: PlannerContent = {
+    ...prevContent,
+    title: typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : prevContent.title,
+    summary: typeof parsed.summary === 'string' && parsed.summary.trim() && !looksLikePatch
+      ? parsed.summary.trim()
+      : prevContent.summary,
+    request: {
+      ...prevContent.request,
+      days: mergedDays.length,
+      endDate: addPlannerDays(prevContent.request.startDate, Math.max(1, mergedDays.length) - 1),
+    },
+    days: mergedDays,
+  };
+
+  validatePlannerContent(nextContent);
+  const nextBudget = calculatePlannerBudget(nextContent);
+  const prevBudget = calculatePlannerBudget(prevContent);
+
+  // 计算每天的增删差异与锁定项提醒
+  const changedDays: ExternalAiEditDayDiff[] = [];
+  const lockedWarnings: string[] = [];
+  const maxLen = Math.max(prevDays.length, mergedDays.length);
+
+  for (let i = 0; i < maxLen; i += 1) {
+    if (!touchedDayIndices.has(i) && i < prevDays.length && i < mergedDays.length) continue;
+    const oldActs = prevDays[i]?.activities ?? [];
+    const newActs = mergedDays[i]?.activities ?? [];
+    const oldKeys = new Set(oldActs.map((a) => normalizePlaceKey('', a.title)));
+    const newKeys = new Set(newActs.map((a) => normalizePlaceKey('', a.title)));
+    const added = newActs.filter((a) => !oldKeys.has(normalizePlaceKey('', a.title))).map((a) => a.title);
+    const removed = oldActs.filter((a) => !newKeys.has(normalizePlaceKey('', a.title))).map((a) => a.title);
+    const kept = newActs.length - added.length;
+
+    for (const act of oldActs) {
+      if (act.locked && !newKeys.has(normalizePlaceKey('', act.title))) {
+        lockedWarnings.push(`第 ${i + 1} 天已锁定活动「${act.title}」在新方案中被移除`);
+      }
+    }
+    if (added.length || removed.length || !prevDays[i] || !mergedDays[i]) {
+      changedDays.push({
+        dayNumber: i + 1,
+        date: mergedDays[i]?.date || prevDays[i]?.date || '',
+        title: mergedDays[i]?.title || prevDays[i]?.title || `第 ${i + 1} 天`,
+        added,
+        removed,
+        kept: Math.max(0, kept),
+      });
+    }
+  }
+
+  const aiSummary = typeof parsed.summary === 'string' && parsed.summary.trim()
+    ? parsed.summary.trim()
+    : (looksLikePatch
+      ? `外部 AI 局部调整了 ${changedDays.length || touchedDayIndices.size} 天行程`
+      : '外部 AI 更新了完整行程');
+
+  return {
+    mode: looksLikePatch ? 'patch_days' : 'full',
+    summary: aiSummary,
+    content: nextContent,
+    budget: nextBudget,
+    budgetDeltaCents: nextBudget.totalCents - prevBudget.totalCents,
+    changedDays,
+    lockedWarnings,
+  };
 }

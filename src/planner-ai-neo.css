@@ -1602,3 +1602,353 @@
   gap: 8px;
   padding-top: 2px;
 }
+
+/* ── AI 助手顶部模式切换 & 外部 AI 修改当前行程面板 ───────────────────────── */
+.planner-ai-mode-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  background: var(--surface-2, #f5efe8);
+  border: 1px solid var(--line, #e8ddd2);
+}
+.planner-ai-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted, #7a6b63);
+  font-size: calc(12.5px * var(--font-scale, 1));
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.planner-ai-mode-pill:hover {
+  color: var(--ink, #2c231e);
+}
+.planner-ai-mode-pill.is-active {
+  background: var(--surface, #fff);
+  color: var(--ink, #2c231e);
+  box-shadow: 0 2px 8px rgba(45, 32, 22, 0.08);
+}
+.planner-ai-mode-badge {
+  font-size: calc(10px * var(--font-scale, 1));
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-sage, #e3f4ec) 90%, transparent);
+  color: var(--app-sage-ink, #1e7356);
+}
+
+.ext-edit-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.ext-edit-intro {
+  margin: 0;
+  font-size: calc(12.5px * var(--font-scale, 1));
+  line-height: 1.5;
+  color: var(--muted, #7a6b63);
+}
+.ext-edit-step {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line, #e8ddd2);
+  background: color-mix(in srgb, var(--surface-2, #faf5ef) 58%, var(--surface, #fff));
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.ext-edit-step-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.ext-edit-step-num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--style-solid, var(--warm-dark, #e0614c));
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 800;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+.ext-edit-step-head strong {
+  font-size: calc(13.5px * var(--font-scale, 1));
+  color: var(--ink, #2c231e);
+}
+.ext-edit-step-meta {
+  margin-left: auto;
+  font-size: calc(11px * var(--font-scale, 1));
+  color: var(--muted, #8b7c74);
+  font-variant-numeric: tabular-nums;
+}
+.ext-edit-clear-btn {
+  margin-left: auto;
+  padding: 2px 6px !important;
+  font-size: calc(11.5px * var(--font-scale, 1)) !important;
+}
+.ext-edit-hint-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 36px;
+  padding: 0 11px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong, #dfd2c6);
+  background: var(--surface, #fff);
+  color: var(--ink, #2c231e);
+  font-size: calc(12.5px * var(--font-scale, 1));
+}
+.ext-edit-hint-input:focus,
+.ext-edit-textarea:focus {
+  outline: none;
+  border-color: var(--style-solid, var(--warm-dark, #e0614c));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--style-solid, #e0614c) 14%, transparent);
+}
+.ext-edit-copy-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 10px;
+  flex-wrap: wrap;
+}
+.ext-edit-copy-btn {
+  min-height: 34px !important;
+  padding: 6px 14px !important;
+  border-radius: 10px !important;
+  font-size: calc(12.5px * var(--font-scale, 1)) !important;
+  white-space: nowrap;
+}
+.ext-edit-copy-btn.is-copied {
+  background: var(--app-sage-ink, #217356) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+}
+.ext-edit-app-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ext-edit-app-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 27px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line, #e4d8cc);
+  background: var(--surface, #fff);
+  color: var(--ink-2, var(--ink, #3b302a));
+  font-size: calc(11.5px * var(--font-scale, 1));
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color .14s ease, border-color .14s ease, color .14s ease;
+}
+.ext-edit-app-chip:hover {
+  background: var(--surface-2, #f5efe8);
+  border-color: var(--style-solid, var(--warm-dark, #e0614c));
+  color: var(--style-solid, var(--warm-dark, #e0614c));
+}
+.ext-edit-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong, #dfd2c6);
+  background: var(--surface, #fff);
+  color: var(--ink, #2c231e);
+  padding: 9px 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: calc(12px * var(--font-scale, 1));
+  line-height: 1.5;
+  resize: vertical;
+}
+.ext-edit-error {
+  margin: 0;
+  font-size: calc(12px * var(--font-scale, 1));
+  color: var(--danger, #c62828);
+  line-height: 1.45;
+}
+.ext-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.ext-edit-preview-btn {
+  min-height: 34px !important;
+  padding: 6px 14px !important;
+  border-radius: 10px !important;
+  font-size: calc(12.5px * var(--font-scale, 1)) !important;
+}
+
+/* 差异预览卡 */
+.ext-edit-preview-card {
+  padding: 13px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--app-sage-ink, #217356) 35%, var(--line, #e6d9cc));
+  background: color-mix(in srgb, var(--app-sage, #e8f6ef) 26%, var(--surface, #fff));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+:root[data-theme="dark"] .ext-edit-preview-card {
+  background: color-mix(in srgb, #1f5c45 18%, var(--surface, #1f1c1a));
+}
+.ext-edit-preview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ext-edit-preview-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.ext-edit-preview-title strong {
+  font-size: calc(13.5px * var(--font-scale, 1));
+  color: var(--ink, #2c231e);
+}
+.ext-edit-mode-tag {
+  font-size: calc(10.5px * var(--font-scale, 1));
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--app-sage, #e3f4ec);
+  color: var(--app-sage-ink, #1e7356);
+  white-space: nowrap;
+}
+.ext-edit-delta-pill {
+  font-size: calc(11.5px * var(--font-scale, 1));
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #e4d8cc);
+  color: var(--muted, #7a6b63);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ext-edit-delta-pill.is-up {
+  color: #b45309;
+  border-color: rgba(217, 119, 6, 0.3);
+}
+.ext-edit-delta-pill.is-down {
+  color: #1e7356;
+  border-color: rgba(30, 115, 86, 0.3);
+}
+.ext-edit-lock-warn {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  color: #92400e;
+  font-size: calc(11.5px * var(--font-scale, 1));
+  line-height: 1.45;
+}
+:root[data-theme="dark"] .ext-edit-lock-warn {
+  color: #fcd34d;
+}
+.ext-edit-diff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ext-edit-diff-day {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #eae0d6);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ext-edit-diff-day-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: calc(12px * var(--font-scale, 1));
+}
+.ext-edit-diff-day-head small {
+  color: var(--muted, #8b7c74);
+}
+.ext-edit-diff-kept {
+  margin-left: auto;
+  font-size: calc(11px * var(--font-scale, 1));
+  color: var(--muted, #8b7c74);
+}
+.ext-edit-diff-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.ext-diff-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 7px;
+  font-size: calc(11.5px * var(--font-scale, 1));
+  font-weight: 600;
+}
+.ext-diff-chip.is-add {
+  background: rgba(34, 139, 94, 0.12);
+  color: #1a6e4c;
+}
+.ext-diff-chip.is-remove {
+  background: rgba(220, 68, 55, 0.1);
+  color: #b83227;
+  text-decoration: line-through;
+}
+:root[data-theme="dark"] .ext-diff-chip.is-add {
+  color: #6ee7b7;
+}
+:root[data-theme="dark"] .ext-diff-chip.is-remove {
+  color: #fca5a5;
+}
+.ext-edit-diff-empty {
+  margin: 0;
+  font-size: calc(12px * var(--font-scale, 1));
+  color: var(--muted, #7a6b63);
+}
+.ext-edit-confirm-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+@media (max-width: 600px) {
+  .planner-ai-mode-bar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+  .planner-ai-mode-pill {
+    justify-content: center;
+    padding: 0 8px;
+  }
+  .ext-edit-step {
+    padding: 10px 11px;
+  }
+  .ext-edit-copy-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .ext-edit-confirm-row > .primary {
+    flex: 1;
+  }
+}

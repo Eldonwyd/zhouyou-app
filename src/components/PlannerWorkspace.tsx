@@ -1878,6 +1878,26 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
       suggestionId,
     );
   }
+  async function applyExternalEdit(nextContent: PlannerContent, summary: string): Promise<void> {
+    if (!activePlan) return;
+    const original = activePlan;
+    const now = new Date().toISOString();
+    const next = revisePlanner(original, reconcileBookedContent(original, nextContent), summary || '外部 AI 修改');
+    const delta = calculatePlannerBudget(next.content).totalCents - calculatePlannerBudget(original.content).totalCents;
+    const reply = `已应用外部 AI 修改：${summary || '行程已更新'}\n预算变化：${delta >= 0 ? '+' : '-'}${priceText(Math.abs(delta))}。可在「历史撤销」中一键恢复。`;
+    next.messages = [
+      ...original.messages,
+      {
+        id: createLocalId(),
+        role: 'assistant',
+        text: reply,
+        createdAt: now,
+        kind: 'revision',
+      },
+    ];
+    await props.onSaveAi(next, original.version);
+    props.onNotice('已应用外部 AI 修改，可在「历史撤销」中随时恢复');
+  }
   function focusPlannerChat(): void {
     if (webTourMode) {
       props.onRequireClient?.('ai');
@@ -3079,6 +3099,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                 onMessageChange={setMessage}
                 onSend={() => void sendChat()}
                 onApplySuggestion={applySuggestion}
+                onApplyExternalEdit={applyExternalEdit}
                 onConfigureAi={() => setAiSettingsOpen(true)}
                 aiLabel={aiStatus?.configured ? (aiStatus.label ?? aiStatus.model ?? '').split(' · ')[0] : ''}
                 attachedRefs={chatRefs}

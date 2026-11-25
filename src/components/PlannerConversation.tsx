@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { AiTravelPlan, PlannerMessage, XhsReference } from '../planner-types';
+import type { AiTravelPlan, PlannerContent, PlannerMessage, XhsReference } from '../planner-types';
 import { isExecutablePlannerSuggestion, plannerSuggestions } from '../planner-domain';
 import { plannerDisplayText, splitAnswerLinks } from '../planner-display';
+import {
+  EXTERNAL_FREE_AI_APPS,
+  buildExternalAiEditPrompt,
+  previewExternalAiEdit,
+  type ExternalAiEditPreview,
+} from '../planner-external-ai';
 import { cloudApi, type ChatMessage, type CloudSelfUser } from '../cloud-api';
 import { getCloudPlanMetaMap } from '../cloud-sync';
 import RichAiText from './RichAiText';
@@ -17,6 +23,7 @@ interface PlannerConversationProps {
   onMessageChange: (text: string) => void;
   onSend: () => void;
   onApplySuggestion: (messageId: string, suggestionId: string) => void;
+  onApplyExternalEdit?: (nextContent: PlannerContent, summary: string) => Promise<void> | void;
   onConfigureAi: () => void;
   aiLabel?: string;
   attachedRefs?: XhsReference[];
@@ -82,6 +89,7 @@ export default function PlannerConversation({
   onMessageChange,
   onSend,
   onApplySuggestion,
+  onApplyExternalEdit,
   onConfigureAi,
   aiLabel = '',
   attachedRefs = [],
@@ -111,6 +119,87 @@ export default function PlannerConversation({
     multi: boolean;
   } | null>(null);
   const [sendingPoll, setSendingPoll] = useState(false);
+
+  // 「对话修改」 vs 「外部 AI 修改」模式切换
+  const [panelMode, setPanelMode] = useState<'chat' | 'external'>('chat');
+  const [extHint, setExtHint] = useState('');
+  const [extCopied, setExtCopied] = useState(false);
+  const [extRawText, setExtRawText] = useState('');
+  const [extParsing, setExtParsing] = useState(false);
+  const [extError, setExtError] = useState('');
+  const [extPreview, setExtPreview] = useState<ExternalAiEditPreview | null>(null);
+  const [extApplying, setExtApplying] = useState(false);
+
+  // 切换行程时清空外部 AI 草稿与预览，防止串计划
+  useEffect(() => {
+    setExtPreview(null);
+    setExtRawText('');
+    setExtError('');
+    setExtCopied(false);
+  }, [plan.id]);
+
+  const extPromptPreviewLen = useMemo(
+    () => buildExternalAiEditPrompt(plan, extHint).length,
+    [plan, extHint],
+  );
+
+  async function handleCopyExternalEditPrompt() {
+    const promptText = buildExternalAiEditPrompt(plan, extHint);
+    try {
+      await navigator.clipboard.writeText(promptText);
+      setExtCopied(true);
+      onNotice?.('已复制当前行程与修改提示词，去豆包 / DeepSeek / Kimi 粘贴聊聊吧');
+      window.setTimeout(() => setExtCopied(false), 2600);
+    } catch {
+      // 兼容不支持 clipboard API 的环境
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = promptText;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        setExtCopied(true);
+        onNotice?.('已复制当前行程与修改提示词');
+        window.setTimeout(() => setExtCopied(false), 2600);
+      } catch {
+        onError?.('复制失败，请检查剪贴板权限');
+      }
+    }
+  }
+
+  async function handlePreviewExternalEdit() {
+    setExtError('');
+    setExtParsing(true);
+    try {
+      const preview = await previewExternalAiEdit(extRawText, plan);
+      setExtPreview(preview);
+    } catch (err) {
+      setExtPreview(null);
+      setExtError(err instanceof Error ? err.message : '解析外部 AI 回复失败');
+    } finally {
+      setExtParsing(false);
+    }
+  }
+
+  async function handleConfirmExternalEdit() {
+    if (!extPreview || !onApplyExternalEdit || extApplying) return;
+    setExtApplying(true);
+    try {
+      await onApplyExternalEdit(extPreview.content, extPreview.summary);
+      setExtPreview(null);
+      setExtRawText('');
+      setExtHint('');
+      setExtError('');
+      setPanelMode('chat');
+    } catch (err) {
+      setExtError(err instanceof Error ? err.message : '应用外部 AI 修改失败');
+    } finally {
+      setExtApplying(false);
+    }
+  }
 
   const fetchGroupPolls = useCallback(async () => {
     if (!groupId || !cloudUser) {
@@ -293,6 +382,186 @@ export default function PlannerConversation({
         </div>
       </div>
       <div id="planner-conversation-body" hidden={!open}>
+        {onApplyExternalEdit && (
+          <div className="planner-ai-mode-bar" role="tablist" aria-label="修改方式">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={panelMode === 'chat'}
+              className={`planner-ai-mode-pill${panelMode === 'chat' ? ' is-active' : ''}`}
+              onClick={() => setPanelMode('chat')}
+            >
+              ✦ 对话修改
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={panelMode === 'external'}
+              className={`planner-ai-mode-pill${panelMode === 'external' ? ' is-active' : ''}`}
+              onClick={() => setPanelMode('external')}
+            >
+              📋 外部 AI 修改
+              <span className="planner-ai-mode-badge">免额度</span>
+            </button>
+          </div>
+        )}
+
+        {panelMode === 'external' && onApplyExternalEdit ? (
+          <div className="ext-edit-panel">
+            <p className="ext-edit-intro">
+              额度用完或想在外部 AI 里慢慢聊细节？复制当前精简行程发给它，聊妥后按格式粘贴回这里，自动保留已有图片与历史撤销。
+            </p>
+
+            <div className="ext-edit-step">
+              <div className="ext-edit-step-head">
+                <span className="ext-edit-step-num">1</span>
+                <strong>复制当前行程 + 修改提示词</strong>
+                <span className="ext-edit-step-meta">约 {(extPromptPreviewLen / 1000).toFixed(1)}k 字 · 已精简图片</span>
+              </div>
+              <input
+                type="text"
+                className="ext-edit-hint-input"
+                value={extHint}
+                onChange={(e) => setExtHint(e.target.value)}
+                placeholder="选填修改方向：如“第2天下午太赶，加个咖啡馆，晚上换本地烧烤”"
+              />
+              <div className="ext-edit-copy-row">
+                <button
+                  type="button"
+                  className={`primary ext-edit-copy-btn${extCopied ? ' is-copied' : ''}`}
+                  onClick={() => void handleCopyExternalEditPrompt()}
+                >
+                  {extCopied ? '✓ 已复制当前行程与提示词' : '📋 一键复制当前行程 + 提示词'}
+                </button>
+                <div className="ext-edit-app-links" aria-label="常用免费外部 AI">
+                  {EXTERNAL_FREE_AI_APPS.map((app) => (
+                    <a
+                      key={app.id}
+                      className="ext-edit-app-chip"
+                      href={app.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={app.hint}
+                    >
+                      {app.name} ↗
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="ext-edit-step">
+              <div className="ext-edit-step-head">
+                <span className="ext-edit-step-num">2</span>
+                <strong>粘贴外部 AI 回复的 JSON</strong>
+                {extRawText.trim() && (
+                  <button
+                    type="button"
+                    className="text-button ext-edit-clear-btn"
+                    onClick={() => {
+                      setExtRawText('');
+                      setExtPreview(null);
+                      setExtError('');
+                    }}
+                  >
+                    清空
+                  </button>
+                )}
+              </div>
+              <textarea
+                className="ext-edit-textarea"
+                rows={4}
+                value={extRawText}
+                onChange={(e) => {
+                  setExtRawText(e.target.value);
+                  if (extPreview) setExtPreview(null);
+                  if (extError) setExtError('');
+                }}
+                placeholder="和外部 AI 聊好后，把它回复的完整内容（含 ```json ... ```）粘贴到这里…"
+              />
+              {extError && <p className="ext-edit-error" role="alert">⚠ {extError}</p>}
+              <div className="ext-edit-actions">
+                <button
+                  type="button"
+                  className="secondary ext-edit-preview-btn"
+                  disabled={busy || extParsing || !extRawText.trim()}
+                  onClick={() => void handlePreviewExternalEdit()}
+                >
+                  {extParsing ? '正在解析对比…' : '🔍 预览修改差异'}
+                </button>
+              </div>
+            </div>
+
+            {extPreview && (
+              <div className="ext-edit-preview-card">
+                <div className="ext-edit-preview-head">
+                  <div className="ext-edit-preview-title">
+                    <span className="ext-edit-mode-tag">
+                      {extPreview.mode === 'patch_days' ? '按天局部修改' : '整份行程更新'}
+                    </span>
+                    <strong>{extPreview.summary}</strong>
+                  </div>
+                  <span className={`ext-edit-delta-pill${extPreview.budgetDeltaCents > 0 ? ' is-up' : extPreview.budgetDeltaCents < 0 ? ' is-down' : ''}`}>
+                    {extPreview.budgetDeltaCents === 0
+                      ? '预算不变'
+                      : `预算 ${extPreview.budgetDeltaCents > 0 ? '+' : '-'}¥${Math.round(Math.abs(extPreview.budgetDeltaCents) / 100)}`}
+                  </span>
+                </div>
+
+                {extPreview.lockedWarnings.length > 0 && (
+                  <div className="ext-edit-lock-warn">
+                    <strong>⚠ 锁定条目提醒：</strong>
+                    {extPreview.lockedWarnings.join('；')}（应用后仍可在「历史撤销」一键恢复）
+                  </div>
+                )}
+
+                {extPreview.changedDays.length > 0 ? (
+                  <div className="ext-edit-diff-list">
+                    {extPreview.changedDays.map((d) => (
+                      <div key={d.dayNumber} className="ext-edit-diff-day">
+                        <div className="ext-edit-diff-day-head">
+                          <strong>第 {d.dayNumber} 天</strong>
+                          {d.date && <small>{d.date.slice(5)}</small>}
+                          <span className="ext-edit-diff-kept">保留 {d.kept} 项</span>
+                        </div>
+                        <div className="ext-edit-diff-chips">
+                          {d.added.map((t, i) => (
+                            <span key={`add-${i}`} className="ext-diff-chip is-add">＋ {t}</span>
+                          ))}
+                          {d.removed.map((t, i) => (
+                            <span key={`rm-${i}`} className="ext-diff-chip is-remove">－ {t}</span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="ext-edit-diff-empty">已更新行程时间、描述或费用细节（景点名称未增减）。</p>
+                )}
+
+                <div className="ext-edit-confirm-row">
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={busy || extApplying}
+                    onClick={() => void handleConfirmExternalEdit()}
+                  >
+                    {extApplying ? '正在应用…' : '✓ 确认应用到当前行程'}
+                  </button>
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={extApplying}
+                    onClick={() => setExtPreview(null)}
+                  >
+                    取消预览
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
         {plan.messages.length > 0 && (
           <div className="planner-chat-messages" ref={transcript} aria-live="polite">
             {plan.messages.map((item, idx) => {
@@ -513,6 +782,8 @@ export default function PlannerConversation({
             </button>
           </div>
         </form>
+          </>
+        )}
       </div>
 
       {pollEditor && (
