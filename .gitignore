@@ -15,3 +15,6 @@ ios/
 xiaohongshu-mcp-windows-amd64.exe
 .models/
 .ai-auth.json
+*.keystore
+*.jks
+*.p12

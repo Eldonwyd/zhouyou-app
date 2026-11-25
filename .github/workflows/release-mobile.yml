@@ -96,11 +96,13 @@ jobs:
           "${BUILD_TOOLS_DIR}/zipalign" -v -p 4 "${UNSIGNED_APK}" aligned.apk
 
           if [[ -n "${ANDROID_KEYSTORE_BASE64}" ]]; then
-            echo "${ANDROID_KEYSTORE_BASE64}" | base64 -d > release.keystore
+            echo "Using permanent release keystore from GitHub Secrets (alias: ${ANDROID_KEY_ALIAS})"
+            printf '%s' "${ANDROID_KEYSTORE_BASE64}" | tr -d '\r\n ' | base64 -d > release.keystore
             KS_PASS="${ANDROID_KEYSTORE_PASSWORD}"
             KEY_ALIAS="${ANDROID_KEY_ALIAS}"
             KEY_PASS="${ANDROID_KEY_PASSWORD}"
           else
+            echo "::warning::ANDROID_KEYSTORE_BASE64 secret is not configured; falling back to an ephemeral keystore!"
             KS_PASS="zhouyou-release-key"
             KEY_ALIAS="zhouyou"
             KEY_PASS="zhouyou-release-key"
@@ -118,7 +120,7 @@ jobs:
             --out "${SIGNED_APK}" \
             aligned.apk
 
-          "${BUILD_TOOLS_DIR}/apksigner" verify "${SIGNED_APK}"
+          "${BUILD_TOOLS_DIR}/apksigner" verify --print-certs "${SIGNED_APK}"
           rm -f dist-artifacts/*.idsig
           node scripts/build-hot-update.mjs --mobile-only --out-dir=dist-artifacts
           ls -lh dist-artifacts
