@@ -37,9 +37,34 @@ interface MapViewProps {
 // 按需构建需注册标签布局功能，否则 hideOverlap 不生效。
 echarts.use([MapChart, TooltipComponent, CanvasRenderer, LabelLayout]);
 
+const NATIONAL_LABEL_ANCHORS: Record<string, [number, number]> = {
+  // 河北环抱京津、甘肃呈弧形，ECharts 默认外环质心分别落到北京南缘与青海境内；
+  // 指定省内腹地地理坐标作为 cp，初始视图不遮挡相邻省市，放大后也始终位于本省正确位置。
+  '130000': [115.37, 38.35],
+  '620000': [104.15, 35.1],
+};
+
+function withNationalLabelAnchors(geoJson: AdministrativeGeoJSON): AdministrativeGeoJSON {
+  return {
+    ...geoJson,
+    features: geoJson.features.map((feature) => {
+      const cp = NATIONAL_LABEL_ANCHORS[String(feature.properties.adcode)];
+      if (!cp) return feature;
+      return {
+        ...feature,
+        properties: {
+          ...feature.properties,
+          cp,
+        },
+      };
+    }),
+  };
+}
+
 function ensureMapRegistered(mapName: string, geoJson: AdministrativeGeoJSON): void {
   if (!echarts.getMap(mapName)) {
-    echarts.registerMap(mapName, geoJson as Parameters<typeof echarts.registerMap>[1]);
+    const normalized = mapName === 'china' ? withNationalLabelAnchors(geoJson) : geoJson;
+    echarts.registerMap(mapName, normalized as Parameters<typeof echarts.registerMap>[1]);
   }
 }
 
@@ -59,7 +84,6 @@ function prefetchAndRegisterProvince(provinceCode: string | null | undefined): v
 const NATIONAL_LABEL_OFFSETS: Record<string, [number, number]> = {
   '110000': [-12, -18],
   '120000': [22, 5],
-  '130000': [-16, 15],
   '810000': [27, 10],
   '820000': [-25, 24],
 };
@@ -110,7 +134,7 @@ function findNearestFeatureAtPixel(
   for (const feature of features) {
     const code = String(feature.properties.adcode);
     const props = feature.properties as AdministrativeFeature['properties'] & { center?: [number, number]; centroid?: [number, number] };
-    const anchor = props.centroid ?? props.center;
+    const anchor = (!activeProvinceCode ? NATIONAL_LABEL_ANCHORS[code] : undefined) ?? props.centroid ?? props.center;
     if (anchor) {
       const projected = chart.convertToPixel({ seriesIndex: 0 }, anchor);
       if (Array.isArray(projected) && Number.isFinite(projected[0]) && Number.isFinite(projected[1])) {
@@ -632,7 +656,7 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
     const option = chart.getOption() as { series?: Array<{ zoom?: number }> };
     const series = option.series?.[0];
     const zoom = Math.max(0.8, Math.min(12, (Number(series?.zoom) || 1) * multiplier));
-    chart.setOption({ series: [{ zoom }] });
+    chart.setOption({ series: [{ zoom, ...(layoutLabelsRef.current ? { labelLayout: layoutLabelsRef.current } : {}) }] });
   }
 
   const highlightRegion = useCallback((name: string | null) => {
@@ -737,7 +761,7 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
               <button type="button" aria-label={t('放大地图', 'Zoom in')} title={t('放大', 'Zoom in')} onClick={() => adjustZoom(1.35)}>＋</button>
               <button type="button" aria-label={t('缩小地图', 'Zoom out')} title={t('缩小', 'Zoom out')} onClick={() => adjustZoom(1 / 1.35)}>－</button>
               <button type="button" aria-label={t('重置地图视野', 'Reset map view')} title={t('重置视野', 'Reset view')} onClick={() => {
-                chartRef.current?.setOption({ series: [{ zoom: 1, center: null }] });
+                chartRef.current?.setOption({ series: [{ zoom: 1, center: null, ...(layoutLabelsRef.current ? { labelLayout: layoutLabelsRef.current } : {}) }] });
               }}>{t('重置', 'Reset')}</button>
             </div>
           </div>
