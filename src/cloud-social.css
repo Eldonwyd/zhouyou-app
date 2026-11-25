@@ -4092,68 +4092,269 @@
   color: #c24b26;
 }
 
-.planner-ticket-item-top {
+.planner-ticket-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 2px;
+}
+
+.planner-ticket-plan .planner-ticket-item {
+  padding: 14px 16px;
+  border: 1px solid var(--line, #e8ddd0);
+  border-radius: 14px;
+  background: var(--surface, #fffdf9);
+  box-shadow: 0 1px 4px rgba(42, 33, 25, 0.03);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.planner-ticket-plan .planner-ticket-item:hover {
+  border-color: var(--line-strong, #d9c8b4);
+  box-shadow: 0 4px 14px rgba(42, 33, 25, 0.06);
+}
+
+.planner-ticket-plan .planner-ticket-item.is-enabled {
+  border-color: color-mix(in srgb, #e86b42 36%, var(--line, #e8ddd0));
+  background: color-mix(in srgb, #e86b42 3.5%, var(--surface, #fffdf9));
+}
+
+.planner-ticket-plan .planner-ticket-item.is-urgent {
+  border-color: color-mix(in srgb, #e53e3e 45%, var(--line, #e8ddd0));
+  background: color-mix(in srgb, #e53e3e 4%, var(--surface, #fffdf9));
+}
+
+.planner-ticket-plan .planner-ticket-item.is-past {
+  background: color-mix(in srgb, var(--surface-2, #f8f2eb) 52%, var(--surface, #fffdf9));
+}
+
+.planner-ticket-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+}
+
+.planner-ticket-item-title-wrap {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 7px 8px;
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
+.planner-ticket-plan .planner-ticket-item h4 {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--ink, #3b2d26);
+}
+
+.planner-ticket-sale-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-2, #f5ede2) 92%, transparent);
+  border: 1px solid var(--line, #e5d8c8);
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.planner-ticket-sale-k {
+  color: var(--muted, #7a6b63);
+  font-weight: 500;
+}
+
+.planner-ticket-sale-pill strong {
+  color: var(--ink, #3b2d26);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.planner-ticket-diff-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  background: var(--surface-2, #f3ece3);
+  color: var(--muted, #6f6157);
+}
+
+.planner-ticket-diff-tag.is-hard {
+  background: color-mix(in srgb, #e86b42 15%, var(--surface, #fff));
+  color: #b83d1a;
+  border: 1px solid color-mix(in srgb, #e86b42 28%, transparent);
+}
+
+.planner-ticket-diff-tag.is-medium {
+  background: color-mix(in srgb, #c98a2e 14%, var(--surface, #fff));
+  color: #8c5a12;
+}
+
+.planner-ticket-diff-tag.is-easy {
+  background: color-mix(in srgb, var(--warm-green, #3a7d5c) 12%, var(--surface, #fff));
+  color: var(--warm-green, #2f6b4e);
+}
+
+.planner-ticket-urgent-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 650;
+  background: color-mix(in srgb, #e53e3e 12%, var(--surface, #fff));
+  color: #c53030;
+  border: 1px solid color-mix(in srgb, #e53e3e 28%, transparent);
+}
+
+.planner-ticket-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 9px;
+}
+
+.planner-ticket-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-2, #f6efe6) 75%, transparent);
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted, #6c5e55);
+}
+
+.planner-ticket-item-note {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--ink, #3b2d26) 84%, var(--muted, #7a6b63));
 }
 
 .planner-ticket-reminder-bar {
-  margin-top: 8px;
-  padding: 8px 10px;
+  margin-top: 12px;
+  padding: 9px 12px;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--surface-2, #f8f2eb) 80%, transparent);
-  border: 1px solid var(--line, #eadfd4);
+  background: color-mix(in srgb, var(--surface-2, #f7efe4) 85%, transparent);
+  border: 1px solid var(--line, #e8ddd0);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.planner-ticket-reminder-bar.is-enabled {
+  background: color-mix(in srgb, #e86b42 8%, var(--surface, #fff));
+  border-color: color-mix(in srgb, #e86b42 32%, transparent);
+}
+
+.planner-ticket-reminder-bar.is-urgent {
+  background: color-mix(in srgb, #e53e3e 8%, var(--surface, #fff));
+  border-color: color-mix(in srgb, #e53e3e 34%, transparent);
+}
+
+.planner-ticket-reminder-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 10px;
 }
 
-.planner-ticket-reminder-bar.is-enabled {
-  background: color-mix(in srgb, #e86b42 8%, var(--surface, #fff));
-  border-color: color-mix(in srgb, #e86b42 35%, transparent);
-}
-
-.planner-ticket-notify-btn {
-  padding: 5px 11px !important;
-  font-size: 12.5px !important;
-  border-radius: 999px !important;
-}
-
-.planner-ticket-lead-input,
-.planner-ticket-time-input {
+.planner-workspace .planner-ticket-notify-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 13px !important;
+  font-size: 12.5px !important;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 999px !important;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* 覆盖 .planner-workspace label 的纵向堆叠，使“提前 [20] 分钟”和“时刻 [08:00]”与按钮在同一水平基线对齐 */
+.planner-workspace .planner-ticket-reminder-bar .planner-ticket-lead-input,
+.planner-workspace .planner-ticket-reminder-bar .planner-ticket-time-input {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
   font-size: 12.5px;
+  font-weight: 500;
   color: var(--ink, #3b2d26);
   margin: 0 !important;
+  white-space: nowrap;
 }
 
-.planner-ticket-lead-input input {
-  width: 64px;
-  padding: 4px 6px;
-  border-radius: 8px;
-  border: 1px solid var(--line-strong, #dccbc0);
+.planner-workspace .planner-ticket-reminder-bar .planner-ticket-lead-input span,
+.planner-workspace .planner-ticket-reminder-bar .planner-ticket-time-input span {
+  line-height: 1;
+  color: var(--muted, #6f6157);
+}
+
+.planner-workspace .planner-ticket-reminder-bar .planner-ticket-lead-input input,
+.planner-workspace .planner-ticket-reminder-bar .planner-ticket-time-input input {
+  height: 32px;
+  min-height: 32px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border-radius: 9px;
+  border: 1px solid var(--line-strong, #d9c8b4);
   background: var(--surface, #fff);
+  color: var(--ink, #3b2d26);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 30px;
+  margin: 0;
+}
+
+.planner-workspace .planner-ticket-reminder-bar .planner-ticket-lead-input input {
+  width: 58px;
   text-align: center;
-  font-size: 12.5px;
 }
 
-.planner-ticket-time-input input {
-  padding: 4px 6px;
-  border-radius: 8px;
-  border: 1px solid var(--line-strong, #dccbc0);
-  background: var(--surface, #fff);
-  font-size: 12.5px;
+.planner-workspace .planner-ticket-reminder-bar .planner-ticket-time-input input[type="time"] {
+  width: 96px;
+}
+
+.planner-workspace .planner-ticket-reminder-bar .planner-ticket-time-input input[type="date"] {
+  width: 132px;
 }
 
 .planner-ticket-reminder-preview {
   font-size: 12px;
+  line-height: 1.45;
   color: var(--muted, #7a6b63);
   margin-left: auto;
+}
+
+.planner-ticket-reminder-preview.is-active {
+  color: #b84824;
+  font-weight: 550;
+}
+
+.planner-ticket-reminder-preview.is-urgent,
+.planner-ticket-reminder-preview.is-live {
+  color: #c53030;
+  font-weight: 650;
 }
 
 .trip-share-dialog {
@@ -4320,6 +4521,17 @@
 }
 
 @media (max-width: 600px) {
+  .planner-ticket-plan .planner-ticket-item {
+    padding: 12px 13px;
+  }
+  .planner-ticket-reminder-bar {
+    padding: 9px 10px;
+    gap: 8px;
+  }
+  .planner-ticket-reminder-controls {
+    width: 100%;
+    gap: 8px;
+  }
   .planner-ticket-reminder-preview {
     margin-left: 0;
     width: 100%;

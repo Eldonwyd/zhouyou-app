@@ -150,10 +150,22 @@ export interface TicketUrgencyInfo {
   soonestLabel: string;
 }
 
-const TICKET_URGENT_WINDOW_MS = 48 * 60 * 60_000; // 开售前 48 小时内视为“快到抢票”
-const TICKET_POST_OPEN_GRACE_MS = 2 * 60 * 60_000; // 开售后 2 小时内仍保持红点提醒
+const TICKET_POST_OPEN_GRACE_MS = 30 * 60_000; // 开售后 30 分钟内仍保持红点提醒（与提醒弹窗窗口一致）
 
-/** 计算单个旅行计划中即将开抢（48 小时内）或刚开抢的抢票条目数量与最近倒计时文案。 */
+/** 判断单个抢票条目是否满足“已开启通知且已进入提前提醒窗口（默认 20 分钟内）或正在开抢”。 */
+export function isTicketReminderUrgent(
+  item: Pick<MergedTicketPlanItem, 'saleDate' | 'saleTime' | 'travelDate' | 'bookingRequired' | 'platform' | 'note'>,
+  setting?: TicketReminderSetting,
+  now = Date.now(),
+): boolean {
+  if (!setting?.enabled) return false;
+  if (!needsTicketPreparation(item)) return false;
+  const schedule = resolveTicketReminderSchedule(item, setting);
+  if (schedule.saleMs == null || schedule.triggerMs == null) return false;
+  return now >= schedule.triggerMs && now <= schedule.saleMs + TICKET_POST_OPEN_GRACE_MS;
+}
+
+/** 计算单个旅行计划中已开启通知且到达提醒窗口（默认开售前 20 分钟内）的抢票条目数量与最近倒计时文案。 */
 export function getUpcomingTicketUrgency(plan: AiTravelPlan, now = Date.now()): TicketUrgencyInfo {
   const items = mergeTicketPlanItems(plan);
   let urgentCount = 0;
@@ -161,17 +173,14 @@ export function getUpcomingTicketUrgency(plan: AiTravelPlan, now = Date.now()): 
   let soonestTitle = '';
 
   for (const item of items) {
-    if (!needsTicketPreparation(item)) continue;
     const setting = plan.ticketReminders?.[item.activityId];
+    if (!isTicketReminderUrgent(item, setting, now)) continue;
     const schedule = resolveTicketReminderSchedule(item, setting);
     if (schedule.saleMs == null) continue;
-    const diff = schedule.saleMs - now;
-    if (diff <= TICKET_URGENT_WINDOW_MS && diff >= -TICKET_POST_OPEN_GRACE_MS) {
-      urgentCount += 1;
-      if (soonestMs == null || schedule.saleMs < soonestMs) {
-        soonestMs = schedule.saleMs;
-        soonestTitle = item.title;
-      }
+    urgentCount += 1;
+    if (soonestMs == null || schedule.saleMs < soonestMs) {
+      soonestMs = schedule.saleMs;
+      soonestTitle = item.title;
     }
   }
 
@@ -185,7 +194,7 @@ export function getUpcomingTicketUrgency(plan: AiTravelPlan, now = Date.now()): 
     } else if (diff <= 24 * 60 * 60_000) {
       soonestLabel = `${Math.max(1, Math.ceil(diff / (60 * 60_000)))} 小时后开抢`;
     } else {
-      soonestLabel = '2 天内开抢';
+      soonestLabel = '即将开抢';
     }
   }
 

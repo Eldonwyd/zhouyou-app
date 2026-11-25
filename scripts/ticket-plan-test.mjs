@@ -3,7 +3,12 @@ import { railwaySaleDate, railwayTicketItems, sortTicketItems } from '../server/
 import { ticketPlanSignature } from '../src/planner-ticket-signature.ts';
 import { plannerFixture } from './planner-fixture.mjs';
 import { createPlannerService } from '../server/planner-service.mjs';
-import { needsTicketPreparation } from '../src/planner-ticket-display.ts';
+import {
+  countAllUpcomingUrgentTickets,
+  getUpcomingTicketUrgency,
+  isTicketReminderUrgent,
+  needsTicketPreparation,
+} from '../src/planner-ticket-display.ts';
 
 // 已保存的旧结果立即隐藏无需预约项，免费但需要预约以及未知规则仍保留。
 assert.equal(needsTicketPreparation({ platform: '无需预约', note: '自由活动，无需抢票' }), false);
@@ -57,3 +62,80 @@ assert.ok(result.items.length > 0);
 assert.equal(result.networkAvailable, true);
 assert.ok(result.checkedAt);
 console.log('抢票计划：自动更新签名及完整查询流程通过');
+
+// 红点提醒规则：必须用户主动开启通知，且已进入提前提醒窗口（默认 20 分钟内）或开售后 30 分钟内才显示红点。
+{
+  const saleMs = new Date(2026, 10, 26, 8, 0, 0, 0).getTime(); // 2026-11-26 08:00 本地时间
+  const basePlan = {
+    id: 'p-urgency',
+    version: 1,
+    createdAt: '2026-11-25T00:00:00Z',
+    updatedAt: '2026-11-25T00:00:00Z',
+    linkedTripId: null,
+    linkedSnapshot: null,
+    messages: [],
+    history: [],
+    hotels: {},
+    content: plannerFixture(),
+    ticketPlan: {
+      signature: 's',
+      checkedAt: '2026-11-25T00:00:00Z',
+      networkAvailable: true,
+      items: [
+        {
+          activityId: 'ticket-a',
+          title: '南山一棵树观景台夜景',
+          travelDate: '2026-11-26',
+          saleDate: '2026-11-26',
+          saleTime: '08:00',
+          difficulty: '易',
+          platform: '官方渠道',
+          note: '提前购票',
+          bookingRequired: true,
+          sources: [],
+        },
+      ],
+    },
+    ticketReminders: {},
+  };
+
+  // 未开启通知：即便距离开抢仅剩 10 分钟也不出红点
+  assert.equal(getUpcomingTicketUrgency(basePlan, saleMs - 10 * 60_000).urgentCount, 0);
+  assert.equal(countAllUpcomingUrgentTickets([basePlan], saleMs - 10 * 60_000), 0);
+
+  // 开启通知（默认提前 20 分钟）：开抢前 9 小时不出红点，开抢前 21 分钟不出红点
+  const enabledPlan = {
+    ...basePlan,
+    ticketReminders: {
+      'ticket-a': { enabled: true, leadMinutes: 20 },
+    },
+  };
+  assert.equal(getUpcomingTicketUrgency(enabledPlan, saleMs - 9 * 60 * 60_000).urgentCount, 0);
+  assert.equal(getUpcomingTicketUrgency(enabledPlan, saleMs - 21 * 60_000).urgentCount, 0);
+
+  // 开抢前 20 分钟整 & 15 分钟内：出现红点与准确倒计时
+  const at20 = getUpcomingTicketUrgency(enabledPlan, saleMs - 20 * 60_000);
+  assert.equal(at20.urgentCount, 1);
+  assert.equal(at20.soonestLabel, '20 分钟后开抢');
+  const at15 = getUpcomingTicketUrgency(enabledPlan, saleMs - 15 * 60_000);
+  assert.equal(at15.urgentCount, 1);
+  assert.equal(at15.soonestLabel, '15 分钟后开抢');
+  assert.equal(isTicketReminderUrgent(enabledPlan.ticketPlan.items[0], enabledPlan.ticketReminders['ticket-a'], saleMs - 15 * 60_000), true);
+
+  // 开售后 10 分钟仍在 30 分钟宽限期内：显示“正在开抢”；开售后 35 分钟自动消红点
+  const live = getUpcomingTicketUrgency(enabledPlan, saleMs + 10 * 60_000);
+  assert.equal(live.urgentCount, 1);
+  assert.equal(live.soonestLabel, '正在开抢');
+  assert.equal(getUpcomingTicketUrgency(enabledPlan, saleMs + 35 * 60_000).urgentCount, 0);
+
+  // 自定义提前 45 分钟：开抢前 30 分钟出现红点
+  const customLeadPlan = {
+    ...basePlan,
+    ticketReminders: {
+      'ticket-a': { enabled: true, leadMinutes: 45 },
+    },
+  };
+  assert.equal(getUpcomingTicketUrgency(customLeadPlan, saleMs - 30 * 60_000).urgentCount, 1);
+  assert.equal(getUpcomingTicketUrgency(customLeadPlan, saleMs - 50 * 60_000).urgentCount, 0);
+  console.log('抢票计划：红点仅在开启通知且进入提前窗口后触发测试通过');
+}

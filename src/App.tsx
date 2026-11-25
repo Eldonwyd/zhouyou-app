@@ -518,14 +518,21 @@ export default function App() {
 
   const [urgentTicketCount, setUrgentTicketCount] = useState(0);
 
-  // 本地抢票倒计时提醒调度：无论是否登录，只要在抢票计划开启了通知，到点即触发应用内/系统弹窗与提示音
+  // 本地抢票红点刷新：仅对已开启通知且进入提前提醒窗口（默认 20 分钟内）的条目展示红点
   useEffect(() => {
     const refreshUrgency = () => {
       setUrgentTicketCount(countAllUpcomingUrgentTickets(snapshot.aiPlans));
     };
     refreshUrgency();
-    const urgencyTimer = window.setInterval(refreshUrgency, 60000);
-    return () => window.clearInterval(urgencyTimer);
+    const urgencyTimer = window.setInterval(refreshUrgency, 30000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshUrgency();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(urgencyTimer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [snapshot.aiPlans]);
 
   // 本地抢票倒计时提醒调度（触发通知弹窗）

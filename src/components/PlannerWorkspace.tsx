@@ -104,6 +104,7 @@ import {
   DEFAULT_TICKET_REMINDER_LEAD_MINUTES,
   formatReminderClock,
   getUpcomingTicketUrgency,
+  isTicketReminderUrgent,
   mergeTicketPlanItems,
   resolveTicketReminderSchedule,
 } from '../planner-ticket-display';
@@ -1137,6 +1138,24 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
   const awayFromTask = !props.visible || tab !== taskLocation.tab || Boolean(taskLocation.planId && taskLocation.planId !== activePlan?.id);
   const ticketSignature = activePlan ? ticketPlanSignature(activePlan.content) : '';
   const [ticketStatus, setTicketStatus] = useState({ key: '', stage: '', error: '' });
+  const [ticketNowMs, setTicketNowMs] = useState(() => Date.now());
+  const hasEnabledTicketReminder = Boolean(
+    activePlan?.ticketReminders && Object.values(activePlan.ticketReminders).some((r) => r?.enabled),
+  );
+  useEffect(() => {
+    setTicketNowMs(Date.now());
+    if (!hasEnabledTicketReminder) return;
+    const tick = () => setTicketNowMs(Date.now());
+    const timer = window.setInterval(tick, 30000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [hasEnabledTicketReminder, activePlan?.id]);
   const ticketPlanId = activePlan?.id;
   const savedTicketSignature = activePlan?.ticketPlan?.signature;
   /** 行程先显示，抢票资料后台补全。改日期/增删活动/AI修改/恢复历史都走同一更新路径。
@@ -3208,7 +3227,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                 const activeReminderCount = needBookingItems.filter(
                   (item) => activePlan.ticketReminders?.[item.activityId]?.enabled,
                 ).length;
-                const ticketUrgency = getUpcomingTicketUrgency(activePlan);
+                const ticketUrgency = getUpcomingTicketUrgency(activePlan, ticketNowMs);
                 return (
                   <details className={`planner-notes planner-ticket-plan${ticketUrgency.urgentCount > 0 ? ' is-urgent' : ''}`} aria-label="抢票计划">
                     <summary>
@@ -3231,113 +3250,151 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                     {!activePlan.ticketPlan && needBookingItems.length === 0 && <p>抢票计划将自动生成，行程修改后自动更新；录入“未购买”的车次或航班也会立即加入这里。</p>}
                     {activePlan.ticketPlan && activePlan.ticketPlan.signature !== ticketSignature && <p role="status">行程已变化，正在自动更新；以下为上次查询结果。</p>}
                     {activePlan.ticketPlan && needBookingItems.length === 0 && <p>当前行程暂无需要提前抢票的收费或限流项目。</p>}
-                    {needBookingItems.map((item) => {
-                      const reminder = activePlan.ticketReminders?.[item.activityId];
-                      const enabled = Boolean(reminder?.enabled);
-                      const leadMinutes = reminder?.leadMinutes ?? DEFAULT_TICKET_REMINDER_LEAD_MINUTES;
-                      const schedule = resolveTicketReminderSchedule(item, reminder);
-                      return (
-                        <article className="planner-ticket-item" key={item.activityId}>
-                          <div className="planner-ticket-item-top">
-                            <strong>
-                              {schedule.dateStr || item.saleDate || '提前预约'}
-                              {schedule.hasExplicitTime ? ` · ${schedule.timeStr}` : item.saleTime ? ` · ${item.saleTime}` : ''}
-                            </strong>
-                            {item.fromUnpurchasedBookingId && (
-                              <span className="booking-unpurchased-tag">未购买车次/航班</span>
-                            )}
-                          </div>
-                          <h4>
-                            {plannerDisplayText(item.title)}{' '}
-                            {item.difficulty === '难' && <mark>难抢 · 优先准备</mark>}
-                          </h4>
-                          <p>
-                            使用日期：{item.travelDate}
-                            {item.difficulty && item.difficulty !== '待核实' ? ` · 难度：${item.difficulty}` : ''}
-                            {item.platform && !item.platform.includes('待核实') ? ` · ${item.platform}` : ''}
-                          </p>
-                          <p>{plannerDisplayText(item.note, activePlan.content)}</p>
-                          <div className={`planner-ticket-reminder-bar${enabled ? ' is-enabled' : ''}`}>
-                            <button
-                              type="button"
-                              className={enabled ? 'primary planner-ticket-notify-btn' : 'secondary planner-ticket-notify-btn'}
-                              disabled={busy}
-                              aria-pressed={enabled}
-                              onClick={() => void saveTicketReminder(item.activityId, { enabled: !enabled, leadMinutes })}
+                    {needBookingItems.length > 0 && (
+                      <div className="planner-ticket-list">
+                        {needBookingItems.map((item) => {
+                          const reminder = activePlan.ticketReminders?.[item.activityId];
+                          const enabled = Boolean(reminder?.enabled);
+                          const leadMinutes = reminder?.leadMinutes ?? DEFAULT_TICKET_REMINDER_LEAD_MINUTES;
+                          const schedule = resolveTicketReminderSchedule(item, reminder);
+                          const itemUrgent = isTicketReminderUrgent(item, reminder, ticketNowMs);
+                          const playDateEndMs = item.travelDate ? Date.parse(`${item.travelDate}T23:59:59`) : NaN;
+                          const isExpired = Number.isFinite(playDateEndMs) && ticketNowMs > playDateEndMs;
+                          const isSold = !isExpired && schedule.saleMs != null && ticketNowMs > schedule.saleMs + 30 * 60_000;
+                          const isLive = !isExpired && !isSold && schedule.saleMs != null && ticketNowMs >= schedule.saleMs;
+                          const saleDisplay = `${schedule.dateStr || item.saleDate || '提前预约'}${
+                            schedule.hasExplicitTime ? ` · ${schedule.timeStr}` : item.saleTime ? ` · ${item.saleTime}` : ''
+                          }`;
+                          const diffClass = item.difficulty === '难'
+                            ? 'is-hard'
+                            : item.difficulty === '中'
+                              ? 'is-medium'
+                              : item.difficulty === '易'
+                                ? 'is-easy'
+                                : '';
+                          const noteText = plannerDisplayText(item.note, activePlan.content);
+                          const previewText = isExpired
+                            ? '已过期（出行游玩日已过）'
+                            : isSold && schedule.saleMs != null
+                              ? `已开售（${formatReminderClock(schedule.saleMs)}，建议前往查看余票或候补）`
+                              : isLive && schedule.saleMs != null
+                                ? `🔥 正在开抢（${formatReminderClock(schedule.saleMs)}）`
+                                : schedule.triggerMs != null
+                                  ? `${enabled ? '将在' : '开启后将于'} ${formatReminderClock(schedule.triggerMs)} 提醒（关页时建议导出日历）`
+                                  : '填写开售日期与时刻后即可按时提醒';
+                          const previewTone = isLive
+                            ? 'is-live'
+                            : itemUrgent
+                              ? 'is-urgent'
+                              : enabled && !isExpired && !isSold
+                                ? 'is-active'
+                                : '';
+                          return (
+                            <article
+                              className={`planner-ticket-item${itemUrgent ? ' is-urgent' : enabled ? ' is-enabled' : ''}${isExpired || isSold ? ' is-past' : ''}`}
+                              key={item.activityId}
                             >
-                              {enabled ? '🔔 已开启通知' : '🔕 开启抢票通知'}
-                            </button>
-                            <label className="planner-ticket-lead-input">
-                              <span>提前</span>
-                              <input
-                                type="number"
-                                min={1}
-                                max={1440}
-                                step={1}
-                                disabled={busy}
-                                value={leadMinutes}
-                                onChange={(e) => {
-                                  const val = Number(e.target.value);
-                                  if (Number.isFinite(val) && val >= 1) {
-                                    void saveTicketReminder(item.activityId, { enabled, leadMinutes: val });
-                                  }
-                                }}
-                              />
-                              <span>分钟</span>
-                            </label>
-                            {(!item.saleDate || Boolean(reminder?.customSaleDate)) && (
-                              <label className="planner-ticket-time-input">
-                                <span>开售日</span>
-                                <input
-                                  type="date"
-                                  disabled={busy}
-                                  value={reminder?.customSaleDate ?? schedule.dateStr}
-                                  onChange={(e) => void saveTicketReminder(item.activityId, {
-                                    enabled,
-                                    leadMinutes,
-                                    customSaleDate: e.target.value,
-                                  })}
-                                />
-                              </label>
-                            )}
-                            {(!schedule.hasExplicitTime || Boolean(reminder?.customSaleTime)) && (
-                              <label className="planner-ticket-time-input">
-                                <span>时刻</span>
-                                <input
-                                  type="time"
-                                  disabled={busy}
-                                  value={reminder?.customSaleTime ?? schedule.timeStr}
-                                  onChange={(e) => void saveTicketReminder(item.activityId, {
-                                    enabled,
-                                    leadMinutes,
-                                    customSaleTime: e.target.value,
-                                  })}
-                                />
-                              </label>
-                            )}
-                            <small className="planner-ticket-reminder-preview">
-                              {(() => {
-                                const nowMs = Date.now();
-                                const playDateEndMs = item.travelDate ? Date.parse(`${item.travelDate}T23:59:59`) : NaN;
-                                if (Number.isFinite(playDateEndMs) && nowMs > playDateEndMs) {
-                                  return '已过期（出行游玩日已过）';
-                                }
-                                if (schedule.saleMs != null && nowMs > schedule.saleMs + 30 * 60_000) {
-                                  return `已开售（${formatReminderClock(schedule.saleMs)}，建议前往查看余票或候补）`;
-                                }
-                                if (schedule.saleMs != null && nowMs >= schedule.saleMs) {
-                                  return `🔥 正在开抢（${formatReminderClock(schedule.saleMs)}）`;
-                                }
-                                if (schedule.triggerMs != null) {
-                                  return `${enabled ? '将在' : '开启后将于'} ${formatReminderClock(schedule.triggerMs)} 提醒（关页时建议导出日历）`;
-                                }
-                                return '填写开售日期与时刻后即可按时提醒';
-                              })()}
-                            </small>
-                          </div>
-                        </article>
-                      );
-                    })}
+                              <div className="planner-ticket-item-head">
+                                <div className="planner-ticket-item-title-wrap">
+                                  <h4>{plannerDisplayText(item.title)}</h4>
+                                  {item.difficulty && item.difficulty !== '待核实' && (
+                                    <span className={`planner-ticket-diff-tag ${diffClass}`}>
+                                      {item.difficulty === '难' ? '难抢 · 优先准备' : `难度：${item.difficulty}`}
+                                    </span>
+                                  )}
+                                  {item.fromUnpurchasedBookingId && (
+                                    <span className="booking-unpurchased-tag">未购买车次/航班</span>
+                                  )}
+                                  {itemUrgent && (
+                                    <span className="planner-ticket-urgent-pill">
+                                      <i className="planner-ticket-red-dot" />
+                                      {isLive ? '正在开抢' : '即将开抢'}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="planner-ticket-sale-pill" title="预计开售时间">
+                                  <span className="planner-ticket-sale-k">开售</span>
+                                  <strong>{saleDisplay}</strong>
+                                </span>
+                              </div>
+                              <div className="planner-ticket-item-meta">
+                                {item.travelDate && (
+                                  <span className="planner-ticket-meta-chip">使用日期：{item.travelDate}</span>
+                                )}
+                                {item.platform && !item.platform.includes('待核实') && (
+                                  <span className="planner-ticket-meta-chip">渠道：{item.platform}</span>
+                                )}
+                              </div>
+                              {noteText && <p className="planner-ticket-item-note">{noteText}</p>}
+                              <div className={`planner-ticket-reminder-bar${enabled ? ' is-enabled' : ''}${itemUrgent ? ' is-urgent' : ''}`}>
+                                <div className="planner-ticket-reminder-controls">
+                                  <button
+                                    type="button"
+                                    className={enabled ? 'primary planner-ticket-notify-btn' : 'secondary planner-ticket-notify-btn'}
+                                    disabled={busy}
+                                    aria-pressed={enabled}
+                                    onClick={() => void saveTicketReminder(item.activityId, { enabled: !enabled, leadMinutes })}
+                                  >
+                                    {enabled ? '🔔 已开启通知' : '🔕 开启抢票通知'}
+                                  </button>
+                                  <label className="planner-ticket-lead-input">
+                                    <span>提前</span>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={1440}
+                                      step={1}
+                                      disabled={busy}
+                                      value={leadMinutes}
+                                      onChange={(e) => {
+                                        const val = Number(e.target.value);
+                                        if (Number.isFinite(val) && val >= 1) {
+                                          void saveTicketReminder(item.activityId, { enabled, leadMinutes: val });
+                                        }
+                                      }}
+                                    />
+                                    <span>分钟</span>
+                                  </label>
+                                  {(!item.saleDate || Boolean(reminder?.customSaleDate)) && (
+                                    <label className="planner-ticket-time-input">
+                                      <span>开售日</span>
+                                      <input
+                                        type="date"
+                                        disabled={busy}
+                                        value={reminder?.customSaleDate ?? schedule.dateStr}
+                                        onChange={(e) => void saveTicketReminder(item.activityId, {
+                                          enabled,
+                                          leadMinutes,
+                                          customSaleDate: e.target.value,
+                                        })}
+                                      />
+                                    </label>
+                                  )}
+                                  {(!schedule.hasExplicitTime || Boolean(reminder?.customSaleTime)) && (
+                                    <label className="planner-ticket-time-input">
+                                      <span>时刻</span>
+                                      <input
+                                        type="time"
+                                        disabled={busy}
+                                        value={reminder?.customSaleTime ?? schedule.timeStr}
+                                        onChange={(e) => void saveTicketReminder(item.activityId, {
+                                          enabled,
+                                          leadMinutes,
+                                          customSaleTime: e.target.value,
+                                        })}
+                                      />
+                                    </label>
+                                  )}
+                                </div>
+                                <small className={`planner-ticket-reminder-preview${previewTone ? ` ${previewTone}` : ''}`}>
+                                  {previewText}
+                                </small>
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    )}
                     {freeItems.length > 0 && (
                       <div className="planner-ticket-free-summary">
                         <strong>免费 / 无需提前抢票：</strong>
