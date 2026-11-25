@@ -130,7 +130,7 @@ export const onRequest = withApiHandler(async (context) => {
     });
   }
 
-  const auth = await requireAuth(db, request);
+  const auth = await requireAuth(db, request, context);
   const userId = auth.user.id;
 
   // GET /api/sync/version — 极轻版本号探测（前端高频轮询仅查最新时间戳，无变化时不拉全量数据）
@@ -283,20 +283,37 @@ export const onRequest = withApiHandler(async (context) => {
     const conflicts = [];
     const acceptedPlanVersions = {};
 
-    // 1. 个人纯文本记录同步
+    // 1. 个人纯文本记录同步（预读现有记录 + D1 batch 批量写入，大幅降低跨端同步往返耗时）
+    const existingRecordMap = new Map();
+    if (records.length > 0) {
+      const existingRes = await db
+        .prepare('SELECT store_name, record_id, byte_size, updated_at FROM user_records WHERE user_id = ?')
+        .bind(userId)
+        .all();
+      for (const row of existingRes.results || []) {
+        existingRecordMap.set(`${row.store_name}:${row.record_id}`, row);
+      }
+    }
+
+    const recordWriteStmts = [];
     for (const item of records) {
       if (!item || !SYNCABLE_STORES.has(item.store) || !item.id) continue;
       const recordId = String(item.id).slice(0, 128);
+      const mapKey = `${item.store}:${recordId}`;
+      const existing = existingRecordMap.get(mapKey);
       if (item.deleted) {
-        await db
-          .prepare(`
-            INSERT INTO user_records (user_id, store_name, record_id, payload_json, byte_size, updated_at, deleted_at)
-            VALUES (?, ?, ?, '{}', 0, ?, ?)
-            ON CONFLICT(user_id, store_name, record_id) DO UPDATE SET
-              payload_json = '{}', byte_size = 0, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at
-          `)
-          .bind(userId, item.store, recordId, now, now)
-          .run();
+        recordWriteStmts.push(
+          db
+            .prepare(`
+              INSERT INTO user_records (user_id, store_name, record_id, payload_json, byte_size, updated_at, deleted_at)
+              VALUES (?, ?, ?, '{}', 0, ?, ?)
+              ON CONFLICT(user_id, store_name, record_id) DO UPDATE SET
+                payload_json = '{}', byte_size = 0, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at
+            `)
+            .bind(userId, item.store, recordId, now, now),
+        );
+        currentBytes -= Number(existing?.byte_size || 0);
+        existingRecordMap.set(mapKey, { byte_size: 0, updated_at: now });
         continue;
       }
 
@@ -305,32 +322,41 @@ export const onRequest = withApiHandler(async (context) => {
       if (byteSize > 256 * 1024) {
         return errorResponse(request, 413, `单条记录 ${recordId} 超过 256KB 限制`, 'RECORD_TOO_LARGE');
       }
-      if (currentBytes + byteSize > MAX_USER_CLOUD_BYTES) {
+      const nextBytes = currentBytes + byteSize - Number(existing?.byte_size || 0);
+      if (nextBytes > MAX_USER_CLOUD_BYTES) {
         return errorResponse(request, 413, '云端纯文本存储空间已达 3MB 上限，请清理旧数据后再同步', 'QUOTA_EXCEEDED');
       }
 
-      const existing = await db
-        .prepare('SELECT byte_size, updated_at FROM user_records WHERE user_id = ? AND store_name = ? AND record_id = ?')
-        .bind(userId, item.store, recordId)
-        .first();
       const clientUpdated = typeof item.updatedAt === 'string' && item.updatedAt ? item.updatedAt : now;
       if (existing && existing.updated_at && existing.updated_at > clientUpdated && !item.force) {
         continue;
       }
 
-      await db
-        .prepare(`
-          INSERT INTO user_records (user_id, store_name, record_id, payload_json, byte_size, updated_at, deleted_at)
-          VALUES (?, ?, ?, ?, ?, ?, NULL)
-          ON CONFLICT(user_id, store_name, record_id) DO UPDATE SET
-            payload_json = excluded.payload_json,
-            byte_size = excluded.byte_size,
-            updated_at = excluded.updated_at,
-            deleted_at = NULL
-        `)
-        .bind(userId, item.store, recordId, payloadJson, byteSize, now)
-        .run();
-      currentBytes += byteSize - Number(existing?.byte_size || 0);
+      recordWriteStmts.push(
+        db
+          .prepare(`
+            INSERT INTO user_records (user_id, store_name, record_id, payload_json, byte_size, updated_at, deleted_at)
+            VALUES (?, ?, ?, ?, ?, ?, NULL)
+            ON CONFLICT(user_id, store_name, record_id) DO UPDATE SET
+              payload_json = excluded.payload_json,
+              byte_size = excluded.byte_size,
+              updated_at = excluded.updated_at,
+              deleted_at = NULL
+          `)
+          .bind(userId, item.store, recordId, payloadJson, byteSize, now),
+      );
+      currentBytes = nextBytes;
+      existingRecordMap.set(mapKey, { byte_size: byteSize, updated_at: now });
+    }
+
+    if (recordWriteStmts.length > 0) {
+      if (typeof db.batch === 'function') {
+        await db.batch(recordWriteStmts);
+      } else {
+        for (const stmt of recordWriteStmts) {
+          await stmt.run();
+        }
+      }
     }
 
     // 2. AI 攻略同步（含多人协作乐观锁 + 自动记录编辑动态快照）
@@ -447,7 +473,7 @@ export const onRequest = withApiHandler(async (context) => {
           WHERE id = ?
         `)
         .bind(
-          String(sanitized?.title || '').slice(0, 120),
+          String(sanitized?.content?.title || sanitized?.title || '').slice(0, 120),
           String(sanitized?.content?.request?.destination || '').slice(0, 80),
           payloadJson,
           byteSize,

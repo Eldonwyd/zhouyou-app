@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AdministrativeFeature, AppSnapshot, Badge, CityMark, DayEntry, Journey, JourneyPlace, LocalProfile, PageName, TravelMedia, TripPlan } from './types';
-import { deleteMediaRecord, loadSnapshot, moveLegacyPlanToJourney, recordPlannerJournalVisit, saveItem, saveJourneyAndLinkCityRecords, saveMediaBatch, saveAiPlan as saveAiPlanRecord, saveAiPlanPhoto, publishAiPlan } from './db';
+import { deleteMediaRecord, loadSnapshot, moveLegacyPlanToJourney, recordPlannerJournalVisit, saveItem, saveJourneyAndLinkCityRecords, saveMediaBatch, saveAiPlan as saveAiPlanRecord, saveAiPlanPhoto, publishAiPlan, upsertAiPlanFromCloud } from './db';
 import type { AiTravelPlan, PlannerPhoto, PlannerPreferences } from './planner-types';
 import { prefetchNationalMap, provinceCodeForCity } from './map-data';
 import { describeStorageError } from './utils';
@@ -37,6 +37,8 @@ import {
   checkCloudSyncNeeded,
   extractZhouyouActionFromUrl,
   extractZhouyouShareCode,
+  getPendingCloudChangeCount,
+  hasPendingCloudChanges,
   markCloudRecordDeleted,
   markCloudRecordDirty,
   markCloudStoreDirty,
@@ -130,6 +132,8 @@ export default function App() {
   // 云端账号、同步、同行旅伴小红点与分享口令状态
   const [cloudUser, setCloudUser] = useState<CloudSelfUser | null>(() => (getCloudToken() ? getCachedCloudUser() : null));
   const [syncingCloud, setSyncingCloud] = useState(false);
+  const [syncPendingCount, setSyncPendingCount] = useState<number>(() => getPendingCloudChangeCount());
+  const [lastSyncError, setLastSyncError] = useState<string>('');
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
   const [unreadCount, setUnreadCount] = useState(0);
@@ -255,6 +259,8 @@ export default function App() {
     try {
       const res = await syncWithCloud(forceFull);
       setSnapshot(res.snapshot);
+      setLastSyncError('');
+      setSyncPendingCount(getPendingCloudChangeCount());
       if (!silent) {
         const parts: string[] = [];
         if (res.pulledPlans || res.pulledRecords) parts.push(`拉取 ${res.pulledPlans} 份攻略 / ${res.pulledRecords} 条记录`);
@@ -266,22 +272,26 @@ export default function App() {
         showNotice(`提示：${res.conflicts[0].reason}，已自动拉取最新版本`);
       }
     } catch (err) {
-      if (!silent) showError(err instanceof Error ? err.message : '云同步失败');
+      const msg = err instanceof Error ? err.message : '云同步失败';
+      setLastSyncError(msg);
+      setSyncPendingCount(getPendingCloudChangeCount());
+      if (!silent) showError(msg);
     } finally {
       setSyncingCloud(false);
     }
   }, [showError, showNotice]);
 
   const scheduleCloudSync = useCallback(() => {
+    setSyncPendingCount(getPendingCloudChangeCount());
     if (!getCloudToken()) return;
     if (syncTimerRef.current) window.clearTimeout(syncTimerRef.current);
     syncTimerRef.current = window.setTimeout(() => {
       syncTimerRef.current = null;
       void runCloudSync(true, false);
-    }, 1500);
+    }, 450);
   }, [runCloudSync]);
 
-  // 方案 A：多端准实时同步 — 12 秒轻量版本号探测（无变化不拉数据）+ 切回前台/窗口聚焦/断网恢复立即同步
+  // 多端准实时同步：6 秒轻量版本号探测 + 本机待传脏队列自动补传 + 切后台/关页前冲刷 + 切回前台/断网恢复立即同步
   useEffect(() => {
     if (!cloudUser) return;
     let disposed = false;
@@ -292,16 +302,17 @@ export default function App() {
       if (disposed || probing || !getCloudToken()) return;
       if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
       const now = Date.now();
-      if (!forceCheck && now - lastProbeAt < 4000) return;
+      const hasDirty = hasPendingCloudChanges();
+      if (!forceCheck && !hasDirty && now - lastProbeAt < 3000) return;
       lastProbeAt = now;
       probing = true;
       try {
-        const needed = await checkCloudSyncNeeded();
+        const needed = hasDirty || await checkCloudSyncNeeded();
         if (!disposed && needed) {
           await runCloudSync(true, false);
         }
       } catch {
-        // 离线或弱网时静默跳过，等待下次唤醒
+        // 离线或弱网时静默跳过，等待下次唤醒自动重传
       } finally {
         probing = false;
       }
@@ -311,9 +322,27 @@ export default function App() {
       if (document.visibilityState === 'visible') {
         void probeAndSync(false);
       }
-    }, 12000);
+    }, 6000);
 
-    const onWake = () => {
+    const flushPendingBeforeHide = () => {
+      if (!getCloudToken()) return;
+      if (syncTimerRef.current) {
+        window.clearTimeout(syncTimerRef.current);
+        syncTimerRef.current = null;
+        void runCloudSync(true, false);
+      } else if (hasPendingCloudChanges()) {
+        void runCloudSync(true, false);
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void probeAndSync(true);
+      } else {
+        flushPendingBeforeHide();
+      }
+    };
+    const onFocus = () => {
       if (document.visibilityState === 'visible') {
         void probeAndSync(false);
       }
@@ -322,15 +351,17 @@ export default function App() {
       void probeAndSync(true);
     };
 
-    document.addEventListener('visibilitychange', onWake);
-    window.addEventListener('focus', onWake);
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onFocus);
     window.addEventListener('online', onOnline);
+    window.addEventListener('pagehide', flushPendingBeforeHide);
     return () => {
       disposed = true;
       window.clearInterval(interval);
-      document.removeEventListener('visibilitychange', onWake);
-      window.removeEventListener('focus', onWake);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onFocus);
       window.removeEventListener('online', onOnline);
+      window.removeEventListener('pagehide', flushPendingBeforeHide);
     };
   }, [cloudUser, runCloudSync]);
 
@@ -403,14 +434,14 @@ export default function App() {
     } catch { /* ignore offline */ }
   }, [triggerNotificationPopup]);
 
-  // 登录后每 30 秒静默轮询一次新消息，实现应用内与系统弹窗实时提醒
+  // 登录后每 12 秒静默轮询一次新消息，实现应用内与系统弹窗准实时提醒
   useEffect(() => {
     if (!cloudUser || !notifPrefs.enabled) return;
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible' || notifPrefs.systemPopup) {
         void refreshSocialBadges();
       }
-    }, 30000);
+    }, 12000);
     return () => window.clearInterval(interval);
   }, [cloudUser, notifPrefs.enabled, notifPrefs.systemPopup, refreshSocialBadges]);
 
@@ -592,7 +623,10 @@ export default function App() {
   }, [handleIncomingUrl, refreshSocialBadges, runCloudSync]);
 
   const saveAiPlan = useCallback(async (plan: AiTravelPlan, expectedVersion: number | null) => {
-    await saveAiPlanRecord(plan, expectedVersion); await reload(); scheduleCloudSync();
+    await saveAiPlanRecord(plan, expectedVersion);
+    markCloudRecordDirty('aiPlans', plan.id);
+    await reload();
+    scheduleCloudSync();
   }, [reload, scheduleCloudSync]);
   const saveAiPhoto = useCallback(async (planId: string, activityId: string, photo: PlannerPhoto) => {
     if (tourMode) {
@@ -600,6 +634,7 @@ export default function App() {
       return;
     }
     await saveAiPlanPhoto(planId, activityId, photo);
+    markCloudRecordDirty('aiPlans', planId);
     await reload();
     if (photo.assetId) {
       void syncSinglePlannerPhotoToCloud(photo.assetId);
@@ -608,6 +643,7 @@ export default function App() {
   }, [reload, requestClientForTour, scheduleCloudSync, tourMode]);
   const publishPlan = useCallback(async (plan: AiTravelPlan, initialFinance?: TripPlan) => {
     const updated = await publishAiPlan(plan, initialFinance);
+    markCloudRecordDirty('aiPlans', updated.id);
     markCloudStoreDirty('trips');
     markCloudStoreDirty('marks');
     markCloudStoreDirty('plans');
@@ -670,9 +706,16 @@ export default function App() {
       requestClientForTour('photo');
       return;
     }
-    try { await saveMediaBatch(items, entries); await reload(); }
+    try {
+      await saveMediaBatch(items, entries);
+      if (entries.length > 0) {
+        entries.forEach((entry) => markCloudRecordDirty('entries', entry.id));
+      }
+      await reload();
+      if (entries.length > 0) scheduleCloudSync();
+    }
     catch (error) { showError(describeStorageError(error)); throw error; }
-  }, [reload, requestClientForTour, showError, tourMode]);
+  }, [reload, requestClientForTour, scheduleCloudSync, showError, tourMode]);
   const updateMedia = useCallback(async (media: TravelMedia) => {
     try { await saveItem('media', media); await reload(); }
     catch (error) { showError(describeStorageError(error)); throw error; }
@@ -906,9 +949,19 @@ export default function App() {
               className="local-pill cloud-pill-btn"
               disabled={syncingCloud}
               onClick={() => void runCloudSync(false, true)}
-              title={t('点击立即同步云端攻略与足迹', 'Click to sync cloud plans & footprints')}
+              title={lastSyncError
+                ? `上次同步失败：${lastSyncError}（点击重试）`
+                : syncPendingCount > 0
+                  ? `有 ${syncPendingCount} 项本地变更待上传云端（点击立即同步）`
+                  : t('点击立即同步云端攻略与足迹', 'Click to sync cloud plans & footprints')}
             >
-              {syncingCloud ? t('☁️ 同步中…', '☁️ Syncing…') : `☁️ ${cloudUser.nickname}`}
+              {syncingCloud
+                ? t('☁️ 同步中…', '☁️ Syncing…')
+                : lastSyncError
+                  ? `⚠️ 重试同步`
+                  : syncPendingCount > 0
+                    ? `☁️ 待同步(${syncPendingCount})`
+                    : `☁️ ${cloudUser.nickname}`}
             </button>
           ) : (
             <button
@@ -1137,7 +1190,8 @@ export default function App() {
       loggedIn={Boolean(cloudUser)}
       onRequireLogin={() => openAuthModal('login')}
       onAccepted={async (plan, mode) => {
-        await saveAiPlanRecord(plan, null);
+        await upsertAiPlanFromCloud(plan);
+        markCloudRecordDirty('aiPlans', plan.id);
         await reload();
         setTargetPlanId(plan.id);
         openPage('plan');

@@ -686,9 +686,18 @@ export const cloudApi = {
   },
 
   // ---- Chat (DM & Group) ----
-  getChatMessages(roomType: 'dm' | 'group', targetId: string) {
-    return cloudRequest<{ ok: true; messages: ChatMessage[] }>(
-      `/api/chat/${roomType}/${encodeURIComponent(targetId)}`,
+  getChatMessages(roomType: 'dm' | 'group', targetId: string, opts?: { after?: string; pollIds?: string[] }) {
+    const params = new URLSearchParams();
+    if (opts?.after) params.set('after', opts.after);
+    if (opts?.pollIds?.length) params.set('pollIds', opts.pollIds.slice(0, 20).join(','));
+    const qs = params.toString();
+    return cloudRequest<{
+      ok: true;
+      incremental?: boolean;
+      messages: ChatMessage[];
+      pollUpdates?: Record<string, ChatPollVote[]>;
+    }>(
+      `/api/chat/${roomType}/${encodeURIComponent(targetId)}${qs ? `?${qs}` : ''}`,
     );
   },
   sendChatMessage(

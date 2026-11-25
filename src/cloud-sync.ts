@@ -1,4 +1,4 @@
-import { deleteItem, getPlannerPhotoBlob, loadSnapshot, saveAiPlan, saveItem, savePlannerPhotoBlob } from './db';
+import { deleteItem, getPlannerPhotoBlob, loadSnapshot, saveItem, savePlannerPhotoBlob, upsertAiPlanFromCloud } from './db';
 import type { AppSnapshot } from './types';
 import type { AiTravelPlan } from './planner-types';
 import { cloudApi, getCloudPlannerPhotoUrl, getCloudToken, type CloudQuota } from './cloud-api';
@@ -9,12 +9,16 @@ const LAST_CLOUD_VERSION_KEY = 'zhouyou-cloud-version';
 const PLAN_META_KEY = 'zhouyou-cloud-plan-meta';
 const DIRTY_RECORDS_KEY = 'zhouyou-cloud-dirty-records';
 const SYNC_SCHEMA_KEY = 'zhouyou-cloud-sync-schema';
-const SYNC_SCHEMA_VERSION = '2';
+const SYNC_SCHEMA_VERSION = '3';
 const ASSET_ID_RE = /^[a-f0-9]{64}$/;
 
 /** 当前会话内已确认完成云端/本地双向同步的行程照片 assetId，避免高频轮询重复检查。 */
 const syncedPhotoIdsCache = new Set<string>();
 let activeSyncPromise: Promise<SyncResult> | null = null;
+let pendingResync = false;
+let pendingForceFull = false;
+let photoSyncRunning = false;
+let queuedPhotoPlans: AiTravelPlan[] | null = null;
 
 export interface CloudPlanMeta {
   ownerId: string;
@@ -29,9 +33,10 @@ export type CloudPlanMetaMap = Record<string, CloudPlanMeta>;
 
 const SYNC_STORES = ['marks', 'badges', 'trips', 'places', 'entries', 'plans', 'plannerPreferences', 'profile'] as const;
 export type SyncStore = typeof SYNC_STORES[number];
+export type DirtyStore = SyncStore | 'aiPlans';
 
 interface DirtyRecordEntry {
-  store: SyncStore;
+  store: DirtyStore;
   id: string;
   updatedAt: string;
   deleted?: boolean;
@@ -55,7 +60,7 @@ function writeDirtyRecords(map: Record<string, DirtyRecordEntry>): void {
 }
 
 /** 标记单条本地记录已变更，确保下次同步无视设备时钟偏差强制推送到云端。 */
-export function markCloudRecordDirty(store: SyncStore, id: string): void {
+export function markCloudRecordDirty(store: DirtyStore, id: string): void {
   if (!id) return;
   const map = readDirtyRecords();
   map[`${store}:${id}`] = { store, id, updatedAt: new Date().toISOString() };
@@ -63,7 +68,7 @@ export function markCloudRecordDirty(store: SyncStore, id: string): void {
 }
 
 /** 标记单条本地记录已删除，同步时推送软删除到云端。 */
-export function markCloudRecordDeleted(store: SyncStore, id: string): void {
+export function markCloudRecordDeleted(store: DirtyStore, id: string): void {
   if (!id) return;
   const map = readDirtyRecords();
   map[`${store}:${id}`] = { store, id, updatedAt: new Date().toISOString(), deleted: true };
@@ -71,10 +76,20 @@ export function markCloudRecordDeleted(store: SyncStore, id: string): void {
 }
 
 /** 标记整类数据表发生多条联动写入（如新建旅程联动点亮城市），下次同步自动推送该表全量最新状态。 */
-export function markCloudStoreDirty(store: SyncStore): void {
+export function markCloudStoreDirty(store: DirtyStore): void {
   const map = readDirtyRecords();
   map[`${store}:*`] = { store, id: '*', updatedAt: new Date().toISOString(), allStore: true };
   writeDirtyRecords(map);
+}
+
+/** 返回本机尚未成功推送到云端的待同步变更数量。 */
+export function getPendingCloudChangeCount(): number {
+  return Object.keys(readDirtyRecords()).length;
+}
+
+/** 是否存在本机尚未成功推送到云端的变更（用于后台自动补传与 UI 状态展示）。 */
+export function hasPendingCloudChanges(): boolean {
+  return getPendingCloudChangeCount() > 0;
 }
 
 export function getLastSyncTime(): string {
@@ -316,9 +331,29 @@ async function syncPlannerPhotosWithCloud(allPlans: AiTravelPlan[]): Promise<{ u
   return { uploaded, downloaded };
 }
 
+/** 后台异步同步行程参考图，不阻塞主文字/攻略同步与 UI 刷新。 */
+function schedulePlannerPhotosSync(allPlans: AiTravelPlan[]): void {
+  if (!getCloudToken() || allPlans.length === 0) return;
+  queuedPhotoPlans = allPlans;
+  if (photoSyncRunning) return;
+  photoSyncRunning = true;
+  void (async () => {
+    try {
+      while (queuedPhotoPlans) {
+        const nextPlans = queuedPhotoPlans;
+        queuedPhotoPlans = null;
+        await syncPlannerPhotosWithCloud(nextPlans).catch(() => undefined);
+      }
+    } finally {
+      photoSyncRunning = false;
+    }
+  })();
+}
+
 /** 轻量探测云端是否有其他设备写入的新版本（仅查 1 行时间戳，极低开销）。 */
 export async function checkCloudSyncNeeded(): Promise<boolean> {
   if (!getCloudToken()) return false;
+  if (hasPendingCloudChanges()) return true;
   const lastVersion = getLastCloudVersion();
   const res = await cloudApi.getSyncVersion();
   if (!res.latestUpdatedAt) return false;
@@ -341,20 +376,33 @@ export interface SyncResult {
 }
 
 /**
- * 双向云同步（支持增量拉取 + 删除同步 + 行程参考图双向同步）：
+ * 双向云同步（支持增量拉取 + 删除同步 + 并发自动续跑 + 后台参考图同步）：
  * 1. 首次或强制全量时拉取全量，后续自动按 lastSyncTime 增量拉取；
- * 2. 与本地 IndexedDB 按 id + updatedAt 智能合并，并同步云端软删除；
+ * 2. 与本地 IndexedDB 按 id + updatedAt + dirtyQueue 智能合并，并同步云端软删除；
  * 3. 将本地新增或较新的记录与攻略推送回云端；
- * 4. 双向同步旅行计划里搜索到的参考照片（压缩去重存云端，跨端秒看并缓存离线）。
+ * 4. 若同步期间又有新修改到来，当前轮结束后自动补跑一轮，绝不吞掉新变更；
+ * 5. 旅行计划参考图在独立后台队列同步，不阻塞主数据秒达。
  */
 export async function syncWithCloud(forceFull = false): Promise<SyncResult> {
   if (!getCloudToken()) {
     throw new Error('未登录周游账号');
   }
   if (activeSyncPromise) {
+    pendingResync = true;
+    if (forceFull) pendingForceFull = true;
     return activeSyncPromise;
   }
-  const run = runSyncWithCloudInternal(forceFull).finally(() => {
+  const run = (async () => {
+    let nextForce = forceFull;
+    let lastResult = await runSyncWithCloudInternal(nextForce);
+    while (pendingResync && getCloudToken()) {
+      const runForce = pendingForceFull;
+      pendingResync = false;
+      pendingForceFull = false;
+      lastResult = await runSyncWithCloudInternal(runForce);
+    }
+    return lastResult;
+  })().finally(() => {
     activeSyncPromise = null;
   });
   activeSyncPromise = run;
@@ -489,12 +537,26 @@ async function runSyncWithCloudInternal(forceFull: boolean): Promise<SyncResult>
     }
   }
 
-  // 2. 合并 AI 攻略（私有 + 群共享）
+  // 2. 合并 AI 攻略（私有 + 群共享，接入脏队列 + 跳过本地乐观锁防止覆盖报错）
   const localPlansById = new Map<string, AiTravelPlan>(local.aiPlans.map((p) => [p.id, p]));
   const cloudPlansById = new Map(pull.aiPlans.map((p) => [p.id, p]));
-  const plansToPush: Array<{ id: string; payload: AiTravelPlan; baseVersion?: number; groupId?: string | null }> = [];
+  const plansToPush: Array<{ id: string; payload?: AiTravelPlan; baseVersion?: number; groupId?: string | null; deleted?: boolean }> = [];
+  const wholeAiPlansDirty = Boolean(dirtySnapshot['aiPlans:*']);
 
   for (const cp of pull.aiPlans) {
+    const dirtyEntry = dirtySnapshot[`aiPlans:${cp.id}`];
+    if (dirtyEntry && !cp.deletedAt && dirtyEntry.updatedAt >= (cp.updatedAt || '')) {
+      // 本地刚有更新且时间戳更新，先保留本地待推送（若服务端版本更高会在 push 时触发乐观锁冲突返回最新）
+      metaMap[cp.id] = {
+        ownerId: cp.ownerId,
+        groupId: cp.groupId,
+        groupName: cp.groupName,
+        version: cp.version,
+        updatedByName: cp.updatedByName,
+        updatedAt: cp.updatedAt,
+      };
+      continue;
+    }
     if (cp.deletedAt) {
       if (localPlansById.has(cp.id)) {
         await deleteItem('aiPlans', cp.id);
@@ -505,6 +567,7 @@ async function runSyncWithCloudInternal(forceFull: boolean): Promise<SyncResult>
       continue;
     }
     if (!cp.payload) continue;
+    const prevMeta = metaMap[cp.id];
     metaMap[cp.id] = {
       ownerId: cp.ownerId,
       groupId: cp.groupId,
@@ -514,24 +577,60 @@ async function runSyncWithCloudInternal(forceFull: boolean): Promise<SyncResult>
       updatedAt: cp.updatedAt,
     };
     const lp = localPlansById.get(cp.id);
-    if (!lp || !lp.updatedAt || cp.updatedAt >= lp.updatedAt || cp.groupId) {
-      const cloudNewer = !lp || !lp.updatedAt || cp.updatedAt > lp.updatedAt;
-      if (cloudNewer) {
-        await saveAiPlan(cp.payload, null);
-        localPlansById.set(cp.id, cp.payload);
-        pulledPlans += 1;
-      }
+    const versionAdvanced = Boolean(prevMeta && cp.version > prevMeta.version);
+    const cloudNewer = !lp
+      || (isIncremental && !dirtyEntry && !wholeAiPlansDirty)
+      || versionAdvanced
+      || !lp.updatedAt
+      || cp.updatedAt > lp.updatedAt;
+    if (cloudNewer) {
+      await upsertAiPlanFromCloud(cp.payload);
+      localPlansById.set(cp.id, cp.payload);
+      pulledPlans += 1;
+    }
+  }
+
+  // 推送 AI 攻略显式删除墓碑
+  for (const [key, entry] of Object.entries(dirtySnapshot)) {
+    if (entry.store !== 'aiPlans' || !entry.deleted || entry.allStore) continue;
+    if (!localPlansById.has(entry.id)) {
+      plansToPush.push({ id: entry.id, deleted: true });
+      pushedDirtyKeys.add(key);
     }
   }
 
   for (const lp of localPlansById.values()) {
     const cp = cloudPlansById.get(lp.id);
     if (cp?.deletedAt) continue;
+    const key = `aiPlans:${lp.id}`;
+    const dirtyEntry = dirtySnapshot[key];
     const knownMeta = metaMap[lp.id];
+
+    if (dirtyEntry && !dirtyEntry.deleted) {
+      plansToPush.push({
+        id: lp.id,
+        payload: lp,
+        baseVersion: cp?.version ?? knownMeta?.version,
+        groupId: cp?.groupId ?? knownMeta?.groupId ?? null,
+      });
+      pushedDirtyKeys.add(key);
+      continue;
+    }
+
+    if (wholeAiPlansDirty) {
+      plansToPush.push({
+        id: lp.id,
+        payload: lp,
+        baseVersion: cp?.version ?? knownMeta?.version,
+        groupId: cp?.groupId ?? knownMeta?.groupId ?? null,
+      });
+      continue;
+    }
+
     if (isIncremental) {
       const needsPush =
         !knownMeta
-        || (lp.updatedAt && lp.updatedAt > prevLastSync && (!cp || !cp.updatedAt || lp.updatedAt > cp.updatedAt));
+        || (lp.updatedAt && lp.updatedAt > prevLastSyncWithSkew && (!cp || !cp.updatedAt || lp.updatedAt > cp.updatedAt));
       if (needsPush) {
         plansToPush.push({
           id: lp.id,
@@ -554,6 +653,10 @@ async function runSyncWithCloudInternal(forceFull: boolean): Promise<SyncResult>
     }
   }
 
+  if (wholeAiPlansDirty) {
+    pushedDirtyKeys.add('aiPlans:*');
+  }
+
   let conflicts: Array<{ planId: string; reason: string }> = [];
   let latestQuota = pull.quota;
   let serverTime = pull.serverTime;
@@ -572,10 +675,10 @@ async function runSyncWithCloudInternal(forceFull: boolean): Promise<SyncResult>
       metaMap[planId] = { ...prev, version: ver, updatedAt: serverTime };
     }
     conflicts = (pushRes.conflicts || []).map((c) => ({ planId: c.planId, reason: c.reason }));
-    // 若有版本冲突且服务端返回了更新后的攻略，拉取到本地
+    // 若有版本冲突且服务端返回了更新后的攻略，直接覆写到本地（不再因乐观锁抛错）
     for (const c of pushRes.conflicts || []) {
       if (c.serverPayload) {
-        await saveAiPlan(c.serverPayload, null);
+        await upsertAiPlanFromCloud(c.serverPayload);
         localPlansById.set(c.planId, c.serverPayload);
         if (c.serverVersion) {
           const prev = metaMap[c.planId] || { ownerId: '', groupId: null, groupName: '', version: 1, updatedByName: '', updatedAt: '' };
@@ -584,9 +687,6 @@ async function runSyncWithCloudInternal(forceFull: boolean): Promise<SyncResult>
       }
     }
   }
-
-  // 3. 双向同步旅行计划里搜索到的参考照片（上传本地已有、拉取云端已有）
-  const photoSync = await syncPlannerPhotosWithCloud([...localPlansById.values()]).catch(() => ({ uploaded: 0, downloaded: 0 }));
 
   // 仅清理本次已成功推送且未被同步期间新写入覆盖的脏标记
   if (pushedDirtyKeys.size > 0) {
@@ -607,6 +707,9 @@ async function runSyncWithCloudInternal(forceFull: boolean): Promise<SyncResult>
   try { localStorage.setItem(SYNC_SCHEMA_KEY, SYNC_SCHEMA_VERSION); } catch { /* ignore */ }
   const refreshed = await loadSnapshot();
 
+  // 3. 行程参考照片改为独立后台队列同步，不阻塞主文字/攻略秒达
+  schedulePlannerPhotosSync([...localPlansById.values()]);
+
   return {
     snapshot: refreshed,
     serverTime,
@@ -614,7 +717,7 @@ async function runSyncWithCloudInternal(forceFull: boolean): Promise<SyncResult>
     pulledPlans,
     pushedRecords,
     pushedPlans,
-    syncedPhotos: photoSync.uploaded + photoSync.downloaded,
+    syncedPhotos: 0,
     conflicts,
     quota: latestQuota,
   };

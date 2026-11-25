@@ -413,6 +413,24 @@ export async function saveAiPlan(plan: AiTravelPlan, expectedVersion: number | n
   try { await completion; } catch (error) { if (conflict) throw new Error('计划已在其他操作中更新，请刷新后重试'); throw error; }
 }
 
+/** 云同步专用：直接将云端最新 AI 攻略落盘到本地 IndexedDB，跳过本地新建/编辑乐观锁校验，且兼容历史版本字段避免单条旧攻略阻塞整轮同步。 */
+export async function upsertAiPlanFromCloud(plan: AiTravelPlan): Promise<void> {
+  if (!plan || !plan.id || !plan.content) return;
+  const database = await openDatabase();
+  const transaction = database.transaction('aiPlans', 'readwrite');
+  const completion = transactionDone(transaction);
+  const store = transaction.objectStore('aiPlans');
+  const request = store.get(plan.id);
+  request.onsuccess = () => {
+    const existing = request.result as AiTravelPlan | undefined;
+    store.put({
+      ...plan,
+      mapPositions: { ...existing?.mapPositions, ...plan.mapPositions },
+    });
+  };
+  await completion;
+}
+
 /** 在同一个事务内合并坐标，多天的自动定位与手动校正不会互相覆盖。 */
 export async function savePlannerMapPositions(planId: string, positions: import('./planner-map').PlannerMapPosition[]): Promise<void> {
   const database = await openDatabase();
@@ -429,7 +447,7 @@ export async function savePlannerMapPositions(planId: string, positions: import(
       if (mapPositions[position.key]?.source === '手动确认' && !['手动确认', '用户选择开放地图位置'].includes(position.source || '')) continue;
       mapPositions[position.key] = position;
     }
-    store.put({ ...current, mapPositions });
+    store.put({ ...current, mapPositions, updatedAt: new Date().toISOString() });
   };
   await completion;
 }

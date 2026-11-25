@@ -10,7 +10,7 @@ import {
   type CloudSessionInfo,
   type MapVisibility,
 } from '../cloud-api';
-import { getLastSyncTime } from '../cloud-sync';
+import { getLastSyncTime, getPendingCloudChangeCount } from '../cloud-sync';
 import { TravelAvatar } from './CuteArt';
 
 interface CloudSyncCardProps {
@@ -58,6 +58,7 @@ export default function CloudSyncCard({
   const [saving, setSaving] = useState(false);
 
   const lastSync = getLastSyncTime();
+  const pendingCount = getPendingCloudChangeCount();
 
   useEffect(() => {
     if (!cloudUser) return;
@@ -182,6 +183,7 @@ export default function CloudSyncCard({
             <small className="cloud-sync-meta">
               {cloudUser.hasPhone ? `手机：${cloudUser.phone}` : ''}{cloudUser.hasPhone && cloudUser.hasEmail ? ' · ' : ''}{cloudUser.hasEmail ? `邮箱：${cloudUser.email}` : ''}
               {lastSync ? ` · 上次同步：${new Date(lastSync).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ' · 尚未同步'}
+              {pendingCount > 0 ? ` · ⚠️ ${pendingCount} 项待上传` : ''}
             </small>
           </div>
         </div>

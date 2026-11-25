@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   cloudApi,
+  getCloudOrigin,
   RELATION_META,
   type ChatMessage,
   type CloudSelfUser,
@@ -130,6 +131,9 @@ export default function ChatRoomView({
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const albumInputRef = useRef<HTMLInputElement>(null);
   const prevCountRef = useRef(0);
+  const lastCreatedAtRef = useRef('');
+  const pollIdsRef = useRef<string[]>([]);
+  const fetchingRef = useRef(false);
 
   const scrollToBottom = useCallback((smooth = false) => {
     const el = listRef.current;
@@ -137,30 +141,90 @@ export default function ChatRoomView({
     el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
   }, []);
 
+  const syncRefsFromMessages = useCallback((list: ChatMessage[]) => {
+    const last = list[list.length - 1];
+    if (last?.createdAt) lastCreatedAtRef.current = last.createdAt;
+    pollIdsRef.current = list.filter((m) => m.msgType === 'poll').map((m) => m.id).slice(-20);
+    prevCountRef.current = list.length;
+  }, []);
+
   const fetchMessages = useCallback(async (silent = false) => {
+    if (silent && fetchingRef.current) return;
+    fetchingRef.current = true;
     if (!silent) setLoading(true);
     try {
-      const res = await cloudApi.getChatMessages(roomType, targetId);
-      const nextMessages = Array.isArray(res?.messages) ? res.messages : [];
-      setMessages(nextMessages);
-      if (nextMessages.length > prevCountRef.current) {
-        prevCountRef.current = nextMessages.length;
-        setTimeout(() => scrollToBottom(silent), 40);
+      const useIncremental = silent && Boolean(lastCreatedAtRef.current);
+      const res = await cloudApi.getChatMessages(
+        roomType,
+        targetId,
+        useIncremental
+          ? { after: lastCreatedAtRef.current, pollIds: pollIdsRef.current }
+          : undefined,
+      );
+      const incoming = Array.isArray(res?.messages) ? res.messages : [];
+      const pollUpdates = res?.pollUpdates;
+
+      if (useIncremental && res?.incremental) {
+        if (incoming.length > 0 || (pollUpdates && Object.keys(pollUpdates).length > 0)) {
+          let appended = 0;
+          setMessages((prev) => {
+            const seen = new Set(prev.map((m) => m.id));
+            let next = prev;
+            if (pollUpdates) {
+              next = next.map((m) => (
+                pollUpdates[m.id] ? { ...m, pollVotes: pollUpdates[m.id] } : m
+              ));
+            }
+            const fresh = incoming.filter((m) => !seen.has(m.id));
+            if (fresh.length > 0) {
+              appended = fresh.length;
+              next = [...next, ...fresh];
+            }
+            syncRefsFromMessages(next);
+            return next;
+          });
+          if (appended > 0) {
+            setTimeout(() => scrollToBottom(true), 40);
+          }
+        }
+      } else {
+        setMessages(incoming);
+        const grew = incoming.length > prevCountRef.current;
+        syncRefsFromMessages(incoming);
+        if (grew) {
+          setTimeout(() => scrollToBottom(silent), 40);
+        }
       }
     } catch (err) {
       if (!silent) onError(err instanceof Error ? err.message : '加载聊天记录失败');
     } finally {
+      fetchingRef.current = false;
       if (!silent) setLoading(false);
     }
-  }, [roomType, targetId, onError, scrollToBottom]);
+  }, [roomType, targetId, onError, scrollToBottom, syncRefsFromMessages]);
 
   useEffect(() => {
     prevCountRef.current = 0;
+    lastCreatedAtRef.current = '';
+    pollIdsRef.current = [];
     void fetchMessages(false);
     const timer = window.setInterval(() => {
-      void fetchMessages(true);
-    }, 4500);
-    return () => window.clearInterval(timer);
+      if (document.visibilityState === 'visible') {
+        void fetchMessages(true);
+      }
+    }, 2000);
+    const onWake = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchMessages(true);
+      }
+    };
+    document.addEventListener('visibilitychange', onWake);
+    window.addEventListener('focus', onWake);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onWake);
+      window.removeEventListener('focus', onWake);
+    };
   }, [fetchMessages]);
 
   async function handleSendText() {
@@ -437,16 +501,22 @@ export default function ChatRoomView({
                       );
                     })()}
 
-                    {/* 图片消息 */}
-                    {m.msgType === 'image' && typeof m.payload?.dataUrl === 'string' && (
-                      <button
-                        type="button"
-                        className="im-image-bubble"
-                        onClick={() => setLightboxUrl(String(m.payload.dataUrl))}
-                      >
-                        <img src={String(m.payload.dataUrl)} alt="聊天图片" />
-                      </button>
-                    )}
+                    {/* 图片消息（兼容新外置 imageUrl 与历史 dataUrl） */}
+                    {m.msgType === 'image' && (() => {
+                      const rawUrl = typeof m.payload?.imageUrl === 'string' && m.payload.imageUrl
+                        ? (m.payload.imageUrl.startsWith('http') ? m.payload.imageUrl : `${getCloudOrigin()}${m.payload.imageUrl}`)
+                        : (typeof m.payload?.dataUrl === 'string' ? m.payload.dataUrl : '');
+                      if (!rawUrl) return null;
+                      return (
+                        <button
+                          type="button"
+                          className="im-image-bubble"
+                          onClick={() => setLightboxUrl(rawUrl)}
+                        >
+                          <img src={rawUrl} alt="聊天图片" loading="lazy" />
+                        </button>
+                      );
+                    })()}
 
                     {/* 攻略卡片 */}
                     {m.msgType === 'plan' && (

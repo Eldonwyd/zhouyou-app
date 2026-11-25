@@ -93,6 +93,7 @@ import { plannerShortStage } from '../planner-stage';
 import { plannerXiaohongshuSearchUrl } from '../planner-photo';
 import { getPlannerPhotoBlob, savePlannerMapPositions, savePlannerPhotoBlob, type recordPlannerJournalVisit } from '../db';
 import { getCloudPlannerPhotoUrl } from '../cloud-api';
+import { markCloudRecordDirty } from '../cloud-sync';
 import { plannerJournalActivityKey, plannerJournalCity, plannerJournalVisitFor } from '../planner-journal';
 import { mapAppLabel, mapPlaceLinks, openMapAppPlace, openXiaohongshuSearch } from '../external-app-links';
 import { PLANNER_API_ORIGIN_EVENT, plannerApiUrl } from '../api-base';
@@ -3120,7 +3121,10 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
               <PlannerMap key={activePlan.id} content={activePlan.content} hotels={activePlan.hotels}
                 wishlist={activePlan.wishlist ?? []}
                 savedPositions={activePlan.mapPositions}
-                onSavePositions={(positions) => savePlannerMapPositions(activePlan.id, positions)}
+                onSavePositions={async (positions) => {
+                  await savePlannerMapPositions(activePlan.id, positions);
+                  markCloudRecordDirty('aiPlans', activePlan.id);
+                }}
                 onScheduleWishlist={(item) => void scheduleWishlistPlace(item, true)} />
               {showHistory && (
                 <section className="card planner-history">

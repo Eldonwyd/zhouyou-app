@@ -300,7 +300,9 @@ export async function createSession(db, userId, deviceName = '', platform = 'web
   return { token, sessionId, expiresAt };
 }
 
-export async function requireAuth(db, request) {
+const SESSION_TOUCH_INTERVAL_MS = 5 * 60 * 1000; // 5 分钟内不重复写库刷新 last_seen_at
+
+export async function requireAuth(db, request, context = null) {
   const authHeader = request.headers.get('Authorization') || '';
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
   if (!match) {
@@ -310,7 +312,7 @@ export async function requireAuth(db, request) {
   const tokenHash = await sha256Hex(token);
   const row = await db
     .prepare(`
-      SELECT s.id AS session_id, s.expires_at, u.*
+      SELECT s.id AS session_id, s.expires_at, s.last_seen_at AS session_last_seen_at, u.*
       FROM user_sessions s
       JOIN users u ON u.id = s.user_id
       WHERE s.token_hash = ?
@@ -320,11 +322,24 @@ export async function requireAuth(db, request) {
   if (!row) {
     throw Object.assign(new Error('登录状态已失效，请重新登录'), { status: 401, code: 'SESSION_INVALID' });
   }
-  if (Date.parse(row.expires_at) <= Date.now()) {
+  const nowMs = Date.now();
+  if (Date.parse(row.expires_at) <= nowMs) {
     await db.prepare('DELETE FROM user_sessions WHERE id = ?').bind(row.session_id).run();
     throw Object.assign(new Error('登录已过期，请重新登录'), { status: 401, code: 'SESSION_EXPIRED' });
   }
-  await db.prepare('UPDATE user_sessions SET last_seen_at = ? WHERE id = ?').bind(nowIso(), row.session_id).run();
+  const lastSeenMs = Date.parse(row.session_last_seen_at || '');
+  if (!Number.isFinite(lastSeenMs) || nowMs - lastSeenMs >= SESSION_TOUCH_INTERVAL_MS) {
+    const touchPromise = db
+      .prepare('UPDATE user_sessions SET last_seen_at = ? WHERE id = ?')
+      .bind(nowIso(), row.session_id)
+      .run()
+      .catch(() => undefined);
+    if (typeof context?.waitUntil === 'function') {
+      context.waitUntil(touchPromise);
+    } else {
+      await touchPromise;
+    }
+  }
   return { user: row, sessionId: row.session_id, tokenHash };
 }
 
