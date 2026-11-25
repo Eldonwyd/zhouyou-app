@@ -171,11 +171,11 @@ try {
   await page.getByLabel('旅行人群（总人数）', { exact: true }).fill('3');
   // 学生/老人/儿童默认收起，不填为 0。
   assert.equal(await page.getByLabel('学生人数', { exact: true }).isVisible(), false);
-  await page.locator('.planner-party-details summary').click();
+  await page.locator('.planner-party-toggle').click();
   await page.getByLabel('学生人数', { exact: true }).fill('1');
   await page.getByLabel('老人人数', { exact: true }).fill('1');
   assert.equal(await page.getByLabel('儿童人数', { exact: true }).inputValue(), '0');
-  await page.locator('.planner-party-details summary').filter({ hasText: '学生 1、老人 1' }).waitFor();
+  await page.locator('.planner-party-toggle').filter({ hasText: '学生 1、老人 1' }).waitFor();
   await page.locator('.planner-preferences summary').click();
   await page.getByLabel('整次旅行预算（元）').fill('5000');
   await page.getByLabel('游玩节奏', { exact: true }).selectOption('慢慢玩');

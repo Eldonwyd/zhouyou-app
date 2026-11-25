@@ -588,18 +588,18 @@ div.mobile-disclosure-body,
     font-weight: 450;
     line-height: 1.5;
   }
-  .planner-create .planner-party { gap: 7px; }
-  .planner-create .planner-party-details {
-    padding: 7px 11px;
-    border-radius: 11px;
+  .planner-create .planner-party { gap: 5px; }
+  .planner-create .planner-party-input-wrap > input { padding-right: 116px; }
+  .planner-create .planner-party-toggle {
+    height: 27px;
+    padding: 0 8px;
+    border-radius: 7px;
+    font-size: 11.5px;
   }
-  .planner-create .planner-party-details > summary {
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1.4;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .planner-create .planner-party-popover {
+    min-width: 0;
+    padding: 10px 11px 11px;
+    border-radius: 11px;
   }
   .planner-create .planner-date-hint {
     margin: 2px 0 10px;

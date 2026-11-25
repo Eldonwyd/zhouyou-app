@@ -369,11 +369,44 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .85; }
   .planner-activity > .planner-photo > .planner-photo-bar { border-bottom: 0; border-top: 1px solid var(--line); margin-top: 10px; }
 }
 
-/* ---------- 旅行人群：学生/老人/儿童默认收起 ---------- */
-.planner-party { display: grid; gap: 8px; align-content: start; }
-.planner-party-details { border: 1px dashed var(--line-strong); border-radius: 12px; padding: 8px 12px; background: var(--surface-2); }
-.planner-party-details > summary { cursor: pointer; font-size: .82rem; color: var(--ink-2); font-weight: 600; }
-.planner-party-details[open] > summary { margin-bottom: 8px; }
+/* ---------- 旅行人群：学生/老人/儿童收起为输入框右侧小按钮 ---------- */
+.planner-party { position: relative; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.planner-party-input-wrap { position: relative; display: flex; align-items: center; min-width: 0; }
+.planner-party-input-wrap > input { padding-right: 124px; }
+.planner-party-toggle {
+  position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+  display: inline-flex; align-items: center; gap: 4px;
+  max-width: calc(100% - 54px); min-height: 0; height: 28px; padding: 0 9px; margin: 0;
+  border: 1px dashed var(--line-strong); border-radius: 8px;
+  background: var(--surface-2); color: var(--ink-2);
+  font-size: 11.5px; font-weight: 600; line-height: 1; white-space: nowrap; cursor: pointer;
+}
+.planner-party-toggle:hover { border-style: solid; border-color: var(--ink-2); color: var(--ink); }
+.planner-party-toggle.has-value {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--teal) 45%, transparent);
+  background: color-mix(in srgb, var(--teal) 12%, var(--surface));
+  color: var(--teal);
+}
+.planner-party-toggle-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.planner-party-toggle-arrow { flex: 0 0 auto; font-size: 10px; opacity: .75; }
+.planner-party-popover {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 25;
+  min-width: 240px; padding: 10px 12px 12px;
+  border: 1px solid var(--line-strong); border-radius: 12px;
+  background: var(--surface); box-shadow: var(--shadow-hover, 0 10px 28px rgba(16, 34, 42, .14));
+}
+.planner-party-popover-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;
+  font-size: 12px; font-weight: 600; color: var(--ink-2);
+}
+.planner-party-popover-close {
+  min-height: 0; height: 24px; padding: 0 8px; margin: 0;
+  border: 1px solid var(--line-strong); border-radius: 7px;
+  background: var(--surface-2); color: var(--ink-2);
+  font-size: 11.5px; font-weight: 600; line-height: 1; cursor: pointer;
+}
+.planner-party-popover-close:hover { color: var(--ink); border-color: var(--ink-2); }
 .planner-party-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .planner-party-grid label { font-size: .8rem; }
 .planner-party-grid input { width: 100%; min-width: 0; }

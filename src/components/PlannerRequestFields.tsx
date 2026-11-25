@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import type { PlannerLuggageMode, PlannerRequest } from '../planner-types';
 import { PLANNER_LOCAL_TRANSPORT_OPTIONS, plannerLocalTransport, plannerPartyText, updatePlannerDates } from '../planner-domain';
 import { useI18n } from '../i18n';
@@ -95,6 +95,28 @@ export default function PlannerRequestFields({
     ['children', t('儿童', 'Children')],
   ] as const;
   const groupSummary = groups.filter(([key]) => (value[key] ?? 0) > 0).map(([key, label]) => `${label} ${value[key]}`).join(t('、', ', '));
+  const peopleInputId = useId();
+  const partyRef = useRef<HTMLDivElement>(null);
+  const [partyOpen, setPartyOpen] = useState(false);
+
+  useEffect(() => {
+    if (!partyOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (partyRef.current && !partyRef.current.contains(event.target as Node)) {
+        setPartyOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPartyOpen(false);
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [partyOpen]);
+
   return (
     <>
       <div className="planner-input-grid">
@@ -106,10 +128,13 @@ export default function PlannerRequestFields({
             onChange={(event) => onChange({ ...value, destination: event.target.value })}
           />
         </label>
-        <div className="planner-party">
-          <label>
+        <div className="planner-party" ref={partyRef}>
+          <label htmlFor={peopleInputId}>
             {t('旅行人群（总人数）', 'Travelers (total)')}
+          </label>
+          <div className="planner-party-input-wrap">
             <input
+              id={peopleInputId}
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
@@ -118,27 +143,60 @@ export default function PlannerRequestFields({
               onChange={(event) => handlePartyInput('people', event.target.value)}
               onBlur={() => handlePartyBlur('people')}
             />
-          </label>
-          {/* 学生、老人、儿童默认收起，不填为 0；其余按成人计价。 */}
-          <details className="planner-party-details">
-            <summary>{t('学生 / 老人 / 儿童', 'Students / Seniors / Children')}{groupSummary ? t(`：${groupSummary}`, `: ${groupSummary}`) : t('（选填）', ' (optional)')}</summary>
-            <div className="planner-party-grid">
-              {groups.map(([key, label]) => (
-                <label key={key}>
-                  {t(`${label}人数`, label)}
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={partyDrafts[key]}
-                    placeholder="0"
-                    onChange={(event) => handlePartyInput(key, event.target.value)}
-                    onBlur={() => handlePartyBlur(key)}
-                  />
-                </label>
-              ))}
+            {/* 学生、老人、儿童默认收起为输入框右侧小按钮，避免撑高整行；不填为 0，其余按成人计价。 */}
+            <button
+              type="button"
+              className={`planner-party-toggle${groupSummary ? ' has-value' : ''}`}
+              aria-expanded={partyOpen}
+              title={
+                groupSummary
+                  ? t(`学生 / 老人 / 儿童：${groupSummary}`, `Students / Seniors / Children: ${groupSummary}`)
+                  : t('学生 / 老人 / 儿童（选填）', 'Students / Seniors / Children (optional)')
+              }
+              onClick={() => setPartyOpen((open) => !open)}
+            >
+              <span className="planner-party-toggle-label">
+                {groupSummary || t('学生/老人/儿童', 'Groups')}
+              </span>
+              <span className="planner-party-toggle-arrow" aria-hidden="true">
+                {partyOpen ? '▴' : '▾'}
+              </span>
+            </button>
+          </div>
+          {partyOpen && (
+            <div
+              className="planner-party-popover"
+              role="group"
+              aria-label={t('学生 / 老人 / 儿童（选填）', 'Students / Seniors / Children (optional)')}
+            >
+              <div className="planner-party-popover-head">
+                <span>{t('学生 / 老人 / 儿童（选填）', 'Students / Seniors / Children (optional)')}</span>
+                <button
+                  type="button"
+                  className="planner-party-popover-close"
+                  onClick={() => setPartyOpen(false)}
+                >
+                  {t('完成', 'Done')}
+                </button>
+              </div>
+              <div className="planner-party-grid">
+                {groups.map(([key, label]) => (
+                  <label key={key}>
+                    {t(`${label}人数`, label)}
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={partyDrafts[key]}
+                      placeholder="0"
+                      onChange={(event) => handlePartyInput(key, event.target.value)}
+                      onBlur={() => handlePartyBlur(key)}
+                    />
+                  </label>
+                ))}
+              </div>
             </div>
-          </details>
+          )}
         </div>
         <label>
           {t('开始日期', 'Start Date')}
