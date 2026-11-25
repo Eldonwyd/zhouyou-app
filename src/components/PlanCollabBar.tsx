@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   cloudApi,
+  type ChatMessage,
   type CloudSelfUser,
   type FriendItem,
-  type PlanComment,
   type PlanRevision,
-  type PlanVote,
   type TravelGroupSummary,
 } from '../cloud-api';
 import { getCloudPlanMetaMap, updateCloudPlanMeta } from '../cloud-sync';
 import type { AiTravelPlan } from '../planner-types';
+import ThemedSelect from './ThemedSelect';
 
 interface PlanCollabBarProps {
   plan: AiTravelPlan;
@@ -17,15 +17,10 @@ interface PlanCollabBarProps {
   onOpenAuth: () => void;
   onPlanReverted: (restored: AiTravelPlan) => Promise<void>;
   onSyncNow: () => Promise<void>;
+  onExecutePollOption?: (prompt: string) => void;
   onNotice: (message: string) => void;
   onError: (message: string) => void;
 }
-
-const VOTE_LABELS: Record<'want' | 'backup' | 'skip', string> = {
-  want: '👍 想去',
-  backup: '🤔 备选',
-  skip: '⏭ 跳过',
-};
 
 export default function PlanCollabBar({
   plan,
@@ -33,6 +28,7 @@ export default function PlanCollabBar({
   onOpenAuth,
   onPlanReverted,
   onSyncNow,
+  onExecutePollOption,
   onNotice,
   onError,
 }: PlanCollabBarProps) {
@@ -41,9 +37,8 @@ export default function PlanCollabBar({
   const [groups, setGroups] = useState<TravelGroupSummary[]>([]);
   const [friends, setFriends] = useState<FriendItem[]>([]);
   const [revisions, setRevisions] = useState<PlanRevision[]>([]);
-  const [votes, setVotes] = useState<PlanVote[]>([]);
-  const [comments, setComments] = useState<PlanComment[]>([]);
-  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [groupPolls, setGroupPolls] = useState<ChatMessage[]>([]);
+  const [pollsLoading, setPollsLoading] = useState(false);
 
   // 分享弹窗状态
   const [shareMode, setShareMode] = useState<'copy' | 'collab'>('copy');
@@ -58,21 +53,20 @@ export default function PlanCollabBar({
 
   const planMeta = useMemo(() => getCloudPlanMetaMap()[plan.id] || null, [plan.id, metaTick]);
 
-  // 收集当前攻略的所有可投票/批注景点与餐厅条目
-  const activityItems = useMemo(() => {
-    const list: Array<{ key: string; dayLabel: string; title: string; subtitle: string }> = [];
-    for (const [dayIdx, day] of (plan.content?.days || []).entries()) {
-      for (const act of day.activities || []) {
-        list.push({
-          key: `${dayIdx + 1}:${act.id}`,
-          dayLabel: `Day ${dayIdx + 1}`,
-          title: act.title || '行程条目',
-          subtitle: act.location || act.startTime || '',
-        });
-      }
+  async function refreshGroupPolls(groupId: string) {
+    setPollsLoading(true);
+    try {
+      const res = await cloudApi.getChatMessages('group', groupId);
+      const list = (Array.isArray(res?.messages) ? res.messages : [])
+        .filter((m) => m.msgType === 'poll')
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+      setGroupPolls(list);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : '加载群投票结果失败');
+    } finally {
+      setPollsLoading(false);
     }
-    return list;
-  }, [plan]);
+  }
 
   useEffect(() => {
     setNewGroupName(plan.content.title || '同游小队');
@@ -102,10 +96,11 @@ export default function PlanCollabBar({
         setRevisions(revRes.revisions);
       }
       if (next === 'collab') {
-        await onSyncNow();
-        const cRes = await cloudApi.getPlanCollab(plan.id);
-        setVotes(cRes.votes);
-        setComments(cRes.comments);
+        if (planMeta?.groupId) {
+          await refreshGroupPolls(planMeta.groupId);
+        } else {
+          setGroupPolls([]);
+        }
       }
     } catch (err) {
       onError(err instanceof Error ? err.message : '加载云端协作信息失败');
@@ -171,27 +166,12 @@ export default function PlanCollabBar({
     }
   }
 
-  async function handleVote(itemKey: string, vote: 'want' | 'backup' | 'skip') {
-    const mine = votes.find((v) => v.itemKey === itemKey && v.userId === cloudUser?.id);
-    const nextVote = mine?.vote === vote ? '' : vote;
+  async function handleVoteGroupPoll(messageId: string, optionId: string) {
     try {
-      await cloudApi.votePlanItem(plan.id, itemKey, nextVote);
-      const cRes = await cloudApi.getPlanCollab(plan.id);
-      setVotes(cRes.votes);
+      const res = await cloudApi.voteChatPoll(messageId, optionId);
+      setGroupPolls((prev) => prev.map((m) => (m.id === messageId ? { ...m, pollVotes: res.pollVotes } : m)));
     } catch (err) {
       onError(err instanceof Error ? err.message : '投票失败');
-    }
-  }
-
-  async function handleAddComment(itemKey: string) {
-    const content = (commentDrafts[itemKey] || '').trim();
-    if (!content) return;
-    try {
-      const res = await cloudApi.commentPlanItem(plan.id, itemKey, content);
-      setComments((prev) => [...prev, res.comment]);
-      setCommentDrafts((prev) => ({ ...prev, [itemKey]: '' }));
-    } catch (err) {
-      onError(err instanceof Error ? err.message : '发表批注失败');
     }
   }
 
@@ -280,7 +260,7 @@ export default function PlanCollabBar({
             onClick={() => void openPanel('collab')}
           >
             <span className="plan-collab-chip-ic" aria-hidden="true">☑</span>
-            <span>投票批注</span>
+            <span>投票结果</span>
           </button>
           <button
             type="button"
@@ -375,10 +355,13 @@ export default function PlanCollabBar({
           </div>
 
           <div className="companions-search-row" style={{ marginTop: 10 }}>
-            <select value={shareFriendId} onChange={(e) => setShareFriendId(e.target.value)}>
-              <option value="">直接推送给站内好友…</option>
-              {friends.map((f) => <option key={f.user.id} value={f.user.id}>{f.user.nickname}（{f.user.friendCode}）</option>)}
-            </select>
+            <ThemedSelect
+              value={shareFriendId}
+              placeholder="直接推送给站内好友…"
+              title="选择接收好友"
+              options={friends.map((f) => ({ value: f.user.id, label: f.user.nickname, sublabel: `好友码 ${f.user.friendCode}` }))}
+              onChange={setShareFriendId}
+            />
             <button type="button" className="secondary" disabled={!shareFriendId || busy} onClick={() => void handleGenerateShare(shareFriendId)}>
               一键发给好友
             </button>
@@ -408,10 +391,16 @@ export default function PlanCollabBar({
         <div className="plan-collab-drawer">
           <h4>绑定行程群（群成员自动同步并共同编辑）</h4>
           <div className="companions-search-row">
-            <select value={selectedGroupId} onChange={(e) => setSelectedGroupId(e.target.value)}>
-              <option value="">不绑定群（仅自己可见）</option>
-              {groups.map((g) => <option key={g.id} value={g.id}>{g.name}（{g.memberCount}人）</option>)}
-            </select>
+            <ThemedSelect
+              value={selectedGroupId}
+              placeholder="不绑定群（仅自己可见）"
+              title="选择要绑定的行程群"
+              options={[
+                { value: '', label: '不绑定群（仅自己可见）' },
+                ...groups.map((g) => ({ value: g.id, label: g.name, sublabel: `${g.memberCount} 人` })),
+              ]}
+              onChange={setSelectedGroupId}
+            />
             <button type="button" className="primary" disabled={busy} onClick={() => void handleBindExistingGroup()}>保存群绑定</button>
           </div>
           <div className="companions-search-row" style={{ marginTop: 10 }}>
@@ -423,64 +412,81 @@ export default function PlanCollabBar({
 
       {panel === 'collab' && (
         <div className="plan-collab-drawer">
-          <h4>群内景点 / 餐厅小投票 & 留言批注</h4>
-          {activityItems.length === 0 ? (
-            <p className="auth-hint">当前攻略暂无行程条目。</p>
+          <div className="ai-poll-drawer-head">
+            <h4>🗳️ 群方案投票结果</h4>
+            {planMeta?.groupId && (
+              <button
+                type="button"
+                className="text-button"
+                disabled={pollsLoading}
+                onClick={() => void refreshGroupPolls(planMeta.groupId!)}
+              >
+                {pollsLoading ? '刷新中…' : '↻ 刷新票数'}
+              </button>
+            )}
+          </div>
+          {!planMeta?.groupId ? (
+            <p className="auth-hint" style={{ margin: 0 }}>
+              当前行程尚未关联行程群。先点击「行程群」绑定群聊后，向 AI 询问多个方案时即可一键发到群里让同伴投票，并在此查看结果。
+            </p>
+          ) : pollsLoading && groupPolls.length === 0 ? (
+            <p className="auth-hint" style={{ margin: 0 }}>正在读取群投票结果…</p>
+          ) : groupPolls.length === 0 ? (
+            <p className="auth-hint" style={{ margin: 0 }}>
+              群里还没有方案投票。打开下方「AI 助手」让 AI 给出多个方案后，点击回复下方的「🗳️ 发到群里投票」即可发起。
+            </p>
           ) : (
             <div className="collab-vote-list">
-              {activityItems.map((item) => {
-                const itemVotes = votes.filter((v) => v.itemKey === item.key);
-                const myVote = itemVotes.find((v) => v.userId === cloudUser?.id)?.vote;
-                const itemComments = comments.filter((c) => c.itemKey === item.key);
+              {groupPolls.map((poll) => {
+                const opts = Array.isArray(poll.payload?.options)
+                  ? (poll.payload.options as Array<{ id: string; label: string }>)
+                  : [];
+                const votes = poll.pollVotes || [];
+                const totalVoters = new Set(votes.map((v) => v.userId)).size;
+                const counts = opts.map((o) => votes.filter((v) => v.optionId === o.id).length);
+                const maxVotes = Math.max(0, ...counts);
+                const question = String(poll.payload?.question || '群方案投票');
                 return (
-                  <div key={item.key} className="collab-vote-card">
-                    <div className="collab-vote-head">
-                      <span className="day-mini-badge">{item.dayLabel}</span>
-                      <strong>{item.title}</strong>
-                      {item.subtitle && <small>{item.subtitle}</small>}
+                  <div key={poll.id} className="ai-poll-card">
+                    <div className="ai-poll-card-head">
+                      <strong>{question}</strong>
+                      <small>{totalVoters} 人已投{poll.payload?.multi ? ' · 多选' : ''}</small>
                     </div>
-                    <div className="collab-vote-buttons">
-                      {(['want', 'backup', 'skip'] as const).map((vType) => {
-                        const count = itemVotes.filter((v) => v.vote === vType).length;
+                    <div className="ai-poll-options">
+                      {opts.map((opt, idx) => {
+                        const count = counts[idx] || 0;
+                        const pct = totalVoters > 0 ? Math.round((count / totalVoters) * 100) : 0;
+                        const mine = votes.some((v) => v.optionId === opt.id && v.userId === cloudUser?.id);
+                        const isLeader = maxVotes > 0 && count === maxVotes;
                         return (
-                          <button
-                            key={vType}
-                            type="button"
-                            className={`chip-toggle ${myVote === vType ? 'active' : ''}`}
-                            onClick={() => void handleVote(item.key, vType)}
-                          >
-                            {VOTE_LABELS[vType]} {count > 0 ? `(${count})` : ''}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {itemComments.length > 0 && (
-                      <div className="collab-comment-list">
-                        {itemComments.map((c) => (
-                          <div key={c.id} className="collab-comment-row">
-                            <span><strong>{c.authorNickname}：</strong>{c.content}</span>
-                            {c.userId === cloudUser?.id && (
+                          <div key={opt.id} className="ai-poll-option-row">
+                            <button
+                              type="button"
+                              className={`im-poll-opt ${mine ? 'is-voted' : ''}`}
+                              onClick={() => void handleVoteGroupPoll(poll.id, opt.id)}
+                            >
+                              <span className="im-poll-bar" style={{ width: `${pct}%` }} />
+                              <span className="im-poll-opt-text">
+                                {mine ? '✓ ' : ''}{opt.label}
+                                {isLeader && <em className="ai-poll-winner-tag">🏆 最多票</em>}
+                              </span>
+                              <span className="im-poll-opt-count">{count} 票</span>
+                            </button>
+                            {onExecutePollOption && (
                               <button
                                 type="button"
-                                className="text-button"
-                                onClick={() => void cloudApi.deletePlanComment(plan.id, c.id).then(() => setComments((prev) => prev.filter((x) => x.id !== c.id)))}
+                                className="ai-poll-exec-btn"
+                                onClick={() => {
+                                  setPanel('none');
+                                  onExecutePollOption(`按群投票方案执行「${opt.label}」（投票主题：${question}，当前 ${count} 票），请直接修改并更新当前行程。`);
+                                }}
                               >
-                                删
+                                AI 执行
                               </button>
                             )}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="collab-comment-input">
-                      <input
-                        type="text"
-                        placeholder="留一句批注（如：这家排队久，建议提前取号）"
-                        value={commentDrafts[item.key] || ''}
-                        onChange={(e) => setCommentDrafts((prev) => ({ ...prev, [item.key]: e.target.value }))}
-                        onKeyDown={(e) => { if (e.key === 'Enter') void handleAddComment(item.key); }}
-                      />
-                      <button type="button" className="secondary" onClick={() => void handleAddComment(item.key)}>留言</button>
+                        );
+                      })}
                     </div>
                   </div>
                 );

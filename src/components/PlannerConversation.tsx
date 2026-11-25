@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react';
-import type { AiTravelPlan, XhsReference } from '../planner-types';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { AiTravelPlan, PlannerMessage, XhsReference } from '../planner-types';
 import { isExecutablePlannerSuggestion, plannerSuggestions } from '../planner-domain';
 import { plannerDisplayText, splitAnswerLinks } from '../planner-display';
+import { cloudApi, type ChatMessage, type CloudSelfUser } from '../cloud-api';
+import { getCloudPlanMetaMap } from '../cloud-sync';
 import RichAiText from './RichAiText';
 
 interface PlannerConversationProps {
@@ -20,6 +22,49 @@ interface PlannerConversationProps {
   attachedRefs?: XhsReference[];
   onOpenXhsAttach?: (initialFiles?: File[]) => void;
   onRemoveAttachedRef?: (refId: string) => void;
+  cloudUser?: CloudSelfUser | null;
+  onExecutePollOption?: (prompt: string) => void;
+  onNotice?: (message: string) => void;
+  onError?: (message: string) => void;
+}
+
+interface PollDraftOption {
+  label: string;
+  suggestionId?: string;
+}
+
+/** 从 AI 回复中提取候选方案选项（优先结构化建议，其次识别文本中的「方案A/1.」等条目）。 */
+function extractPollOptionsFromMessage(item: PlannerMessage, plan: AiTravelPlan): PollDraftOption[] {
+  const structured = plannerSuggestions(item);
+  if (structured.length >= 2) {
+    return structured.slice(0, 6).map((s) => ({
+      label: `方案 ${s.label}：${plannerDisplayText(s.title, plan.content)}`.slice(0, 60),
+      suggestionId: s.id,
+    }));
+  }
+  const lines = plannerDisplayText(item.text, plan.content)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const candidates: PollDraftOption[] = [];
+  for (const line of lines) {
+    const m = line.match(/^(?:[#*\-\s]*)(?:方案\s*[A-Za-z一二三四五1-6]|选项\s*[A-Za-z1-6]|[1-6][\.、\)）])\s*[:：\-—]?\s*(.+)$/);
+    if (m && m[1]) {
+      const cleaned = m[1].replace(/\*\*/g, '').replace(/[。；;]+$/, '').trim().slice(0, 60);
+      if (cleaned.length >= 2 && !candidates.some((c) => c.label === cleaned)) {
+        candidates.push({ label: cleaned });
+      }
+    }
+    if (candidates.length >= 6) break;
+  }
+  if (candidates.length >= 2) return candidates;
+  if (structured.length === 1) {
+    return [
+      { label: `方案 ${structured[0].label}：${plannerDisplayText(structured[0].title, plan.content)}`.slice(0, 60), suggestionId: structured[0].id },
+      { label: '维持当前安排不变' },
+    ];
+  }
+  return [{ label: '方案一' }, { label: '方案二' }];
 }
 
 /** Keep the conversation above the long itinerary on every screen size.
@@ -42,16 +87,187 @@ export default function PlannerConversation({
   attachedRefs = [],
   onOpenXhsAttach,
   onRemoveAttachedRef,
+  cloudUser = null,
+  onExecutePollOption,
+  onNotice,
+  onError,
 }: PlannerConversationProps) {
   const transcript = useRef<HTMLDivElement>(null);
   const activities = plan.content.days.flatMap((day) => day.activities);
   const selected = activities.find((activity) => activity.id === scopeId);
   const contentVersion = plan.contentVersion ?? plan.version;
+
+  const planMeta = useMemo(() => getCloudPlanMetaMap()[plan.id] || null, [plan.id, open, plan.version]);
+  const groupId = planMeta?.groupId || '';
+  const groupName = planMeta?.groupName || '行程群';
+  const canGroupPoll = Boolean(groupId && cloudUser);
+
+  const [groupPolls, setGroupPolls] = useState<ChatMessage[]>([]);
+  const [pollsBusy, setPollsBusy] = useState(false);
+  const [pollEditor, setPollEditor] = useState<{
+    sourceMessageId: string;
+    question: string;
+    options: PollDraftOption[];
+    multi: boolean;
+  } | null>(null);
+  const [sendingPoll, setSendingPoll] = useState(false);
+
+  const fetchGroupPolls = useCallback(async () => {
+    if (!groupId || !cloudUser) {
+      setGroupPolls([]);
+      return;
+    }
+    setPollsBusy(true);
+    try {
+      const res = await cloudApi.getChatMessages('group', groupId);
+      const list = (Array.isArray(res?.messages) ? res.messages : [])
+        .filter((m) => m.msgType === 'poll')
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+      setGroupPolls(list);
+    } catch {
+      /* 静默失败，避免打断 AI 对话 */
+    } finally {
+      setPollsBusy(false);
+    }
+  }, [groupId, cloudUser]);
+
+  useEffect(() => {
+    if (open && canGroupPoll) {
+      void fetchGroupPolls();
+    }
+  }, [open, canGroupPoll, fetchGroupPolls]);
+
   useEffect(() => {
     // 收起期间收到的回复，在下次展开后滚动到最新消息。
     const element = transcript.current;
     if (open && element) element.scrollTop = element.scrollHeight;
   }, [open, plan.id, plan.messages.length]);
+
+  function openPollComposer(item: PlannerMessage, idx: number) {
+    const prevUser = [...plan.messages.slice(0, idx)].reverse().find((m) => m.role === 'user');
+    const defaultQuestion = prevUser
+      ? `${prevUser.text.trim().slice(0, 36)}（选个方案）`
+      : `${plan.content.title || '行程'} · 方案投票`;
+    setPollEditor({
+      sourceMessageId: item.id,
+      question: defaultQuestion,
+      options: extractPollOptionsFromMessage(item, plan),
+      multi: false,
+    });
+  }
+
+  async function handlePublishGroupPoll() {
+    if (!pollEditor || !groupId || sendingPoll) return;
+    const question = pollEditor.question.trim();
+    const cleaned = pollEditor.options
+      .map((o) => ({ label: o.label.trim(), suggestionId: o.suggestionId }))
+      .filter((o) => o.label.length > 0);
+    if (!question || cleaned.length < 2) {
+      onError?.('请填写投票主题，并至少保留 2 个有效方案选项');
+      return;
+    }
+    setSendingPoll(true);
+    try {
+      const options = cleaned.map((o, i) => ({
+        id: `opt_${i + 1}`,
+        label: o.label,
+        ...(o.suggestionId ? { suggestionId: o.suggestionId } : {}),
+      }));
+      const res = await cloudApi.sendChatMessage('group', groupId, {
+        msgType: 'poll',
+        textContent: `发起方案投票：${question}`,
+        payload: {
+          question,
+          options,
+          multi: pollEditor.multi,
+          planId: plan.id,
+          sourceMessageId: pollEditor.sourceMessageId,
+        },
+      });
+      setGroupPolls((prev) => [res.message, ...prev]);
+      setPollEditor(null);
+      onNotice?.(`已发送到行程群「${groupName}」发起投票`);
+    } catch (err) {
+      onError?.(err instanceof Error ? err.message : '发送到群投票失败');
+    } finally {
+      setSendingPoll(false);
+    }
+  }
+
+  function renderPollResultCard(poll: ChatMessage, sourceMessage?: PlannerMessage) {
+    const opts = Array.isArray(poll.payload?.options)
+      ? (poll.payload.options as Array<{ id: string; label: string; suggestionId?: string }>)
+      : [];
+    const votes = poll.pollVotes || [];
+    const totalVoters = new Set(votes.map((v) => v.userId)).size;
+    const counts = opts.map((o) => votes.filter((v) => v.optionId === o.id).length);
+    const maxVotes = Math.max(0, ...counts);
+    const question = String(poll.payload?.question || '群方案投票');
+    const sourceSuggestions = sourceMessage ? plannerSuggestions(sourceMessage) : [];
+
+    return (
+      <div key={poll.id} className="ai-poll-card">
+        <div className="ai-poll-card-head">
+          <span>
+            <strong>🗳️ {question}</strong>
+            <small> · 群「{groupName}」{totalVoters} 人已投</small>
+          </span>
+          <button
+            type="button"
+            className="text-button"
+            disabled={pollsBusy}
+            onClick={() => void fetchGroupPolls()}
+          >
+            {pollsBusy ? '…' : '↻ 刷新'}
+          </button>
+        </div>
+        <div className="ai-poll-options">
+          {opts.map((opt, idx) => {
+            const count = counts[idx] || 0;
+            const pct = totalVoters > 0 ? Math.round((count / totalVoters) * 100) : 0;
+            const isLeader = maxVotes > 0 && count === maxVotes;
+            const matchedSuggestion = opt.suggestionId
+              ? sourceSuggestions.find((s) => s.id === opt.suggestionId)
+              : undefined;
+            const canDirectApply = Boolean(
+              sourceMessage
+              && matchedSuggestion
+              && !matchedSuggestion.appliedAt
+              && matchedSuggestion.baseContentVersion === contentVersion
+              && isExecutablePlannerSuggestion(matchedSuggestion),
+            );
+
+            return (
+              <div key={opt.id} className="ai-poll-option-row">
+                <div className={`ai-poll-bar-box${isLeader ? ' is-leader' : ''}`}>
+                  <span className="im-poll-bar" style={{ width: `${pct}%` }} />
+                  <span className="im-poll-opt-text">
+                    {opt.label}
+                    {isLeader && <em className="ai-poll-winner-tag">🏆 最多票</em>}
+                  </span>
+                  <span className="im-poll-opt-count">{count} 票</span>
+                </div>
+                <button
+                  type="button"
+                  className="ai-poll-exec-btn"
+                  disabled={busy}
+                  onClick={() => {
+                    if (canDirectApply && sourceMessage && matchedSuggestion?.id) {
+                      onApplySuggestion(sourceMessage.id, matchedSuggestion.id);
+                    } else if (onExecutePollOption) {
+                      onExecutePollOption(`按群投票结果执行方案「${opt.label}」（投票主题：${question}，当前 ${count} 票），请直接修改并更新当前行程。`);
+                    }
+                  }}
+                >
+                  执行
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <section
@@ -79,7 +295,10 @@ export default function PlannerConversation({
       <div id="planner-conversation-body" hidden={!open}>
         {plan.messages.length > 0 && (
           <div className="planner-chat-messages" ref={transcript} aria-live="polite">
-            {plan.messages.map((item) => {
+            {plan.messages.map((item, idx) => {
+              const linkedPolls = canGroupPoll
+                ? groupPolls.filter((p) => p.payload?.sourceMessageId === item.id)
+                : [];
               return (
                 <div key={item.id} className={`planner-message ${item.role}`}>
                   <small>
@@ -157,6 +376,23 @@ export default function PlannerConversation({
                       )}
                     </div>;
                   })}
+                  {item.role === 'assistant' && canGroupPoll && (
+                    <div className="ai-poll-trigger-row">
+                      <button
+                        type="button"
+                        className="ai-poll-send-btn"
+                        disabled={busy}
+                        onClick={() => openPollComposer(item, idx)}
+                      >
+                        🗳️ 发到群「{groupName}」投票
+                      </button>
+                    </div>
+                  )}
+                  {linkedPolls.length > 0 && (
+                    <div className="ai-poll-linked-list">
+                      {linkedPolls.map((poll) => renderPollResultCard(poll, item))}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -278,6 +514,82 @@ export default function PlannerConversation({
           </div>
         </form>
       </div>
+
+      {pollEditor && (
+        <div className="dialog-backdrop" role="presentation" onClick={() => setPollEditor(null)}>
+          <div className="dialog ai-poll-editor-dialog" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>🗳️ 发到群「{groupName}」方案投票</h3>
+            <p className="muted" style={{ margin: '0 0 10px', fontSize: 12.5 }}>
+              已为你自动整理方案选项，可自由修改、增删选项后发到群里让同伴投票；结果会直接回显在 AI 对话中，随时点「执行」即可落实。
+            </p>
+            <input
+              type="text"
+              className="ai-poll-question-input"
+              placeholder="投票主题（如：第二天下午去哪里玩？）"
+              value={pollEditor.question}
+              onChange={(e) => setPollEditor((prev) => (prev ? { ...prev, question: e.target.value } : prev))}
+            />
+            <div className="ai-poll-editor-list">
+              {pollEditor.options.map((opt, idx) => (
+                <div key={idx} className="ai-poll-editor-row">
+                  <input
+                    type="text"
+                    placeholder={`方案选项 ${idx + 1}`}
+                    value={opt.label}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPollEditor((prev) => (prev
+                        ? {
+                            ...prev,
+                            options: prev.options.map((o, i) => (i === idx ? { label: val, suggestionId: val === o.label ? o.suggestionId : undefined } : o)),
+                          }
+                        : prev));
+                    }}
+                  />
+                  {pollEditor.options.length > 2 && (
+                    <button
+                      type="button"
+                      className="text-button"
+                      aria-label="删除选项"
+                      onClick={() => setPollEditor((prev) => (prev
+                        ? { ...prev, options: prev.options.filter((_, i) => i !== idx) }
+                        : prev))}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {pollEditor.options.length < 6 && (
+              <button
+                type="button"
+                className="text-button"
+                style={{ marginBottom: 8 }}
+                onClick={() => setPollEditor((prev) => (prev
+                  ? { ...prev, options: [...prev.options, { label: '' }] }
+                  : prev))}
+              >
+                ＋ 添加方案选项
+              </button>
+            )}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, marginBottom: 12 }}>
+              <input
+                type="checkbox"
+                checked={pollEditor.multi}
+                onChange={(e) => setPollEditor((prev) => (prev ? { ...prev, multi: e.target.checked } : prev))}
+              />
+              允许多选
+            </label>
+            <div className="dialog-actions">
+              <button type="button" className="primary" disabled={sendingPoll} onClick={() => void handlePublishGroupPoll()}>
+                {sendingPoll ? '发送中…' : '发送到行程群投票'}
+              </button>
+              <button type="button" className="secondary" onClick={() => setPollEditor(null)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
