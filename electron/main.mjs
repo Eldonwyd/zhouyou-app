@@ -300,6 +300,11 @@ async function restartServerForLanToggle() {
 
 function buildAppMenu() {
   const isMac = process.platform === 'darwin';
+  if (!isMac) {
+    // Windows / Linux 隐藏窗口顶部原生菜单栏（应用 / 编辑 / 视图 / 帮助），保持无冗余标题区。
+    Menu.setApplicationMenu(null);
+    return;
+  }
   const template = [
     ...(isMac
       ? [{
@@ -417,6 +422,7 @@ function createWindow() {
     title: '周游地图 · Zhouyou Map',
     backgroundColor: '#fff8f1',
     icon: iconPath,
+    autoHideMenuBar: true,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -425,6 +431,11 @@ function createWindow() {
       sandbox: true,
     },
   });
+
+  if (process.platform !== 'darwin') {
+    mainWindow.setMenuBarVisibility(false);
+    mainWindow.removeMenu();
+  }
 
   const localOrigin = `http://127.0.0.1:${activePort}`;
   mainWindow.once('ready-to-show', () => mainWindow?.show());

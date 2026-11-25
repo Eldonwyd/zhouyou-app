@@ -211,6 +211,8 @@ export const onRequest = withApiHandler(async (context) => {
   if (method === 'POST' && segments[0] === 'pull') {
     const body = await readJsonBody(request, 16384);
     const since = typeof body.since === 'string' && body.since ? body.since : '';
+    // 在查询之前取服务端时间作为下次增量游标，杜绝「查询后、返回前」其他设备写入的记录被永久漏拉。
+    const pullStartedAt = nowIso();
 
     const recStmt = since
       ? db.prepare('SELECT store_name, record_id, payload_json, updated_at, deleted_at FROM user_records WHERE user_id = ? AND updated_at > ? ORDER BY updated_at ASC').bind(userId, since)
@@ -265,7 +267,7 @@ export const onRequest = withApiHandler(async (context) => {
     const usedBytes = await getUserCloudBytes(db, userId);
     return jsonResponse(request, 200, {
       ok: true,
-      serverTime: nowIso(),
+      serverTime: pullStartedAt,
       records,
       aiPlans,
       quota: { usedBytes, maxBytes: MAX_USER_CLOUD_BYTES },
@@ -280,8 +282,16 @@ export const onRequest = withApiHandler(async (context) => {
     const now = nowIso();
 
     let currentBytes = await getUserCloudBytes(db, userId);
+    // 个人记录（地图点亮、旅程、手账等）单独计算配额，不再被体积较大的 AI 攻略挤占，
+    // 避免攻略累计超过 3MB 后连几十字节的点亮城市都无法上传。
+    const recBytesRow = await db
+      .prepare('SELECT COALESCE(SUM(byte_size), 0) AS total FROM user_records WHERE user_id = ? AND deleted_at IS NULL')
+      .bind(userId)
+      .first();
+    let recordBytes = Number(recBytesRow?.total || 0);
     const conflicts = [];
     const acceptedPlanVersions = {};
+    const rejectedRecords = [];
 
     // 1. 个人纯文本记录同步（预读现有记录 + D1 batch 批量写入，大幅降低跨端同步往返耗时）
     const existingRecordMap = new Map();
@@ -313,19 +323,26 @@ export const onRequest = withApiHandler(async (context) => {
             .bind(userId, item.store, recordId, now, now),
         );
         currentBytes -= Number(existing?.byte_size || 0);
+        recordBytes -= Number(existing?.byte_size || 0);
         existingRecordMap.set(mapKey, { byte_size: 0, updated_at: now });
         continue;
       }
 
       const payloadJson = JSON.stringify(item.payload ?? {});
       const byteSize = utf8ByteLength(payloadJson);
+      // 单条超限或配额不足时只跳过该条并告知前端，绝不让整批（含地图点亮）一起失败。
       if (byteSize > 256 * 1024) {
-        return errorResponse(request, 413, `单条记录 ${recordId} 超过 256KB 限制`, 'RECORD_TOO_LARGE');
+        rejectedRecords.push({ store: item.store, id: recordId, reason: 'RECORD_TOO_LARGE' });
+        continue;
       }
-      const nextBytes = currentBytes + byteSize - Number(existing?.byte_size || 0);
-      if (nextBytes > MAX_USER_CLOUD_BYTES) {
-        return errorResponse(request, 413, '云端纯文本存储空间已达 3MB 上限，请清理旧数据后再同步', 'QUOTA_EXCEEDED');
+      const delta = byteSize - Number(existing?.byte_size || 0);
+      const nextRecordBytes = recordBytes + delta;
+      const alwaysAllowed = item.store === 'marks' || item.store === 'profile' || item.store === 'badges' || item.store === 'plannerPreferences';
+      if (delta > 0 && nextRecordBytes > MAX_USER_CLOUD_BYTES && !alwaysAllowed) {
+        rejectedRecords.push({ store: item.store, id: recordId, reason: 'QUOTA_EXCEEDED' });
+        continue;
       }
+      const nextBytes = currentBytes + delta;
 
       const clientUpdated = typeof item.updatedAt === 'string' && item.updatedAt ? item.updatedAt : now;
       if (existing && existing.updated_at && existing.updated_at > clientUpdated && !item.force) {
@@ -346,6 +363,7 @@ export const onRequest = withApiHandler(async (context) => {
           .bind(userId, item.store, recordId, payloadJson, byteSize, now),
       );
       currentBytes = nextBytes;
+      recordBytes = nextRecordBytes;
       existingRecordMap.set(mapKey, { byte_size: byteSize, updated_at: now });
     }
 
@@ -396,8 +414,8 @@ export const onRequest = withApiHandler(async (context) => {
         if (Number(countRow?.cnt || 0) >= MAX_USER_PLANS) {
           return errorResponse(request, 413, `云端最多保存 ${MAX_USER_PLANS} 份攻略`, 'PLAN_LIMIT_EXCEEDED');
         }
-        if (currentBytes + byteSize > MAX_USER_CLOUD_BYTES) {
-          return errorResponse(request, 413, '云端存储已达 3MB 上限', 'QUOTA_EXCEEDED');
+        if (currentBytes + byteSize > MAX_USER_CLOUD_BYTES * 8) {
+          return errorResponse(request, 413, '云端攻略存储已达上限，请删除部分旧攻略后再同步', 'QUOTA_EXCEEDED');
         }
         const groupId = planItem.groupId || null;
         if (groupId) {
@@ -519,6 +537,7 @@ export const onRequest = withApiHandler(async (context) => {
       serverTime: now,
       acceptedPlanVersions,
       conflicts,
+      rejectedRecords,
       quota: { usedBytes: await getUserCloudBytes(db, userId), maxBytes: MAX_USER_CLOUD_BYTES },
     });
   }

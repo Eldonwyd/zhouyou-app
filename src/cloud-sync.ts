@@ -9,7 +9,7 @@ const LAST_CLOUD_VERSION_KEY = 'zhouyou-cloud-version';
 const PLAN_META_KEY = 'zhouyou-cloud-plan-meta';
 const DIRTY_RECORDS_KEY = 'zhouyou-cloud-dirty-records';
 const SYNC_SCHEMA_KEY = 'zhouyou-cloud-sync-schema';
-const SYNC_SCHEMA_VERSION = '3';
+const SYNC_SCHEMA_VERSION = '4';
 const ASSET_ID_RE = /^[a-f0-9]{64}$/;
 
 /** 当前会话内已确认完成云端/本地双向同步的行程照片 assetId，避免高频轮询重复检查。 */
@@ -519,6 +519,8 @@ async function runSyncWithCloudInternal(forceFull: boolean): Promise<SyncResult>
 
       if (isIncremental) {
         if (cloudRec?.deletedAt) continue;
+        // 云端已是同一份内容（例如刚拉回自己上一轮推送的记录）时不再重复推送，避免设备时钟超前导致来回刷写
+        if (cloudRec?.payload && JSON.stringify(cloudRec.payload) === JSON.stringify(item)) continue;
         if (localTs && localTs > prevLastSyncWithSkew && (!cloudRec || !cloudRec.updatedAt || localTs > cloudRec.updatedAt)) {
           recordsToPush.push({ store, id: item.id, payload: item, updatedAt: localTs, force: true });
         }
@@ -659,22 +661,29 @@ async function runSyncWithCloudInternal(forceFull: boolean): Promise<SyncResult>
 
   let conflicts: Array<{ planId: string; reason: string }> = [];
   let latestQuota = pull.quota;
-  let serverTime = pull.serverTime;
+  // 以拉取开始时刻作为下次增量游标：同步期间其他设备写入的点亮/记录下一轮一定能拉到，不会被推送结束时间跳过
+  const serverTime = pull.serverTime;
 
   if (recordsToPush.length > 0 || plansToPush.length > 0) {
     const pushRes = await cloudApi.pushSync({
       records: recordsToPush,
       aiPlans: plansToPush,
     });
-    pushedRecords = recordsToPush.length;
+    const rejected = pushRes.rejectedRecords || [];
+    pushedRecords = recordsToPush.length - rejected.length;
     pushedPlans = Object.keys(pushRes.acceptedPlanVersions || {}).length;
     latestQuota = pushRes.quota;
-    serverTime = pushRes.serverTime;
     for (const [planId, ver] of Object.entries(pushRes.acceptedPlanVersions || {})) {
       const prev = metaMap[planId] || { ownerId: '', groupId: null, groupName: '', version: 1, updatedByName: '', updatedAt: '' };
-      metaMap[planId] = { ...prev, version: ver, updatedAt: serverTime };
+      metaMap[planId] = { ...prev, version: ver, updatedAt: pushRes.serverTime };
     }
     conflicts = (pushRes.conflicts || []).map((c) => ({ planId: c.planId, reason: c.reason }));
+    if (rejected.length > 0) {
+      conflicts.push({
+        planId: '',
+        reason: `有 ${rejected.length} 条记录因单条过大或云端空间不足未能上传`,
+      });
+    }
     // 若有版本冲突且服务端返回了更新后的攻略，直接覆写到本地（不再因乐观锁抛错）
     for (const c of pushRes.conflicts || []) {
       if (c.serverPayload) {

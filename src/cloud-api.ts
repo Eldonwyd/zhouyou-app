@@ -491,6 +491,7 @@ export const cloudApi = {
       serverTime: string;
       acceptedPlanVersions: Record<string, number>;
       conflicts: Array<{ planId: string; reason: string; serverVersion?: number; serverPayload?: AiTravelPlan | null }>;
+      rejectedRecords?: Array<{ store: string; id: string; reason: string }>;
       quota: CloudQuota;
     }>('/api/sync/push', { method: 'POST', body: payload });
   },

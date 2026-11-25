@@ -544,6 +544,39 @@ async function run() {
     assert.ok(mobileMarks.some((m) => m.id === '510100' && m.visited), '手机端应收到电脑端同步的点亮城市');
     console.log('✅ Part 2.1 通过：电脑端 -> 云端 -> 手机端（地图足迹 + AI 攻略）实时同步成功');
 
+    // 2.1b 回归：AI 攻略把总占用撑过 3MB 后，手机端点亮城市仍能增量同步到电脑端
+    db.prepare('UPDATE ai_plans SET byte_size = ? WHERE id = ?').bind(5 * 1024 * 1024, planV1.id).__runSync();
+    await putIdbRecord(mobilePage, 'marks', {
+      id: '440300',
+      name: '深圳市',
+      provinceCode: '440000',
+      visited: true,
+      planned: false,
+      updatedAt: new Date().toISOString(),
+    });
+    await mobilePage.evaluate(() => {
+      localStorage.setItem('zhouyou-cloud-dirty-records', JSON.stringify({
+        'marks:440300': { store: 'marks', id: '440300', updatedAt: new Date().toISOString() },
+      }));
+    });
+    await triggerSync(mobilePage);
+    await mobilePage.waitForFunction(() => !localStorage.getItem('zhouyou-cloud-dirty-records'), { timeout: 10000 });
+    await triggerSync(desktopPage);
+    await desktopPage.waitForFunction(async () => {
+      const idb = await new Promise((resolve, reject) => {
+        const req = indexedDB.open('travel-footprints');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      const mark = await new Promise((resolve) => {
+        const req = idb.transaction('marks', 'readonly').objectStore('marks').get('440300');
+        req.onsuccess = () => resolve(req.result || null);
+      });
+      idb.close();
+      return Boolean(mark && mark.visited);
+    }, null, { timeout: 10000 });
+    console.log('✅ Part 2.1b 通过：攻略占用超过 3MB 时，手机点亮城市仍能同步到电脑端');
+
     // 2.3 关键回归测试：手机端修改同一份已有攻略（即使模拟手机时间慢 2 分钟！），推送上云；
     //     电脑端在本地已有旧版攻略的情况下同步，必须无冲突报错并成功覆盖更新！
     const skewedPastIso = new Date(Date.now() - 120 * 1000).toISOString();
