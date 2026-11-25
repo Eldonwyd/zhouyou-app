@@ -247,18 +247,6 @@ git tag mobile-v1.0.0  && git push origin mobile-v1.0.0
 - 欢迎提交 Issue 或 Pull Request！贡献前请阅读 [贡献指南 (.github/CONTRIBUTING.md)](.github/CONTRIBUTING.md) 与 [安全策略 (.github/SECURITY.md)](.github/SECURITY.md)。
 - 版本变更记录见 [更新日志 (docs/CHANGELOG.md)](docs/CHANGELOG.md)。
 
-## 📈 Star History
-
-如果周游地图让你的旅行更省心、帮你点亮了地图与回忆，欢迎点亮右上角 **⭐ Star** 支持！
-
-<a href="https://star-history.com/#Eldonwyd/zhouyou-app&Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Eldonwyd/zhouyou-app&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Eldonwyd/zhouyou-app&type=Date&theme=light" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Eldonwyd/zhouyou-app&type=Date&theme=light" width="100%" />
-  </picture>
-</a>
-
 ---
 
 ## 💡 为什么用周游地图？（一个应用走完旅行全流程）
