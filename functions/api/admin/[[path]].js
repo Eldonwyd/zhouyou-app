@@ -123,8 +123,8 @@ function buildEffectiveConfig(env, settingsMap) {
   const rawMult = settingsMap.free_ai_vip_multiplier !== undefined && settingsMap.free_ai_vip_multiplier !== ''
     ? settingsMap.free_ai_vip_multiplier
     : env?.FREE_AI_VIP_MULTIPLIER;
-  const parsedMult = rawMult !== undefined && String(rawMult).trim() !== '' ? Number(rawMult) : 2;
-  const vipMultiplier = Number.isFinite(parsedMult) && parsedMult >= 0 ? parsedMult : 2;
+  const parsedMult = rawMult !== undefined && String(rawMult).trim() !== '' ? Number(rawMult) : 3;
+  const vipMultiplier = Number.isFinite(parsedMult) && parsedMult >= 0 ? parsedMult : 3;
   return {
     freeAiHasKey: Boolean(env?.FREE_AI_API_KEY),
     freeAiEnabled,

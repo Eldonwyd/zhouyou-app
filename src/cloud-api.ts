@@ -88,6 +88,8 @@ export interface FreeAiQuotaSnapshot {
   label: string;
   model: string;
   vip: boolean;
+  vipMultiplier?: number;
+  vipUnlimited?: boolean;
   dayKey: string;
   monthKey: string;
   daily: {

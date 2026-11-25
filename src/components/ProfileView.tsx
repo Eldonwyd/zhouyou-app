@@ -12,7 +12,7 @@ import AppUpdateCard from './AppUpdateCard';
 import AiUsageSettingsCard from './AiUsageSettingsCard';
 import CloudSyncCard from './CloudSyncCard';
 import type { AppUpdateInfo } from '../app-updater';
-import { cloudApi, getCloudToken, setCloudAuthState, type CloudSelfUser, type IntimacyBond } from '../cloud-api';
+import { cloudApi, getCloudToken, setCloudAuthState, type CloudSelfUser, type FreeAiQuotaSnapshot, type IntimacyBond } from '../cloud-api';
 import {
   getSystemNotificationPermission,
   readNotificationPrefs,
@@ -117,9 +117,24 @@ export default function ProfileView({
   });
   const [apiOrigin, setApiOrigin] = useState(() => getPlannerApiOrigin());
   const [testingApi, setTestingApi] = useState(false);
+  const [vipQuota, setVipQuota] = useState<FreeAiQuotaSnapshot | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const avatarUploadRef = useRef<HTMLInputElement>(null);
   const avatarCameraRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (!cloudUser || !getCloudToken()) {
+      setVipQuota(null);
+      return undefined;
+    }
+    cloudApi.getFreeAiQuota()
+      .then((res) => {
+        if (active && res?.ok && res.quota) setVipQuota(res.quota);
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [cloudUser?.id]);
 
   useEffect(() => {
     setNickname(resolvedNickname);
@@ -802,6 +817,11 @@ export default function ProfileView({
     );
   }
 
+  const isVip = Boolean(vipQuota?.vip);
+  const vipMult = vipQuota?.vipMultiplier ?? 3;
+  const vipUnlimited = Boolean(vipQuota?.vipUnlimited);
+  const fmtQuotaWan = (n: number) => `${Number((n / 10000).toFixed(1))}万`;
+
   return (
     <div className="content-page warm-profile">
       <div className="section-heading">
@@ -812,19 +832,21 @@ export default function ProfileView({
       </div>
 
       {/* 旅人护照横幅 + 内联装扮面板（统一展示，不再堆叠多余的云同步大卡片） */}
-      <section className="warm-profile-banner">
+      <section className={`warm-profile-banner${isVip ? ' is-vip' : ''}`}>
         <span className="washi-tape tape-top-left" aria-hidden="true" />
+        {isVip && <span className="vip-banner-sheen" aria-hidden="true" />}
         <CuteSticker kind="plane" className="profile-float-plane" />
         <CuteSticker kind="sparkle" className="profile-float-sparkle" />
         <div className="profile-banner-main">
           <button
             type="button"
-            className="warm-profile-avatar-btn"
+            className={`warm-profile-avatar-btn${isVip ? ' is-vip' : ''}`}
             onClick={() => setEditing(!editing)}
             title={t('点击更换头像与资料', 'Edit avatar & profile')}
             aria-expanded={editing}
             aria-controls={editing ? 'profile-dressup-drawer' : undefined}
           >
+            {isVip && <span className="vip-avatar-crown" aria-hidden="true">👑</span>}
             <TravelAvatar
               avatarId={editing ? avatar : resolvedAvatar}
               nickname={editing ? nickname : displaySavedNickname}
@@ -836,6 +858,12 @@ export default function ProfileView({
           <div className="profile-banner-info">
             <div className="profile-name-row">
               <h2>{editing ? (nickname.trim() || defaultNickname) : displaySavedNickname}</h2>
+              {isVip && (
+                <span className="profile-vip-badge" title={t('周游尊享 VIP 特权会员', 'Zhouyou VIP Member')}>
+                  <span className="vip-badge-crown" aria-hidden="true">👑</span>
+                  <span>{vipUnlimited ? 'VIP · MAX' : `VIP · ${vipMult}x AI`}</span>
+                </span>
+              )}
               <span className="profile-level-tag">Lv.{levelInfo.level} {levelInfo.title}</span>
               {cloudUser ? (
                 <button
@@ -851,6 +879,19 @@ export default function ProfileView({
               )}
             </div>
             <p className="profile-motto">{editing ? (motto.trim() || defaultMotto) : displaySavedMotto}</p>
+            {isVip && vipQuota && (
+              <div className="profile-vip-strip" role="status">
+                <span className="vip-strip-tag">✦ {t('尊享 VIP', 'VIP PASS')}</span>
+                <span className="vip-strip-text">
+                  {vipUnlimited
+                    ? t('免费 AI 无限额尊享通道 · 免全站熔断', 'Unlimited Free AI Priority Channel')
+                    : t(
+                        `AI ${vipMult} 倍额度特权 · 今日剩余 ${fmtQuotaWan(vipQuota.daily.remaining)} / ${fmtQuotaWan(vipQuota.daily.limit)} · 优先通道`,
+                        `${vipMult}x AI Quota · Today ${fmtQuotaWan(vipQuota.daily.remaining)} / ${fmtQuotaWan(vipQuota.daily.limit)} left`,
+                      )}
+                </span>
+              </div>
+            )}
             <div className="profile-quick-chips">
               <span>📍 {t(`${visitedCityCount} 座城市`, `${visitedCityCount} Cities`)}</span>
               <span>🧳 {t(`${snapshot.trips.length} 段旅行`, `${snapshot.trips.length} Trips`)}</span>
