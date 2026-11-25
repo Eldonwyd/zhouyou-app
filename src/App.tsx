@@ -812,7 +812,7 @@ export default function App() {
     try { await saveMediaBatch([{ media, blob }]); await reload(); }
     catch (error) { showError(describeStorageError(error)); throw error; }
   }, [reload, requestClientForTour, showError, tourMode]);
-  const saveMediaGroup = useCallback(async (items: Array<{ media: TravelMedia; blob: Blob }>, entries: DayEntry[]) => {
+  const saveMediaGroup = useCallback(async (items: Array<{ media: TravelMedia; blob: Blob; liveVideoBlob?: Blob | null }>, entries: DayEntry[]) => {
     if (tourMode) {
       requestClientForTour('photo');
       return;

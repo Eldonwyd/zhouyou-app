@@ -4,10 +4,17 @@ import type {
   AdministrativeFeature, CityMark, DayEntry, Journey, JourneyCity, JourneyPlace,
   TravelMedia,
 } from '../types';
-import { getMediaBlob, getMediaPreview } from '../db';
+import { getLivePhotoVideoBlob, getMediaBlob, getMediaPreview } from '../db';
 import type { JourneyLinkResult } from '../db';
 import { cityFromGps, loadNationalMap, loadProvinceMap } from '../map-data';
-import { createLocalId, describeStorageError, isQuotaStorageError, localDay, periodFromDate } from '../utils';
+import { createLocalId, describeStorageError, downloadBlob, isQuotaStorageError, localDay, periodFromDate } from '../utils';
+import {
+  detectMotionPhoto,
+  formatFileSize,
+  isAnimatedImageMedia,
+  isLivePhotoMedia,
+  pairLivePhotoItems,
+} from '../live-photo';
 import TravelCityBrowser from './TravelCityBrowser';
 import JournalWelcome from './JournalWelcome';
 import CityGuideLinks from './CityGuideLinks';
@@ -31,7 +38,7 @@ interface DetailViewProps {
   onSavePlace: (place: JourneyPlace) => Promise<void>;
   onSaveEntry: (entry: DayEntry) => Promise<void>;
   onSaveMedia: (media: TravelMedia, blob: Blob) => Promise<void>;
-  onSaveMediaGroup: (items: Array<{ media: TravelMedia; blob: Blob }>, entries: DayEntry[]) => Promise<void>;
+  onSaveMediaGroup: (items: Array<{ media: TravelMedia; blob: Blob; liveVideoBlob?: Blob | null }>, entries: DayEntry[]) => Promise<void>;
   onUpdateMedia: (media: TravelMedia) => Promise<void>;
   onDeleteMedia: (id: string) => Promise<void>;
   onUpdateMark: (visited: boolean) => Promise<void>;
@@ -69,12 +76,157 @@ function useMediaUrl(id: string | null, kind: TravelMedia['kind'], preview: bool
   return url;
 }
 
+function useLivePhotoVideoUrl(item: TravelMedia | null): string {
+  const [url, setUrl] = useState('');
+  const liveKey = item && isLivePhotoMedia(item)
+    ? `${item.id}:${item.liveVideoId ?? ''}:${item.liveVideoOffset ?? ''}:${item.liveVideoLength ?? ''}`
+    : '';
+  useEffect(() => {
+    if (!item || !liveKey) { setUrl(''); return; }
+    let disposed = false;
+    let objectUrl = '';
+    getLivePhotoVideoBlob(item).then((blob) => {
+      if (disposed || !blob) return;
+      objectUrl = URL.createObjectURL(blob);
+      setUrl(objectUrl);
+    }).catch(() => setUrl(''));
+    return () => { disposed = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [liveKey]);
+  return url;
+}
+
+function LivePhotoStage({ item, imageUrl, liveVideoUrl }: {
+  item: TravelMedia;
+  imageUrl: string;
+  liveVideoUrl: string;
+}) {
+  const { t } = useI18n();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const holdTimerRef = useRef<number | null>(null);
+  const holdStartedRef = useRef(false);
+  const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(false);
+
+  useEffect(() => {
+    setPlaying(false);
+    holdStartedRef.current = false;
+    if (holdTimerRef.current !== null) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  }, [item.id]);
+
+  function stopPlayback(): void {
+    const video = videoRef.current;
+    if (video) {
+      video.pause();
+      try { video.currentTime = 0; } catch { /* ignore */ }
+    }
+    setPlaying(false);
+  }
+
+  async function startPlayback(): Promise<void> {
+    const video = videoRef.current;
+    if (!video || !liveVideoUrl) return;
+    try { video.currentTime = 0; } catch { /* ignore */ }
+    video.muted = muted;
+    setPlaying(true);
+    try {
+      await video.play();
+    } catch {
+      // Autoplay with audio may be blocked on some WebViews; retry muted.
+      video.muted = true;
+      setMuted(true);
+      try { await video.play(); } catch { setPlaying(false); }
+    }
+  }
+
+  function handlePointerDown(): void {
+    if (!liveVideoUrl) return;
+    holdStartedRef.current = false;
+    holdTimerRef.current = window.setTimeout(() => {
+      holdStartedRef.current = true;
+      void startPlayback();
+    }, 220);
+  }
+
+  function handlePointerEnd(): void {
+    if (holdTimerRef.current !== null) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    if (holdStartedRef.current) {
+      holdStartedRef.current = false;
+      stopPlayback();
+    }
+  }
+
+  return (
+    <div
+      className={`live-photo-stage${playing ? ' playing' : ''}`}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
+      onPointerLeave={handlePointerEnd}
+      onContextMenu={(event) => { if (liveVideoUrl) event.preventDefault(); }}
+    >
+      <img key={item.id} src={imageUrl} alt={item.fileName} draggable={false} />
+      {liveVideoUrl && (
+        <>
+          <video
+            ref={videoRef}
+            className="live-photo-video"
+            src={liveVideoUrl}
+            playsInline
+            muted={muted}
+            preload="auto"
+            onEnded={() => setPlaying(false)}
+            onError={() => setPlaying(false)}
+          />
+          <div className="live-photo-controls" onPointerDown={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className={`live-photo-pill${playing ? ' active' : ''}`}
+              onClick={() => { if (playing) stopPlayback(); else void startPlayback(); }}
+              aria-label={playing ? t('停止实况播放', 'Stop Live Photo') : t('播放实况照片', 'Play Live Photo')}
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <circle cx="12" cy="12" r="3" />
+                <circle cx="12" cy="12" r="7" strokeDasharray="2 2" />
+                <circle cx="12" cy="12" r="10.5" strokeDasharray="1.5 2.5" />
+              </svg>
+              <span>{playing ? t('实况播放中', 'LIVE') : t('实况 LIVE', 'LIVE')}</span>
+            </button>
+            <button
+              type="button"
+              className="live-photo-sound-btn"
+              onClick={() => {
+                const next = !muted;
+                setMuted(next);
+                if (videoRef.current) videoRef.current.muted = next;
+              }}
+              aria-label={muted ? t('开启实况声音', 'Unmute Live Photo') : t('静音实况', 'Mute Live Photo')}
+              title={muted ? t('开启声音', 'Unmute') : t('静音', 'Mute')}
+            >
+              {muted ? '🔇' : '🔊'}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function MemoryThumbnail({ item, onOpen }: { item: TravelMedia; onOpen: () => void }) {
   const { locale, t } = useI18n();
   const url = useMediaUrl(item.kind === 'photo' ? item.id : null, item.kind, true);
+  const isLive = isLivePhotoMedia(item);
+  const isGif = !isLive && isAnimatedImageMedia(item);
   return <button className="memory-thumb" onClick={onOpen} aria-label={t(`打开 ${item.fileName}`, `Open ${item.fileName}`)}>
     {item.kind === 'photo' && url ? <img src={url} alt={item.fileName} loading="lazy" /> :
       <span className="memory-video-icon">{item.kind === 'video' ? '▶' : '♪'}</span>}
+    {isLive && <span className="memory-media-badge live" aria-label={t('实况照片', 'Live Photo')}>LIVE</span>}
+    {isGif && <span className="memory-media-badge gif" aria-label={t('动态图', 'Animated GIF')}>GIF</span>}
     <small>{new Date(item.capturedAt).toLocaleDateString(locale)}</small>
   </button>;
 }
@@ -405,6 +557,16 @@ export default function DetailView(props: DetailViewProps) {
   }, [placeMedia, visibleCount]);
   const selectedMedia = selectedMediaIndex === null ? null : placeMedia[selectedMediaIndex] ?? null;
   const fullMediaUrl = useMediaUrl(selectedMedia?.id ?? null, selectedMedia?.kind ?? 'photo', false);
+  const liveMediaUrl = useLivePhotoVideoUrl(selectedMedia);
+
+  async function downloadOriginalMedia(item: TravelMedia): Promise<void> {
+    try {
+      const original = await getMediaBlob(item.id);
+      downloadBlob(original, item.fileName || `photo-${item.id}`);
+    } catch (error) {
+      onError(describeStorageError(error));
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -585,24 +747,28 @@ export default function DetailView(props: DetailViewProps) {
       const accepted = includeOutside ? candidates : candidates.filter((item) => !outside.includes(item));
       if (!includeOutside) failures.push(...outside.map(({ file }) => `${file.name}：日期不在旅行范围，已跳过`));
 
+      // Pair iOS Live Photo uploads (e.g. IMG_0001.HEIC/.JPG + IMG_0001.MOV) into single Live Photo entries.
+      const pairedAccepted = pairLivePhotoItems(accepted);
+
       // Chunk by both item count and total bytes so large videos/photos save in
       // small transactions without spiking WebView memory.
       const MAX_BATCH_COUNT = 5;
       const MAX_BATCH_BYTES = 12 * 1024 * 1024;
-      const batches: Array<typeof accepted> = [];
-      let currentBatch: typeof accepted = [];
+      const batches: Array<typeof pairedAccepted> = [];
+      let currentBatch: typeof pairedAccepted = [];
       let currentBytes = 0;
-      for (const item of accepted) {
-        const size = item.file.size || 0;
-        const isVideo = item.file.type.startsWith('video/') || /\.(mov|mp4|m4v|webm|3gp|mkv)$/i.test(item.file.name);
-        if (currentBatch.length > 0 && (isVideo || currentBatch.length >= MAX_BATCH_COUNT || currentBytes + size > MAX_BATCH_BYTES)) {
+      for (const pair of pairedAccepted) {
+        const size = (pair.item.file.size || 0) + (pair.companionVideoFile?.size || 0);
+        const isVideo = pair.item.file.type.startsWith('video/') || /\.(mov|mp4|m4v|webm|3gp|mkv)$/i.test(pair.item.file.name);
+        const isLivePair = Boolean(pair.companionVideoFile);
+        if (currentBatch.length > 0 && (isVideo || isLivePair || currentBatch.length >= MAX_BATCH_COUNT || currentBytes + size > MAX_BATCH_BYTES)) {
           batches.push(currentBatch);
           currentBatch = [];
           currentBytes = 0;
         }
-        currentBatch.push(item);
+        currentBatch.push(pair);
         currentBytes += size;
-        if (isVideo || size > MAX_BATCH_BYTES) {
+        if (isVideo || isLivePair || size > MAX_BATCH_BYTES) {
           batches.push(currentBatch);
           currentBatch = [];
           currentBytes = 0;
@@ -611,10 +777,11 @@ export default function DetailView(props: DetailViewProps) {
       if (currentBatch.length > 0) batches.push(currentBatch);
 
       const workingEntries = [...entries];
-      const buildBatchPayload = (group: typeof accepted) => {
+      const buildBatchPayload = async (group: typeof pairedAccepted) => {
         const previewEntries = [...workingEntries];
         const newEntries: DayEntry[] = [];
-        const items = group.map(({ file, date, latitude, longitude }) => {
+        const items: Array<{ media: TravelMedia; blob: Blob; liveVideoBlob?: Blob | null }> = [];
+        for (const { item: { file, date, latitude, longitude }, companionVideoFile } of group) {
           const day = localDay(date);
           const period = periodFromDate(date);
           let entry = previewEntries.find((row) => row.tripId === activeTripId
@@ -627,13 +794,36 @@ export default function DetailView(props: DetailViewProps) {
             newEntries.push(entry);
           }
           const kind = file.type.startsWith('video/') || /\.(mov|mp4|m4v|webm|3gp|mkv)$/i.test(file.name) ? 'video' : 'photo';
-          const mediaItem: TravelMedia = { id: createLocalId(), cityCode: targetCityCode,
+          const mimeType = inferMediaMimeType(file, kind);
+          const mediaId = createLocalId();
+          let liveVideoId: string | null = null;
+          let liveVideoOffset: number | null = null;
+          let liveVideoLength: number | null = null;
+          let liveVideoMimeType: string | null = null;
+
+          if (kind === 'photo' && companionVideoFile) {
+            liveVideoId = `${mediaId}:live`;
+            liveVideoMimeType = inferMediaMimeType(companionVideoFile, 'video');
+          } else if (kind === 'photo' && (mimeType === 'image/jpeg' || /\.jpe?g$/i.test(file.name))) {
+            try {
+              const rawBytes = new Uint8Array(await file.arrayBuffer());
+              const motion = detectMotionPhoto(rawBytes);
+              if (motion) {
+                liveVideoOffset = motion.offset;
+                liveVideoLength = motion.length;
+                liveVideoMimeType = motion.mimeType;
+              }
+            } catch { /* Keep lossless still photo even if motion metadata scan fails. */ }
+          }
+
+          const mediaItem: TravelMedia = { id: mediaId, cityCode: targetCityCode,
             tripId: activeTripId, placeId: targetPlaceId, entryId: entry.id,
-            kind, fileName: file.name, mimeType: inferMediaMimeType(file, kind),
+            kind, fileName: file.name, mimeType,
             capturedAt: date.toISOString(), placeName: selectedPlaceForUpload.name,
-            latitude, longitude };
-          return { media: mediaItem, blob: file as Blob };
-        });
+            latitude, longitude, fileSize: file.size || undefined,
+            liveVideoId, liveVideoOffset, liveVideoLength, liveVideoMimeType };
+          items.push({ media: mediaItem, blob: file as Blob, liveVideoBlob: companionVideoFile ?? null });
+        }
         return { items, newEntries };
       };
 
@@ -641,46 +831,46 @@ export default function DetailView(props: DetailViewProps) {
       let stoppedByQuota = false;
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex += 1) {
         const batch = batches[batchIndex];
-        const { items, newEntries } = buildBatchPayload(batch);
+        const { items, newEntries } = await buildBatchPayload(batch);
         try {
           await onSaveMediaGroup(items, newEntries);
           workingEntries.push(...newEntries);
           completed += items.length;
-          setUploadProgress(`已保存 ${completed} / ${accepted.length} 个文件`);
+          setUploadProgress(`已保存 ${completed} / ${pairedAccepted.length} 个文件`);
         } catch (error) {
           if (isQuotaStorageError(error)) {
             const reason = describeStorageError(error);
             const remaining = batches.slice(batchIndex).flat();
-            failures.push(...remaining.map(({ file }) => `${file.name}：保存失败（${reason}）`));
+            failures.push(...remaining.map(({ item: { file } }) => `${file.name}：保存失败（${reason}）`));
             onError(reason);
             stoppedByQuota = true;
             break;
           }
           if (batch.length === 1) {
             const reason = describeStorageError(error);
-            failures.push(`${batch[0].file.name}：保存失败（${reason}）`);
+            failures.push(`${batch[0].item.file.name}：保存失败（${reason}）`);
             onError(reason);
             continue;
           }
           // Isolate single bad files so one failed item never blocks the rest of the batch.
           for (let itemIndex = 0; itemIndex < batch.length; itemIndex += 1) {
             const single = batch[itemIndex];
-            const singlePayload = buildBatchPayload([single]);
+            const singlePayload = await buildBatchPayload([single]);
             try {
               await onSaveMediaGroup(singlePayload.items, singlePayload.newEntries);
               workingEntries.push(...singlePayload.newEntries);
               completed += 1;
-              setUploadProgress(`已保存 ${completed} / ${accepted.length} 个文件`);
+              setUploadProgress(`已保存 ${completed} / ${pairedAccepted.length} 个文件`);
             } catch (singleError) {
               const reason = describeStorageError(singleError);
               if (isQuotaStorageError(singleError)) {
                 const remaining = [...batch.slice(itemIndex), ...batches.slice(batchIndex + 1).flat()];
-                failures.push(...remaining.map(({ file }) => `${file.name}：保存失败（${reason}）`));
+                failures.push(...remaining.map(({ item: { file } }) => `${file.name}：保存失败（${reason}）`));
                 onError(reason);
                 stoppedByQuota = true;
                 break;
               }
-              failures.push(`${single.file.name}：保存失败（${reason}）`);
+              failures.push(`${single.item.file.name}：保存失败（${reason}）`);
             }
           }
           if (stoppedByQuota) break;
@@ -934,7 +1124,7 @@ export default function DetailView(props: DetailViewProps) {
         {!webTourMode && <input ref={fileInputRef} type="file" multiple accept="image/*,video/*,.heic,.heif,.mov" hidden onChange={(event) => void uploadFiles(event.target.files)} />}
         <p className="muted">{webTourMode
           ? t('当前为在线体验模式：支持点亮地图、创建地点与写文字便签；原图照片与视频归档请下载客户端使用。', 'Web Tour mode supports lighting cities and writing notes; photo & video storage requires the client.')
-          : `${t('不填具体地点也可直接上传照片或写下随记，会自动按城市整理。', 'Upload photos or write notes directly—organized automatically by city. ')}${selectedTrip ? t('日期超出旅程范围会先提示。', 'Dates outside trip range will prompt first.') : t('无需先新建旅行。', 'No trip required first.')}`}</p>
+          : `${t('原图无损保存，支持实况照片（iPhone 实况 / 安卓动态照片）与 GIF 动态图；不填具体地点也可直接按城市整理。', 'Lossless originals preserved, including Live Photos / Motion Photos and animated GIFs. ')}${selectedTrip ? t('日期超出旅程范围会先提示。', 'Dates outside trip range will prompt first.') : t('无需先新建旅行。', 'No trip required first.')}`}</p>
         {uploadFailures.length > 0 && <div className="upload-failures" role="alert"><strong>{t(`${uploadFailures.length} 个文件未导入`, `${uploadFailures.length} files skipped`)}</strong><ul>{uploadFailures.map((reason, index) => <li key={`${reason}-${index}`}>{reason}</li>)}</ul></div>}
       </section>
       <div className="journal-places">{(selectedTrip?.cities ?? (scopeCity ? [scopeCity] : [])).map((tripCity) => <section key={tripCity.code}><h3>{t(`${tripCity.name} · 地点记忆`, `${tripCity.name} · Places`)}</h3><div className="place-card-grid">{tripPlaces.filter((place) => place.cityCode === tripCity.code).map((place) => {
@@ -1075,6 +1265,6 @@ export default function DetailView(props: DetailViewProps) {
         if (entry) void onSaveEntry({ ...entry, highlight: event.target.checked });
       }} />{t('设为高光时刻', 'Mark as Highlight')}</label>}
     </section></div>}
-    {selectedMedia && selectedPlace && <div className="lightbox-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedMediaIndex(null); }}><div className="lightbox" role="dialog" aria-modal="true" aria-label={t('照片详情', 'Photo details')} onTouchStart={(event) => { touchStartRef.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={(event) => { if (touchStartRef.current === null) return; const delta = event.changedTouches[0].clientX - touchStartRef.current; if (Math.abs(delta) > 50) setSelectedMediaIndex(Math.max(0, Math.min(placeMedia.length - 1, (selectedMediaIndex ?? 0) + (delta < 0 ? 1 : -1)))); touchStartRef.current = null; }}><div className="lightbox-top"><span>{(selectedMediaIndex ?? 0) + 1} / {placeMedia.length}</span><button aria-label={t('关闭照片详情', 'Close photo details')} onClick={() => setSelectedMediaIndex(null)}>×</button></div><div className="lightbox-stage"><button aria-label={t('上一张', 'Previous')} onClick={() => setSelectedMediaIndex(Math.max(0, (selectedMediaIndex ?? 0) - 1))}>‹</button>{fullMediaUrl && (selectedMedia.kind === 'video' ? <video key={selectedMedia.id} src={fullMediaUrl} controls preload="metadata" /> : <img key={selectedMedia.id} src={fullMediaUrl} alt={selectedMedia.fileName} />)}<button aria-label={t('下一张', 'Next')} onClick={() => setSelectedMediaIndex(Math.min(placeMedia.length - 1, (selectedMediaIndex ?? 0) + 1))}>›</button></div><div className="lightbox-caption"><h3>{selectedPlace.name}</h3><small>{selectedMedia.fileName}</small><div className="entry-form"><label>{t('拍摄日期', 'Capture Date')}<input type="date" value={selectedMedia.capturedAt.slice(0, 10)} onChange={(event) => void changeMediaDate(selectedMedia, event.target.value)} /></label><label>{t('移动到地点', 'Move to Place')}<select value={selectedMedia.placeId} onChange={(event) => { const place = tripPlaces.find((item) => item.id === event.target.value); if (place) { void onUpdateMedia({ ...selectedMedia, placeId: place.id, cityCode: place.cityCode, placeName: place.name, entryId: null }); setSelectedMediaIndex(null); } }}>{tripPlaces.map((place) => <option key={place.id} value={place.id}>{place.name}</option>)}</select></label></div><button className="text-button" onClick={() => { if (window.confirm(t('删除这份媒体文件？', 'Delete this media file?'))) { void onDeleteMedia(selectedMedia.id); setSelectedMediaIndex(null); } }}>{t('删除这张照片', 'Delete Photo')}</button></div></div></div>}
+    {selectedMedia && selectedPlace && <div className="lightbox-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedMediaIndex(null); }}><div className="lightbox" role="dialog" aria-modal="true" aria-label={t('照片详情', 'Photo details')} onTouchStart={(event) => { touchStartRef.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={(event) => { if (touchStartRef.current === null) return; const delta = event.changedTouches[0].clientX - touchStartRef.current; if (Math.abs(delta) > 50) setSelectedMediaIndex(Math.max(0, Math.min(placeMedia.length - 1, (selectedMediaIndex ?? 0) + (delta < 0 ? 1 : -1)))); touchStartRef.current = null; }}><div className="lightbox-top"><span>{(selectedMediaIndex ?? 0) + 1} / {placeMedia.length}</span><button aria-label={t('关闭照片详情', 'Close photo details')} onClick={() => setSelectedMediaIndex(null)}>×</button></div><div className="lightbox-stage"><button aria-label={t('上一张', 'Previous')} onClick={() => setSelectedMediaIndex(Math.max(0, (selectedMediaIndex ?? 0) - 1))}>‹</button>{fullMediaUrl && (selectedMedia.kind === 'video' ? <video key={selectedMedia.id} src={fullMediaUrl} controls preload="metadata" /> : <LivePhotoStage item={selectedMedia} imageUrl={fullMediaUrl} liveVideoUrl={liveMediaUrl} />)}<button aria-label={t('下一张', 'Next')} onClick={() => setSelectedMediaIndex(Math.min(placeMedia.length - 1, (selectedMediaIndex ?? 0) + 1))}>›</button></div><div className="lightbox-caption"><h3>{selectedPlace.name}</h3><div className="lightbox-meta-row"><small>{selectedMedia.fileName}</small><span className="lightbox-lossless-badge">{isLivePhotoMedia(selectedMedia) ? t('实况原图无损', 'Lossless Live Photo') : isAnimatedImageMedia(selectedMedia) ? t('动态原图无损', 'Lossless GIF') : t('原图无损', 'Lossless Original')}{formatFileSize(selectedMedia.fileSize) ? ` · ${formatFileSize(selectedMedia.fileSize)}` : ''}</span></div><div className="entry-form"><label>{t('拍摄日期', 'Capture Date')}<input type="date" value={selectedMedia.capturedAt.slice(0, 10)} onChange={(event) => void changeMediaDate(selectedMedia, event.target.value)} /></label><label>{t('移动到地点', 'Move to Place')}<select value={selectedMedia.placeId} onChange={(event) => { const place = tripPlaces.find((item) => item.id === event.target.value); if (place) { void onUpdateMedia({ ...selectedMedia, placeId: place.id, cityCode: place.cityCode, placeName: place.name, entryId: null }); setSelectedMediaIndex(null); } }}>{tripPlaces.map((place) => <option key={place.id} value={place.id}>{place.name}</option>)}</select></label></div><div className="lightbox-actions-row"><button type="button" className="secondary" onClick={() => void downloadOriginalMedia(selectedMedia)}>{t('下载原图', 'Download Original')}</button><button className="text-button" onClick={() => { if (window.confirm(t('删除这份媒体文件？', 'Delete this media file?'))) { void onDeleteMedia(selectedMedia.id); setSelectedMediaIndex(null); } }}>{t('删除这张照片', 'Delete Photo')}</button></div></div></div></div>}
   </div>;
 }

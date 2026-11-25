@@ -126,7 +126,13 @@ export async function exportBackup(): Promise<ExportBackupResult> {
   for (const { fileName, blob } of photoBlobs) {
     await writer.add(fileName, new BlobReader(blob));
   }
-  for (const item of snapshot.media) await writer.add(`media/${item.id}`, new BlobReader(await getMediaBlob(item.id)));
+  for (const item of snapshot.media) {
+    await writer.add(`media/${item.id}`, new BlobReader(await getMediaBlob(item.id)));
+    if (item.liveVideoId) {
+      const liveBlob = await getMediaBlob(item.liveVideoId).catch(() => null);
+      if (liveBlob) await writer.add(`media/${item.liveVideoId}`, new BlobReader(liveBlob));
+    }
+  }
   for (const badge of snapshot.badges) {
     if (badge.image) await writer.add(`badges/${badge.id}`, new BlobReader(badge.image));
   }
@@ -252,6 +258,15 @@ export async function importBackup(
       const member = byName.get(`media/${media.id}`);
       if (!isFileEntry(member)) throw new Error(`备份缺少媒体文件 ${media.fileName}`);
       files.push({ id: media.id, blob: await member.getData(new BlobWriter(media.mimeType || 'application/octet-stream')) });
+      if (media.liveVideoId) {
+        const liveMember = byName.get(`media/${media.liveVideoId}`);
+        if (isFileEntry(liveMember)) {
+          files.push({
+            id: media.liveVideoId,
+            blob: await liveMember.getData(new BlobWriter(media.liveVideoMimeType || 'video/quicktime')),
+          });
+        }
+      }
     }
     const badges: Badge[] = [];
     for (const badge of data.badges as Array<Badge & { hasImage?: boolean; imageMimeType?: string }>) {

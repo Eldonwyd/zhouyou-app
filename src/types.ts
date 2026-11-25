@@ -86,6 +86,16 @@ export interface TravelMedia {
   placeName: string;
   latitude: number | null;
   longitude: number | null;
+  /** 原始文件大小（字节），原图无损保存。 */
+  fileSize?: number;
+  /** iOS 实况照片配对视频在 mediaFiles 中的 ID。 */
+  liveVideoId?: string | null;
+  /** 安卓动态照片（Motion Photo）内嵌视频在原图中的字节偏移。 */
+  liveVideoOffset?: number | null;
+  /** 安卓动态照片（Motion Photo）内嵌视频的字节长度。 */
+  liveVideoLength?: number | null;
+  /** 实况视频 MIME 类型（如 video/mp4 或 video/quicktime）。 */
+  liveVideoMimeType?: string | null;
 }
 
 /** One journey can light several cities while keeping a single date range. */

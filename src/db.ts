@@ -402,21 +402,30 @@ export async function moveLegacyPlanToJourney(legacyId: string, journeyPlan: Tri
   await completion;
 }
 
-/** One transaction keeps each media metadata row paired with its binary file. */
-export async function saveMediaBatch(items: Array<{ media: TravelMedia; blob: Blob }>, entries: DayEntry[] = []): Promise<void> {
+/** One transaction keeps each media metadata row paired with its lossless binary file(s). */
+export async function saveMediaBatch(
+  items: Array<{ media: TravelMedia; blob: Blob; liveVideoBlob?: Blob | null }>,
+  entries: DayEntry[] = [],
+): Promise<void> {
   if (!items.length && !entries.length) return;
-  const prepared: Array<{ media: TravelMedia; stored: StoredMediaFile }> = [];
-  for (const { media, blob } of items) {
+  const prepared: Array<{ media: TravelMedia; stored: StoredMediaFile; liveStored?: StoredMediaFile }> = [];
+  for (const { media, blob, liveVideoBlob } of items) {
     const binary = await toStoredBinary(blob, media.mimeType);
-    prepared.push({ media, stored: { id: media.id, ...binary } });
+    let liveStored: StoredMediaFile | undefined;
+    if (liveVideoBlob && media.liveVideoId) {
+      const liveBinary = await toStoredBinary(liveVideoBlob, media.liveVideoMimeType || 'video/quicktime');
+      liveStored = { id: media.liveVideoId, ...liveBinary };
+    }
+    prepared.push({ media, stored: { id: media.id, ...binary }, liveStored });
   }
   const database = await openDatabase();
   const transaction = database.transaction(['media', 'mediaFiles', 'entries'], 'readwrite');
   const completion = transactionDone(transaction);
   for (const entry of entries) transaction.objectStore('entries').put(entry);
-  for (const { media, stored } of prepared) {
+  for (const { media, stored, liveStored } of prepared) {
     transaction.objectStore('media').put(media);
     transaction.objectStore('mediaFiles').put(stored);
+    if (liveStored) transaction.objectStore('mediaFiles').put(liveStored);
   }
   await completion;
 }
@@ -427,6 +436,25 @@ export async function getMediaBlob(id: string): Promise<Blob> {
   const blob = storedMediaToBlob(file);
   if (!blob) throw new Error('本机媒体文件已丢失');
   return blob;
+}
+
+/** Read the companion/embedded video track for a Live Photo or Android Motion Photo. */
+export async function getLivePhotoVideoBlob(item: TravelMedia): Promise<Blob | null> {
+  if (item.liveVideoId) {
+    try {
+      return await getMediaBlob(item.liveVideoId);
+    } catch {
+      return null;
+    }
+  }
+  if (typeof item.liveVideoOffset === 'number' && typeof item.liveVideoLength === 'number' && item.liveVideoLength > 0) {
+    const original = await getMediaBlob(item.id);
+    const start = Math.max(0, item.liveVideoOffset);
+    const end = Math.min(original.size, start + item.liveVideoLength);
+    if (end <= start) return null;
+    return original.slice(start, end, item.liveVideoMimeType || 'video/mp4');
+  }
+  return null;
 }
 
 /** AI 配图与用户原始媒体分开存储，不进入足迹、相册或实际账本。 */
@@ -458,6 +486,8 @@ export async function getMediaPreview(id: string, kind: TravelMedia['kind']): Pr
   if (cachedBlob) return cachedBlob;
   const original = await getMediaBlob(id);
   if (kind !== 'photo') return original;
+  // Preserve GIF animation directly in the grid for reasonably sized GIFs.
+  if (original.type === 'image/gif' && original.size <= 6 * 1024 * 1024) return original;
   try {
     const image = await createImageBitmap(original);
     const ratio = Math.min(1, 360 / Math.max(image.width, image.height));
@@ -483,7 +513,17 @@ export async function deleteMediaRecord(id: string): Promise<void> {
   const database = await openDatabase();
   const transaction = database.transaction(['media', 'mediaFiles', 'mediaPreviews'], 'readwrite');
   const completion = transactionDone(transaction);
-  for (const name of ['media', 'mediaFiles', 'mediaPreviews']) transaction.objectStore(name).delete(id);
+  const mediaStore = transaction.objectStore('media');
+  const filesStore = transaction.objectStore('mediaFiles');
+  const previewsStore = transaction.objectStore('mediaPreviews');
+  const existingReq = mediaStore.get(id);
+  existingReq.onsuccess = () => {
+    const existing = existingReq.result as TravelMedia | undefined;
+    mediaStore.delete(id);
+    filesStore.delete(id);
+    previewsStore.delete(id);
+    if (existing?.liveVideoId) filesStore.delete(existing.liveVideoId);
+  };
   await completion;
 }
 
