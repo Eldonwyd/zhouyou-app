@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AdministrativeFeature, AppSnapshot, Badge, CityMark, DayEntry, Journey, JourneyPlace, LocalProfile, PageName, TravelMedia, TripPlan } from './types';
-import { deleteMediaRecord, loadSnapshot, moveLegacyPlanToJourney, recordPlannerJournalVisit, saveItem, saveJourneyAndLinkCityRecords, saveMediaBatch, saveAiPlan as saveAiPlanRecord, saveAiPlanPhoto, publishAiPlan, upsertAiPlanFromCloud } from './db';
+import { deleteMediaRecord, loadSnapshot, moveLegacyPlanToJourney, recordPlannerJournalVisit, saveItem, saveJourneyAndLinkCityRecords, saveMediaBatch, saveAiPlan as saveAiPlanRecord, saveAiPlanPhoto, publishAiPlan, saveAiPlanWithBookingLedger, upsertAiPlanFromCloud } from './db';
 import type { AiTravelPlan, PlannerPhoto, PlannerPreferences } from './planner-types';
 import { prefetchNationalMap, provinceCodeForCity } from './map-data';
 import { describeStorageError } from './utils';
@@ -39,6 +39,7 @@ import {
   extractZhouyouShareCode,
   getPendingCloudChangeCount,
   hasPendingCloudChanges,
+  markAllCloudStoresDirty,
   markCloudRecordDeleted,
   markCloudRecordDirty,
   markCloudStoreDirty,
@@ -311,7 +312,14 @@ export default function App() {
         showNotice(parts.length ? `☁️ 云同步完成（${parts.join('，')}）` : '☁️ 云端已是最新状态');
       }
       if (res.conflicts.length > 0) {
-        showNotice(`提示：${res.conflicts[0].reason}，已自动拉取最新版本`);
+        const first = res.conflicts[0];
+        if (first.backupTitle) {
+          showNotice(`⚠️ ${first.reason}。已自动拉取云端最新版，你的未提交修改已安全另存为「${first.backupTitle}」`);
+        } else if (first.planId && !first.reason.includes('已跳过')) {
+          showNotice(`提示：${first.reason}，已自动拉取最新版本`);
+        } else {
+          showNotice(`提示：${first.reason}`);
+        }
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : '云同步失败';
@@ -653,7 +661,6 @@ export default function App() {
       if (document.visibilityState !== 'visible') return;
       void checkClipboardToken();
       if (getCloudToken()) {
-        void runCloudSync(true);
         void refreshSocialBadges();
       }
     };
@@ -662,7 +669,7 @@ export default function App() {
       unsubDeepLink?.();
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [handleIncomingUrl, refreshSocialBadges, runCloudSync]);
+  }, [handleIncomingUrl, refreshSocialBadges]);
 
   const saveAiPlan = useCallback(async (plan: AiTravelPlan, expectedVersion: number | null) => {
     await saveAiPlanRecord(plan, expectedVersion);
@@ -689,6 +696,24 @@ export default function App() {
     markCloudStoreDirty('trips');
     markCloudStoreDirty('marks');
     markCloudStoreDirty('plans');
+    await reload();
+    scheduleCloudSync();
+    return updated;
+  }, [reload, scheduleCloudSync]);
+  const saveAiPlanWithLedger = useCallback(async (
+    plan: AiTravelPlan,
+    expectedVersion: number,
+    ledgerUpdate: { kind: 'update'; sheet: TripPlan } | { kind: 'publish'; initialFinance: TripPlan } | null,
+  ) => {
+    const updated = await saveAiPlanWithBookingLedger(plan, expectedVersion, ledgerUpdate);
+    markCloudRecordDirty('aiPlans', updated.id);
+    if (ledgerUpdate?.kind === 'publish') {
+      markCloudStoreDirty('trips');
+      markCloudStoreDirty('marks');
+      markCloudStoreDirty('plans');
+    } else if (ledgerUpdate?.kind === 'update') {
+      markCloudRecordDirty('plans', ledgerUpdate.sheet.id);
+    }
     await reload();
     scheduleCloudSync();
     return updated;
@@ -826,11 +851,16 @@ export default function App() {
   // Only confirmed visits light the map. Keep legacy planned data and future
   // journey budgets intact, but never count them as a completed city visit.
   const effectiveMarks = useMemo(() => {
-    const byCode = new Map(snapshot.marks.map((mark) => [mark.id, mark]));
+    const byCode = new Map(snapshot.marks.map((mark) => {
+      const id = String(mark.id);
+      const provinceCode = mark.provinceCode ? String(mark.provinceCode) : provinceCodeForCity(id);
+      return [id, { ...mark, id, provinceCode }];
+    }));
     for (const trip of snapshot.trips) for (const city of trip.cities) {
-      const old = byCode.get(city.code);
-      byCode.set(city.code, {
-        id: city.code, name: city.name, provinceCode: city.provinceCode,
+      const code = String(city.code);
+      const old = byCode.get(code);
+      byCode.set(code, {
+        id: code, name: city.name, provinceCode: city.provinceCode ? String(city.provinceCode) : provinceCodeForCity(code),
         visited: Boolean(old?.visited || trip.status !== 'planned'),
         planned: false,
         updatedAt: old?.updatedAt ?? trip.createdAt,
@@ -1105,7 +1135,7 @@ export default function App() {
         {/* 保持规划组件挂载，让 AI 请求和小红书解析在浏览其他页面时继续。 */}
         {plannerOpened && <div hidden={page !== 'plan'}>
           <Suspense fallback={<div className="empty-state">{t('正在打开页面…', 'Opening page…')}</div>}>
-            <PlanView visible={page === 'plan'} onReturnToPlanner={() => openPage('plan')} city={selectedCity} marks={effectiveMarks} trips={snapshot.trips} plans={snapshot.plans} onSave={savePlan} onMoveLegacy={movePlan} onCreateJourney={() => openPage('detail')} onError={showError} onNotice={showNotice} aiPlans={snapshot.aiPlans} preferences={snapshot.plannerPreferences[0]} provinceIntent={plannerProvince} onSaveAi={saveAiPlan} onSaveAiPhoto={saveAiPhoto} onPublishAi={publishPlan} onSavePreferences={savePlannerPreferences} onSaveJournalVisit={saveJournalVisit} onOpenJournalPlace={openJournalPlace} webTourMode={tourMode} onRequireClient={requestClientForTour} cloudUser={cloudUser} targetPlanId={targetPlanId} onOpenAuth={() => openAuthModal('login')} onSyncNow={() => runCloudSync(true)} />
+            <PlanView visible={page === 'plan'} onReturnToPlanner={() => openPage('plan')} city={selectedCity} marks={effectiveMarks} trips={snapshot.trips} plans={snapshot.plans} onSave={savePlan} onMoveLegacy={movePlan} onCreateJourney={() => openPage('detail')} onError={showError} onNotice={showNotice} aiPlans={snapshot.aiPlans} preferences={snapshot.plannerPreferences[0]} provinceIntent={plannerProvince} onSaveAi={saveAiPlan} onSaveAiPhoto={saveAiPhoto} onPublishAi={publishPlan} onSaveAiWithLedger={saveAiPlanWithLedger} onSavePreferences={savePlannerPreferences} onSaveJournalVisit={saveJournalVisit} onOpenJournalPlace={openJournalPlace} webTourMode={tourMode} onRequireClient={requestClientForTour} cloudUser={cloudUser} targetPlanId={targetPlanId} onOpenAuth={() => openAuthModal('login')} onSyncNow={() => runCloudSync(true)} />
           </Suspense>
         </div>}
         {/* 保持足迹地图挂载，从其他页面切回地图时秒开无重载。 */}
@@ -1177,11 +1207,13 @@ export default function App() {
               webTourMode={tourMode}
               onRequireClient={requestClientForTour}
               onImported={(data) => {
-                // 恢复备份会替换行程数据，清除上一份数据上打开的规划会话。
+                // 恢复备份会替换行程数据，清除上一份数据上打开的规划会话，并标记云同步上传。
                 setPlannerOpened(false);
                 setSnapshot(data);
                 setSelectedCityCode(null);
                 setPage('map');
+                markAllCloudStoresDirty();
+                scheduleCloudSync();
               }}
               onError={showError}
               onNotice={showNotice}
@@ -1258,7 +1290,7 @@ export default function App() {
         setAuthModalOpen(false);
         try { sessionStorage.setItem(AUTH_DISMISSED_KEY, '1'); } catch { /* ignore */ }
         showNotice(isNew ? `欢迎加入周游地图，${user.nickname}！正在合并同步本机数据…` : `欢迎回来，${user.nickname}！正在同步云端数据…`);
-        void runCloudSync(false);
+        void runCloudSync(false, true);
         void refreshSocialBadges();
       }}
       onDismiss={() => {

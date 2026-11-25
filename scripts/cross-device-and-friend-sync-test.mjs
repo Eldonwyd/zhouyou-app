@@ -577,6 +577,128 @@ async function run() {
     }, null, { timeout: 10000 });
     console.log('✅ Part 2.1b 通过：攻略占用超过 3MB 时，手机点亮城市仍能同步到电脑端');
 
+    // 2.1c 回归：电脑端存在超过 2.5MB 的超大 AI 攻略（含 base64 截图与膨胀历史）时，
+    //      点亮新城市仍必须优先上传成功，绝不被攻略 413 阻塞，手机端必须能立刻看到！
+    const hugePlan = buildValidAiPlan('plan_huge_blocking_test', '超大截图历史攻略', new Date().toISOString(), 1);
+    hugePlan.content.request.references = [{
+      id: 'ref-huge-1',
+      sourceType: 'screenshot',
+      title: '超大截图测试',
+      destinations: ['成都'],
+      suggestedDays: 1,
+      styleTags: [],
+      routeOutline: [],
+      tips: [],
+      places: [],
+      noteImages: [`data:image/jpeg;base64,${'A'.repeat(2_600_000)}`],
+    }];
+    hugePlan.history = Array.from({ length: 12 }, (_, idx) => ({
+      version: idx + 1,
+      savedAt: new Date().toISOString(),
+      reason: `历史版本 ${idx + 1}`,
+      content: { ...hugePlan.content, summary: 'X'.repeat(60_000) },
+    }));
+    await putIdbRecord(desktopPage, 'aiPlans', hugePlan);
+    await putIdbRecord(desktopPage, 'marks', {
+      id: '310100',
+      name: '上海市',
+      provinceCode: '310000',
+      visited: true,
+      planned: false,
+      updatedAt: new Date().toISOString(),
+    });
+    await desktopPage.evaluate((planId) => {
+      const now = new Date().toISOString();
+      localStorage.setItem('zhouyou-cloud-dirty-records', JSON.stringify({
+        'marks:310100': { store: 'marks', id: '310100', updatedAt: now },
+        [`aiPlans:${planId}`]: { store: 'aiPlans', id: planId, updatedAt: now },
+      }));
+    }, hugePlan.id);
+
+    await triggerSync(desktopPage);
+    await desktopPage.waitForFunction(() => !localStorage.getItem('zhouyou-cloud-dirty-records'), { timeout: 15000 });
+    await triggerSync(mobilePage);
+    await mobilePage.waitForFunction(async () => {
+      const idb = await new Promise((resolve, reject) => {
+        const req = indexedDB.open('travel-footprints');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      const mark = await new Promise((resolve) => {
+        const req = idb.transaction('marks', 'readonly').objectStore('marks').get('310100');
+        req.onsuccess = () => resolve(req.result || null);
+      });
+      idb.close();
+      return Boolean(mark && mark.visited);
+    }, null, { timeout: 10000 });
+    console.log('✅ Part 2.1c 通过：2.6MB 超大攻略+膨胀历史不阻塞地图点亮上传，手机端成功收到上海市');
+
+    // 2.1d 回归：手机本地时钟快 10 分钟且残留旧未点亮记录，电脑点亮该城后，手机点「立即同步」（全量）
+    //      必须采纳云端已点亮状态，绝不反写覆盖云端！
+    const futureIso = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    await putIdbRecord(mobilePage, 'marks', {
+      id: '330100',
+      name: '杭州市',
+      provinceCode: '330000',
+      visited: false,
+      planned: false,
+      updatedAt: futureIso,
+    });
+    await putIdbRecord(desktopPage, 'marks', {
+      id: '330100',
+      name: '杭州市',
+      provinceCode: '330000',
+      visited: true,
+      planned: false,
+      updatedAt: new Date(Date.now() - 120 * 1000).toISOString(),
+    });
+    await desktopPage.evaluate(() => {
+      localStorage.setItem('zhouyou-cloud-dirty-records', JSON.stringify({
+        'marks:330100': { store: 'marks', id: '330100', updatedAt: new Date(Date.now() - 120 * 1000).toISOString() },
+      }));
+    });
+    await triggerSync(desktopPage);
+    await desktopPage.waitForFunction(() => !localStorage.getItem('zhouyou-cloud-dirty-records'), { timeout: 10000 });
+    await triggerSync(mobilePage);
+    await mobilePage.waitForFunction(async () => {
+      const idb = await new Promise((resolve, reject) => {
+        const req = indexedDB.open('travel-footprints');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      const mark = await new Promise((resolve) => {
+        const req = idb.transaction('marks', 'readonly').objectStore('marks').get('330100');
+        req.onsuccess = () => resolve(req.result || null);
+      });
+      idb.close();
+      return Boolean(mark && mark.visited);
+    }, null, { timeout: 10000 });
+    console.log('✅ Part 2.1d 通过：手机时钟偏快 10 分钟 + 手动全量同步仍正确接收电脑点亮的杭州市，不反写覆盖云端');
+
+    // 2.1e 回归：验证服务端严格单调时间戳 + syncToken 指纹（即使已有未来时间戳记录，新写入仍递增且 /version 立刻感知）
+    db.prepare('UPDATE user_records SET updated_at = ? WHERE user_id = ? AND store_name = ? AND record_id = ?')
+      .bind(new Date(Date.now() + 5 * 60 * 1000).toISOString(), userA.id, 'marks', '330100')
+      .__runSync();
+    const verBefore = await apiJson(origin, 'GET', '/api/sync/version', { token: mobileTokenA });
+    assert.equal(verBefore.status, 200);
+    assert.ok(verBefore.json.syncToken, 'version 接口应返回 syncToken 指纹');
+    const monoPush = await apiJson(origin, 'POST', '/api/sync/push', {
+      token: desktopTokenA,
+      body: {
+        records: [{
+          store: 'marks',
+          id: '110101',
+          payload: { id: '110101', name: '东城区', provinceCode: '110000', visited: true, planned: false, updatedAt: new Date().toISOString() },
+          force: true,
+        }],
+      },
+    });
+    assert.equal(monoPush.status, 200);
+    assert.ok(monoPush.json.serverTime > verBefore.json.latestUpdatedAt, '服务端推送时间戳必须严格单调递增，避免跨边缘节点时钟漂移漏拉');
+    const verAfter = await apiJson(origin, 'GET', '/api/sync/version', { token: mobileTokenA });
+    assert.notEqual(verAfter.json.syncToken, verBefore.json.syncToken, '新增点亮后 syncToken 必须变化');
+    console.log('✅ Part 2.1e 通过：服务端单调时间戳与 syncToken 指纹在跨节点时钟漂移下零漏拉');
+
     // 2.3 关键回归测试：手机端修改同一份已有攻略（即使模拟手机时间慢 2 分钟！），推送上云；
     //     电脑端在本地已有旧版攻略的情况下同步，必须无冲突报错并成功覆盖更新！
     const skewedPastIso = new Date(Date.now() - 120 * 1000).toISOString();

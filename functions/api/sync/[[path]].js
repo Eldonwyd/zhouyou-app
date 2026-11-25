@@ -98,6 +98,67 @@ async function pruneOldRevisions(db, planId) {
     .run();
 }
 
+/** 查询当前账号在云端的轻量同步指纹（最大时间戳 + 记录/攻略总数），避免不同 Cloudflare 边缘节点时钟偏差导致漏拉。 */
+async function getUserSyncState(db, userId) {
+  const [recRow, planRow] = await Promise.all([
+    db
+      .prepare(`
+        SELECT
+          MAX(updated_at) AS ts,
+          COUNT(*) AS cnt,
+          COALESCE(SUM(CASE WHEN deleted_at IS NULL THEN 1 ELSE 0 END), 0) AS active_cnt
+        FROM user_records
+        WHERE user_id = ?
+      `)
+      .bind(userId)
+      .first(),
+    db
+      .prepare(`
+        SELECT
+          MAX(updated_at) AS ts,
+          COUNT(*) AS cnt,
+          COALESCE(SUM(CASE WHEN deleted_at IS NULL THEN 1 ELSE 0 END), 0) AS active_cnt
+        FROM ai_plans
+        WHERE owner_id = ?
+           OR group_id IN (SELECT group_id FROM travel_group_members WHERE user_id = ?)
+      `)
+      .bind(userId, userId)
+      .first(),
+  ]);
+  const rTs = typeof recRow?.ts === 'string' ? recRow.ts : '';
+  const pTs = typeof planRow?.ts === 'string' ? planRow.ts : '';
+  const rCnt = Number(recRow?.cnt || 0);
+  const rActive = Number(recRow?.active_cnt || 0);
+  const pCnt = Number(planRow?.cnt || 0);
+  const pActive = Number(planRow?.active_cnt || 0);
+  const latestUpdatedAt = rTs >= pTs ? rTs : pTs;
+  const syncToken = `${rTs}|${rCnt}|${rActive}|${pTs}|${pCnt}|${pActive}`;
+  return { latestUpdatedAt, syncToken };
+}
+
+/** 生成对当前账号严格单调递增的服务端时间戳，彻底消除跨边缘节点 POP 时钟回退导致的增量漏拉。 */
+async function getMonotonicTimestamp(db, userId) {
+  const state = await getUserSyncState(db, userId);
+  const nowMs = Date.now();
+  const latestMs = state.latestUpdatedAt ? Date.parse(state.latestUpdatedAt) : 0;
+  const nextMs = Number.isFinite(latestMs) && latestMs >= nowMs ? latestMs + 1 : nowMs;
+  return new Date(nextMs).toISOString();
+}
+
+/** 按固定大小分片执行 D1 batch，避免全量或整表同步时单次 batch 过大触发 D1 限制报错。 */
+async function runBatchedStatements(db, stmts, chunkSize = 25) {
+  if (!stmts.length) return;
+  if (typeof db.batch === 'function') {
+    for (let i = 0; i < stmts.length; i += chunkSize) {
+      await db.batch(stmts.slice(i, i + chunkSize));
+    }
+  } else {
+    for (const stmt of stmts) {
+      await stmt.run();
+    }
+  }
+}
+
 export const onRequest = withApiHandler(async (context) => {
   const { request } = context;
   const method = request.method.toUpperCase();
@@ -133,26 +194,13 @@ export const onRequest = withApiHandler(async (context) => {
   const auth = await requireAuth(db, request, context);
   const userId = auth.user.id;
 
-  // GET /api/sync/version — 极轻版本号探测（前端高频轮询仅查最新时间戳，无变化时不拉全量数据）
+  // GET /api/sync/version — 极轻版本号探测（前端高频轮询仅查最新时间戳与数量指纹，无变化时不拉全量数据）
   if (method === 'GET' && segments[0] === 'version' && segments.length === 1) {
-    const [recRow, planRow] = await Promise.all([
-      db.prepare('SELECT MAX(updated_at) AS ts FROM user_records WHERE user_id = ?').bind(userId).first(),
-      db
-        .prepare(`
-          SELECT MAX(updated_at) AS ts
-          FROM ai_plans
-          WHERE owner_id = ?
-             OR group_id IN (SELECT group_id FROM travel_group_members WHERE user_id = ?)
-        `)
-        .bind(userId, userId)
-        .first(),
-    ]);
-    const rTs = typeof recRow?.ts === 'string' ? recRow.ts : '';
-    const pTs = typeof planRow?.ts === 'string' ? planRow.ts : '';
-    const latestUpdatedAt = rTs >= pTs ? rTs : pTs;
+    const syncState = await getUserSyncState(db, userId);
     return jsonResponse(request, 200, {
       ok: true,
-      latestUpdatedAt,
+      latestUpdatedAt: syncState.latestUpdatedAt,
+      syncToken: syncState.syncToken,
       serverTime: nowIso(),
     });
   }
@@ -193,16 +241,29 @@ export const onRequest = withApiHandler(async (context) => {
     if (!dataBase64 || !/^[A-Za-z0-9+/=]+$/.test(dataBase64)) {
       return errorResponse(request, 400, '图片数据格式无效', 'INVALID_PHOTO_DATA');
     }
-    const approxBytes = Math.floor((dataBase64.length * 3) / 4);
-    if (approxBytes <= 0 || approxBytes > MAX_PLANNER_PHOTO_BYTES) {
+    let bytes;
+    try {
+      bytes = decodeBase64ToBytes(dataBase64);
+    } catch {
+      return errorResponse(request, 400, '图片数据解码失败', 'INVALID_PHOTO_DATA');
+    }
+    if (bytes.byteLength <= 0 || bytes.byteLength > MAX_PLANNER_PHOTO_BYTES) {
       return errorResponse(request, 413, '单张行程参考图压缩后超过 240KB 上限', 'PHOTO_TOO_LARGE');
+    }
+    // 校验上传字节的真实 SHA-256 与 assetId 一致，防止重编码漂移或全局共享表内容寻址投毒
+    if (globalThis.crypto?.subtle) {
+      const digestBuf = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+      const actualHash = Array.from(new Uint8Array(digestBuf), (b) => b.toString(16).padStart(2, '0')).join('');
+      if (actualHash !== assetId) {
+        return errorResponse(request, 400, '图片内容哈希与标识不一致', 'PHOTO_HASH_MISMATCH');
+      }
     }
     await db
       .prepare(`
         INSERT OR IGNORE INTO planner_photos (asset_id, mime_type, data_base64, byte_size, uploaded_by, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
       `)
-      .bind(assetId, mimeType, dataBase64, approxBytes, userId, nowIso())
+      .bind(assetId, mimeType, dataBase64, bytes.byteLength, userId, nowIso())
       .run();
     return jsonResponse(request, 200, { ok: true, assetId });
   }
@@ -264,10 +325,15 @@ export const onRequest = withApiHandler(async (context) => {
       payload: row.deleted_at ? null : JSON.parse(row.payload_json),
     }));
 
-    const usedBytes = await getUserCloudBytes(db, userId);
+    const [usedBytes, syncState] = await Promise.all([
+      getUserCloudBytes(db, userId),
+      getUserSyncState(db, userId),
+    ]);
     return jsonResponse(request, 200, {
       ok: true,
       serverTime: pullStartedAt,
+      latestUpdatedAt: syncState.latestUpdatedAt,
+      syncToken: syncState.syncToken,
       records,
       aiPlans,
       quota: { usedBytes, maxBytes: MAX_USER_CLOUD_BYTES },
@@ -279,7 +345,8 @@ export const onRequest = withApiHandler(async (context) => {
     const body = await readJsonBody(request, 2 * 1024 * 1024);
     const records = Array.isArray(body.records) ? body.records : [];
     const aiPlans = Array.isArray(body.aiPlans) ? body.aiPlans : [];
-    const now = nowIso();
+    // 使用对当前账号严格单调递增的服务端时间戳，彻底杜绝不同边缘节点时钟差导致其他端漏拉
+    const now = await getMonotonicTimestamp(db, userId);
 
     let currentBytes = await getUserCloudBytes(db, userId);
     // 个人记录（地图点亮、旅程、手账等）单独计算配额，不再被体积较大的 AI 攻略挤占，
@@ -368,16 +435,10 @@ export const onRequest = withApiHandler(async (context) => {
     }
 
     if (recordWriteStmts.length > 0) {
-      if (typeof db.batch === 'function') {
-        await db.batch(recordWriteStmts);
-      } else {
-        for (const stmt of recordWriteStmts) {
-          await stmt.run();
-        }
-      }
+      await runBatchedStatements(db, recordWriteStmts, 25);
     }
 
-    // 2. AI 攻略同步（含多人协作乐观锁 + 自动记录编辑动态快照）
+    // 2. AI 攻略同步（含多人协作乐观锁 + 自动记录编辑动态快照；单份攻略异常仅记入 conflicts，绝不阻塞同批地图点亮和其他攻略）
     for (const planItem of aiPlans) {
       if (!planItem || !planItem.id) continue;
       const planId = String(planItem.id).slice(0, 128);
@@ -406,21 +467,27 @@ export const onRequest = withApiHandler(async (context) => {
       const payloadJson = JSON.stringify(sanitized);
       const byteSize = utf8ByteLength(payloadJson);
       if (byteSize > 512 * 1024) {
-        return errorResponse(request, 413, '单份攻略纯文本超过 512KB 限制', 'PLAN_TOO_LARGE');
+        conflicts.push({ planId, reason: '单份攻略纯文本超过 512KB 限制，已跳过上传（不影响地图点亮同步）' });
+        continue;
       }
 
       if (!existing) {
         const countRow = await db.prepare('SELECT COUNT(*) AS cnt FROM ai_plans WHERE owner_id = ? AND deleted_at IS NULL').bind(userId).first();
         if (Number(countRow?.cnt || 0) >= MAX_USER_PLANS) {
-          return errorResponse(request, 413, `云端最多保存 ${MAX_USER_PLANS} 份攻略`, 'PLAN_LIMIT_EXCEEDED');
+          conflicts.push({ planId, reason: `云端最多保存 ${MAX_USER_PLANS} 份攻略，已跳过新攻略上传` });
+          continue;
         }
         if (currentBytes + byteSize > MAX_USER_CLOUD_BYTES * 8) {
-          return errorResponse(request, 413, '云端攻略存储已达上限，请删除部分旧攻略后再同步', 'QUOTA_EXCEEDED');
+          conflicts.push({ planId, reason: '云端攻略存储已达上限，请删除部分旧攻略后再同步' });
+          continue;
         }
         const groupId = planItem.groupId || null;
         if (groupId) {
           const member = await isGroupMember(db, groupId, userId);
-          if (!member) return errorResponse(request, 403, '你不在目标行程群中', 'FORBIDDEN');
+          if (!member) {
+            conflicts.push({ planId, reason: '你已不在目标行程群中，未能上传该群攻略' });
+            continue;
+          }
         }
         await db
           .prepare(`
@@ -532,13 +599,19 @@ export const onRequest = withApiHandler(async (context) => {
       currentBytes += byteSize - Number(existing.byte_size || 0);
     }
 
+    const [usedBytes, syncState] = await Promise.all([
+      getUserCloudBytes(db, userId),
+      getUserSyncState(db, userId),
+    ]);
     return jsonResponse(request, 200, {
       ok: true,
       serverTime: now,
+      latestUpdatedAt: syncState.latestUpdatedAt,
+      syncToken: syncState.syncToken,
       acceptedPlanVersions,
       conflicts,
       rejectedRecords,
-      quota: { usedBytes: await getUserCloudBytes(db, userId), maxBytes: MAX_USER_CLOUD_BYTES },
+      quota: { usedBytes, maxBytes: MAX_USER_CLOUD_BYTES },
     });
   }
 
@@ -583,7 +656,7 @@ export const onRequest = withApiHandler(async (context) => {
 
       const restored = JSON.parse(rev.snapshot_json);
       const nextVersion = Number(access.plan.version || 1) + 1;
-      const now = nowIso();
+      const now = await getMonotonicTimestamp(db, userId);
       const summary = `回退到 v${rev.version}（${rev.editor_nickname} 的版本）`;
       await db
         .prepare(`
@@ -680,7 +753,7 @@ export const onRequest = withApiHandler(async (context) => {
 
       await db
         .prepare('UPDATE ai_plans SET group_id = ?, updated_at = ? WHERE id = ?')
-        .bind(targetGroupId, nowIso(), planId)
+        .bind(targetGroupId, await getMonotonicTimestamp(db, userId), planId)
         .run();
       return jsonResponse(request, 200, { ok: true, groupId: targetGroupId, groupName: targetGroupName });
     }

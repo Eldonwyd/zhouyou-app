@@ -360,6 +360,7 @@ async function cloudRequest<T>(path: string, options: { method?: string; body?: 
     response = await fetch(`${getCloudOrigin()}${path}`, {
       method,
       headers,
+      cache: 'no-store',
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
@@ -448,7 +449,7 @@ export const cloudApi = {
 
   // ---- Sync & Collaborative Plans ----
   getSyncVersion() {
-    return cloudRequest<{ ok: true; latestUpdatedAt: string; serverTime: string }>('/api/sync/version');
+    return cloudRequest<{ ok: true; latestUpdatedAt: string; syncToken?: string; serverTime: string }>('/api/sync/version');
   },
   checkPlannerPhotosExist(assetIds: string[]) {
     return cloudRequest<{ ok: true; existing: string[] }>('/api/sync/photos/exists', {
@@ -466,6 +467,8 @@ export const cloudApi = {
     return cloudRequest<{
       ok: true;
       serverTime: string;
+      latestUpdatedAt?: string;
+      syncToken?: string;
       records: Array<{ store: string; id: string; payload: unknown; updatedAt: string; deletedAt: string | null }>;
       aiPlans: Array<{
         id: string;
@@ -489,6 +492,8 @@ export const cloudApi = {
     return cloudRequest<{
       ok: true;
       serverTime: string;
+      latestUpdatedAt?: string;
+      syncToken?: string;
       acceptedPlanVersions: Record<string, number>;
       conflicts: Array<{ planId: string; reason: string; serverVersion?: number; serverPayload?: AiTravelPlan | null }>;
       rejectedRecords?: Array<{ store: string; id: string; reason: string }>;

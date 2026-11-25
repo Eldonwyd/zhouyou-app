@@ -28,7 +28,11 @@ export function statusForCity(mark: CityMark | undefined): VisitStatus {
 }
 
 export function statusForProvince(provinceCode: string, marks: CityMark[]): VisitStatus {
-  const provinceMarks = marks.filter((mark) => mark.provinceCode === provinceCode);
+  const target = String(provinceCode || '');
+  const provinceMarks = marks.filter((mark) => {
+    const code = mark.provinceCode ? String(mark.provinceCode) : provinceCodeForCity(String(mark.id || ''));
+    return code === target;
+  });
   if (provinceMarks.some((mark) => mark.visited)) return 'visited';
   return 'empty';
 }

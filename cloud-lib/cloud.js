@@ -343,8 +343,8 @@ export async function requireAuth(db, request, context = null) {
   return { user: row, sessionId: row.session_id, tokenHash };
 }
 
-/** 清理 AI 攻略里不应上传云端的临时大字段（如临时解析截图 noteImages），保留纯文本与图片 URL 元数据。 */
-export function sanitizeAiPlanPayload(plan) {
+/** 清理 AI 攻略里不应上传云端的临时大字段（如临时解析截图 noteImages），并在体积过大时裁剪旧撤销历史，保留当前完整行程与图片元数据。 */
+export function sanitizeAiPlanPayload(plan, maxBytes = 480 * 1024) {
   if (!plan || typeof plan !== 'object') return plan;
   const clone = JSON.parse(JSON.stringify(plan));
   if (clone.content?.request?.references && Array.isArray(clone.content.request.references)) {
@@ -353,6 +353,12 @@ export function sanitizeAiPlanPayload(plan) {
       const { noteImages: _omit, ...rest } = ref;
       return rest;
     });
+  }
+  if (Array.isArray(clone.history) && clone.history.length > 0 && utf8ByteLength(JSON.stringify(clone)) > maxBytes) {
+    // 优先裁剪最早的撤销快照，保留当前最新行程与最近历史，避免攻略体积撑破同步上限
+    while (clone.history.length > 0 && utf8ByteLength(JSON.stringify(clone)) > maxBytes) {
+      clone.history.shift();
+    }
   }
   return clone;
 }
