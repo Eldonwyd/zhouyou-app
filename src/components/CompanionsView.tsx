@@ -469,9 +469,15 @@ export default function CompanionsView({
     onOpenShareCode(code);
   }
 
+  const inChatRoom = Boolean(activeChatFriend || activeGroup);
+
   return (
-    <section className="companions-view chat-shell" onClick={() => { if (plusMenuOpen) setPlusMenuOpen(false); if (openFriendMenuId) setOpenFriendMenuId(null); }}>
-      {/* 主流聊天软件风格顶部栏：左标题 + 好友码胶囊，右刷新 / 二维码 / + 菜单 */}
+    <section
+      className={`companions-view chat-shell ${inChatRoom ? 'is-in-chat' : ''} ${activeChatFriend ? 'is-dm-chat' : ''}`}
+      onClick={() => { if (plusMenuOpen) setPlusMenuOpen(false); if (openFriendMenuId) setOpenFriendMenuId(null); }}
+    >
+      {/* 主流聊天软件风格顶部栏：进入私聊时自动收起以给聊天窗口腾出更大空间 */}
+      {!activeChatFriend && (
       <header className="chat-top-bar">
         <div className="chat-top-title">
           <h2>同行旅伴</h2>
@@ -545,6 +551,7 @@ export default function CompanionsView({
           </div>
         </div>
       </header>
+      )}
 
       {/* 微信/Telegram 风格圆角搜索栏 */}
       {!activeGroup && !activeChatFriend && (
@@ -726,19 +733,21 @@ export default function CompanionsView({
                     <div key={bond.id} className={`intimacy-card type-${bond.relationType}`}>
                       <div className="intimacy-card-top">
                         <span className="intimacy-badge">{meta.emoji} {bond.customLabel || meta.label}</span>
-                        {days && <small>第 {days} 天</small>}
+                        {days && <span className="intimacy-days-pill">相伴第 {days} 天</span>}
                       </div>
-                      <div className="intimacy-card-peer">
-                        <TravelAvatar avatarId={bond.peer.avatar} nickname={bond.peer.nickname} className="chat-row-avatar" />
-                        <div>
-                          <strong>{bond.peer.nickname}</strong>
-                          <small>共同点亮 {bond.sharedVisitedCount} 座城市</small>
+                      <div className="intimacy-card-main">
+                        <div className="intimacy-card-peer">
+                          <TravelAvatar avatarId={bond.peer.avatar} nickname={bond.peer.nickname} className="intimacy-peer-avatar" />
+                          <div className="intimacy-peer-meta">
+                            <strong>{bond.peer.nickname}</strong>
+                            <small>共同点亮 {bond.sharedVisitedCount} 座城市</small>
+                          </div>
                         </div>
-                      </div>
-                      <div className="intimacy-card-actions">
-                        <button type="button" className="primary chat-mini-btn" onClick={() => setActiveChatFriend(bond.peer)}>💬 聊天</button>
-                        <button type="button" className="secondary chat-mini-btn" onClick={() => setCompareUserId(bond.peer.id)}>🗺️ 足迹</button>
-                        <button type="button" className="text-button chat-mini-text" onClick={() => void handleIntimacyDecision(bond.id, 'remove')}>解除</button>
+                        <div className="intimacy-card-actions">
+                          <button type="button" className="chat-action-pill is-primary intimacy-act-btn" onClick={() => setActiveChatFriend(bond.peer)}>💬 聊天</button>
+                          <button type="button" className="chat-action-pill intimacy-act-btn" onClick={() => setCompareUserId(bond.peer.id)}>🗺️ 足迹</button>
+                          <button type="button" className="chat-action-pill is-danger-ghost intimacy-unbind-btn" onClick={() => void handleIntimacyDecision(bond.id, 'remove')}>解除</button>
+                        </div>
                       </div>
                     </div>
                   );

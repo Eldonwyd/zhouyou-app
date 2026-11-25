@@ -340,8 +340,9 @@ export default function ChatRoomView({
           </div>
           <button
             type="button"
-            className="text-button"
-            style={{ fontSize: 12 }}
+            className="im-header-icon-btn"
+            title="刷新消息"
+            aria-label="刷新消息"
             onClick={() => void fetchMessages(false)}
           >
             ↻
@@ -377,11 +378,18 @@ export default function ChatRoomView({
                     )}
 
                     {/* 文本消息 */}
-                    {m.msgType === 'text' && (
-                      <div className={`im-bubble ${isMine ? 'is-mine' : 'is-peer'}`}>
-                        {m.textContent}
-                      </div>
-                    )}
+                    {m.msgType === 'text' && (() => {
+                      const trimmed = m.textContent.trim();
+                      const isEmojiOnly =
+                        trimmed.length > 0
+                        && trimmed.length <= 12
+                        && /^(?:[\p{Extended_Pictographic}\uFE0F\u200D]){1,3}$/u.test(trimmed);
+                      return (
+                        <div className={`im-bubble ${isMine ? 'is-mine' : 'is-peer'} ${isEmojiOnly ? 'is-emoji-only' : ''}`}>
+                          {m.textContent}
+                        </div>
+                      );
+                    })()}
 
                     {/* 图片消息 */}
                     {m.msgType === 'image' && typeof m.payload?.dataUrl === 'string' && (
