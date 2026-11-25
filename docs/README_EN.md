@@ -4,7 +4,7 @@
 
 # Zhouyou Map · 周游地图
 
-**An All-in-One Cross-Platform Travel Toolkit — One-Click AI Illustrated Roadbooks & Backup Plans × Smooth Amap/Baidu/Google Maps & Xiaohongshu Switching × Friend Co-Editing & Auto AA × Footprint Map & Photo Journals**
+**An All-in-One Cross-Platform Travel Toolkit — AI Illustrated Roadbooks & Backup Plans × Smooth Map & Xiaohongshu Switching × Friend Co-Editing & Expense Tracking × Footprint Map & Photo Journals**
 
 <p>
   <a href="../README.md">简体中文</a>

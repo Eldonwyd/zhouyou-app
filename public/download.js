@@ -297,19 +297,13 @@
       label: 'AI 一键生成完整图文路书',
       filePrefix: 'skin-planner-',
       hasSkins: true,
-      desc: '自带景点介绍与实景配图、预算拆解、高德/百度/谷歌与小红书一键直达，右侧自带备用玩法随时调整。',
+      desc: '自带景点介绍与实景配图、预算拆解，一键直连主流地图导航与小红书，右侧还贴心预留备用玩法随时调整。',
     },
     companions: {
-      label: '行程群聊与 AI 方案投票',
+      label: '好友与行程群 · 同看同改计划',
       filePrefix: 'skin-companions-',
       hasSkins: true,
-      desc: '面对面 4 位建群或周游口令共享路书，在群里边聊边投票，投出最高票一键让 AI 自动改好行程。',
-    },
-    aa: {
-      label: '群内随手记账 · 自动算出谁给谁转多少钱',
-      staticFile: 'desktop-companions-aa.png',
-      hasSkins: false,
-      desc: '记录谁垫付了民宿、包车与聚餐，系统按整数分精度自动生成最少转账 AA 结算单，返程 3 分钟结清。',
+      desc: '一键共享最新行程，群里边聊边投票，投出最高票还能让 AI 自动改好路线并同步给所有人，旅途记账自动理清分摊。',
     },
     map: {
       label: '全国 34 省 × 370+ 城足迹地图',
@@ -430,7 +424,7 @@
     if (showcaseSection && 'IntersectionObserver' in window) {
       const shotIo = new IntersectionObserver((entries) => {
         if (entries.some((e) => e.isIntersecting)) {
-          ['planner', 'companions', 'aa', 'map', 'compare', 'journal'].forEach(preloadTabSkins);
+          ['planner', 'companions', 'map', 'compare', 'journal'].forEach(preloadTabSkins);
           shotIo.disconnect();
         }
       }, { rootMargin: '300px 0px' });
