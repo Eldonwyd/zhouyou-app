@@ -1,4 +1,5 @@
-import { classifyReleaseAssetPlatform, trackDailyMetric } from '../../cloud-lib/admin-telemetry.js';
+import { classifyReleaseAssetPlatform, ensureAdminTables, getBeijingPeriodKeys, trackDailyMetric } from '../../cloud-lib/admin-telemetry.js';
+import { getClientIp, nowIso, sha256Hex } from '../../cloud-lib/cloud.js';
 
 const REPO = 'Eldonwyd/zhouyou-app';
 const SAFE_TAG = /^[a-zA-Z0-9._-]{1,64}$/;
@@ -66,6 +67,28 @@ export async function streamReleaseAsset(request, tag, file, context = null) {
     trackDailyMetric(context, 'download_platform', platform, 1, 0);
     trackDailyMetric(context, 'download_region', region, 1, 0);
     trackDailyMetric(context, 'download_asset', `${tag}|${file}`, 1, 0);
+    // 同步标记当日该访客已完成下载，用于精准区分「浏览但未下载的纯游客」与「下载转化率」
+    if (platform !== 'hot-update' && context.env?.DB) {
+      const markTask = (async () => {
+        const db = context.env.DB;
+        await ensureAdminTables(db);
+        const { dayKey } = getBeijingPeriodKeys();
+        const ip = getClientIp(request);
+        const ua = (request.headers.get('User-Agent') || '').slice(0, 160);
+        const vh = (await sha256Hex(`zy-visit-v1|${dayKey}|${ip}|${ua}`)).slice(0, 24);
+        const now = nowIso();
+        await db.prepare(`
+          INSERT INTO web_visitors_daily (
+            day_key, visitor_hash, page_views, first_path, referrer_source,
+            is_demo, is_logged_in, did_download, country, first_seen_at, last_seen_at
+          ) VALUES (?, ?, 1, '/api/download', 'direct', 0, 0, 1, ?, ?, ?)
+          ON CONFLICT(day_key, visitor_hash) DO UPDATE SET
+            did_download = 1,
+            last_seen_at = excluded.last_seen_at
+        `).bind(dayKey, vh, country.slice(0, 16), now, now).run();
+      })().catch(() => {});
+      if (typeof context.waitUntil === 'function') context.waitUntil(markTask);
+    }
   }
 
   return new Response(request.method === 'HEAD' ? null : upstream.body, {

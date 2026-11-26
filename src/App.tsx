@@ -290,6 +290,36 @@ export default function App() {
     return () => unsubscribe?.();
   }, [openUpdateSection]);
 
+  // 网页版极轻量匿名访客上报（无 Cookie、不存明文 IP，仅用于统计网页游客与搜索/推文引流转化）
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.zhouyouDesktop || window.location.protocol === 'capacitor:' || window.location.protocol === 'file:') return;
+    const host = window.location.hostname.toLowerCase();
+    if (host === 'localhost' || host === '127.0.0.1') return;
+    const sentKey = 'zy-visit-beacon-sent';
+    try {
+      if (sessionStorage.getItem(sentKey)) return;
+      sessionStorage.setItem(sentKey, '1');
+    } catch { /* ignore */ }
+    const timer = window.setTimeout(() => {
+      const payload = JSON.stringify({
+        path: `${window.location.pathname}${window.location.search}`.slice(0, 120),
+        referrer: document.referrer || '',
+        isDemo: new URLSearchParams(window.location.search).get('demo') === '1',
+        isLoggedIn: Boolean(getCloudToken()),
+        nickname: cloudUser?.nickname || '',
+      });
+      try {
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon('/api/visit', new Blob([payload], { type: 'application/json' }));
+        } else {
+          void fetch('/api/visit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true });
+        }
+      } catch { /* ignore */ }
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [cloudUser?.nickname]);
+
   const requestClientForTour = useCallback((feature: TourRestrictedFeature) => {
     setTourRestriction(feature);
   }, []);

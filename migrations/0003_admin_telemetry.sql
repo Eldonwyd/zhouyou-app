@@ -62,3 +62,20 @@ CREATE TABLE IF NOT EXISTS admin_audit_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit_logs(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS web_visitors_daily (
+  day_key TEXT NOT NULL,
+  visitor_hash TEXT NOT NULL,
+  page_views INTEGER NOT NULL DEFAULT 1,
+  first_path TEXT NOT NULL DEFAULT '/',
+  referrer_source TEXT NOT NULL DEFAULT 'direct',
+  is_demo INTEGER NOT NULL DEFAULT 0,
+  is_logged_in INTEGER NOT NULL DEFAULT 0,
+  did_download INTEGER NOT NULL DEFAULT 0,
+  country TEXT NOT NULL DEFAULT 'UNKNOWN',
+  first_seen_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL,
+  PRIMARY KEY (day_key, visitor_hash)
+);
+
+CREATE INDEX IF NOT EXISTS idx_web_visitors_day ON web_visitors_daily(day_key DESC, referrer_source);

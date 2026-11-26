@@ -872,6 +872,128 @@ export const onRequest = withApiHandler(async (context) => {
     });
   }
 
+  // GET /api/admin/visitors?days=30 — 网页游客访问、未下载纯游客与来源渠道（搜索引擎/推文）分析
+  if (method === 'GET' && action === 'visitors') {
+    const days = Math.min(90, Math.max(7, Number(url.searchParams.get('days')) || 30));
+    const { dayKey } = getBeijingPeriodKeys();
+    const startKey = getBeijingDayKeyOffset(-(days - 1));
+    const dayKeys = buildRecentDayKeys(days);
+
+    const [todayRow, periodRow, dailyRows, sourceRows, pathRows] = await Promise.all([
+      safeFirst(
+        db,
+        `SELECT
+           COUNT(*) AS total_uv,
+           COALESCE(SUM(page_views), 0) AS total_pv,
+           SUM(CASE WHEN did_download = 0 AND is_logged_in = 0 THEN 1 ELSE 0 END) AS guest_no_download_uv,
+           SUM(CASE WHEN did_download = 0 THEN 1 ELSE 0 END) AS no_download_uv,
+           SUM(CASE WHEN did_download = 1 THEN 1 ELSE 0 END) AS downloaded_uv,
+           SUM(CASE WHEN is_demo = 1 THEN 1 ELSE 0 END) AS demo_uv,
+           SUM(CASE WHEN referrer_source LIKE 'search:%' THEN 1 ELSE 0 END) AS search_uv,
+           SUM(CASE WHEN referrer_source LIKE 'promo:%' THEN 1 ELSE 0 END) AS promo_uv
+         FROM web_visitors_daily WHERE day_key = ?`,
+        dayKey,
+      ),
+      safeFirst(
+        db,
+        `SELECT
+           COUNT(*) AS total_uv,
+           COALESCE(SUM(page_views), 0) AS total_pv,
+           SUM(CASE WHEN did_download = 0 AND is_logged_in = 0 THEN 1 ELSE 0 END) AS guest_no_download_uv,
+           SUM(CASE WHEN did_download = 0 THEN 1 ELSE 0 END) AS no_download_uv,
+           SUM(CASE WHEN did_download = 1 THEN 1 ELSE 0 END) AS downloaded_uv,
+           SUM(CASE WHEN is_demo = 1 THEN 1 ELSE 0 END) AS demo_uv,
+           SUM(CASE WHEN referrer_source LIKE 'search:%' THEN 1 ELSE 0 END) AS search_uv,
+           SUM(CASE WHEN referrer_source LIKE 'promo:%' THEN 1 ELSE 0 END) AS promo_uv
+         FROM web_visitors_daily WHERE day_key >= ?`,
+        startKey,
+      ),
+      safeAll(
+        db,
+        `SELECT
+           day_key AS dk,
+           COUNT(*) AS total_uv,
+           COALESCE(SUM(page_views), 0) AS total_pv,
+           SUM(CASE WHEN did_download = 0 AND is_logged_in = 0 THEN 1 ELSE 0 END) AS guest_no_download_uv,
+           SUM(CASE WHEN did_download = 1 THEN 1 ELSE 0 END) AS downloaded_uv,
+           SUM(CASE WHEN referrer_source LIKE 'search:%' THEN 1 ELSE 0 END) AS search_uv,
+           SUM(CASE WHEN referrer_source LIKE 'promo:%' THEN 1 ELSE 0 END) AS promo_uv
+         FROM web_visitors_daily WHERE day_key >= ? GROUP BY day_key ORDER BY day_key ASC`,
+        startKey,
+      ),
+      safeAll(
+        db,
+        `SELECT
+           referrer_source AS source,
+           COUNT(*) AS uv,
+           COALESCE(SUM(page_views), 0) AS pv,
+           SUM(CASE WHEN did_download = 1 THEN 1 ELSE 0 END) AS downloaded_uv,
+           SUM(CASE WHEN did_download = 0 AND is_logged_in = 0 THEN 1 ELSE 0 END) AS guest_no_download_uv
+         FROM web_visitors_daily WHERE day_key >= ?
+         GROUP BY referrer_source ORDER BY uv DESC LIMIT 30`,
+        startKey,
+      ),
+      safeAll(
+        db,
+        `SELECT first_path AS path, COUNT(*) AS uv, SUM(CASE WHEN did_download = 1 THEN 1 ELSE 0 END) AS downloaded_uv
+         FROM web_visitors_daily WHERE day_key >= ?
+         GROUP BY first_path ORDER BY uv DESC LIMIT 15`,
+        startKey,
+      ),
+    ]);
+
+    const fmtBucket = (row) => {
+      const totalUv = Number(row?.total_uv || 0);
+      const downloadedUv = Number(row?.downloaded_uv || 0);
+      return {
+        totalUv,
+        totalPv: Number(row?.total_pv || 0),
+        guestNoDownloadUv: Number(row?.guest_no_download_uv || 0),
+        noDownloadUv: Number(row?.no_download_uv || 0),
+        downloadedUv,
+        demoUv: Number(row?.demo_uv || 0),
+        searchUv: Number(row?.search_uv || 0),
+        promoUv: Number(row?.promo_uv || 0),
+        downloadConvRate: totalUv > 0 ? Number(((downloadedUv / totalUv) * 100).toFixed(1)) : 0,
+      };
+    };
+
+    const dailyMap = new Map(dailyRows.map((r) => [r.dk, r]));
+    const series = dayKeys.map((dk) => {
+      const r = dailyMap.get(dk);
+      return {
+        dayKey: dk,
+        totalUv: Number(r?.total_uv || 0),
+        totalPv: Number(r?.total_pv || 0),
+        guestNoDownloadUv: Number(r?.guest_no_download_uv || 0),
+        downloadedUv: Number(r?.downloaded_uv || 0),
+        searchUv: Number(r?.search_uv || 0),
+        promoUv: Number(r?.promo_uv || 0),
+      };
+    });
+
+    return jsonResponse(request, 200, {
+      ok: true,
+      dayKey,
+      days,
+      today: fmtBucket(todayRow),
+      period: fmtBucket(periodRow),
+      series,
+      sources: sourceRows.map((r) => ({
+        source: r.source,
+        uv: Number(r.uv || 0),
+        pv: Number(r.pv || 0),
+        downloadedUv: Number(r.downloaded_uv || 0),
+        guestNoDownloadUv: Number(r.guest_no_download_uv || 0),
+      })),
+      paths: pathRows.map((r) => ({
+        path: r.path,
+        uv: Number(r.uv || 0),
+        downloadedUv: Number(r.downloaded_uv || 0),
+      })),
+    });
+  }
+
   // GET /api/admin/audit
   if (method === 'GET' && action === 'audit') {
     const logs = await safeAll(db, 'SELECT * FROM admin_audit_logs ORDER BY created_at DESC LIMIT 100');
