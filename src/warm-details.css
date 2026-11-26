@@ -3359,7 +3359,6 @@ input, select, textarea { border-radius: 10px; }
   gap: 8px;
 }
 .planner-workspace .xhs-ref-label { font-size: 14px; color: var(--ink); font-weight: 700; }
-.planner-workspace .xhs-ref-banner > textarea { min-height: 62px; background: var(--surface); }
 .xhs-ref-banner-top {
   display: flex;
   flex-wrap: wrap;

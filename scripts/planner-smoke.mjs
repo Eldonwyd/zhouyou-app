@@ -444,18 +444,26 @@ try {
   await page.getByRole('alert').filter({ hasText: '测试网络超时' }).waitFor();
   assert.deepEqual(await readPlans(), beforeFailure);
 
-  // 两条分享一次粘贴，第二篇的失败只保留待重试的链接；两篇合并后再发给规划器。
+  // 通过「导入小红书截图 / 链接」弹窗依次导入两篇参考，第二篇首次失败可重试，合并带入新建计划后再发给规划器。
   const optionalImportsDetails = page.locator('.planner-optional-imports');
   if ((await optionalImportsDetails.getAttribute('open')) === null) {
     await optionalImportsDetails.locator('> summary').click();
   }
-  const xhsInput = page.getByLabel('小红书参考（可选）', { exact: true });
-  await xhsInput.fill(`笔记分享 ${firstXhsUrl.replace('https:', 'https\\:')} 查看小红书\n${secondXhsUrl}\n${firstXhsUrl}`);
-  await page.getByRole('button', { name: '读取小红书并规划', exact: true }).click();
-  await page.getByRole('alert').filter({ hasText: '测试笔记暂时不可读' }).waitFor();
-  assert.equal(await xhsInput.inputValue(), secondXhsUrl);
-  await page.getByText('已添加 1 篇参考', { exact: true }).waitFor();
-  await page.getByRole('button', { name: '读取小红书并规划', exact: true }).click();
+  await page.getByRole('button', { name: '导入小红书截图 / 链接', exact: true }).click();
+  const xhsDialog = page.getByRole('dialog', { name: '从小红书灵感新建计划' });
+  await xhsDialog.waitFor();
+  await xhsDialog.locator('textarea').fill(firstXhsUrl);
+  await xhsDialog.getByRole('button', { name: '✦ AI 解析小红书内容', exact: true }).click();
+  await xhsDialog.getByText('丽江慢游攻略', { exact: true }).waitFor();
+  await xhsDialog.getByRole('button', { name: '＋ 再追加一篇笔记 / 截图', exact: true }).click();
+  await xhsDialog.locator('textarea').fill(secondXhsUrl);
+  await xhsDialog.getByRole('button', { name: '✦ AI 解析小红书内容', exact: true }).click();
+  await xhsDialog.getByRole('alert').filter({ hasText: '测试笔记暂时不可读' }).waitFor();
+  await xhsDialog.getByRole('button', { name: '✦ AI 解析小红书内容', exact: true }).click();
+  await xhsDialog.getByText('香格里拉路线推荐', { exact: true }).waitFor();
+  await xhsDialog.getByRole('button', { name: /带入新建计划（2 篇参考/ }).click();
+  await page.getByText('已添加 2 篇参考', { exact: true }).waitFor();
+  await page.getByRole('button', { name: '联网生成旅行计划', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: '测试网络超时' }).waitFor();
   assert.deepEqual(xhsReads, [firstXhsUrl, secondXhsUrl, secondXhsUrl]);
   const withReferences = submittedRequests.at(-1).request;

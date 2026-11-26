@@ -16,7 +16,7 @@ import { PlannerBookingDialog, PlannerBookingsSummary } from './PlannerBookingIm
 import { applyBookingToPlan, bookingArrivalDate, bookingConnectionTimes, emptyBookingDraft, hotelBookingForDay, isTransportBooking, pendingTransportLegs, plannerContentForAi, reconcileBookedContent, removeBookingFromPlan } from '../planner-booking';
 import { TravelIcon } from './TravelArt';
 import { CuteTransportIcon, DirectTransferBridge, GapTransferConnector, TransferBridgeCard, TransferOptionRow } from './PlannerTransferConnector';
-import PlannerXhsImporter, { type XhsParseResponse } from './PlannerXhsImporter';
+import PlannerXhsImporter from './PlannerXhsImporter';
 import PlannerExternalAiImporter from './PlannerExternalAiImporter';
 import CityGuideLinks from './CityGuideLinks';
 import { exportOfflineRoadbook } from '../planner-html-export';
@@ -26,9 +26,6 @@ import {
   XHS_PLACE_KIND_LABELS,
   XHS_REFERENCE_MODE_OPTIONS,
   buildXhsInsertPrompt,
-  compactXhsReference,
-  extractXhsUrlsFromText,
-  mergeXhsReferences,
   referencesToWishlist,
   selectedPlacesFromRefs,
   summarizeXhsForMessage,
@@ -1085,7 +1082,6 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
   const [request, setRequest] = useState(() =>
     freshPlannerRequest('', props.preferences?.base ?? ''),
   );
-  const [xhsDraft, setXhsDraft] = useState('');
   const [discover, setDiscover] = useState<DiscoveryRequest>(() => ({
     destination: props.provinceIntent?.name ?? '',
     startDate: freshPlannerRequest().startDate,
@@ -1552,9 +1548,8 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
   /** Duration discovery is a separate step: the user's selection becomes the
    * fixed date range before a complete itinerary can be saved.
    */
-  async function generate(override?: PlannerRequest, pendingXhs = xhsDraft) {
-    let input = override ?? request;
-    let remaining = pendingXhs.trim();
+  async function generate(override?: PlannerRequest) {
+    const input = override ?? request;
     await task(
       async (signal) => {
         validatePlannerRequest(input);
@@ -1562,41 +1557,6 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
           const lastDate = input.endDate || addPlannerDays(input.startDate, input.days! - 1);
           const outside = draftBookings.find((item) => isTransportBooking(item) && (item.date < input.startDate || item.date > lastDate));
           if (outside) throw new Error(`「${outside.title}」出发日期不在计划内，请先核对预订或行程日期。`);
-        }
-        if (remaining) {
-          const pastedLinks = extractXhsUrlsFromText(remaining);
-          if (!pastedLinks.length) throw new Error('请粘贴小红书链接或含链接的分享文案。截图和纯文字攻略可从「导入截图 / 攻略」添加。');
-          let references = input.references ?? [];
-          const links = pastedLinks.filter((url) => !references.some((ref) => ref.url === url));
-          if (links.length + references.length > MAX_XHS_REFERENCES) {
-            throw new Error(`每个计划最多参考 ${MAX_XHS_REFERENCES} 篇小红书笔记，请删除多出的链接后继续。`);
-          }
-          const referenceMode = input.referenceMode ?? DEFAULT_XHS_REFERENCE_MODE;
-          // 本地读取逐篇执行。每篇成功后就保留结果，失败或取消时只重试尚未读取的链接。
-          for (const [index, url] of links.entries()) {
-            const label = `小红书参考 ${index + 1}/${links.length}`;
-            setStage(`正在解析${label}…`);
-            let result: XhsParseResponse;
-            try {
-              result = await plannerApi<XhsParseResponse>('xhs-parse', { text: url },
-                AbortSignal.any([signal, AbortSignal.timeout(125_000)]), (stage) => setStage(`${label} · ${stage}`));
-            } catch (failure) {
-              signal.throwIfAborted();
-              const reason = failure instanceof Error ? failure.message : '读取失败';
-              throw new Error(`${label}未能读取（${reason}）。可重试，或删除这条链接后继续。`);
-            }
-            signal.throwIfAborted();
-            const note = compactXhsReference(result.reference);
-            if (!note.url || !references.some((ref) => ref.url === note.url)) references = mergeXhsReferences(references, note);
-            input = { ...input, references, referenceMode };
-            remaining = links.slice(index + 1).join('\n');
-            setRequest(input);
-            setXhsDraft(remaining);
-          }
-          input = withXhsReferences(input, references, referenceMode);
-          remaining = '';
-          setRequest(input);
-          setXhsDraft('');
         }
         await rememberBase(input.base);
         if (!input.destination.trim()) {
@@ -1669,7 +1629,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
         setDurations([]);
         if (currentView.current.tab === tab) setTab('itineraries');
       },
-      () => generate(input, remaining),
+      () => generate(input),
     );
   }
   async function commit(
@@ -2112,7 +2072,6 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
       luggageMode: discover.luggageMode ?? 'suitcase',
       ...(discover.references?.length ? { references: discover.references, referenceMode: discover.referenceMode } : {}),
     });
-    setXhsDraft('');
     setCreating(true);
     setDurations([]);
     setTab('itineraries');
@@ -2705,7 +2664,6 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
               onClick={() => {
                 setCreating(true);
                 setDurations([]);
-                setXhsDraft('');
                 setDraftBookings([]);
                 setRequest(freshPlannerRequest('', props.preferences?.base ?? ''));
               }}
@@ -2796,16 +2754,12 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                       <details className="planner-preferences planner-optional-imports">
                         <summary>
                           <span>行李方式、已订预订与小红书参考（选填）</span>
-                          {(draftBookings.length > 0 || (request.references?.length ?? 0) > 0 || xhsDraft.trim() || request.luggageMode === 'backpack') && (
+                          {(draftBookings.length > 0 || (request.references?.length ?? 0) > 0 || request.luggageMode === 'backpack') && (
                             <span className="planner-pref-summary-badge">
                               {[
                                 request.luggageMode === 'backpack' ? '背包出行' : '',
                                 draftBookings.length > 0 ? `${draftBookings.length} 项预订` : '',
-                                (request.references?.length ?? 0) > 0
-                                  ? `${request.references!.length} 篇参考`
-                                  : xhsDraft.trim()
-                                    ? '已填攻略文案'
-                                    : '',
+                                (request.references?.length ?? 0) > 0 ? `${request.references!.length} 篇参考` : '',
                               ].filter(Boolean).join(' · ')}
                             </span>
                           )}
@@ -2832,28 +2786,17 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                           <div className="xhs-ref-banner">
                             <div className="xhs-ref-banner-top">
                               <div>
-                                <label className="xhs-ref-label" htmlFor="planner-xhs-draft">小红书参考（可选）</label>
-                                <p id="planner-xhs-draft-hint">最多 {MAX_XHS_REFERENCES} 篇。AI 会结合你的日期、路线和同行需求，挑选适合的内容。</p>
+                                <strong className="xhs-ref-label">小红书参考（可选）</strong>
+                                <p>最多 {MAX_XHS_REFERENCES} 篇。直接上传小红书笔记截图，或在小红书点「分享 → 复制链接」后点右侧导入，AI 会结合你的日期、路线和同行需求挑选适合的内容。</p>
                               </div>
                               <button
                                 type="button"
                                 className="secondary"
                                 onClick={() => openXhsDialog({ mode: 'create' })}
                               >
-                                {request.references?.length ? '管理参考 / 导入截图' : '导入截图 / 攻略'}
+                                {request.references?.length ? '管理参考 / 继续导入' : '导入小红书截图 / 链接'}
                               </button>
                             </div>
-                            <textarea
-                              id="planner-xhs-draft"
-                              aria-describedby="planner-xhs-draft-hint"
-                              rows={2}
-                              placeholder="粘贴小红书链接或整段分享文案，多篇可以分行粘贴"
-                              value={xhsDraft}
-                              onChange={(event) => {
-                                setXhsDraft(event.target.value);
-                                setDurations([]);
-                              }}
-                            />
                             {request.references && request.references.length > 0 && <>
                               <div className="xhs-ref-banner-top">
                                 <div>
@@ -2898,13 +2841,11 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                   />
                   <div className="heading-actions" style={{ flexWrap: 'wrap', gap: 10 }}>
                     <button className="primary" type="submit">
-                      {xhsDraft.trim()
-                        ? '读取小红书并规划'
-                        : !request.destination.trim()
-                          ? '让 AI 推荐目的地'
-                          : request.days || request.endDate
-                            ? (aiStatus?.searchAvailable === false ? 'AI 生成旅行计划' : '联网生成旅行计划')
-                            : '先让 AI 建议玩几天'}
+                      {!request.destination.trim()
+                        ? '让 AI 推荐目的地'
+                        : request.days || request.endDate
+                          ? (aiStatus?.searchAvailable === false ? 'AI 生成旅行计划' : '联网生成旅行计划')
+                          : '先让 AI 建议玩几天'}
                     </button>
                     {!webTourMode && (
                       <button

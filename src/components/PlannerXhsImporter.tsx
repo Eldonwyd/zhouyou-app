@@ -274,7 +274,7 @@ export default function PlannerXhsImporter({
     const text = overrideText !== undefined ? overrideText : inputText;
     const files = overrideFiles ?? pendingImages.map((item) => item.file);
     if (!text.trim() && !files.length && !extraBody?.noteImageUrls?.length) {
-      setErrorText('请粘贴小红书链接/口令、上传截图（支持 Ctrl+V 粘贴），或粘贴攻略文字。');
+      setErrorText('请粘贴小红书「分享 → 复制链接」的内容，或直接上传 / Ctrl+V 粘贴小红书截图。');
       return;
     }
     abortRef.current?.abort();
@@ -505,13 +505,13 @@ export default function PlannerXhsImporter({
         {showInput ? (
           <div className="xhs-input-panel">
             <label className="xhs-text-label">
-              <span>粘贴小红书分享口令 / 链接，或直接粘贴攻略文字</span>
+              <span>方式一：在小红书点「分享 → 复制链接」粘贴到这里（也可贴攻略文字）</span>
               <textarea
                 rows={4}
                 disabled={parsing}
                 value={inputText}
                 onChange={(event) => setInputText(event.target.value)}
-                placeholder="粘贴小红书 App 复制的整段分享文案、笔记链接或正文…"
+                placeholder="打开小红书笔记 → 点击右上角「分享」→「复制链接」，将整段分享文案或链接粘贴到这里…"
               />
             </label>
 
@@ -529,7 +529,7 @@ export default function PlannerXhsImporter({
               }}
             >
               <div>
-                <strong>拖入小红书截图，或直接按 Ctrl+V 粘贴（支持 1～6 张 / 长截图自动分段）</strong>
+                <strong>方式二：直接截小红书笔记图上传，或按 Ctrl+V 粘贴（支持 1～6 张 / 长截图自动分段）</strong>
                 <small>截图仅在本次解析内存中识别，不会保存到本地磁盘或行程备份</small>
               </div>
               <div className="xhs-dropzone-actions">
