@@ -364,9 +364,16 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .85; }
   .planner-activity:has(> .planner-photo) > .planner-photo {
     display: flex; flex-direction: column; border-right: 1px solid var(--line);
   }
-  .planner-activity > .planner-photo > img { height: auto; flex: 1; min-height: 200px; }
-  .planner-activity > .planner-photo > .planner-photo-empty { flex: 1; margin: 12px 12px 0; }
-  .planner-activity > .planner-photo > .planner-photo-bar { border-bottom: 0; border-top: 1px solid var(--line); margin-top: 10px; }
+  .planner-activity > .planner-photo > img {
+    width: 100%; height: auto; aspect-ratio: 4 / 3; min-height: 200px; max-height: 280px;
+    flex: 0 0 auto; object-fit: cover;
+  }
+  .planner-activity > .planner-photo > .planner-photo-empty {
+    flex: 0 0 auto; min-height: 200px; margin: 12px 12px 0;
+  }
+  .planner-activity > .planner-photo > .planner-photo-bar {
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 10px;
+  }
 }
 
 /* ---------- 旅行人群：学生/老人/儿童收起为输入框右侧小按钮 ---------- */
