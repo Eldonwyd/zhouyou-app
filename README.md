@@ -103,12 +103,12 @@
 <table>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="docs/screenshots/desktop-planner.png" width="100%" alt="AI 一键生成完整图文路书" />
-      <br /><b>🤖 AI 图文路书</b> — 图文配图、预算拆解与备用计划
+      <img src="docs/screenshots/desktop-route-map.png" width="100%" alt="每日顺路行程地图与顺序箭头导航" />
+      <br /><b>🧭 每日行程地图</b> — 景点顺路标号 · 路线箭头 · 一键跳转导航
     </td>
     <td align="center" valign="top" width="50%">
-      <img src="docs/screenshots/desktop-companions-chat.png" width="100%" alt="好友行程群聊与 AI 方案投票" />
-      <br /><b>🤝 好友行程群</b> — 共享计划、群聊投票与旅途记账
+      <img src="docs/screenshots/desktop-xhs-import.png" width="100%" alt="从小红书灵感新建计划与生成策略" />
+      <br /><b>📕 小红书灵感导入</b> — 提取避坑贴士 · 综合/顺路重排等 4 种策略
     </td>
   </tr>
   <tr>

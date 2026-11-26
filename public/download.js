@@ -299,23 +299,23 @@
       hasSkins: true,
       desc: '自带景点介绍与实景配图、预算拆解，一键直连主流地图导航与小红书，右侧还贴心预留备用玩法随时调整。',
     },
-    companions: {
-      label: '好友与行程群 · 同看同改计划',
-      filePrefix: 'skin-companions-',
-      hasSkins: true,
-      desc: '一键共享最新行程，群里边聊边投票，投出最高票还能让 AI 自动改好路线并同步给所有人，旅途记账自动理清分摊。',
+    routemap: {
+      label: '每日顺路行程地图与导航直达',
+      staticFile: 'desktop-route-map.png',
+      hasSkins: false,
+      desc: '按天在地图上清晰标出景点到访顺序与路线箭头，一眼看出是否顺路不走回头路，点击标记即可直接拉起地图导航。',
+    },
+    xhs: {
+      label: '从小红书灵感新建计划',
+      staticFile: 'desktop-xhs-import.png',
+      hasSkins: false,
+      desc: '导入小红书攻略自动提取避坑贴士与地点，支持「综合参考」「顺路重排」「尽量复刻原帖」「仅作风格灵感」四种策略生成专属行程。',
     },
     map: {
       label: '全国 34 省 × 370+ 城足迹地图',
       filePrefix: 'skin-',
       hasSkins: true,
       desc: '支持省级缩放下钻、一键点亮已去过/计划前往与按省离线缓存，坐飞机高铁无网照样看。',
-    },
-    compare: {
-      label: '好友双人中国足迹对比地图',
-      staticFile: 'desktop-footprint-compare.png',
-      hasSkins: false,
-      desc: '一键叠加查看你和好友「共同去过」「对方去过」「我去过」「共同想去」的城市清单。',
     },
     journal: {
       label: '照片手账与专属城市明信片',
