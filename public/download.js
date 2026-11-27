@@ -299,18 +299,6 @@
       hasSkins: true,
       desc: '自带景点介绍与实景配图、预算拆解，一键直连主流地图导航与小红书，右侧还贴心预留备用玩法随时调整。',
     },
-    routemap: {
-      label: '每日顺路行程地图与导航直达',
-      staticFile: 'desktop-route-map.png',
-      hasSkins: false,
-      desc: '按天在地图上清晰标出景点到访顺序与路线箭头，一眼看出是否顺路不走回头路，点击标记即可直接拉起地图导航。',
-    },
-    xhs: {
-      label: '从小红书灵感新建计划',
-      staticFile: 'desktop-xhs-import.png',
-      hasSkins: false,
-      desc: '导入小红书攻略自动提取避坑贴士与地点，支持「综合参考」「顺路重排」「尽量复刻原帖」「仅作风格灵感」四种策略生成专属行程。',
-    },
     map: {
       label: '全国 34 省 × 370+ 城足迹地图',
       filePrefix: 'skin-',
@@ -322,6 +310,18 @@
       filePrefix: 'skin-journal-',
       hasSkins: true,
       desc: '按旅程或城市归档原图照片、短视频与现场语音评语，自动读取 EXIF 与 GPS 归属城市。',
+    },
+    routemap: {
+      label: '每日顺路行程地图与导航直达',
+      staticFile: 'desktop-route-map.png',
+      hasSkins: false,
+      desc: '按天在地图上清晰标出景点到访顺序与路线箭头，一眼看出是否顺路不走回头路，点击标记即可直接拉起地图导航。',
+    },
+    xhs: {
+      label: '从小红书灵感新建计划',
+      staticFile: 'desktop-xhs-import.png',
+      hasSkins: false,
+      desc: '导入小红书攻略自动提取避坑贴士与地点，支持「综合参考」「顺路重排」「尽量复刻原帖」「仅作风格灵感」四种策略生成专属行程。',
     },
   };
   const showcaseImg = document.getElementById('showcase-img');
