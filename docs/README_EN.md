@@ -74,12 +74,12 @@
 <table>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="screenshots/desktop-planner.png" width="100%" alt="One-Click AI Illustrated Trip Planner" />
-      <br /><b>🤖 AI Illustrated Roadbook</b> — intros, photos, budgets &amp; backups
+      <img src="screenshots/desktop-planner-detail.png" width="100%" alt="AI Illustrated Roadbook with Real Photos, Transit Comparison, Budget, and Backup Plans" />
+      <br /><b>🤖 AI Illustrated Roadbook</b> — real photos, transit comparison, budgets &amp; backups
     </td>
     <td align="center" valign="top" width="50%">
-      <img src="screenshots/desktop-companions-chat.png" width="100%" alt="Group Chat and AI Poll Co-Editing" />
-      <br /><b>🤝 Group Chat &amp; Co-Editing</b> — share plans, AI polls &amp; ledger
+      <img src="screenshots/desktop-route-map.png" width="100%" alt="Daily Sequential Route Map with Numbered Stops and One-Tap Navigation" />
+      <br /><b>🧭 Daily Sequential Route Map</b> — numbered stops, arrows &amp; one-tap navigation
     </td>
   </tr>
   <tr>
