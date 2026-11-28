@@ -298,12 +298,12 @@ async function computeOverview(db, env, excludeSelf = true) {
     ),
     safeCount(
       db,
-      "SELECT SUM(count) AS c FROM telemetry_daily WHERE day_key = ? AND metric = 'download_platform' AND dimension != 'hot-update'",
+      'SELECT COUNT(*) AS c FROM web_visitors_daily WHERE day_key = ? AND did_download = 1',
       dayKey,
     ),
     safeCount(
       db,
-      "SELECT SUM(count) AS c FROM telemetry_daily WHERE day_key >= ? AND metric = 'download_platform' AND dimension != 'hot-update'",
+      'SELECT COUNT(*) AS c FROM web_visitors_daily WHERE day_key >= ? AND did_download = 1',
       getBeijingDayKeyOffset(-29),
     ),
     safeCount(
@@ -459,6 +459,7 @@ export const onRequest = withApiHandler(async (context) => {
       aiRows,
       telemetryRows,
       ghRows,
+      dlUvRows,
     ] = await Promise.all([
       safeAll(
         db,
@@ -487,14 +488,20 @@ export const onRequest = withApiHandler(async (context) => {
          FROM github_daily_snapshots WHERE day_key >= ? ORDER BY day_key ASC`,
         startKey,
       ),
+      safeAll(
+        db,
+        `SELECT day_key AS dk, COUNT(*) AS c
+         FROM web_visitors_daily WHERE day_key >= ? AND did_download = 1 GROUP BY day_key`,
+        startKey,
+      ),
     ]);
 
     const regMap = new Map(regRows.map((r) => [r.dk, Number(r.c) || 0]));
     const aiMap = new Map(aiRows.map((r) => [r.dk, { tokens: Number(r.tokens_used) || 0, requests: Number(r.requests_count) || 0 }]));
     const ghMap = new Map(ghRows.map((r) => [r.dk, r]));
+    const downloadUvMap = new Map(dlUvRows.map((r) => [r.dk, Number(r.c) || 0]));
 
     const loginMap = new Map();
-    const downloadMap = new Map();
     const proxyMap = new Map();
     const ghViewsMap = new Map();
     const ghUniquesMap = new Map();
@@ -502,8 +509,6 @@ export const onRequest = withApiHandler(async (context) => {
       const c = Number(r.count) || 0;
       if (r.metric === 'auth_login') {
         loginMap.set(r.dk, (loginMap.get(r.dk) || 0) + c);
-      } else if (r.metric === 'download_platform' && r.dimension !== 'hot-update') {
-        downloadMap.set(r.dk, (downloadMap.get(r.dk) || 0) + c);
       } else if (r.metric === 'ai_proxy_host') {
         proxyMap.set(r.dk, (proxyMap.get(r.dk) || 0) + c);
       } else if (r.metric === 'github_views') {
@@ -518,7 +523,7 @@ export const onRequest = withApiHandler(async (context) => {
       logins: loginMap.get(dk) || 0,
       freeAiTokens: aiMap.get(dk)?.tokens || 0,
       freeAiRequests: aiMap.get(dk)?.requests || 0,
-      siteDownloads: downloadMap.get(dk) || 0,
+      siteDownloads: downloadUvMap.get(dk) || 0,
       aiProxyCalls: proxyMap.get(dk) || 0,
       githubViews: ghViewsMap.get(dk) || 0,
       githubUniques: ghUniquesMap.get(dk) || 0,
@@ -1336,7 +1341,7 @@ export const onRequest = withApiHandler(async (context) => {
     const title = `【周游地图日报】${overview.dayKey}`;
     const lines = [
       `👥 用户：今日新增 ${overview.users.newToday} 人（总 ${overview.users.total}）| DAU ${overview.users.dau} | 30日MAU ${overview.users.mau}`,
-      `📥 下载：今日站内加速 ${overview.downloads.siteToday} 次 | GitHub Releases 累计 ${overview.downloads.githubReleasesTotal} 次`,
+      `📥 下载：今日站内下载 ${overview.downloads.siteToday} 人（去重）| GitHub Releases 累计 ${overview.downloads.githubReleasesTotal} 次`,
       `🤖 免费AI：今日 ${(overview.ai.todayTokens / 10000).toFixed(2)} 万 tokens（${overview.ai.todayUsagePct}% 水位，${overview.ai.todayRequests} 次请求，成功率 ${overview.ai.successRateToday}%）`,
       `🔁 自带Key转发：今日 ${overview.ai.proxyCallsToday} 次`,
       overview.github
