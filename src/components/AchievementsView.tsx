@@ -7,6 +7,7 @@ import { themeColor } from '../theme';
 import { useI18n, type AppLanguage } from '../i18n';
 import type { TourRestrictedFeature } from '../web-tour';
 import { RELATION_META, type IntimacyBond } from '../cloud-api';
+import { AchievementsTicketShowcase } from './TicketWalletView';
 
 // 每站沿用应用内的旅行图标，等级数超过现有图标时仍可显示默认地图图标。
 const travelerStopIcons = ['leaf', 'detail', 'map', 'camera', 'mountain', 'train', 'sun', 'plane'];
@@ -611,6 +612,9 @@ export default function AchievementsView({
           <button className="primary" onClick={() => void createBadge()}>{t('收入我的集章册', 'Add to Collection')}</button>
         </div>
       </section>
+
+      {/* 出行票夹珍藏墙（直接预览高清拟物票据与出行路线图） */}
+      <AchievementsTicketShowcase trips={trips} onNotice={onNotice} onError={onError} />
 
       {/* 高光拍立得墙 */}
       <section className="warm-highlights">
