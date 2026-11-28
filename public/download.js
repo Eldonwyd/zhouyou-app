@@ -11,18 +11,6 @@
   else if (/Linux/i.test(platform) || /Linux/i.test(ua)) detected = 'linux';
 
   const isMobileDevice = detected === 'android' || detected === 'ios';
-  const isWeChatOrQQ = /MicroMessenger|QQ\/|MQQBrowser/i.test(ua);
-
-  /* ---------- 0. 微信 / QQ 内置浏览器安全与下载提示 ---------- */
-  if (isWeChatOrQQ && document.body) {
-    const bar = document.createElement('div');
-    bar.setAttribute('role', 'status');
-    bar.style.cssText = 'position:sticky;top:0;z-index:9999;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#fff4ec;color:#5a372a;border-bottom:1px solid #f0d5c4;font-size:13px;line-height:1.45;';
-    bar.innerHTML = '<span>📱 当前在微信 / QQ 内置浏览器中打开：可直接安全浏览；如需下载 APK 安装包或添加到手机桌面，请点右上角 <strong>···</strong> 选择「在默认浏览器打开」。</span><button type="button" aria-label="关闭提示" style="border:0;background:transparent;color:#8a685b;font-size:18px;padding:2px 6px;cursor:pointer;flex:0 0 auto;">×</button>';
-    const closeBtn = bar.querySelector('button');
-    if (closeBtn) closeBtn.addEventListener('click', () => bar.remove());
-    document.body.insertBefore(bar, document.body.firstChild);
-  }
 
   /* ---------- 1. 浅色 / 深色主题切换 ---------- */
   const themeBtn = document.getElementById('theme-toggle');
@@ -68,6 +56,7 @@
       'hero.title2': 'A Lifetime to Light Up Zhouyou',
       'hero.sub': 'An all-in-one cross-platform travel toolkit: one-click AI illustrated itineraries with backup plans, smooth Amap/Baidu/Google Maps & Xiaohongshu switching, friend group voting & auto AA splitting, and 370+ city footprint journals.',
       'hero.tryBtn': 'Try Interactive Web Tour',
+      'hero.webBtn': 'Use Web App',
       'tour.eyebrow': 'INTERACTIVE WEB SANDBOX',
       'tour.h2': 'Experience the Web App Right Here',
       'tour.p': 'Explore the Vintage Journal interface, light up 370+ China cities, and browse the sample Dali roadbook & photo journal. Install the client or full PWA to unlock cloud sync, friends, live AI, and photo storage.',
@@ -171,10 +160,6 @@
     }
   }
 
-  const inappBanner = document.getElementById('inapp-banner');
-  const inappBannerApp = document.getElementById('inapp-banner-app');
-  const inappBannerGuide = document.getElementById('inapp-banner-guide');
-  const inappBannerCopy = document.getElementById('inapp-banner-copy');
   const guideMask = document.getElementById('inapp-guide-mask');
   const guideDesc = document.getElementById('inapp-guide-desc');
   const copyBtn = document.getElementById('inapp-copy-btn');
@@ -195,18 +180,6 @@
   }
   function closeInAppGuide() {
     if (guideMask) guideMask.hidden = true;
-  }
-  if (isInAppBrowser) {
-    if (inappBannerApp) inappBannerApp.textContent = `${inAppName}内置浏览器`;
-    if (inappBanner) inappBanner.hidden = false;
-  }
-  if (inappBannerGuide) inappBannerGuide.addEventListener('click', () => openInAppGuide(window.location.href, '周游地图'));
-  if (inappBannerCopy) {
-    inappBannerCopy.addEventListener('click', async () => {
-      const ok = await copyText(window.location.href);
-      inappBannerCopy.textContent = ok ? '✅ 已复制链接' : '请长按地址栏复制';
-      setTimeout(() => { inappBannerCopy.textContent = '复制下载页链接'; }, 2200);
-    });
   }
   if (copyBtn) {
     copyBtn.addEventListener('click', async () => {

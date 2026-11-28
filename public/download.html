@@ -17,7 +17,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
-    <link rel="stylesheet" href="./download.css?v=1.0.90" />
+    <link rel="stylesheet" href="./download.css?v=1.0.91" />
     <script>
       try {
         var t = localStorage.getItem('zhouyou-site-theme');
@@ -64,19 +64,6 @@
         </div>
       </div>
     </header>
-
-    <!-- 微信 / QQ / 小红书内置浏览器提示条 -->
-    <div class="container">
-      <div id="inapp-banner" class="inapp-banner" role="alert" hidden>
-        <div class="inapp-banner-text">
-          检测到你正在使用 <strong id="inapp-banner-app">内置浏览器</strong> 打开，可能会拦截安装包下载。请点击右上角 <strong>「···」→「在默认浏览器中打开」</strong> 即可正常下载。
-        </div>
-        <div class="inapp-banner-actions">
-          <button type="button" id="inapp-banner-guide" class="btn btn-primary btn-sm">查看打开指引</button>
-          <button type="button" id="inapp-banner-copy" class="btn btn-secondary btn-sm">复制下载页链接</button>
-        </div>
-      </div>
-    </div>
 
     <main>
       <!-- Hero 首屏：暖意山海画卷 + 鼠标视差交互 + 航迹动画 -->
@@ -437,11 +424,13 @@
               </svg>
               <span id="hero-primary-dl-label">下载电脑桌面版</span>
             </a>
-            <a class="btn btn-github" href="https://github.com/Eldonwyd/zhouyou-app" target="_blank" rel="noreferrer">
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.2.7-3.87-1.54-3.87-1.54-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.16 1.18a10.98 10.98 0 0 1 5.76 0c2.2-1.49 3.16-1.18 3.16-1.18.63 1.59.23 2.76.11 3.05.74.8 1.18 1.83 1.18 3.08 0 4.41-2.69 5.39-5.26 5.67.41.36.78 1.06.78 2.14 0 1.55-.01 2.79-.01 3.17 0 .31.21.67.8.56A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z" />
+            <a class="btn btn-github" href="./">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
               </svg>
-              <span>GitHub 开源</span>
+              <span data-i18n="hero.webBtn">使用网页版</span>
             </a>
           </div>
 
@@ -1223,7 +1212,7 @@
       </div>
     </div>
 
-    <script src="./download.js?v=1.0.90"></script>
+    <script src="./download.js?v=1.0.91"></script>
     <script>
       (function () {
         try {
