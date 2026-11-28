@@ -312,6 +312,8 @@ export interface PlannerJournalVisit {
   tripId: string;
   placeId: string;
   completedAt: string;
+  /** 是否由系统在活动结束时间过后自动加入手账。 */
+  auto?: boolean;
 }
 
 export interface TicketReminderSetting {

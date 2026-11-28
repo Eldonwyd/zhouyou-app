@@ -354,6 +354,8 @@ export default function ProfileView({
             trips={snapshot.trips}
             media={snapshot.media}
             badges={snapshot.badges}
+            aiPlans={snapshot.aiPlans}
+            places={snapshot.places}
             intimacyBonds={intimacyBonds}
             onSaveBadge={onSaveBadge}
             onOpenEntry={onOpenEntry}

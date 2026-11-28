@@ -33,6 +33,7 @@ import {
   xiaohongshuSearchUrl,
 } from '../planner-xhs';
 import { plannerLuggageNoteText } from '../planner-luggage';
+import { isActivityTimePassed } from '../planner-auto-visit';
 import { applyBookingToLedger, removeBookingFromLedger } from '../finance';
 import { BUDGET_CATEGORIES, emptyAmounts } from '../types';
 import type {
@@ -1994,7 +1995,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
     try {
       const { place, cityName } = await props.onSaveJournalVisit(activePlan.id, activity.id, plannerJournalActivityKey(activity), cityCode);
       setJournalCityChoice(null);
-      props.onNotice(`「${place.name}」已加入${cityName}的旅行手账，可以去上传照片了。`);
+      props.onNotice(`「${place.name}」已加入${cityName}手账，点击「去加照片」即可直达该景点手账。`);
     } catch (failure) {
       props.onError(failure instanceof Error ? failure.message : '景点记录失败，请重试');
     } finally {
@@ -3716,21 +3717,24 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                                       <small>生成于 {new Date(guide.createdAt).toLocaleString('zh-CN')}</small>
                                     </details>;
                                   })()}
-                                  {activity.kind === 'sight' && (
+                                  {activity.kind === 'sight' && (() => {
+                                    const timePassed = isActivityTimePassed(day.date, activity.endTime);
+                                    return (
                                     <div className="planner-journal-row">
                                       {journalVisit ? (
-                                        <button type="button" className="text-button planner-journal-action"
+                                        <button type="button" className="text-button planner-journal-action is-synced"
                                           onClick={() => props.onOpenJournalPlace(journalVisit.placeId)}>
-                                          打开地点手账
+                                          {journalVisit.auto || timePassed ? '已自动入账 · 去加照片 ↗' : '已加入手账 · 去加照片 ↗'}
                                         </button>
                                       ) : (
                                         <button type="button" className="text-button planner-journal-action"
                                           disabled={busy || journalSaving} onClick={() => void recordJournalVisit(activity)}>
-                                          标记已游玩
+                                          {timePassed ? '已自动入账 · 去加照片' : '标记已游玩'}
                                         </button>
                                       )}
                                     </div>
-                                  )}
+                                    );
+                                  })()}
                                   {!journalVisit && chooseJournalCity && (
                                     <div className="planner-journal-city">
                                       <label>景点所属城市

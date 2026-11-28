@@ -133,6 +133,13 @@ export default function JournalWelcome({
           <div className="count-pill-peach"><dt>{t('地点', 'Places')}</dt><dd>{places.length}</dd></div>
           <div className="count-pill-honey"><dt>{t('照片', 'Photos')}</dt><dd>{photoCount}</dd></div>
         </dl>
+        <p className="journal-auto-tip">
+          <span>✦</span>
+          {t(
+            '行程到点自动点亮地图城市并将景点收入手账，分地区、按景点传图更方便回忆。',
+            'Scheduled trips auto-light map cities & add sights to your journal—upload photos by region and spot.',
+          )}
+        </p>
       </aside>
     </section>
   );

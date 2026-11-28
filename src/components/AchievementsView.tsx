@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Badge, CityMark, DayEntry, Journey, TravelMedia } from '../types';
+import type { Badge, CityMark, DayEntry, Journey, JourneyPlace, TravelMedia } from '../types';
+import type { AiTravelPlan } from '../planner-types';
 import { TravelCover, TravelIcon } from './TravelArt';
 import { AchievementBadgeArt, CuteSticker, HighlightEmptyArt, getTravelerLevel } from './CuteArt';
 import { createLocalId, downloadBlob } from '../utils';
@@ -8,6 +9,7 @@ import { useI18n, type AppLanguage } from '../i18n';
 import type { TourRestrictedFeature } from '../web-tour';
 import { RELATION_META, type IntimacyBond } from '../cloud-api';
 import { AchievementsTicketShowcase } from './TicketWalletView';
+import ScenicAtlasSection from './ScenicAtlasSection';
 
 // 每站沿用应用内的旅行图标，等级数超过现有图标时仍可显示默认地图图标。
 const travelerStopIcons = ['leaf', 'detail', 'map', 'camera', 'mountain', 'train', 'sun', 'plane'];
@@ -18,6 +20,10 @@ interface AchievementsViewProps {
   trips: Journey[];
   media: TravelMedia[];
   badges: Badge[];
+  aiPlans?: AiTravelPlan[];
+  places?: JourneyPlace[];
+  focusProvinceCode?: string | null;
+  focusProvinceToken?: number;
   intimacyBonds?: IntimacyBond[];
   onSaveBadge: (badge: Badge) => Promise<void>;
   onOpenEntry: (entry: DayEntry) => void;
@@ -182,6 +188,10 @@ export default function AchievementsView({
   trips,
   media,
   badges,
+  aiPlans = [],
+  places = [],
+  focusProvinceCode = null,
+  focusProvinceToken = 0,
   intimacyBonds = [],
   onSaveBadge,
   onOpenEntry,
@@ -612,6 +622,17 @@ export default function AchievementsView({
           <button className="primary" onClick={() => void createBadge()}>{t('收入我的集章册', 'Add to Collection')}</button>
         </div>
       </section>
+
+      {/* 名胜图鉴：5A 景区与世界文化/自然遗产收集进度 */}
+      <ScenicAtlasSection
+        marks={marks}
+        aiPlans={aiPlans}
+        places={places}
+        entries={entries}
+        focusProvinceCode={focusProvinceCode}
+        focusProvinceToken={focusProvinceToken}
+        onNotice={onNotice}
+      />
 
       {/* 出行票夹珍藏墙（直接预览高清拟物票据与出行路线图） */}
       <AchievementsTicketShowcase trips={trips} onNotice={onNotice} onError={onError} />

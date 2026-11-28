@@ -795,7 +795,11 @@ export async function saveAiPlanWithBookingLedger(
  * 按旅行与城市内的规范地名复用地点，同一景点玩两次也共用照片和回忆。
  */
 export async function recordPlannerJournalVisit(
-  planId: string, activityId: string, expectedActivityKey: string, selectedCityCode?: string,
+  planId: string,
+  activityId: string,
+  expectedActivityKey: string,
+  selectedCityCode?: string,
+  options?: { auto?: boolean },
 ): Promise<{ place: JourneyPlace; cityName: string }> {
   const database = await openDatabase();
   const transaction = database.transaction(['aiPlans', 'trips', 'plans', 'places'], 'readwrite');
@@ -852,7 +856,13 @@ export async function recordPlannerJournalVisit(
       }
     }
     if (!existing) placeStore.add(place);
-    const visit: PlannerJournalVisit = { tripId, placeId: place.id, activityKey, completedAt: now };
+    const visit: PlannerJournalVisit = {
+      tripId,
+      placeId: place.id,
+      activityKey,
+      completedAt: now,
+      ...(options?.auto ? { auto: true } : {}),
+    };
     planStore.put({
       ...current, linkedTripId: tripId, linkedSnapshot, version: current.version + 1,
       contentVersion: current.contentVersion ?? current.version, updatedAt: now,

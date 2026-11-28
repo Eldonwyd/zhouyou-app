@@ -3927,3 +3927,556 @@ input, select, textarea { border-radius: 10px; }
     margin-right: 14px;
   }
 }
+
+/* ---------- 行程自动入账按钮 & 手账自动点亮提示 ---------- */
+.planner-journal-action.is-synced {
+  color: var(--app-sage-ink);
+  background: color-mix(in srgb, var(--app-sage) 75%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--warm-green) 24%, transparent);
+  border-radius: 999px;
+  padding: 4px 11px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.planner-journal-action.is-synced:hover {
+  background: var(--app-sage);
+  border-color: color-mix(in srgb, var(--warm-green) 40%, transparent);
+}
+.journal-auto-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 7px 11px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--app-sage) 55%, var(--surface));
+  border: 1px dashed color-mix(in srgb, var(--warm-green) 28%, var(--line));
+  color: var(--app-sage-ink);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.journal-auto-tip > span {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+/* ---------- 地图页省份详情：5A & 世界遗产联动进度卡 ---------- */
+.map-province-scenic-card {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 6px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 76%, var(--warm-green) 24%);
+  background: color-mix(in srgb, var(--surface) 88%, var(--app-sage) 12%);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color .16s ease, box-shadow .16s ease, transform .14s ease;
+}
+.map-province-scenic-card:hover {
+  border-color: color-mix(in srgb, var(--warm-green) 42%, var(--line));
+  box-shadow: 0 3px 10px rgba(34, 48, 42, 0.08);
+  transform: translateY(-1px);
+}
+.map-scenic-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.map-scenic-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-size: 12.5px;
+}
+.map-scenic-label strong {
+  font-weight: 700;
+  color: var(--ink);
+}
+.map-scenic-label em {
+  font-style: normal;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.map-scenic-arrow {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--app-sage-ink);
+  white-space: nowrap;
+}
+.map-scenic-bar {
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 85%, transparent);
+  overflow: hidden;
+}
+.map-scenic-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width .3s ease;
+}
+.map-scenic-auto-note {
+  font-size: 11px;
+  color: var(--app-sage-ink);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- 成就页：名胜图鉴（5A 景区 & 世界文化/自然遗产） ---------- */
+.scenic-atlas-section {
+  scroll-margin-top: 76px;
+}
+.scenic-atlas-heading {
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+.scenic-atlas-total-pill {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--app-sage);
+  color: var(--app-sage-ink);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.scenic-progress-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.scenic-progress-card {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 92%, var(--paper) 8%);
+  cursor: pointer;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.scenic-progress-card.is-active {
+  border-color: color-mix(in srgb, var(--warm-green) 42%, var(--line));
+  box-shadow: 0 4px 14px rgba(34, 48, 42, 0.06);
+}
+.scenic-progress-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.scenic-progress-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.scenic-progress-badge.is-5a {
+  background: color-mix(in srgb, #e8834a 16%, var(--surface));
+  color: #c2561f;
+  border: 1px solid color-mix(in srgb, #e8834a 30%, transparent);
+}
+.scenic-progress-badge.is-heritage {
+  background: color-mix(in srgb, #3d8b6e 16%, var(--surface));
+  color: #25644d;
+  border: 1px solid color-mix(in srgb, #3d8b6e 30%, transparent);
+}
+.scenic-progress-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.scenic-progress-title strong {
+  font-size: 14.5px;
+  color: var(--ink);
+}
+.scenic-progress-title small {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.scenic-progress-num {
+  text-align: right;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.scenic-progress-num b {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.scenic-progress-num em {
+  font-style: normal;
+  color: var(--muted);
+  font-size: 12px;
+}
+.scenic-progress-num i {
+  display: block;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--app-sage-ink);
+}
+.scenic-progress-track {
+  height: 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 82%, transparent);
+  overflow: hidden;
+}
+.scenic-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width .35s ease;
+}
+.scenic-progress-fill.is-5a {
+  background: repeating-linear-gradient(
+    -45deg,
+    #eb7b47,
+    #eb7b47 7px,
+    #f29b6b 7px,
+    #f29b6b 14px
+  );
+}
+.scenic-progress-fill.is-heritage {
+  background: repeating-linear-gradient(
+    -45deg,
+    #3d9970,
+    #3d9970 7px,
+    #5eb88e 7px,
+    #5eb88e 14px
+  );
+}
+.scenic-heritage-subbars {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.scenic-subbar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.scenic-subbar-row b {
+  color: var(--ink);
+  font-weight: 700;
+}
+.scenic-mini-track {
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 80%, transparent);
+  overflow: hidden;
+}
+.scenic-mini-track > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+.scenic-mini-track > span.is-cultural { background: #c87b4b; }
+.scenic-mini-track > span.is-natural { background: #3f9b74; }
+.scenic-mini-track > span.is-mixed { background: #6b7fd4; }
+
+.scenic-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.scenic-tabs {
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  width: fit-content;
+}
+.scenic-tabs > button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.scenic-tabs > button span {
+  font-size: 11.5px;
+  opacity: 0.78;
+}
+.scenic-tabs > button.active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 2px 6px rgba(34, 48, 42, 0.08);
+}
+.scenic-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.scenic-chip-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.scenic-filter-chip {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.scenic-filter-chip.active {
+  background: var(--app-sage);
+  border-color: color-mix(in srgb, var(--warm-green) 32%, transparent);
+  color: var(--app-sage-ink);
+}
+.scenic-search-input {
+  margin-left: auto;
+  min-width: 170px;
+  max-width: 240px;
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12.5px;
+}
+.scenic-province-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.scenic-province-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+  scroll-margin-top: 84px;
+  transition: border-color .16s ease;
+}
+.scenic-province-card.is-focused {
+  border-color: color-mix(in srgb, var(--warm-green) 48%, var(--line));
+}
+.scenic-province-row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 11px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  color: var(--ink);
+  text-align: left;
+}
+.scenic-province-row:hover {
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+}
+.scenic-prov-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.scenic-prov-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.scenic-prov-name strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+.scenic-auto-pill {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--app-sage);
+  color: var(--app-sage-ink);
+}
+.scenic-prov-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.scenic-prov-track {
+  width: 96px;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 82%, transparent);
+  overflow: hidden;
+}
+.scenic-prov-track > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+.scenic-prov-progress small {
+  min-width: 42px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.scenic-prov-chevron {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+  transition: transform .18s ease;
+}
+.scenic-province-card.is-open .scenic-prov-chevron {
+  transform: rotate(180deg);
+}
+.scenic-spot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+  gap: 8px;
+  padding: 2px 14px 14px;
+}
+.scenic-spot-pill {
+  border: 1px dashed var(--line-strong);
+  background: color-mix(in srgb, var(--surface-2) 55%, var(--surface));
+  border-radius: 12px;
+  padding: 9px 11px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  color: var(--ink);
+  transition: all .15s ease;
+}
+.scenic-spot-pill:hover {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--warm-green) 42%, var(--line));
+}
+.scenic-spot-pill.is-visited {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--warm-green) 36%, transparent);
+  background: color-mix(in srgb, var(--app-sage) 68%, var(--surface));
+}
+.scenic-spot-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.scenic-spot-check {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+  margin-top: 1px;
+  background: color-mix(in srgb, var(--line) 75%, transparent);
+  color: var(--muted);
+}
+.scenic-spot-pill.is-visited .scenic-spot-check {
+  background: var(--warm-green);
+  color: #ffffff;
+}
+.scenic-spot-name {
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.scenic-spot-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding-left: 23px;
+}
+.scenic-spot-meta small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.scenic-cat-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+.scenic-cat-tag.is-5a {
+  background: color-mix(in srgb, #e8834a 15%, var(--surface));
+  color: #c2561f;
+}
+.scenic-cat-tag.is-heritage-cultural {
+  background: color-mix(in srgb, #c87b4b 16%, var(--surface));
+  color: #9e5528;
+}
+.scenic-cat-tag.is-heritage-natural {
+  background: color-mix(in srgb, #3f9b74 16%, var(--surface));
+  color: #256c4d;
+}
+.scenic-cat-tag.is-heritage-mixed {
+  background: color-mix(in srgb, #6b7fd4 16%, var(--surface));
+  color: #4253a3;
+}
+.scenic-spot-origin {
+  font-style: normal;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--app-sage-ink);
+}
+.scenic-spot-origin.is-manual {
+  color: var(--muted);
+}
+.scenic-empty {
+  padding: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+@media (max-width: 720px) {
+  .scenic-progress-grid {
+    grid-template-columns: 1fr;
+  }
+  .scenic-search-input {
+    margin-left: 0;
+    width: 100%;
+    max-width: none;
+  }
+  .scenic-prov-track {
+    width: 64px;
+  }
+  .scenic-spot-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}

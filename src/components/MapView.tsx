@@ -7,7 +7,14 @@ import { LabelLayout } from 'echarts/features';
 import type { EChartsType } from 'echarts/core';
 import { themeColor, useAppearanceStyle, useDarkTheme } from '../theme';
 import { provinceDisplayName, useI18n } from '../i18n';
-import type { AdministrativeFeature, AdministrativeGeoJSON, CityMark } from '../types';
+import type { AdministrativeFeature, AdministrativeGeoJSON, CityMark, DayEntry, JourneyPlace } from '../types';
+import type { AiTravelPlan } from '../planner-types';
+import {
+  readScenicManualMap,
+  resolveScenicProgress,
+  SCENIC_MANUAL_CHANGED_EVENT,
+  type ScenicManualMap,
+} from '../scenic-atlas';
 import {
   fillForStatus,
   getCachedNationalMap,
@@ -24,11 +31,15 @@ import {
 
 interface MapViewProps {
   marks: CityMark[];
+  aiPlans?: AiTravelPlan[];
+  places?: JourneyPlace[];
+  entries?: DayEntry[];
   activeProvinceCode: string | null;
   setActiveProvinceCode: (code: string | null) => void;
   onSelectCity: (feature: AdministrativeFeature, province: AdministrativeFeature) => void;
   onError: (message: string) => void;
   onRecommendProvince: (name: string) => void;
+  onOpenScenicProvince?: (provinceCode: string) => void;
   visible?: boolean;
 }
 
@@ -159,8 +170,31 @@ function findNearestFeatureAtPixel(
 }
 
 /** A single chart is reused for country and city levels; click changes the registered geometry. */
-export default function MapView({ marks, activeProvinceCode, setActiveProvinceCode, onSelectCity, onError, onRecommendProvince, visible = true }: MapViewProps) {
+export default function MapView({
+  marks,
+  aiPlans = [],
+  places = [],
+  entries = [],
+  activeProvinceCode,
+  setActiveProvinceCode,
+  onSelectCity,
+  onError,
+  onRecommendProvince,
+  onOpenScenicProvince,
+  visible = true,
+}: MapViewProps) {
   const { lang, t } = useI18n();
+  const [scenicManual, setScenicManual] = useState<ScenicManualMap>(() => readScenicManualMap());
+  useEffect(() => {
+    const sync = () => setScenicManual(readScenicManualMap());
+    window.addEventListener(SCENIC_MANUAL_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(SCENIC_MANUAL_CHANGED_EVENT, sync);
+  }, []);
+  const scenicReport = useMemo(
+    () => resolveScenicProgress({ aiPlans, places, entries, manual: scenicManual }),
+    [aiPlans, places, entries, scenicManual],
+  );
+  const activeProvinceScenic = activeProvinceCode ? scenicReport.byProvince.get(activeProvinceCode) ?? null : null;
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<EChartsType | null>(null);
   const suppressClickUntilRef = useRef(0);
@@ -791,6 +825,52 @@ export default function MapView({ marks, activeProvinceCode, setActiveProvinceCo
               <div className="side-stat-bar" aria-hidden="true">
                 <span style={{ width: `${activeProvincePct}%`, background: activeProvinceColor }} />
               </div>
+              {activeProvinceScenic && (activeProvinceScenic.fiveATotal > 0 || activeProvinceScenic.heritageTotal > 0) && (
+                <button
+                  type="button"
+                  className="map-province-scenic-card"
+                  onClick={() => activeProvinceCode && onOpenScenicProvince?.(activeProvinceCode)}
+                  title={t('点击查看该省 5A 景区与世界遗产清单', 'View 5A & World Heritage list for this province')}
+                >
+                  <div className="map-scenic-top">
+                    <span className="map-scenic-label">
+                      <strong>
+                        {activeProvinceScenic.fiveATotal > 0
+                          ? t(`${activeProvinceScenic.provinceName} 5A 景区 ${activeProvinceScenic.fiveAVisited}/${activeProvinceScenic.fiveATotal}`, `${activeProvinceScenic.provinceName} 5A ${activeProvinceScenic.fiveAVisited}/${activeProvinceScenic.fiveATotal}`)
+                          : t(`${activeProvinceScenic.provinceName} 世界遗产 ${activeProvinceScenic.heritageVisited}/${activeProvinceScenic.heritageTotal}`, `${activeProvinceScenic.provinceName} Heritage ${activeProvinceScenic.heritageVisited}/${activeProvinceScenic.heritageTotal}`)}
+                      </strong>
+                      {activeProvinceScenic.fiveATotal > 0 && activeProvinceScenic.heritageTotal > 0 && (
+                        <em>{t(`世界遗产 ${activeProvinceScenic.heritageVisited}/${activeProvinceScenic.heritageTotal}`, `Heritage ${activeProvinceScenic.heritageVisited}/${activeProvinceScenic.heritageTotal}`)}</em>
+                      )}
+                    </span>
+                    <span className="map-scenic-arrow" aria-hidden="true">图鉴 ↗</span>
+                  </div>
+                  <div className="map-scenic-bar" aria-hidden="true">
+                    <span
+                      style={{
+                        width: `${Math.round(
+                          ((activeProvinceScenic.fiveATotal > 0 ? activeProvinceScenic.fiveAVisited : activeProvinceScenic.heritageVisited) /
+                            Math.max(1, activeProvinceScenic.fiveATotal > 0 ? activeProvinceScenic.fiveATotal : activeProvinceScenic.heritageTotal)) *
+                            100,
+                        )}%`,
+                        background: activeProvinceColor,
+                      }}
+                    />
+                  </div>
+                  {activeProvinceScenic.autoMatchedSpots.length > 0 && (
+                    <span className="map-scenic-auto-note">
+                      ✦ {t('自动识别：', 'Auto-lit: ')}
+                      {activeProvinceScenic.autoMatchedSpots
+                        .slice(0, 2)
+                        .map((item) => item.spot.aliases?.[0] || item.spot.name)
+                        .join('、')}
+                      {activeProvinceScenic.autoMatchedSpots.length > 2
+                        ? t(` 等 ${activeProvinceScenic.autoMatchedSpots.length} 处`, ` +${activeProvinceScenic.autoMatchedSpots.length - 2}`)
+                        : ''}
+                    </span>
+                  )}
+                </button>
+              )}
               <div className="map-province-actions">
                 <button type="button" className="primary province-ai-button" onClick={() => onRecommendProvince(activeProvince.properties.name)}>
                   {t('✦ AI 推荐怎么玩', '✦ AI Trip Ideas')}

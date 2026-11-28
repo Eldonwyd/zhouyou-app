@@ -3,6 +3,7 @@ import type { AdministrativeFeature, AppSnapshot, Badge, CityMark, DayEntry, Jou
 import { deleteMediaRecord, loadSnapshot, moveLegacyPlanToJourney, recordPlannerJournalVisit, saveItem, saveJourneyAndLinkCityRecords, saveMediaBatch, saveAiPlan as saveAiPlanRecord, saveAiPlanPhoto, publishAiPlan, saveAiPlanWithBookingLedger, upsertAiPlanFromCloud } from './db';
 import type { AiTravelPlan, PlannerPhoto, PlannerPreferences } from './planner-types';
 import { prefetchNationalMap, provinceCodeForCity } from './map-data';
+import { findDueAutoVisits, markAutoVisitsProcessed } from './planner-auto-visit';
 import { describeStorageError } from './utils';
 import { applyThemeMode, useThemeMode, type ThemeMode } from './theme';
 import { readLanguage, syncDocumentLanguage, useI18n } from './i18n';
@@ -123,6 +124,7 @@ export default function App() {
   const [targetPlaceId, setTargetPlaceId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [plannerProvince, setPlannerProvince] = useState<{ name: string; token: number } | null>(null);
+  const [scenicProvinceTarget, setScenicProvinceTarget] = useState<{ code: string; token: number } | null>(null);
   const [tourRestriction, setTourRestriction] = useState<TourRestrictedFeature | null>(null);
   const tourMode = useMemo(() => isWebTourMode(), []);
   const embeddedTour = useMemo(() => isEmbeddedTour(), []);
@@ -840,6 +842,10 @@ export default function App() {
   const recommendProvince = useCallback((name: string) => {
     setPlannerProvince({ name, token: Date.now() }); openPage('plan');
   }, [openPage]);
+  const openScenicAtlasForProvince = useCallback((provinceCode: string) => {
+    setScenicProvinceTarget({ code: provinceCode, token: Date.now() });
+    setPage('achievements');
+  }, []);
 
   const lastGuestJournalNoticeRef = useRef(0);
   const remindGuestJournalLocalOnly = useCallback(() => {
@@ -985,6 +991,75 @@ export default function App() {
     return [...byCode.values()].map((mark) => ({ ...mark, planned: false }));
   }, [snapshot.marks, snapshot.trips]);
   const selectedCity = effectiveMarks.find((mark) => mark.id === selectedCityCode) ?? null;
+
+  // 行程到期自动点亮地图城市 & 景点过点自动收入旅行手账
+  const autoVisitRunningRef = useRef(false);
+  useEffect(() => {
+    if (!ready || tourMode || snapshot.aiPlans.length === 0) return;
+    let disposed = false;
+
+    const runAutoVisitSync = async () => {
+      if (disposed || autoVisitRunningRef.current) return;
+      const { dueCities, dueSights } = findDueAutoVisits(snapshot.aiPlans, effectiveMarks, new Date());
+      if (!dueCities.length && !dueSights.length) return;
+      autoVisitRunningRef.current = true;
+      const doneCityKeys: string[] = [];
+      const doneSightKeys: string[] = [];
+      let litCities = 0;
+      let addedSights = 0;
+      try {
+        for (const item of dueCities) {
+          try {
+            await saveItem('marks', item.mark);
+            markCloudRecordDirty('marks', item.mark.id);
+            doneCityKeys.push(item.key);
+            litCities += 1;
+          } catch { /* ignore individual save failure */ }
+        }
+        for (const item of dueSights) {
+          try {
+            await recordPlannerJournalVisit(item.planId, item.activity.id, item.activityKey, item.cityCode, { auto: true });
+            doneSightKeys.push(item.key);
+            addedSights += 1;
+          } catch {
+            // 若行程已变更或找不到对应城市，标记已跳过避免重复触发
+            doneSightKeys.push(item.key);
+          }
+        }
+        if (doneCityKeys.length || doneSightKeys.length) {
+          markAutoVisitsProcessed(doneCityKeys, doneSightKeys);
+        }
+        if (!disposed && (litCities > 0 || addedSights > 0)) {
+          if (addedSights > 0) {
+            markCloudStoreDirty('trips');
+            markCloudStoreDirty('marks');
+            markCloudStoreDirty('places');
+            markCloudStoreDirty('aiPlans');
+          }
+          await reload();
+          scheduleCloudSync();
+          const parts: string[] = [];
+          if (litCities > 0) parts.push(`已自动点亮 ${litCities} 座到期城市`);
+          if (addedSights > 0) parts.push(`已自动将 ${addedSights} 处过点景点加入手账`);
+          if (parts.length) showNotice(`${parts.join('，')}，随时可去添加照片回忆。`);
+        }
+      } finally {
+        autoVisitRunningRef.current = false;
+      }
+    };
+
+    void runAutoVisitSync();
+    const timer = window.setInterval(() => void runAutoVisitSync(), 60_000);
+    const onWake = () => { if (!document.hidden) void runAutoVisitSync(); };
+    window.addEventListener('focus', onWake);
+    document.addEventListener('visibilitychange', onWake);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onWake);
+      document.removeEventListener('visibilitychange', onWake);
+    };
+  }, [ready, tourMode, snapshot.aiPlans, effectiveMarks, reload, scheduleCloudSync, showNotice]);
 
   const selectCity = useCallback((feature: AdministrativeFeature, province: AdministrativeFeature) => {
     const code = String(feature.properties.adcode);
@@ -1264,7 +1339,7 @@ export default function App() {
         </div>}
         {/* 保持足迹地图挂载，从其他页面切回地图时秒开无重载。 */}
         <div className="map-page-host" hidden={page !== 'map'}>
-          <MapView visible={page === 'map'} marks={effectiveMarks} activeProvinceCode={activeProvinceCode} setActiveProvinceCode={setActiveProvinceCode} onSelectCity={selectCity} onError={showError} onRecommendProvince={recommendProvince} />
+          <MapView visible={page === 'map'} marks={effectiveMarks} aiPlans={snapshot.aiPlans} places={snapshot.places} entries={snapshot.entries} activeProvinceCode={activeProvinceCode} setActiveProvinceCode={setActiveProvinceCode} onSelectCity={selectCity} onError={showError} onRecommendProvince={recommendProvince} onOpenScenicProvince={openScenicAtlasForProvince} />
         </div>
         <Suspense fallback={<div className="empty-state">{t('正在打开页面…', 'Opening page…')}</div>}>
           {page === 'companions' && (
@@ -1301,7 +1376,7 @@ export default function App() {
             />
           )}
           {page === 'detail' && <DetailView city={selectedCity} marks={effectiveMarks} entries={snapshot.entries} media={snapshot.media} trips={snapshot.trips} aiPlans={snapshot.aiPlans} places={snapshot.places} targetEntryId={targetEntryId} targetPlaceId={targetPlaceId} onOpenMap={() => openPage('map')} onSaveEntry={saveEntry} onSaveMedia={saveMedia} onSaveMediaGroup={saveMediaGroup} onUpdateMedia={updateMedia} onDeleteMedia={deleteMedia} onSaveTrip={saveTrip} onSavePlace={savePlace} onSaveCityMark={saveMark} onUpdateMark={updateSelectedMark} onError={showError} onNotice={showNotice} webTourMode={tourMode} onRequireClient={requestClientForTour} />}
-          {page === 'achievements' && <AchievementsView marks={effectiveMarks} entries={snapshot.entries} trips={snapshot.trips} media={snapshot.media} badges={snapshot.badges} intimacyBonds={intimacyBonds} onSaveBadge={saveBadge} onOpenEntry={openEntry} onError={showError} onNotice={showNotice} webTourMode={tourMode} onRequireClient={requestClientForTour} />}
+          {page === 'achievements' && <AchievementsView marks={effectiveMarks} entries={snapshot.entries} trips={snapshot.trips} media={snapshot.media} badges={snapshot.badges} aiPlans={snapshot.aiPlans} places={snapshot.places} focusProvinceCode={scenicProvinceTarget?.code ?? null} focusProvinceToken={scenicProvinceTarget?.token ?? 0} intimacyBonds={intimacyBonds} onSaveBadge={saveBadge} onOpenEntry={openEntry} onError={showError} onNotice={showNotice} webTourMode={tourMode} onRequireClient={requestClientForTour} />}
           {page === 'profile' && (
             <ProfileView
               snapshot={snapshot}
