@@ -246,13 +246,6 @@
   cursor: pointer;
 }
 
-/* 顶栏「指引」按钮微调 */
-.topbar .topbar-ext-btn.is-guide {
-  background: color-mix(in srgb, var(--coral, #e07a5f) 9%, var(--surface, #fff));
-  border-color: color-mix(in srgb, var(--coral, #e07a5f) 26%, var(--line, #e4d6c8));
-  color: var(--coral, #c8573b);
-}
-
 /* 个人中心「新手指引」入口图标色 */
 .settings-entry-icon.is-guide {
   background: color-mix(in srgb, var(--coral, #e07a5f) 14%, var(--surface-2, #fff5f0));

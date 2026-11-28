@@ -1148,20 +1148,6 @@ export default function App() {
             </svg>
             <span className="topbar-ext-label">GitHub</span>
           </a>
-          <button
-            type="button"
-            className="topbar-ext-btn is-guide"
-            onClick={startOnboarding}
-            aria-label={t('新手指引', 'Quick Guide')}
-            title={t('重新查看新手指引与按钮说明', 'Replay interactive onboarding guide')}
-          >
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-              <path d="M12 17h.01" />
-            </svg>
-            <span className="topbar-ext-label">{t('指引', 'Guide')}</span>
-          </button>
           <ThemeSwitch />
           {tourMode ? (
             <button
