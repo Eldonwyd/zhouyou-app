@@ -118,6 +118,19 @@ function buildEffectiveConfig(env, settingsMap) {
       .map((s) => s.trim())
       .filter(Boolean),
   ));
+  const svipEnvList = Array.from(new Set(
+    String(env?.FREE_AI_SVIP_ACCOUNTS || '')
+      .split(/[,;\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean),
+  ));
+  const svipDynamicList = Array.from(new Set(
+    String(settingsMap.free_ai_svip_accounts || '')
+      .split(/[,;\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean),
+  ));
+  const svipList = Array.from(new Set([...svipEnvList, ...svipDynamicList]));
   const enabledStr = String(settingsMap.free_ai_enabled || '').trim().toLowerCase();
   const freeAiEnabled = Boolean(env?.FREE_AI_API_KEY) && (enabledStr === '' || (enabledStr !== 'false' && enabledStr !== '0'));
   const rawMult = settingsMap.free_ai_vip_multiplier !== undefined && settingsMap.free_ai_vip_multiplier !== ''
@@ -136,6 +149,9 @@ function buildEffectiveConfig(env, settingsMap) {
     vipMultiplier,
     vipAccounts: vipList,
     vipAccountsDynamic: settingsMap.free_ai_vip_accounts || '',
+    svipAccounts: svipList,
+    svipAccountsEnv: svipEnvList,
+    svipAccountsDynamic: settingsMap.free_ai_svip_accounts || '',
     announcementEnabled: settingsMap.announcement_enabled === 'true' || settingsMap.announcement_enabled === '1',
     announcementTitle: settingsMap.announcement_title || '',
     announcementBody: settingsMap.announcement_body || '',
@@ -727,6 +743,7 @@ export const onRequest = withApiHandler(async (context) => {
     const settingsMap = await readAdminSettingsMap(db);
     const cfg = buildEffectiveConfig(env, settingsMap);
     const vipSet = new Set(cfg.vipAccounts.map((s) => s.toLowerCase()));
+    const svipSet = new Set(cfg.svipAccounts.map((s) => s.toLowerCase()));
 
     const excludedIds = await resolveExcludedUserIds(db, settingsMap, excludeSelf);
     const like = `%${q}%`;
@@ -769,6 +786,7 @@ export const onRequest = withApiHandler(async (context) => {
       const candidates = [u.id, u.email_norm, u.phone_norm, u.nickname_norm, u.friend_code]
         .filter(Boolean)
         .map((s) => String(s).toLowerCase());
+      const isSvip = candidates.some((c) => svipSet.has(c));
       const isVip = candidates.some((c) => vipSet.has(c));
       const isLocked = Boolean(u.security_locked_until && Date.parse(u.security_locked_until) > Date.now());
       return {
@@ -784,6 +802,7 @@ export const onRequest = withApiHandler(async (context) => {
         cloudBytes: Number(u.cloud_bytes) || 0,
         aiTodayTokens: Number(u.ai_today_tokens) || 0,
         aiMonthTokens: Number(u.ai_month_tokens) || 0,
+        isSvip,
         isVip,
         isLocked,
         securityFailCount: Number(u.security_fail_count) || 0,
@@ -849,7 +868,305 @@ export const onRequest = withApiHandler(async (context) => {
       });
     }
 
+    if (op === 'toggle_svip') {
+      const settingsMap = await readAdminSettingsMap(db);
+      const currentList = String(settingsMap.free_ai_svip_accounts || '')
+        .split(/[,;\s]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const key = user.friend_code || user.id;
+      const lowerSet = new Set(currentList.map((s) => s.toLowerCase()));
+      const userCandidates = new Set(
+        [user.id, user.friend_code, user.email_norm, user.phone_norm, user.nickname_norm]
+          .filter(Boolean)
+          .map((s) => String(s).toLowerCase()),
+      );
+      let nextList;
+      let added;
+      if ([...userCandidates].some((c) => lowerSet.has(c))) {
+        nextList = currentList.filter((item) => !userCandidates.has(item.toLowerCase()));
+        added = false;
+      } else {
+        nextList = [...currentList, key];
+        added = true;
+      }
+      await setAdminSettings(db, { free_ai_svip_accounts: nextList.join(',') });
+      await recordAdminAudit(db, added ? 'add_svip' : 'remove_svip', user.nickname, { userId, key }, ip);
+      return jsonResponse(request, 200, {
+        ok: true,
+        isSvip: added,
+        message: added ? `已将 ${user.nickname} 设为永久免费 SVIP` : `已将 ${user.nickname} 移出 SVIP 白名单`,
+      });
+    }
+
     return errorResponse(request, 400, '不支持的操作类型', 'UNSUPPORTED_ACTION');
+  }
+
+  // GET /api/admin/svip — SVIP 专属管理大盘（永久免费无限额成员列表、消耗统计与审计）
+  if (method === 'GET' && action === 'svip' && segments.length === 1) {
+    const { dayKey, monthKey } = getBeijingPeriodKeys();
+    const settingsMap = await readAdminSettingsMap(db);
+    const cfg = buildEffectiveConfig(env, settingsMap);
+    const svipEnvLower = new Set(cfg.svipAccountsEnv.map((s) => s.toLowerCase()));
+    const svipDynamicRaw = String(settingsMap.free_ai_svip_accounts || '')
+      .split(/[,;\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const svipDynamicLower = new Set(svipDynamicRaw.map((s) => s.toLowerCase()));
+    const allTokensLower = Array.from(new Set(cfg.svipAccounts.map((s) => s.toLowerCase())));
+
+    let matchedUsers = [];
+    if (allTokensLower.length > 0) {
+      const ph = allTokensLower.map(() => '?').join(',');
+      matchedUsers = await safeAll(
+        db,
+        `SELECT
+           u.id, u.nickname, u.nickname_norm, u.friend_code, u.email_norm, u.phone_norm, u.created_at,
+           (SELECT MAX(s.last_seen_at) FROM user_sessions s WHERE s.user_id = u.id) AS last_seen_at,
+           (SELECT GROUP_CONCAT(DISTINCT s.platform) FROM user_sessions s WHERE s.user_id = u.id) AS platforms,
+           (SELECT tokens_used FROM free_ai_usage_daily d WHERE d.user_id = u.id AND d.day_key = ?) AS ai_today_tokens,
+           (SELECT requests_count FROM free_ai_usage_daily d WHERE d.user_id = u.id AND d.day_key = ?) AS ai_today_requests,
+           (SELECT tokens_used FROM free_ai_usage_monthly m WHERE m.user_id = u.id AND m.month_key = ?) AS ai_month_tokens,
+           (SELECT requests_count FROM free_ai_usage_monthly m WHERE m.user_id = u.id AND m.month_key = ?) AS ai_month_requests
+         FROM users u
+         WHERE LOWER(u.id) IN (${ph})
+            OR LOWER(u.nickname_norm) IN (${ph})
+            OR LOWER(COALESCE(u.email_norm, '')) IN (${ph})
+            OR LOWER(COALESCE(u.phone_norm, '')) IN (${ph})
+            OR LOWER(COALESCE(u.friend_code, '')) IN (${ph})
+         ORDER BY COALESCE(ai_month_tokens, 0) DESC, COALESCE(last_seen_at, u.created_at) DESC`,
+        dayKey,
+        dayKey,
+        monthKey,
+        monthKey,
+        ...allTokensLower,
+        ...allTokensLower,
+        ...allTokensLower,
+        ...allTokensLower,
+        ...allTokensLower,
+      );
+    }
+
+    const matchedTokenSet = new Set();
+    const members = matchedUsers.map((u) => {
+      const candidates = [u.id, u.friend_code, u.email_norm, u.phone_norm, u.nickname_norm]
+        .filter(Boolean)
+        .map((s) => String(s).toLowerCase());
+      const matchedKeys = [];
+      for (const c of candidates) {
+        if (svipDynamicLower.has(c) || svipEnvLower.has(c)) {
+          matchedTokenSet.add(c);
+          matchedKeys.push(c);
+        }
+      }
+      const fromEnv = candidates.some((c) => svipEnvLower.has(c));
+      const fromDynamic = candidates.some((c) => svipDynamicLower.has(c));
+      return {
+        id: u.id,
+        nickname: u.nickname,
+        friendCode: u.friend_code,
+        email: u.email_norm || '',
+        phone: u.phone_norm || '',
+        createdAt: u.created_at,
+        lastSeenAt: u.last_seen_at || u.created_at,
+        platforms: u.platforms ? String(u.platforms).split(',') : [],
+        aiTodayTokens: Number(u.ai_today_tokens) || 0,
+        aiTodayRequests: Number(u.ai_today_requests) || 0,
+        aiMonthTokens: Number(u.ai_month_tokens) || 0,
+        aiMonthRequests: Number(u.ai_month_requests) || 0,
+        source: fromEnv && fromDynamic ? 'both' : fromEnv ? 'env' : 'dynamic',
+        removable: fromDynamic,
+        matchedKeys,
+      };
+    });
+
+    const pendingEntries = cfg.svipAccounts
+      .filter((entry) => !matchedTokenSet.has(entry.toLowerCase()))
+      .map((entry) => ({
+        key: entry,
+        source: svipEnvLower.has(entry.toLowerCase()) ? 'env' : 'dynamic',
+        removable: svipDynamicLower.has(entry.toLowerCase()),
+      }));
+
+    const todayTokens = members.reduce((sum, m) => sum + m.aiTodayTokens, 0);
+    const todayRequests = members.reduce((sum, m) => sum + m.aiTodayRequests, 0);
+    const monthTokens = members.reduce((sum, m) => sum + m.aiMonthTokens, 0);
+    const monthRequests = members.reduce((sum, m) => sum + m.aiMonthRequests, 0);
+    const costRate = cfg.tokenCostPerMillionCny;
+
+    const auditLogs = await safeAll(
+      db,
+      `SELECT * FROM admin_audit_logs
+       WHERE action IN ('add_svip', 'remove_svip')
+       ORDER BY created_at DESC LIMIT 30`,
+    );
+
+    return jsonResponse(request, 200, {
+      ok: true,
+      dayKey,
+      monthKey,
+      summary: {
+        totalCount: members.length + pendingEntries.length,
+        matchedCount: members.length,
+        pendingCount: pendingEntries.length,
+        todayTokens,
+        todayRequests,
+        monthTokens,
+        monthRequests,
+        estimatedCostMonthCny: Number(((monthTokens / 1_000_000) * costRate).toFixed(4)),
+      },
+      members,
+      pendingEntries,
+      svipAccountsDynamic: cfg.svipAccountsDynamic,
+      auditLogs: auditLogs.map((l) => ({
+        id: l.id,
+        action: l.action,
+        target: l.target,
+        detail: parseJsonSafe(l.detail_json, {}),
+        ip: l.ip,
+        createdAt: l.created_at,
+      })),
+    });
+  }
+
+  // POST /api/admin/svip/add — 批量或单个授予 SVIP 永久免费特权
+  if (method === 'POST' && action === 'svip' && segments[1] === 'add') {
+    const body = await readJsonBody(request, 16384);
+    const rawIdentifiers = Array.isArray(body.identifiers)
+      ? body.identifiers.join(',')
+      : String(body.identifiers || body.identifier || body.key || '');
+    const tokens = Array.from(new Set(
+      rawIdentifiers
+        .split(/[,;\s\r\n]+/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ));
+    if (tokens.length === 0) {
+      return errorResponse(request, 400, '请输入至少一个好友码、邮箱、手机号、昵称或用户 ID', 'EMPTY_IDENTIFIER');
+    }
+
+    const settingsMap = await readAdminSettingsMap(db);
+    const currentList = String(settingsMap.free_ai_svip_accounts || '')
+      .split(/[,;\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const lowerSet = new Set(currentList.map((s) => s.toLowerCase()));
+    const addedItems = [];
+    const skippedItems = [];
+
+    for (const token of tokens) {
+      const lower = token.toLowerCase();
+      // 尽量解析到注册用户的 friend_code 或 id，保持白名单整洁
+      const user = await safeFirst(
+        db,
+        `SELECT id, nickname, friend_code, email_norm, phone_norm, nickname_norm
+         FROM users
+         WHERE LOWER(id) = ?
+            OR LOWER(COALESCE(friend_code, '')) = ?
+            OR LOWER(COALESCE(email_norm, '')) = ?
+            OR LOWER(COALESCE(phone_norm, '')) = ?
+            OR LOWER(nickname_norm) = ?
+         LIMIT 1`,
+        lower,
+        lower,
+        lower,
+        lower,
+        lower,
+      );
+      const canonicalKey = user ? (user.friend_code || user.id) : token;
+      const userCandidates = user
+        ? [user.id, user.friend_code, user.email_norm, user.phone_norm, user.nickname_norm]
+            .filter(Boolean)
+            .map((s) => String(s).toLowerCase())
+        : [lower];
+
+      if (userCandidates.some((c) => lowerSet.has(c))) {
+        skippedItems.push(user ? `${user.nickname} (${canonicalKey})` : token);
+        continue;
+      }
+      currentList.push(canonicalKey);
+      lowerSet.add(canonicalKey.toLowerCase());
+      addedItems.push({
+        key: canonicalKey,
+        nickname: user?.nickname || '',
+        matched: Boolean(user),
+      });
+    }
+
+    if (addedItems.length > 0) {
+      await setAdminSettings(db, { free_ai_svip_accounts: currentList.join(',') });
+      await recordAdminAudit(
+        db,
+        'add_svip',
+        addedItems.map((i) => i.nickname || i.key).join(', ').slice(0, 120),
+        { added: addedItems },
+        ip,
+      );
+    }
+
+    const msg = addedItems.length > 0
+      ? `已成功授予 ${addedItems.length} 位永久免费 SVIP${skippedItems.length ? `（跳过已存在 ${skippedItems.length} 项）` : ''}`
+      : '所填账号均已在 SVIP 名单中';
+    return jsonResponse(request, 200, {
+      ok: true,
+      addedCount: addedItems.length,
+      skippedCount: skippedItems.length,
+      added: addedItems,
+      message: msg,
+    });
+  }
+
+  // POST /api/admin/svip/remove — 移出 SVIP 永久免费特权
+  if (method === 'POST' && action === 'svip' && segments[1] === 'remove') {
+    const body = await readJsonBody(request, 8192);
+    const userId = String(body.userId || '').trim();
+    const rawKey = String(body.key || '').trim();
+    if (!userId && !rawKey) {
+      return errorResponse(request, 400, '缺少要移出的 SVIP 用户 ID 或标识', 'MISSING_TARGET');
+    }
+
+    const settingsMap = await readAdminSettingsMap(db);
+    const currentList = String(settingsMap.free_ai_svip_accounts || '')
+      .split(/[,;\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const removeSet = new Set();
+    let targetLabel = rawKey || userId;
+    if (rawKey) removeSet.add(rawKey.toLowerCase());
+    if (userId) {
+      removeSet.add(userId.toLowerCase());
+      const user = await safeFirst(
+        db,
+        'SELECT id, nickname, friend_code, email_norm, phone_norm, nickname_norm FROM users WHERE id = ?',
+        userId,
+      );
+      if (user) {
+        targetLabel = user.nickname || user.friend_code || user.id;
+        for (const c of [user.id, user.friend_code, user.email_norm, user.phone_norm, user.nickname_norm]) {
+          if (c) removeSet.add(String(c).toLowerCase());
+        }
+      }
+    }
+
+    const nextList = currentList.filter((item) => !removeSet.has(item.toLowerCase()));
+    const removedCount = currentList.length - nextList.length;
+    if (removedCount === 0) {
+      return errorResponse(
+        request,
+        400,
+        '未在动态 SVIP 名单中找到该条目（若配置在 Cloudflare 环境变量 FREE_AI_SVIP_ACCOUNTS 中，请到 Cloudflare 后台移除）',
+        'SVIP_NOT_IN_DYNAMIC',
+      );
+    }
+
+    await setAdminSettings(db, { free_ai_svip_accounts: nextList.join(',') });
+    await recordAdminAudit(db, 'remove_svip', targetLabel, { userId, key: rawKey, removedCount }, ip);
+    return jsonResponse(request, 200, {
+      ok: true,
+      removedCount,
+      message: `已将 ${targetLabel} 移出 SVIP 永久免费名单`,
+    });
   }
 
   // GET /api/admin/settings

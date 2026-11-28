@@ -76,6 +76,13 @@ function readFreeAiConfig(env, overrides = {}) {
       .map((item) => item.trim().toLowerCase())
       .filter(Boolean),
   );
+  const rawSvip = [env?.FREE_AI_SVIP_ACCOUNTS || '', overrides.free_ai_svip_accounts || ''].filter(Boolean).join(',');
+  const svipSet = new Set(
+    rawSvip
+      .split(/[,;\s]+/)
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean),
+  );
   const vipMultiplier = parseVipMultiplier(
     overrides.free_ai_vip_multiplier !== undefined && overrides.free_ai_vip_multiplier !== ''
       ? overrides.free_ai_vip_multiplier
@@ -91,6 +98,7 @@ function readFreeAiConfig(env, overrides = {}) {
     userMonthlyLimit,
     siteDailyLimit,
     vipSet,
+    svipSet,
     vipMultiplier,
   };
 }
@@ -146,7 +154,8 @@ async function ensureQuotaTables(db) {
 
 async function readQuotaSnapshot(db, user, config) {
   const { dayKey, monthKey } = getBeijingPeriodKeys();
-  const vip = isVipUser(user, config.vipSet);
+  const svip = isVipUser(user, config.svipSet);
+  const vip = svip || isVipUser(user, config.vipSet);
   const [userDailyRow, userMonthlyRow, siteDailyRow] = await Promise.all([
     db
       .prepare('SELECT tokens_used, requests_count FROM free_ai_usage_daily WHERE user_id = ? AND day_key = ?')
@@ -165,7 +174,7 @@ async function readQuotaSnapshot(db, user, config) {
   const dailyUsed = Number(userDailyRow?.tokens_used || 0);
   const monthlyUsed = Number(userMonthlyRow?.tokens_used || 0);
   const siteUsed = Number(siteDailyRow?.tokens_used || 0);
-  const vipUnlimited = vip && config.vipMultiplier === 0;
+  const vipUnlimited = svip || (vip && config.vipMultiplier === 0);
   const multiplier = vip && config.vipMultiplier > 0 ? config.vipMultiplier : 1;
   const effectiveDailyLimit = Math.round(config.userDailyLimit * multiplier);
   const effectiveMonthlyLimit = Math.round(config.userMonthlyLimit * multiplier);
@@ -177,8 +186,9 @@ async function readQuotaSnapshot(db, user, config) {
     enabled: config.enabled,
     label: '周游免费体验 AI',
     model: config.model,
+    svip,
     vip,
-    vipMultiplier: vip ? config.vipMultiplier : 1,
+    vipMultiplier: svip ? 0 : (vip ? config.vipMultiplier : 1),
     vipUnlimited,
     dayKey,
     monthKey,
@@ -198,15 +208,15 @@ async function readQuotaSnapshot(db, user, config) {
       used: siteUsed,
       limit: config.siteDailyLimit,
       remaining: siteRemaining,
-      exhausted: !vip && siteRemaining <= 0,
+      exhausted: !vip && !svip && siteRemaining <= 0,
     },
   };
 }
 
-async function recordTokenUsage(db, userId, tokensUsed, dayKey, monthKey) {
+async function recordTokenUsage(db, userId, tokensUsed, dayKey, monthKey, { countInSiteBucket = true } = {}) {
   const safeTokens = Math.max(0, Math.round(Number(tokensUsed) || 0));
   const now = nowIso();
-  await Promise.all([
+  const tasks = [
     db
       .prepare(`
         INSERT INTO free_ai_usage_daily (user_id, day_key, tokens_used, requests_count, updated_at)
@@ -229,18 +239,23 @@ async function recordTokenUsage(db, userId, tokensUsed, dayKey, monthKey) {
       `)
       .bind(userId, monthKey, safeTokens, now)
       .run(),
-    db
-      .prepare(`
-        INSERT INTO free_ai_usage_daily (user_id, day_key, tokens_used, requests_count, updated_at)
-        VALUES (?, ?, ?, 1, ?)
-        ON CONFLICT(user_id, day_key) DO UPDATE SET
-          tokens_used = tokens_used + excluded.tokens_used,
-          requests_count = requests_count + 1,
-          updated_at = excluded.updated_at
-      `)
-      .bind(SITE_BUCKET_ID, dayKey, safeTokens, now)
-      .run(),
-  ]);
+  ];
+  if (countInSiteBucket) {
+    tasks.push(
+      db
+        .prepare(`
+          INSERT INTO free_ai_usage_daily (user_id, day_key, tokens_used, requests_count, updated_at)
+          VALUES (?, ?, ?, 1, ?)
+          ON CONFLICT(user_id, day_key) DO UPDATE SET
+            tokens_used = tokens_used + excluded.tokens_used,
+            requests_count = requests_count + 1,
+            updated_at = excluded.updated_at
+        `)
+        .bind(SITE_BUCKET_ID, dayKey, safeTokens, now)
+        .run(),
+    );
+  }
+  await Promise.all(tasks);
 }
 
 function sanitizeMessages(rawMessages) {
@@ -451,7 +466,7 @@ export const onRequest = withApiHandler(async (context) => {
     }
 
     const beforeQuota = await readQuotaSnapshot(db, auth.user, config);
-    if (!beforeQuota.vip && beforeQuota.site.remaining <= 0) {
+    if (!beforeQuota.svip && !beforeQuota.vip && beforeQuota.site.remaining <= 0) {
       return errorResponse(
         request,
         429,
@@ -460,7 +475,7 @@ export const onRequest = withApiHandler(async (context) => {
         { quota: beforeQuota },
       );
     }
-    if (!beforeQuota.vipUnlimited) {
+    if (!beforeQuota.svip && !beforeQuota.vipUnlimited) {
       const tierLabel = beforeQuota.vip ? `VIP ${beforeQuota.vipMultiplier}倍` : '免费体验';
       if (beforeQuota.daily.remaining <= 0) {
         return errorResponse(
@@ -512,7 +527,10 @@ export const onRequest = withApiHandler(async (context) => {
     const completionTokens = result.completionTokens || Math.ceil(result.content.length / 2.2);
     const totalTokens = result.totalTokens || (promptTokens + completionTokens);
 
-    await recordTokenUsage(db, auth.user.id, totalTokens, beforeQuota.dayKey, beforeQuota.monthKey);
+    // SVIP 永久免费不占用全站熔断池，仅记录个人统计便于后台监控
+    await recordTokenUsage(db, auth.user.id, totalTokens, beforeQuota.dayKey, beforeQuota.monthKey, {
+      countInSiteBucket: !beforeQuota.svip,
+    });
     logFreeAiRequest(context, {
       userId: auth.user.id,
       model: config.model,

@@ -87,6 +87,7 @@ export interface FreeAiQuotaSnapshot {
   enabled: boolean;
   label: string;
   model: string;
+  svip?: boolean;
   vip: boolean;
   vipMultiplier?: number;
   vipUnlimited?: boolean;

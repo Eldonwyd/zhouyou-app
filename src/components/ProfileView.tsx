@@ -758,12 +758,15 @@ export default function ProfileView({
     );
   }
 
+  const isSvip = Boolean(vipQuota?.svip);
   const isVip = Boolean(vipQuota?.vip);
   const vipMult = vipQuota?.vipMultiplier ?? 3;
   const vipUnlimited = Boolean(vipQuota?.vipUnlimited);
-  const vipTooltip = vipUnlimited
-    ? t('尊享 VIP · 免费 AI 无限额特权', 'VIP · Unlimited Free AI Quota')
-    : t(`尊享 VIP · 免费 AI ${vipMult} 倍额度特权`, `VIP · ${vipMult}x Free AI Quota`);
+  const vipTooltip = isSvip
+    ? t('尊享 SVIP · 永久免费无限额度特权', 'SVIP · Lifetime Unlimited Free AI Quota')
+    : vipUnlimited
+      ? t('尊享 VIP · 免费 AI 无限额特权', 'VIP · Unlimited Free AI Quota')
+      : t(`尊享 VIP · 免费 AI ${vipMult} 倍额度特权`, `VIP · ${vipMult}x Free AI Quota`);
 
   return (
     <div className="content-page warm-profile">
@@ -799,11 +802,15 @@ export default function ProfileView({
           <div className="profile-banner-info">
             <div className="profile-name-row">
               <h2>{editing ? (nickname.trim() || defaultNickname) : displaySavedNickname}</h2>
-              {isVip && (
+              {isSvip ? (
+                <span className="profile-vip-badge profile-svip-badge" title={vipTooltip}>
+                  SVIP
+                </span>
+              ) : isVip ? (
                 <span className="profile-vip-badge" title={vipTooltip}>
                   VIP
                 </span>
-              )}
+              ) : null}
               <span className="profile-level-tag">Lv.{levelInfo.level} {levelInfo.title}</span>
               {cloudUser ? (
                 <button
