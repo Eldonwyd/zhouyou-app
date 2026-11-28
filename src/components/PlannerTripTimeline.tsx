@@ -188,7 +188,13 @@ function DayMiniArt({ index }: { index: number }) {
 export const plannerDayAnchor = (date: string) => `planner-day-${date}`;
 
 /** 每天一个时间轴节点，状态信息按当天实际排入行程的活动切换。 */
-export default function PlannerTripTimeline({ content }: { content: PlannerContent }) {
+export default function PlannerTripTimeline({
+  content,
+  onSelectDay,
+}: {
+  content: PlannerContent;
+  onSelectDay?: (date: string) => void;
+}) {
   const clock = useDeviceClock();
   const dayStrip = useRef<HTMLOListElement>(null);
   const todayNode = useRef<HTMLLIElement>(null);
@@ -278,6 +284,11 @@ export default function PlannerTripTimeline({ content }: { content: PlannerConte
                 href={`#${plannerDayAnchor(day.date)}`}
                 aria-current={isToday ? 'date' : undefined}
                 title={dayTitle}
+                onClick={(event) => {
+                  if (!onSelectDay) return;
+                  event.preventDefault();
+                  onSelectDay(day.date);
+                }}
               >
                 <span className="planner-trip-day-head">
                   <span className="planner-trip-day-stamp" aria-hidden="true">

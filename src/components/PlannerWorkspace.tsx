@@ -1075,6 +1075,7 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
     props.provinceIntent ? 'discover' : 'itineraries',
   );
   const [serviceToolsExpanded, setServiceToolsExpanded] = useState(false);
+  const [collapsedDays, setCollapsedDays] = useState<Record<string, boolean>>({});
   const [activeId, setActiveId] = useState<string | null>(props.aiPlans[0]?.id ?? null);
   useEffect(() => {
     if (props.targetPlanId && props.aiPlans.some((p) => p.id === props.targetPlanId)) {
@@ -2960,7 +2961,17 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                   />
                 )}
                 <div className="planner-overview-timeline" key={activePlan.id}>
-                  <PlannerTripTimeline content={activePlan.content} />
+                  <PlannerTripTimeline
+                    content={activePlan.content}
+                    onSelectDay={(date) => {
+                      const key = `${activePlan.id}:${date}`;
+                      setCollapsedDays((prev) => (prev[key] ? { ...prev, [key]: false } : prev));
+                      window.requestAnimationFrame(() => {
+                        const target = document.getElementById(plannerDayAnchor(date));
+                        target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      });
+                    }}
+                  />
                   <PlannerCalendarExport plan={activePlan} disabled={busy}
                     initialReminderDays={props.plans.find((plan) => plan.tripId === activePlan.linkedTripId)?.reminderDays ?? 1}
                     onSave={props.onSaveAi} onError={props.onError} />
@@ -3436,22 +3447,49 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                 <div className="planner-itinerary">
                   {activePlan.content.days.map((day, dayIndex) => {
                     const bookedHotel = hotelBookingForDay(activePlan, day.date);
+                    const dayKey = `${activePlan.id}:${day.date}`;
+                    const dayCollapsed = Boolean(collapsedDays[dayKey]);
                     const dayOrdered = plannerActivitiesByTime(day.activities);
                     const prevById = new Map<string, PlannerActivity>();
                     for (let i = 1; i < dayOrdered.length; i += 1) {
                       prevById.set(dayOrdered[i].id, dayOrdered[i - 1]);
                     }
                     return (
-                    <section className="planner-day" id={plannerDayAnchor(day.date)} tabIndex={-1} key={day.date}>
+                    <section
+                      className={`planner-day${dayCollapsed ? ' is-collapsed' : ''}`}
+                      id={plannerDayAnchor(day.date)}
+                      tabIndex={-1}
+                      key={day.date}
+                    >
                       <div className="planner-day-heading">
                         <span>DAY {dayIndex + 1}</span>
-                        <div>
+                        <div className="planner-day-heading-main">
                           <h2>{plannerDisplayText(day.title, activePlan.content)}</h2>
                           <p>
                             {day.date} · {plannerDisplayText(day.weather, activePlan.content)}
                           </p>
                         </div>
+                        <button
+                          type="button"
+                          className={`planner-day-collapse-btn${dayCollapsed ? ' is-collapsed' : ''}`}
+                          aria-expanded={!dayCollapsed}
+                          aria-controls={`${plannerDayAnchor(day.date)}-body`}
+                          aria-label={dayCollapsed ? `展开第 ${dayIndex + 1} 天行程` : `折叠第 ${dayIndex + 1} 天行程`}
+                          title={dayCollapsed ? '展开当日行程' : '折叠当日行程'}
+                          onClick={() =>
+                            setCollapsedDays((prev) => ({ ...prev, [dayKey]: !prev[dayKey] }))
+                          }
+                        >
+                          <span className="planner-day-collapse-label">
+                            {dayCollapsed ? `展开 · ${day.activities.length}项` : '收起'}
+                          </span>
+                          <svg className="planner-day-collapse-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                            <path d="M4.2 6.2 8 10l3.8-3.8" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
                       </div>
+                      {!dayCollapsed && (
+                      <div className="planner-day-body" id={`${plannerDayAnchor(day.date)}-body`}>
                       {day.activities.some((item) => item.bookingTiming?.deferred === 'no-time') && <p className="planner-banner">
                         预订时间和接驳已预留，以下活动暂未排入时间轴：{day.activities.filter((item) => item.bookingTiming?.deferred === 'no-time').map((item) => item.title).join('、')}。
                       </p>}
@@ -3875,6 +3913,8 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                         <h3>今晚住：{activePlan.hotels[day.date]}</h3>
                         {bookedHotel && <HotelBookingDetails booking={bookedHotel} />}
                       </section>}
+                      </div>
+                      )}
                     </section>
                     );
                   })}

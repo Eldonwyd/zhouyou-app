@@ -814,8 +814,11 @@ div.mobile-disclosure-body,
     font-weight: 600;
   }
   .planner-day { margin-bottom: 20px; }
+  .planner-day.is-collapsed { margin-bottom: 12px; }
   .planner-day-heading { margin: 4px 0 12px; gap: 10px; }
   .planner-day-heading h2 { font-size: 18px; margin-bottom: 2px; }
+  .planner-day-collapse-btn { height: 26px; padding: 0 8px 0 9px; font-size: 11.5px; gap: 3px; }
+  .planner-day-collapse-chevron { width: 12px; height: 12px; }
   .planner-period h3 { margin: 10px 0 8px; }
   .planner-activity-content { padding: 13px 14px; }
   .planner-notes { margin: 10px 0; padding: 10px 12px; }
