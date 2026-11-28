@@ -63,43 +63,64 @@ function TicketSvgIcon({ name, size = 16 }: { name: 'ticket' | 'route' | 'downlo
   }
 }
 
-/** 精致的拟物票夹封面插画（叠放高铁票 + 登机牌剪影） */
-function TicketWalletHeroArt() {
+/** 精致的手账票夹口袋插画（用于手账卡片封面，皮革/牛皮纸口袋里探出高铁磁票与航空登机牌） */
+export function TicketWalletHeroArt({ className = 'ticket-hero-art' }: { className?: string }) {
   return (
-    <svg className="ticket-hero-art" viewBox="0 0 132 88" width="132" height="88" aria-hidden="true">
+    <svg className={className} viewBox="0 0 148 112" width="148" height="112" aria-hidden="true">
       <defs>
+        <linearGradient id="zyPocketBg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#352920" />
+          <stop offset="100%" stopColor="#1e1712" />
+        </linearGradient>
+        <linearGradient id="zyPocketLeather" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#9c6642" />
+          <stop offset="100%" stopColor="#6c4329" />
+        </linearGradient>
         <linearGradient id="zyTicketCardA" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#89c4f4" />
-          <stop offset="65%" stopColor="#d9ecfb" />
-          <stop offset="100%" stopColor="#f2cad9" />
+          <stop offset="0%" stopColor="#93cbf7" />
+          <stop offset="62%" stopColor="#e3f2fd" />
+          <stop offset="100%" stopColor="#f6cddc" />
         </linearGradient>
         <linearGradient id="zyTicketCardB" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#1b4f8a" />
+          <stop offset="0%" stopColor="#184a83" />
           <stop offset="72%" stopColor="#266cb5" />
-          <stop offset="100%" stopColor="#d19a45" />
+          <stop offset="100%" stopColor="#d99f43" />
         </linearGradient>
       </defs>
-      {/* 后层登机牌 */}
-      <g transform="translate(22 6) rotate(7)">
-        <rect x="0" y="0" width="92" height="54" rx="8" fill="#fdfaf3" stroke="rgba(160,130,96,0.4)" strokeWidth="1.2" />
-        <path d="M0 8a8 8 0 0 1 8-8h76a8 8 0 0 1 8 8v7H0Z" fill="url(#zyTicketCardB)" />
-        <rect x="9" y="24" width="32" height="5" rx="2.5" fill="#2b3d54" opacity="0.72" />
-        <rect x="9" y="34" width="48" height="3.5" rx="1.75" fill="#7c8b9c" opacity="0.5" />
-        <line x1="68" y1="18" x2="68" y2="50" stroke="#cbd5e1" strokeWidth="1.2" strokeDasharray="3 2.5" />
-        <rect x="74" y="25" width="12" height="19" rx="1.5" fill="#2b3d54" opacity="0.5" />
+      {/* 暖夜背景底框 */}
+      <rect x="0" y="0" width="148" height="112" rx="16" fill="url(#zyPocketBg)" />
+      {/* 星点与航线点缀 */}
+      <circle cx="20" cy="20" r="1.4" fill="#f3cfa0" opacity="0.7" />
+      <circle cx="128" cy="18" r="1.8" fill="#f3cfa0" opacity="0.6" />
+      <path d="M16 32 Q 74 8 134 28" fill="none" stroke="rgba(243,207,160,0.22)" strokeWidth="1.2" strokeDasharray="3 3" />
+
+      {/* 后层：航空登机牌 */}
+      <g transform="translate(46 16) rotate(9)">
+        <rect x="0" y="0" width="84" height="52" rx="7" fill="#fffdf8" stroke="rgba(160,130,96,0.35)" strokeWidth="1" />
+        <path d="M0 7a7 7 0 0 1 7-7h70a7 7 0 0 1 7 7v7H0Z" fill="url(#zyTicketCardB)" />
+        <rect x="8" y="21" width="28" height="4.5" rx="2.2" fill="#21374f" opacity="0.78" />
+        <rect x="8" y="30" width="40" height="3" rx="1.5" fill="#7c8b9c" opacity="0.5" />
+        <line x1="60" y1="17" x2="60" y2="48" stroke="#cbd5e1" strokeWidth="1.1" strokeDasharray="2.5 2.5" />
+        <rect x="66" y="22" width="11" height="18" rx="1.5" fill="#21374f" opacity="0.45" />
       </g>
-      {/* 前层蓝粉高铁磁票 */}
-      <g transform="translate(8 24) rotate(-5)">
-        <rect x="0" y="0" width="98" height="56" rx="9" fill="url(#zyTicketCardA)" stroke="rgba(96,154,209,0.65)" strokeWidth="1.2" />
-        <rect x="0" y="42" width="98" height="14" rx="0" fill="rgba(42,114,181,0.14)" />
-        <circle cx="0" cy="34" r="4.5" fill="var(--surface, #241e19)" />
-        <circle cx="98" cy="34" r="4.5" fill="var(--surface, #241e19)" />
-        <rect x="11" y="13" width="24" height="6" rx="3" fill="#18324d" opacity="0.82" />
-        <rect x="63" y="13" width="24" height="6" rx="3" fill="#18324d" opacity="0.82" />
-        <path d="M39 16h20l-4-3" fill="none" stroke="#1b5fa8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        <rect x="11" y="27" width="38" height="4" rx="2" fill="#b91c1c" opacity="0.72" />
-        <circle cx="76" cy="32" r="10" fill="none" stroke="#c93b3b" strokeWidth="1.4" opacity="0.65" />
+
+      {/* 前层：经典蓝粉高铁磁票 */}
+      <g transform="translate(18 24) rotate(-6)">
+        <rect x="0" y="0" width="90" height="54" rx="8" fill="url(#zyTicketCardA)" stroke="rgba(96,154,209,0.7)" strokeWidth="1.1" />
+        <rect x="0" y="40" width="90" height="14" fill="rgba(42,114,181,0.14)" />
+        <circle cx="0" cy="31" r="4" fill="#292019" />
+        <circle cx="90" cy="31" r="4" fill="#292019" />
+        <rect x="10" y="12" width="21" height="5.5" rx="2.7" fill="#18324d" opacity="0.85" />
+        <rect x="59" y="12" width="21" height="5.5" rx="2.7" fill="#18324d" opacity="0.85" />
+        <path d="M35 15h19l-3.8-2.8" fill="none" stroke="#1b5fa8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <rect x="10" y="25" width="32" height="3.8" rx="1.9" fill="#c0392b" opacity="0.75" />
+        <circle cx="70" cy="30" r="8.5" fill="none" stroke="#c93b3b" strokeWidth="1.3" opacity="0.72" />
       </g>
+
+      {/* 底部皮革票夹口袋（含缝线与半圆指槽） */}
+      <path d="M12 62 H54 C58 72 90 72 94 62 H136 V96 C136 101 132 105 127 105 H21 C16 105 12 101 12 96 Z" fill="url(#zyPocketLeather)" />
+      <path d="M17 66 H51 C57 77 91 77 97 66 H131 V95 C131 98 128.5 100 125.5 100 H22.5 C19.5 100 17 98 17 95 Z" fill="none" stroke="rgba(255,236,210,0.34)" strokeWidth="1.1" strokeDasharray="3.5 3" />
+      <circle cx="74" cy="87" r="3.2" fill="#eab676" opacity="0.85" />
     </svg>
   );
 }
@@ -449,7 +470,7 @@ const KIND_ICON_MAP: Record<TicketKind, 'train' | 'flight' | 'toll' | 'bus' | 'f
   ticket: 'stub',
 };
 
-export default function TicketWalletView({ trips, initialTripId = null, onNotice, onError }: TicketWalletViewProps) {
+export default function TicketWalletView({ trips, initialTripId = null, compactMode = false, onNotice, onError }: TicketWalletViewProps) {
   const { t } = useI18n();
   const [tickets, setTickets] = useState<TravelTicket[]>(() => loadTicketsFromStorage());
   const [selectedGroup, setSelectedGroup] = useState<string>(() => (initialTripId ? `trip:${initialTripId}` : 'all'));
@@ -646,21 +667,23 @@ export default function TicketWalletView({ trips, initialTripId = null, onNotice
   const kindMeta = TICKET_KIND_META[draft.kind];
 
   return (
-    <section className="ticket-wallet-page">
-      <div className="card ticket-wallet-hero is-refined">
-        <div className="ticket-wallet-banner">
-          <div className="ticket-wallet-banner-copy">
-            <span className="eyebrow">TICKET WALLET</span>
-            <h2>{t('出行票夹', 'Ticket Wallet')}</h2>
-            <p className="muted">
-              {t(
-                '收纳车票、登机牌与高速过路费，实时生成高清拟物票根与出行路线图，并同步陈列在成就系统。',
-                'Collect train tickets, boarding passes, and highway tolls with live skeuomorphic stubs & route maps.',
-              )}
-            </p>
+    <section className={`ticket-wallet-page${compactMode ? ' is-embedded' : ''}`}>
+      <div className={compactMode ? 'ticket-wallet-embedded-head' : 'card ticket-wallet-hero is-refined'}>
+        {!compactMode && (
+          <div className="ticket-wallet-banner">
+            <div className="ticket-wallet-banner-copy">
+              <span className="eyebrow">TICKET WALLET</span>
+              <h2>{t('出行票夹', 'Ticket Wallet')}</h2>
+              <p className="muted">
+                {t(
+                  '收纳车票、登机牌与高速过路费，实时生成高清拟物票根与出行路线图，并同步陈列在成就系统。',
+                  'Collect train tickets, boarding passes, and highway tolls with live skeuomorphic stubs & route maps.',
+                )}
+              </p>
+            </div>
+            <TicketWalletHeroArt />
           </div>
-          <TicketWalletHeroArt />
-        </div>
+        )}
 
         <div className="ticket-wallet-metrics-bar">
           <div className="ticket-metric-item">

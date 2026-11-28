@@ -24,7 +24,8 @@ import type { AiTravelPlan } from '../planner-types';
 import { provinceDisplayName, useI18n } from '../i18n';
 import type { TourRestrictedFeature } from '../web-tour';
 import ThemedDatePicker from './ThemedDatePicker';
-import TicketWalletView from './TicketWalletView';
+import TicketWalletView, { TicketWalletHeroArt } from './TicketWalletView';
+import { extractRouteSegments, loadTicketsFromStorage } from '../ticket-wallet';
 
 interface DetailViewProps {
   city: CityMark | null;
@@ -1069,32 +1070,53 @@ export default function DetailView(props: DetailViewProps) {
         }
         setSelectedPlaceId(place?.id ?? null);
       }} />
-      <section className="journal-ticket-pocket">
-        <div className="journal-ticket-pocket-head">
-          <div>
-            <span className="eyebrow">JOURNAL POCKET</span>
-            <h2>{t('手账出行票夹', 'Travel Ticket Wallet')}</h2>
-            <p className="muted">{t('收纳车票、登机牌与高速过路费，实时生成拟物票根与路线图，并同步到成就墙。', 'Store train tickets, flights & tolls inside your journal—synced to Achievements.')}</p>
-          </div>
-          <button
-            type="button"
-            className={ticketDrawerOpen ? 'secondary' : 'primary'}
-            onClick={() => setTicketDrawerOpen((prev) => !prev)}
-          >
-            {ticketDrawerOpen ? t('收起票夹', 'Collapse Wallet') : t('打开出行票夹', 'Open Ticket Wallet')}
-          </button>
-        </div>
-        {ticketDrawerOpen && (
-          <div className="journal-ticket-pocket-body">
-            <TicketWalletView
-              trips={trips}
-              initialTripId={null}
-              onNotice={onNotice}
-              onError={onError}
-            />
-          </div>
-        )}
-      </section>
+      {(() => {
+        const savedTickets = loadTicketsFromStorage();
+        const km = extractRouteSegments(savedTickets).reduce((sum, seg) => sum + seg.distanceKm, 0);
+        return (
+          <section className={`journal-ticket-pocket${ticketDrawerOpen ? ' is-open' : ''}`}>
+            <span className="washi-tape tape-pocket" aria-hidden="true" />
+            <div className="journal-ticket-pocket-card">
+              <div className="journal-ticket-pocket-art-wrap">
+                <TicketWalletHeroArt className="journal-ticket-pocket-art" />
+              </div>
+              <div className="journal-ticket-pocket-copy">
+                <div className="journal-ticket-pocket-top">
+                  <span className="pocket-pill">✦ {t('出行票夹', 'Ticket Wallet')}</span>
+                  <span className="pocket-meta">
+                    {savedTickets.length > 0
+                      ? `${savedTickets.length} 张${km > 0 ? ` · ${km} km` : ''}`
+                      : t('待收纳', 'Empty')}
+                  </span>
+                </div>
+                <h2>{t('把每一程车票与登机牌收进口袋', 'Keep Every Ticket & Boarding Pass')}</h2>
+                <p className="muted">{t('高铁票、登机牌、高速过路费实时生成拟物票根与路线图，并同步到成就墙。', 'Live skeuomorphic stubs & route maps, synced to Achievements.')}</p>
+                <div className="journal-ticket-pocket-foot">
+                  <button
+                    type="button"
+                    className={`pocket-toggle-btn${ticketDrawerOpen ? ' is-open' : ''}`}
+                    onClick={() => setTicketDrawerOpen((prev) => !prev)}
+                  >
+                    <span>{ticketDrawerOpen ? t('收起票夹', 'Collapse Wallet') : t('打开出行票夹', 'Open Ticket Wallet')}</span>
+                    <span aria-hidden="true">{ticketDrawerOpen ? '↑' : '↗'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            {ticketDrawerOpen && (
+              <div className="journal-ticket-pocket-body">
+                <TicketWalletView
+                  trips={trips}
+                  initialTripId={null}
+                  compactMode
+                  onNotice={onNotice}
+                  onError={onError}
+                />
+              </div>
+            )}
+          </section>
+        );
+      })()}
       <div className="warm-record-filter">
         <div className="record-filter-title">
           <span className="record-filter-badge cute-deco" aria-hidden="true">✦</span>
