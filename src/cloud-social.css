@@ -5033,34 +5033,39 @@
 
 .ticket-wallet-toolbar {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 10px;
-  flex-wrap: wrap;
 }
 .ticket-group-picker {
-  flex: 1 1 200px;
-  min-width: 160px;
+  width: 100%;
 }
 .ticket-view-tabs {
   display: inline-flex;
   padding: 3px;
-  border-radius: 12px;
+  border-radius: 14px;
   border: 1px solid var(--line, #e6d8cc);
   background: color-mix(in srgb, var(--surface, #fff) 80%, transparent);
+}
+.ticket-view-tabs.is-full {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
 }
 .ticket-view-tabs button {
   border: 0;
   background: transparent;
   color: var(--muted, #877971);
-  padding: 6px 12px;
-  border-radius: 9px;
+  padding: 8px 12px;
+  border-radius: 10px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
   white-space: nowrap;
+  transition: background-color 0.16s ease, color 0.16s ease;
 }
 .ticket-view-tabs button.is-active {
   background: var(--style-accent, var(--warm-green, #c57d3b));
@@ -5071,12 +5076,97 @@
   gap: 8px;
   flex-wrap: wrap;
 }
+.ticket-export-actions.is-balanced {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+}
+.ticket-export-actions.is-balanced button {
+  width: 100%;
+  min-height: 38px;
+}
+.ticket-export-actions button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
 .ticket-icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
   white-space: nowrap;
+}
+.ticket-editor-card,
+.ticket-empty-state,
+.achievements-ticket-showcase {
+  padding: 18px !important;
+}
+.ticket-route-panel {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line, #e6d8cc);
+  background: color-mix(in srgb, var(--surface, #fff) 88%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ticket-route-panel-head h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+.ticket-route-panel-head p {
+  margin: 0;
+  font-size: 12.5px;
+}
+.ticket-route-empty {
+  padding: 20px 14px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.ticket-route-empty-art {
+  width: 184px;
+  height: auto;
+  display: block;
+}
+.ticket-route-empty strong {
+  font-size: 15px;
+  color: var(--ink, #2e2420);
+}
+.ticket-route-empty p {
+  margin: 0;
+  max-width: 300px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted, #877971);
+}
+@media (min-width: 780px) {
+  .ticket-wallet-toolbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+  }
+  .ticket-group-picker {
+    flex: 1 1 200px;
+    max-width: 280px;
+  }
+  .ticket-view-tabs.is-full {
+    width: auto;
+    flex: none;
+  }
+  .ticket-export-actions.is-balanced {
+    display: inline-flex;
+    width: auto;
+    flex: none;
+  }
+  .ticket-export-actions.is-balanced button {
+    width: auto;
+    padding-inline: 16px;
+  }
 }
 
 .live-skeuo-grid {

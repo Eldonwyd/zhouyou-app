@@ -181,15 +181,48 @@ function emptyDraft(trips: Journey[], defaultTripId?: string | null): Omit<Trave
   };
 }
 
+/** 路线图空状态精致矢量插画（两座城市坐标点 + 弧线轨迹 + 小飞机） */
+function TicketRouteEmptyArt() {
+  return (
+    <svg className="ticket-route-empty-art" viewBox="0 0 200 96" width="200" height="96" aria-hidden="true">
+      <rect x="6" y="8" width="188" height="80" rx="14" fill="color-mix(in srgb, var(--style-accent, #c57d3b) 7%, transparent)" stroke="color-mix(in srgb, var(--line-strong, #d5c6b6) 75%, transparent)" strokeDasharray="4 4" />
+      <path d="M44 62 Q 100 18 156 54" fill="none" stroke="var(--style-accent, #c57d3b)" strokeWidth="2.2" strokeDasharray="5 4" strokeLinecap="round" opacity="0.85" />
+      {/* 起点城市图钉 */}
+      <circle cx="44" cy="62" r="7" fill="var(--style-accent, #c57d3b)" opacity="0.2" />
+      <circle cx="44" cy="62" r="4" fill="var(--style-accent, #c57d3b)" />
+      {/* 终点城市图钉 */}
+      <circle cx="156" cy="54" r="7" fill="var(--style-accent, #c57d3b)" opacity="0.2" />
+      <circle cx="156" cy="54" r="4" fill="var(--style-accent, #c57d3b)" />
+      {/* 弧线中点纸飞机 */}
+      <g transform="translate(94 31) rotate(8)">
+        <path d="M0 7 L15 2 L9 14 L7 9 Z" fill="var(--style-accent, #c57d3b)" />
+      </g>
+    </svg>
+  );
+}
+
 /** 互动 SVG 出行路线图预览组件 */
-export function TicketRouteSvgPreview({ tickets }: { tickets: TravelTicket[] }) {
+export function TicketRouteSvgPreview({
+  tickets,
+  onAddTicket,
+}: {
+  tickets: TravelTicket[];
+  onAddTicket?: () => void;
+}) {
   const segments = useMemo(() => extractRouteSegments(tickets), [tickets]);
 
   if (segments.length === 0) {
     return (
       <div className="ticket-route-empty">
+        <TicketRouteEmptyArt />
         <strong>还没有可连线的出发地与目的地</strong>
-        <p>在票据中填写中国城市、高铁站、机场或高速收费站（如“北京南站 → 天津站”），即可自动串联成出行路线图。</p>
+        <p>记下包含城市、高铁站、机场或高速收费站的票据（如“北京南站 → 天津站”），即可自动绘制出行路线图。</p>
+        {onAddTicket && (
+          <button type="button" className="primary ticket-icon-btn" onClick={onAddTicket}>
+            <TicketSvgIcon name="plus" size={14} />
+            <span>记一张车票 / 机票</span>
+          </button>
+        )}
       </div>
     );
   }
@@ -711,7 +744,7 @@ export default function TicketWalletView({ trips, initialTripId = null, compactM
               onChange={setSelectedGroup}
             />
           </div>
-          <div className="ticket-view-tabs" role="tablist">
+          <div className="ticket-view-tabs is-full" role="tablist">
             <button
               type="button"
               role="tab"
@@ -731,19 +764,32 @@ export default function TicketWalletView({ trips, initialTripId = null, compactM
               <TicketSvgIcon name="route" size={14} /> {t('出行路线图', 'Route Map')}
             </button>
           </div>
-          <div className="ticket-export-actions">
+          <div className="ticket-export-actions is-balanced">
             <button type="button" className="primary ticket-icon-btn" onClick={() => openNewEditor('train')}>
               <TicketSvgIcon name="plus" size={14} />
               <span>{t('记一张票', 'Add Ticket')}</span>
             </button>
-            <button type="button" className="secondary ticket-icon-btn" disabled={exporting || visibleTickets.length === 0} onClick={() => void handleExportCollage()}>
-              <TicketSvgIcon name="collage" size={14} />
-              <span>{t('合集长图', 'Collage')}</span>
-            </button>
-            <button type="button" className="secondary ticket-icon-btn" disabled={exporting || routeSegments.length === 0} onClick={() => void handleExportRouteMap()}>
-              <TicketSvgIcon name="download" size={14} />
-              <span>{t('路线海报', 'Route Poster')}</span>
-            </button>
+            {subView === 'wallet' ? (
+              <button
+                type="button"
+                className="secondary ticket-icon-btn"
+                disabled={exporting || visibleTickets.length === 0}
+                onClick={() => void handleExportCollage()}
+              >
+                <TicketSvgIcon name="collage" size={14} />
+                <span>{t('导出票夹长图', 'Export Collage')}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="secondary ticket-icon-btn"
+                disabled={exporting || routeSegments.length === 0}
+                onClick={() => void handleExportRouteMap()}
+              >
+                <TicketSvgIcon name="download" size={14} />
+                <span>{t('保存路线海报', 'Save Poster')}</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -940,23 +986,17 @@ export default function TicketWalletView({ trips, initialTripId = null, compactM
 
       {/* 视图 2：出行路线图 */}
       {subView === 'route' && (
-        <div className="card ticket-route-card">
-          <div className="card-heading">
-            <div>
+        <div className="ticket-route-panel">
+          {routeSegments.length > 0 && (
+            <div className="ticket-route-panel-head">
               <h3>{activeGroupTitle} · {t('出行路线图', 'Trip Route Map')}</h3>
               <p className="muted">
-                {routeSegments.length > 0
-                  ? `共串联 ${routeSegments.length} 程交通 · 参考总里程约 ${totalKm} km · 合计 ¥${totalCost.toFixed(1)}`
-                  : '添加包含起终点城市/站名的车票、机票或高速过路费后自动连线'}
+                共串联 {routeSegments.length} 程交通 · 参考总里程约 {totalKm} km · 合计 ¥{totalCost.toFixed(1)}
               </p>
             </div>
-            <button type="button" className="primary ticket-icon-btn" disabled={exporting || routeSegments.length === 0} onClick={() => void handleExportRouteMap()}>
-              <TicketSvgIcon name="download" size={14} />
-              <span>{t('保存路线海报', 'Save Poster')}</span>
-            </button>
-          </div>
+          )}
 
-          <TicketRouteSvgPreview tickets={visibleTickets} />
+          <TicketRouteSvgPreview tickets={visibleTickets} onAddTicket={() => openNewEditor('train')} />
 
           {routeSegments.length > 0 && (
             <ol className="ticket-route-timeline">
