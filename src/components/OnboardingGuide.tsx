@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { PageName } from '../types';
 import { useI18n } from '../i18n';
@@ -26,182 +26,120 @@ interface OnboardingStep {
   page?: PageName;
   /** CSS selector(s) in priority order; first visible match gets spotlighted. */
   selectors?: string[];
-  badgeZh: string;
-  badgeEn: string;
-  icon: string;
+  tagZh: string;
+  tagEn: string;
   titleZh: string;
   titleEn: string;
   descZh: string;
   descEn: string;
-  tapHintZh?: string;
-  tapHintEn?: string;
-  /** Optional feature chips shown on welcome/summary steps */
-  chips?: Array<{ icon: string; zh: string; en: string }>;
   padding?: number;
   radius?: number;
 }
 
 const STEPS: OnboardingStep[] = [
   {
-    id: 'welcome',
+    id: 'map-click',
     page: 'map',
-    badgeZh: '新手指引 · 10 秒上手',
-    badgeEn: 'Quick Tour · 10s Guide',
-    icon: '🧭',
-    titleZh: '欢迎来到周游地图',
-    titleEn: 'Welcome to Zhouyou Map',
-    descZh: '像翻开一本随身旅行小册子——我来带你一步步认清每个按钮怎么点，教你点亮全国足迹、用 AI 做路书、约旅伴共编，以及记录手账。',
-    descEn: 'Your personal travel booklet. Let me walk you through where to tap to light up cities, plan trips with AI, collaborate with companions, and keep a travel journal.',
-    chips: [
-      { icon: '🗺️', zh: '点亮 370+ 城', en: '370+ China Cities' },
-      { icon: '✨', zh: 'AI 智能路书', en: 'AI Roadbooks' },
-      { icon: '🤝', zh: '旅伴共编 & AA', en: 'Group & AA Split' },
-      { icon: '📷', zh: '本机旅行手账', en: 'Local Journal' },
-    ],
-  },
-  {
-    id: 'map-canvas',
-    page: 'map',
-    selectors: ['.map-canvas', '.map-card'],
-    badgeZh: '第 1 站 · 地图足迹',
-    badgeEn: 'Step 1 · Footprint Map',
-    icon: '📍',
-    titleZh: '点一点省份，点亮去过的城市',
-    titleEn: 'Tap a Province, Light Up Your Cities',
-    descZh: '点击地图上任意省份即可进入市级地图，再点击城市就能点亮为「已去过」；再次点击已点亮的城市，可直接进入旅行手账或取消点亮。',
-    descEn: 'Click any province to zoom into its cities, then tap a city to mark it visited. Tap a lit city again to open its Journal or unmark it.',
-    tapHintZh: '点击省份 → 点击城市点亮 · 滚轮/双指可缩放',
-    tapHintEn: 'Tap province → Tap city to mark · Pinch/scroll to zoom',
+    selectors: ['.map-toolbar', '.map-canvas'],
+    tagZh: '地图足迹',
+    tagEn: 'Footprint Map',
+    titleZh: '点击省份进入市级，再点城市即可点亮',
+    titleEn: 'Tap a province, then tap any city to light it up',
+    descZh: '未登录也可先点亮体验，登录账号后可多端同步保存足迹。右侧可按「已点亮 / 待探索」筛选。',
+    descEn: 'Try lighting cities right away; sign in to save and sync across devices. Filter provinces on the right.',
     padding: 6,
-    radius: 18,
-  },
-  {
-    id: 'map-side',
-    page: 'map',
-    selectors: ['.map-side', '.map-toolbar'],
-    badgeZh: '第 2 站 · 进度与灵感',
-    badgeEn: 'Step 2 · Progress & Ideas',
-    icon: '📊',
-    titleZh: '查看足迹进度 & AI 推荐怎么玩',
-    titleEn: 'Track Progress & Get AI Ideas',
-    descZh: '右侧面板实时统计你点亮的省份和城市数，可按「已点亮 / 全部 / 待探索」快速跳转。点进任意省份后，还能一键点「✦ AI 推荐怎么玩」！',
-    descEn: 'See your visited count and filter provinces by Visited, All, or To Go. Inside any province, tap "AI Trip Ideas" for instant local inspiration.',
-    tapHintZh: '点省份标签快速跳转 · 进省后可一键问 AI',
-    tapHintEn: 'Tap province chips to jump · Ask AI inside any province',
-    padding: 8,
-    radius: 18,
+    radius: 14,
   },
   {
     id: 'planner-ai-bar',
     page: 'plan',
     selectors: ['#planner-ai-tools', '.planner-service-toggle', '.planner-tabs'],
-    badgeZh: '第 3 站 · AI 引擎与模块',
-    badgeEn: 'Step 3 · AI Setup & Tabs',
-    icon: '🤖',
-    titleZh: '第一步：确认 AI 引擎与规划模块',
-    titleEn: 'Step 1: Check AI Engine & Planner Tabs',
-    descZh: '进入「行程规划」后，先看上方 AI 状态栏：登录账号可直接用免费 AI 额度，也可点开配置自己的 DeepSeek / Gemini / OpenAI 等模型。顶部还能切换「我的行程 / 预算与账本 / 发现目的地」。',
-    descEn: 'Check the AI status bar first: sign in for free AI quota, or configure your own DeepSeek / Gemini / OpenAI key. Use the top tabs to switch between My Trips, Budget & Ledger, and Discover.',
-    tapHintZh: '点 AI 状态栏选模型 · 没想好去哪就点「发现目的地」',
-    tapHintEn: 'Tap AI bar to choose model · Tap "Discover" for destination ideas',
-    padding: 8,
-    radius: 16,
+    tagZh: 'AI 规划 · 关键键 1',
+    tagEn: 'AI Planner · Key 1',
+    titleZh: '点这里看免费 AI 额度或切换模型',
+    titleEn: 'Tap here for free AI quota or custom models',
+    descZh: '游客可免费完整规划 1 次；登录后享每日 5 万 tokens 免费额度，也可绑定自己的 DeepSeek / Gemini / OpenAI。',
+    descEn: 'Guests get 1 full free trip plan; sign in for 50k daily free tokens, or connect your own API key.',
+    padding: 6,
+    radius: 14,
   },
   {
-    id: 'planner-create',
+    id: 'planner-inputs',
     page: 'plan',
-    selectors: ['.planner-create', '.planner-plan-list', '.planner-tabs'],
-    badgeZh: '第 4 站 · AI 一键做攻略',
-    badgeEn: 'Step 4 · Generate AI Guide',
-    icon: '✨',
-    titleZh: '第二步：填好需求，让 AI 一键出路书',
-    titleEn: 'Step 2: Fill Your Trip & Generate',
-    descZh: '在表单里填上出发地、目的地、出行日期/天数、人数和预算偏好，点击生成即可产出完整每日行程：包含景点顺序、城际与市内交通衔接、餐饮住宿建议和费用预估。',
-    descEn: 'Enter your origin, destination, dates, travelers, and budget, then generate a full day-by-day roadbook with sights, transit connections, dining, hotels, and cost estimates.',
-    tapHintZh: '填目的地 + 天数 → 点生成按钮，几秒出详细路书',
-    tapHintEn: 'Fill destination + days → Tap Generate for a complete itinerary',
-    padding: 8,
-    radius: 18,
+    selectors: ['.planner-create .planner-input-grid', '.planner-create', '.planner-tabs'],
+    tagZh: 'AI 规划 · 关键键 2',
+    tagEn: 'AI Planner · Key 2',
+    titleZh: '填好目的地、人数和出发日期',
+    titleEn: 'Enter destination, travelers, and dates',
+    descZh: '没想好去哪可以把「目的地」留空让 AI 推荐；「天数」留空则先让 AI 建议玩几天。',
+    descEn: 'Leave destination blank for AI ideas, or leave days blank for AI duration recommendations.',
+    padding: 6,
+    radius: 14,
   },
   {
-    id: 'planner-refine',
+    id: 'planner-imports',
     page: 'plan',
     selectors: ['.planner-optional-imports', '.planner-overview-actions', '.planner-tabs'],
-    badgeZh: '第 5 站 · 导入与对话微调',
-    badgeEn: 'Step 5 · Import & Chat Refine',
-    icon: '💬',
-    titleZh: '第三步：导入小红书/票据 & 对话改行程',
-    titleEn: 'Step 3: Import Notes, Tickets & Refine',
-    descZh: '生成前可展开这里上传小红书攻略截图/链接或已订机酒车票，让 AI 按你的真实预订排程；生成后还能像聊天一样让 AI 微调任意一天，并查看路线地图、开抢票提醒或一键记账！',
-    descEn: 'Optionally import Xiaohongshu notes or booked tickets before generating. Afterward, chat with AI to tweak any day, view the route map, set ticket alerts, or sync to your ledger.',
-    tapHintZh: '支持小红书参考 + 识票导入 + 对话修改任意安排',
-    tapHintEn: 'Supports Xiaohongshu notes + ticket import + chat revisions',
+    tagZh: 'AI 规划 · 关键键 3',
+    tagEn: 'AI Planner · Key 3',
+    titleZh: '点开这里导入小红书攻略或已订机酒车票',
+    titleEn: 'Expand to import Xiaohongshu notes or booked tickets',
+    descZh: '可上传小红书截图/链接，或提前录入已订高铁、机票与酒店，AI 会按你的真实预订来排每日路线。',
+    descEn: 'Import Xiaohongshu links/screenshots or booked flights/trains/hotels so AI schedules around them.',
+    padding: 6,
+    radius: 14,
+  },
+  {
+    id: 'planner-submit',
+    page: 'plan',
+    selectors: ['[data-tour="planner-submit-actions"]', '[data-tour="planner-submit-btn"]', '.planner-tabs'],
+    tagZh: 'AI 规划 · 核心按钮',
+    tagEn: 'AI Planner · Generate',
+    titleZh: '点左键一键生成路书 · 右键借用外部免费 AI',
+    titleEn: 'Tap Generate for AI roadbook · Or use free external AI',
+    descZh: '点「生成旅行计划」几秒产出完整日程与预算；点右侧「借用外部免费 AI」可零成本复制去豆包/DeepSeek 生成再导入。',
+    descEn: 'Tap Generate for a full itinerary & budget, or tap the right button to import from external free AIs.',
     padding: 8,
-    radius: 16,
+    radius: 14,
   },
   {
     id: 'companions',
     page: 'companions',
     selectors: ['.nav-item.nav-companions'],
-    badgeZh: '第 6 站 · 同行旅伴',
-    badgeEn: 'Step 6 · Travel Companions',
-    icon: '🤝',
-    titleZh: '加好友、建行程群与一键 AA 算账',
-    titleEn: 'Add Friends, Co-edit Trips & Split Costs',
-    descZh: '点这里进入「同行旅伴」：输入好友码加旅伴、对比彼此的中国足迹地图、拉行程群边聊边共编同一份攻略，还能按人头自动算清 AA 账单。',
-    descEn: 'Open Companions to add friends by code, compare China footprints, create trip group chats, co-edit itineraries in real time, and settle AA expenses.',
-    tapHintZh: '点「同行旅伴」开启好友互动与多人共编',
-    tapHintEn: 'Tap Companions for friends, group chats & co-editing',
-    padding: 6,
-    radius: 14,
+    tagZh: '同行旅伴',
+    tagEn: 'Companions',
+    titleZh: '登录后可加好友、建行程群共编与 AA 算账',
+    titleEn: 'Sign in for friends, group co-editing & AA split',
+    descZh: '好友功能需登录使用：可互看中国足迹地图、拉群一起修改攻略并自动结算旅途 AA 账单。',
+    descEn: 'Sign in to compare maps with friends, co-edit trip plans in group chats, and settle AA expenses.',
+    padding: 5,
+    radius: 12,
   },
   {
     id: 'journal',
     page: 'detail',
-    selectors: ['.warm-journal-hero', '.nav-item.nav-detail'],
-    badgeZh: '第 7 站 · 旅行手账',
-    badgeEn: 'Step 7 · Travel Journal',
-    icon: '📖',
-    titleZh: '把照片、实况与语音收进手账',
-    titleEn: 'Collect Photos, Live Photos & Voice Notes',
-    descZh: '在「旅行手账」里新建旅程或直接点开已去城市，上传原图照片、实况 Live Photo、视频和现场语音。所有媒体均安全保存在本机，不压缩画质。',
-    descEn: 'Create trips or open any visited city to store full-res photos, Live Photos, videos, and voice memos—kept privately and lossless on your device.',
-    tapHintZh: '点卡片翻开回忆 · 或点「＋ 新建旅行」记录多城旅程',
-    tapHintEn: 'Tap cards to open memories · Or "+ New Trip" for multi-city journeys',
-    padding: 8,
-    radius: 18,
+    selectors: ['.nav-item.nav-detail'],
+    tagZh: '旅行手账',
+    tagEn: 'Travel Journal',
+    titleZh: '点这里记录旅程、原图照片、实况与语音',
+    titleEn: 'Tap here for trips, full-res photos & voice memos',
+    descZh: '未登录也能直接保存到本机，登录后可多端同步文字与足迹记录。',
+    descEn: 'Saves locally even without signing in; sign in to sync notes and footprints across devices.',
+    padding: 5,
+    radius: 12,
   },
   {
     id: 'profile',
     page: 'profile',
-    selectors: ['.profile-achievements-entry-card', '.warm-profile-banner', '.nav-item.nav-profile'],
-    badgeZh: '第 8 站 · 个人中心',
-    badgeEn: 'Step 8 · Personal Center',
-    icon: '🏅',
-    titleZh: '徽章、换肤、备份 & 随时重看指引',
-    titleEn: 'Badges, Skins, Backups & Replay Guide',
-    descZh: '在「个人中心」可以查看旅途徽章、切换 5 套可爱主题皮肤、下载离线地图与导出 ZIP 备份；以后忘了怎么点，在底部「新手指引与玩法教程」随时可以重看！',
-    descEn: 'View badges, switch between 5 skins, download offline maps, and export ZIP backups here. Anytime you need a refresher, replay this guide from the bottom of Personal Center!',
-    tapHintZh: '个人中心底部可随时重新打开「新手指引」',
-    tapHintEn: 'Replay the Interactive Guide anytime at the bottom of Personal Center',
-    padding: 8,
-    radius: 18,
-  },
-  {
-    id: 'topbar',
-    page: 'map',
-    selectors: ['.topbar-right'],
-    badgeZh: '最后一站 · 准备出发',
-    badgeEn: 'Final Step · Ready to Go',
-    icon: '☁️',
-    titleZh: '明暗主题 & 电脑手机多端云同步',
-    titleEn: 'Light/Dark Mode & Cloud Sync',
-    descZh: '右上角可以一键切换浅色/深色主题，登录账号后即可在电脑与手机间实时同步足迹和 AI 攻略。现在就点下方「开始探索」，点亮你的第一座城市吧！',
-    descEn: 'Switch light/dark mode or sign in up here to sync footprints and AI plans across desktop and mobile. Tap "Start Exploring" below to light up your first city!',
-    tapHintZh: '一切就绪！以后想重看指引，去「个人中心」底部即可',
-    tapHintEn: 'All set! Replay this guide anytime from Personal Center',
-    padding: 6,
-    radius: 18,
+    selectors: ['.nav-item.nav-profile'],
+    tagZh: '个人中心',
+    tagEn: 'Personal Center',
+    titleZh: '换皮肤、看徽章、切换账号 & 随时重看指引',
+    titleEn: 'Skins, badges, account switch & replay guide',
+    descZh: '这里可切换 5 套皮肤、退出/切换账号，以后忘了怎么点随时在底部「新手指引」重看！',
+    descEn: 'Switch 5 skins, log out or switch accounts, and replay this guide anytime at the bottom.',
+    padding: 5,
+    radius: 12,
   },
 ];
 
@@ -254,14 +192,11 @@ export default function OnboardingGuide({
     w: typeof window !== 'undefined' ? window.innerWidth : 1280,
     h: typeof window !== 'undefined' ? window.innerHeight : 800,
   }));
-  const cardRef = useRef<HTMLDivElement | null>(null);
-  const [cardSize, setCardSize] = useState({ w: 360, h: 250 });
 
   const step = STEPS[stepIndex] ?? STEPS[0];
   const isFirst = stepIndex === 0;
   const isLast = stepIndex === STEPS.length - 1;
 
-  // Reset to step 0 whenever opened
   useEffect(() => {
     if (open) {
       setStepIndex(0);
@@ -269,7 +204,6 @@ export default function OnboardingGuide({
     }
   }, [open]);
 
-  // Switch page automatically when the current step specifies a page
   useEffect(() => {
     if (!open || !step.page) return;
     if (currentPage !== step.page) {
@@ -294,17 +228,13 @@ export default function OnboardingGuide({
     setStepIndex((i) => Math.max(0, i - 1));
   }, []);
 
-  // Keyboard navigation (Esc to skip, Arrows to step)
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
         finish();
-      } else if (event.key === 'ArrowRight' || event.key === 'Enter') {
-        // Avoid hijacking Enter if user focused Skip or Back button
-        const activeTag = (document.activeElement as HTMLElement | null)?.tagName;
-        if (event.key === 'Enter' && activeTag === 'BUTTON') return;
+      } else if (event.key === 'ArrowRight') {
         event.preventDefault();
         goNext();
       } else if (event.key === 'ArrowLeft') {
@@ -316,7 +246,6 @@ export default function OnboardingGuide({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open, finish, goNext, goPrev]);
 
-  // Locate and measure the target element (with retries for lazy-loaded views)
   useEffect(() => {
     if (!open) return;
     if (!step.selectors?.length) {
@@ -346,8 +275,7 @@ export default function OnboardingGuide({
       }
 
       const raw = el.getBoundingClientRect();
-      // If element is far outside viewport vertically, gently scroll it into view once
-      if (!scrolledOnce && (raw.top < 60 || raw.bottom > vh - 40) && raw.height < vh * 0.78) {
+      if (!scrolledOnce && (raw.top < 64 || raw.bottom > vh - 165) && raw.height < vh * 0.7) {
         scrolledOnce = true;
         try {
           el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
@@ -358,27 +286,25 @@ export default function OnboardingGuide({
         return;
       }
 
-      const pad = step.padding ?? 8;
-      // Clamp spotlight height so huge elements still leave room for the tooltip card
-      const maxSpotHeight = Math.max(160, vh - 270);
-      const clampedTop = Math.max(8, raw.top - pad);
-      const clampedLeft = Math.max(8, raw.left - pad);
-      const clampedWidth = Math.min(vw - clampedLeft - 8, raw.width + pad * 2);
+      const pad = step.padding ?? 6;
+      const maxSpotHeight = Math.max(120, vh - 220);
+      const clampedTop = Math.max(6, raw.top - pad);
+      const clampedLeft = Math.max(6, raw.left - pad);
+      const clampedWidth = Math.min(vw - clampedLeft - 6, raw.width + pad * 2);
       const rawHeight = raw.height + pad * 2;
-      const clampedHeight = Math.min(vh - clampedTop - 8, rawHeight > vh * 0.76 ? maxSpotHeight : rawHeight);
+      const clampedHeight = Math.min(vh - clampedTop - 6, rawHeight > vh * 0.7 ? maxSpotHeight : rawHeight);
 
       setTargetRect({
         top: clampedTop,
         left: clampedLeft,
-        width: Math.max(36, clampedWidth),
-        height: Math.max(36, clampedHeight),
-        radius: step.radius ?? 16,
+        width: Math.max(32, clampedWidth),
+        height: Math.max(32, clampedHeight),
+        radius: step.radius ?? 14,
       });
     };
 
     measure();
-    // Re-measure shortly after transition/lazy render settles
-    const settleTimer = window.setTimeout(measure, 220);
+    const settleTimer = window.setTimeout(measure, 240);
     const onViewportChange = () => measure();
     window.addEventListener('resize', onViewportChange);
     window.addEventListener('scroll', onViewportChange, true);
@@ -392,88 +318,11 @@ export default function OnboardingGuide({
     };
   }, [open, step, currentPage]);
 
-  // Measure tooltip card dimensions for precise placement
-  useLayoutEffect(() => {
-    if (!open || !cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) {
-      setCardSize({ w: rect.width, h: rect.height });
-    }
-  }, [open, stepIndex, targetRect, viewport.w]);
-
-  const cardPlacement = useMemo(() => {
-    const margin = 14;
-    const gap = 16;
-    const vw = viewport.w;
-    const vh = viewport.h;
-    const cardW = Math.min(cardSize.w || 360, vw - margin * 2);
-    const cardH = cardSize.h || 240;
-
-    if (!targetRect) {
-      return {
-        centered: true,
-        arrow: 'none' as const,
-        style: undefined,
-      };
-    }
-
-    const spaceBelow = vh - (targetRect.top + targetRect.height) - margin;
-    const spaceAbove = targetRect.top - margin;
-    const spaceRight = vw - (targetRect.left + targetRect.width) - margin;
-    const spaceLeft = targetRect.left - margin;
-
-    let top = 0;
-    let left = 0;
-    let arrow: 'top' | 'bottom' | 'left' | 'right' | 'none' = 'none';
-
-    const targetCenterX = targetRect.left + targetRect.width / 2;
-    const targetCenterY = targetRect.top + targetRect.height / 2;
-
-    if (spaceBelow >= cardH + gap) {
-      top = targetRect.top + targetRect.height + gap;
-      left = targetCenterX - cardW / 2;
-      arrow = 'top';
-    } else if (spaceAbove >= cardH + gap) {
-      top = targetRect.top - cardH - gap;
-      left = targetCenterX - cardW / 2;
-      arrow = 'bottom';
-    } else if (vw >= 760 && spaceRight >= cardW + gap) {
-      left = targetRect.left + targetRect.width + gap;
-      top = targetCenterY - cardH / 2;
-      arrow = 'left';
-    } else if (vw >= 760 && spaceLeft >= cardW + gap) {
-      left = targetRect.left - cardW - gap;
-      top = targetCenterY - cardH / 2;
-      arrow = 'right';
-    } else {
-      // Fallback: pin neatly at bottom or top away from target center
-      left = (vw - cardW) / 2;
-      top = targetCenterY > vh / 2 ? margin + 12 : vh - cardH - margin - 12;
-      arrow = 'none';
-    }
-
-    left = Math.max(margin, Math.min(vw - cardW - margin, left));
-    top = Math.max(margin, Math.min(vh - cardH - margin, top));
-
-    return {
-      centered: false,
-      arrow,
-      style: {
-        top: `${Math.round(top)}px`,
-        left: `${Math.round(left)}px`,
-      },
-    };
-  }, [targetRect, viewport, cardSize]);
-
   if (!open || typeof document === 'undefined') return null;
 
   const maskId = 'zy-onboarding-spotlight-mask';
-  const pointerPos = targetRect
-    ? {
-        left: Math.min(viewport.w - 36, Math.max(20, targetRect.left + targetRect.width * 0.68)),
-        top: Math.min(viewport.h - 36, Math.max(20, targetRect.top + targetRect.height * 0.52)),
-      }
-    : null;
+  // 固定停靠在底部居中，不随步骤满屏乱跳；仅当高亮目标本身在底部 190px 内时才平稳避让到顶部居中
+  const dockAtTop = Boolean(targetRect && targetRect.top + targetRect.height > viewport.h - 190 && targetRect.top > 180);
 
   return createPortal(
     <div
@@ -482,7 +331,6 @@ export default function OnboardingGuide({
       aria-modal="true"
       aria-label={t('新手指引', 'Interactive Onboarding Guide')}
     >
-      {/* Dimmed backdrop with smooth rounded spotlight cutout */}
       <svg className="zy-onboarding-backdrop" width={viewport.w} height={viewport.h} aria-hidden="true">
         <defs>
           <mask id={maskId}>
@@ -505,80 +353,40 @@ export default function OnboardingGuide({
           y="0"
           width={viewport.w}
           height={viewport.h}
-          fill="rgba(16, 22, 28, 0.64)"
+          fill="rgba(16, 22, 28, 0.56)"
           mask={`url(#${maskId})`}
         />
       </svg>
 
-      {/* Glowing spotlight ring + bouncing tap pointer on the highlighted element */}
       {targetRect && (
-        <>
-          <div
-            className="zy-onboarding-spotlight-ring"
-            style={{
-              top: `${targetRect.top}px`,
-              left: `${targetRect.left}px`,
-              width: `${targetRect.width}px`,
-              height: `${targetRect.height}px`,
-              borderRadius: `${targetRect.radius}px`,
-            }}
-            aria-hidden="true"
-          />
-          {pointerPos && (
-            <div
-              className="zy-onboarding-tap-beacon"
-              style={{ top: `${pointerPos.top}px`, left: `${pointerPos.left}px` }}
-              aria-hidden="true"
-            >
-              <span className="zy-onboarding-ripple" />
-              <span className="zy-onboarding-finger">👆</span>
-            </div>
-          )}
-        </>
+        <div
+          className="zy-onboarding-spotlight-ring"
+          style={{
+            top: `${targetRect.top}px`,
+            left: `${targetRect.left}px`,
+            width: `${targetRect.width}px`,
+            height: `${targetRect.height}px`,
+            borderRadius: `${targetRect.radius}px`,
+          }}
+          aria-hidden="true"
+        >
+          <span className="zy-onboarding-spot-tag">{t('看这里', 'Here')}</span>
+        </div>
       )}
 
-      {/* Floating Guide Card */}
-      <div
-        ref={cardRef}
-        className={`zy-onboarding-card${cardPlacement.centered ? ' is-centered' : ''}${
-          cardPlacement.arrow !== 'none' ? ` arrow-${cardPlacement.arrow}` : ''
-        }`}
-        style={cardPlacement.style}
-      >
-        <div className="zy-onboarding-head">
+      {/* 紧凑平稳停靠栏：固定居中，不再满屏乱跳 */}
+      <div className={`zy-onboarding-dock${dockAtTop ? ' is-top' : ''}`}>
+        <div className="zy-onboarding-dock-top">
           <span className="zy-onboarding-badge">
-            <span aria-hidden="true">{step.icon}</span>
-            {isEn ? step.badgeEn : step.badgeZh}
+            {isEn ? step.tagEn : step.tagZh} · {stepIndex + 1}/{STEPS.length}
           </span>
-          <button
-            type="button"
-            className="zy-onboarding-skip"
-            onClick={finish}
-          >
+          <button type="button" className="zy-onboarding-skip" onClick={finish}>
             {t('跳过', 'Skip')}
           </button>
         </div>
 
         <h2 className="zy-onboarding-title">{isEn ? step.titleEn : step.titleZh}</h2>
         <p className="zy-onboarding-desc">{isEn ? step.descEn : step.descZh}</p>
-
-        {step.chips && (
-          <div className="zy-onboarding-chips">
-            {step.chips.map((chip) => (
-              <span key={chip.zh} className="zy-onboarding-chip">
-                <i aria-hidden="true">{chip.icon}</i>
-                {isEn ? chip.en : chip.zh}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {(step.tapHintZh || step.tapHintEn) && (
-          <div className="zy-onboarding-hint">
-            <span className="zy-onboarding-hint-dot" aria-hidden="true">👉</span>
-            <span>{isEn ? step.tapHintEn : step.tapHintZh}</span>
-          </div>
-        )}
 
         <div className="zy-onboarding-footer">
           <div className="zy-onboarding-dots" role="tablist" aria-label={t('指引进度', 'Tour progress')}>
@@ -602,11 +410,7 @@ export default function OnboardingGuide({
               </button>
             )}
             <button type="button" className="primary zy-onboarding-btn-next" onClick={goNext}>
-              {isFirst
-                ? t('开始指引 →', 'Start Tour →')
-                : isLast
-                  ? t('开始探索 ✓', 'Start Exploring ✓')
-                  : t('下一步 →', 'Next →')}
+              {isLast ? t('开始体验 ✓', 'Done ✓') : t('下一步 →', 'Next →')}
             </button>
           </div>
         </div>

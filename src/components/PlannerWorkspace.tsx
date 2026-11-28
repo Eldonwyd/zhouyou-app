@@ -2855,8 +2855,8 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                       </details>
                     }
                   />
-                  <div className="heading-actions" style={{ flexWrap: 'wrap', gap: 10 }}>
-                    <button className="primary" type="submit">
+                  <div className="heading-actions" data-tour="planner-submit-actions" style={{ flexWrap: 'wrap', gap: 10 }}>
+                    <button className="primary" type="submit" data-tour="planner-submit-btn">
                       {!request.destination.trim()
                         ? '让 AI 推荐目的地'
                         : request.days || request.endDate
