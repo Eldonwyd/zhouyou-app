@@ -661,21 +661,14 @@ export default function App() {
     return () => window.removeEventListener(CLOUD_AUTH_EVENT, onAuthEvent);
   }, []);
 
-  // 首次启动：若已登录自动静默云同步；若未登录且非漫游模式，展示一次欢迎注册/登录弹窗（可跳过本地用）
+  // 首次启动：若已登录自动静默云同步；未登录时不强制弹出登录框，让新手指引与自由体验优先
   useEffect(() => {
     if (!ready) return;
     if (getCloudToken()) {
       void runCloudSync(true);
       void refreshSocialBadges();
-    } else if (!tourMode) {
-      try {
-        if (!sessionStorage.getItem(AUTH_DISMISSED_KEY)) {
-          setAuthModalMode('register');
-          setAuthModalOpen(true);
-        }
-      } catch { /* ignore */ }
     }
-  }, [ready, tourMode, runCloudSync, refreshSocialBadges]);
+  }, [ready, runCloudSync, refreshSocialBadges]);
 
   const startOnboarding = useCallback(() => {
     setActiveProvinceCode(null);
@@ -848,6 +841,17 @@ export default function App() {
     setPlannerProvince({ name, token: Date.now() }); openPage('plan');
   }, [openPage]);
 
+  const lastGuestJournalNoticeRef = useRef(0);
+  const remindGuestJournalLocalOnly = useCallback(() => {
+    if (getCloudToken()) return;
+    const now = Date.now();
+    if (now - lastGuestJournalNoticeRef.current < 1500) return;
+    lastGuestJournalNoticeRef.current = now;
+    showNotice(readLanguage() === 'en'
+      ? 'Saved locally to Journal · Sign in to sync across devices.'
+      : '已保存到本机手账 · 当前未登录无法多端同步，登录后可云端同步。');
+  }, [showNotice]);
+
   const saveMark = useCallback(async (mark: CityMark) => {
     try {
       await saveItem('marks', mark);
@@ -862,16 +866,21 @@ export default function App() {
       markCloudRecordDirty('entries', entry.id);
       await reload();
       scheduleCloudSync();
+      remindGuestJournalLocalOnly();
     } catch (error) { showError(describeStorageError(error)); throw error; }
-  }, [reload, scheduleCloudSync, showError]);
+  }, [reload, remindGuestJournalLocalOnly, scheduleCloudSync, showError]);
   const saveMedia = useCallback(async (media: TravelMedia, blob: Blob) => {
     if (tourMode) {
       requestClientForTour(media.kind === 'audio' ? 'voice' : 'photo');
       return;
     }
-    try { await saveMediaBatch([{ media, blob }]); await reload(); }
+    try {
+      await saveMediaBatch([{ media, blob }]);
+      await reload();
+      remindGuestJournalLocalOnly();
+    }
     catch (error) { showError(describeStorageError(error)); throw error; }
-  }, [reload, requestClientForTour, showError, tourMode]);
+  }, [reload, remindGuestJournalLocalOnly, requestClientForTour, showError, tourMode]);
   const saveMediaGroup = useCallback(async (items: Array<{ media: TravelMedia; blob: Blob; liveVideoBlob?: Blob | null }>, entries: DayEntry[]) => {
     if (tourMode) {
       requestClientForTour('photo');
@@ -884,9 +893,10 @@ export default function App() {
       }
       await reload();
       if (entries.length > 0) scheduleCloudSync();
+      remindGuestJournalLocalOnly();
     }
     catch (error) { showError(describeStorageError(error)); throw error; }
-  }, [reload, requestClientForTour, scheduleCloudSync, showError, tourMode]);
+  }, [reload, remindGuestJournalLocalOnly, requestClientForTour, scheduleCloudSync, showError, tourMode]);
   const updateMedia = useCallback(async (media: TravelMedia) => {
     try { await saveItem('media', media); await reload(); }
     catch (error) { showError(describeStorageError(error)); throw error; }
@@ -907,17 +917,19 @@ export default function App() {
       markCloudStoreDirty('entries');
       await reload();
       scheduleCloudSync();
+      remindGuestJournalLocalOnly();
       return linked;
     } catch (error) { showError(describeStorageError(error)); throw error; }
-  }, [reload, scheduleCloudSync, showError]);
+  }, [reload, remindGuestJournalLocalOnly, scheduleCloudSync, showError]);
   const savePlace = useCallback(async (place: JourneyPlace) => {
     try {
       await saveItem('places', place);
       markCloudRecordDirty('places', place.id);
       await reload();
       scheduleCloudSync();
+      remindGuestJournalLocalOnly();
     } catch (error) { showError(describeStorageError(error)); throw error; }
-  }, [reload, scheduleCloudSync, showError]);
+  }, [reload, remindGuestJournalLocalOnly, scheduleCloudSync, showError]);
   const savePlan = useCallback(async (plan: TripPlan) => {
     try {
       await saveItem('plans', plan);
@@ -989,9 +1001,15 @@ export default function App() {
     };
     void saveMark(mark).then(() => {
       setSelectedCityCode(mark.id);
-      showNotice(readLanguage() === 'en'
-        ? `${mark.name} marked as visited. Tap again to open Journal or unmark.`
-        : `${mark.name}已点亮为已去过，再次点击可进入旅行手账或取消点亮。`);
+      if (!getCloudToken()) {
+        showNotice(readLanguage() === 'en'
+          ? `${mark.name} lit up! Not signed in — cannot save to cloud. Sign in to save & sync across devices.`
+          : `已点亮「${mark.name}」· 当前未登录无法云端保存，登录后可多端同步保存。`);
+      } else {
+        showNotice(readLanguage() === 'en'
+          ? `${mark.name} marked as visited. Tap again to open Journal or unmark.`
+          : `${mark.name}已点亮为已去过，再次点击可进入旅行手账或取消点亮。`);
+      }
     }).catch(() => { /* saveMark reports the storage error. */ });
   }, [effectiveMarks, saveMark, showNotice]);
 
@@ -1181,11 +1199,11 @@ export default function App() {
           ) : (
             <button
               type="button"
-              className="local-pill cloud-pill-btn"
+              className="local-pill cloud-pill-btn is-guest-login"
               onClick={() => openAuthModal('login')}
-              title={t('登录或注册开启电脑-手机云同步', 'Sign in to enable cloud sync')}
+              title={t('登录或注册：多端同步保存、解锁每日免费 AI 额度与好友功能', 'Sign in to sync across devices, unlock daily free AI quota & companions')}
             >
-              {t('登录 / 云同步', 'Sign In')}
+              {t('👤 登录 / 注册', '👤 Sign In')}
             </button>
           )}
           <button

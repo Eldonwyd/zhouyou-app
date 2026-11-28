@@ -94,7 +94,12 @@ import { markCloudRecordDirty } from '../cloud-sync';
 import { plannerJournalActivityKey, plannerJournalCity, plannerJournalVisitFor } from '../planner-journal';
 import { mapAppLabel, mapPlaceLinks, openMapAppPlace, openXiaohongshuSearch } from '../external-app-links';
 import { PLANNER_API_ORIGIN_EVENT, plannerApiUrl } from '../api-base';
-import { buildMobileAiStatus, isDesktopFreeTrialEnabled, isMobileNativeAiActive } from '../mobile-ai-runtime';
+import {
+  GUEST_TRIAL_EXHAUSTED_ERROR_TAG,
+  buildMobileAiStatus,
+  isDesktopFreeTrialEnabled,
+  isMobileNativeAiActive,
+} from '../mobile-ai-runtime';
 import { plannerApi } from '../planner-api';
 import { ticketPlanSignature } from '../planner-ticket-signature';
 import {
@@ -1507,7 +1512,15 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
       return true;
     } catch (failure) {
       if (!next.signal.aborted) {
-        report(failure);
+        const rawMsg = failure instanceof Error ? failure.message : String(failure ?? '');
+        if (rawMsg.includes(GUEST_TRIAL_EXHAUSTED_ERROR_TAG)) {
+          const cleanMsg = rawMsg.replace(GUEST_TRIAL_EXHAUSTED_ERROR_TAG, '').trim();
+          setError(cleanMsg);
+          props.onNotice(cleanMsg);
+          props.onOpenAuth?.();
+        } else {
+          report(failure);
+        }
         if (!viewingTask()) props.onNotice('AI 任务未完成，可回到发起任务的位置查看原因并重试。');
       }
       return false;
@@ -1623,6 +1636,9 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
           validatePlannerContent(plan.content);
         }
         await props.onSaveAi(plan, null);
+        if (!props.cloudUser) {
+          props.onNotice('🎉 免费体验攻略已完整生成！当前未登录无法云端同步，登录后可多端同步保存并享每日 5 万 tokens 免费 AI 额度。');
+        }
         setDraftBookings([]);
         setActiveId(plan.id);
         setCreating(false);

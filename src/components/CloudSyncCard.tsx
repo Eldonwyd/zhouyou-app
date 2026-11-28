@@ -154,7 +154,16 @@ export default function CloudSyncCard({
     } catch { /* ignore */ }
     clearCloudAuthState();
     onUserUpdated(null);
-    onNotice('已退出云端账号，本机数据仍安全保留');
+    onNotice('已退出登录，本机数据仍安全保留');
+  }
+
+  async function handleSwitchAccount() {
+    try {
+      await cloudApi.logout();
+    } catch { /* ignore */ }
+    clearCloudAuthState();
+    onUserUpdated(null);
+    onOpenAuth('login');
   }
 
   async function handleRevokeSession(sessionId: string) {
@@ -199,6 +208,12 @@ export default function CloudSyncCard({
           </button>
           <button type="button" className="secondary" onClick={() => setManageOpen((v) => !v)}>
             {manageOpen ? '收起账号管理' : '账号与隐私'}
+          </button>
+          <button type="button" className="secondary" onClick={() => void handleSwitchAccount()}>
+            切换账号
+          </button>
+          <button type="button" className="text-button danger-text" onClick={() => void handleLogout()}>
+            退出登录
           </button>
         </div>
       </div>

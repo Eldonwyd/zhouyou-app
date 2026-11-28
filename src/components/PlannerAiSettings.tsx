@@ -5,6 +5,7 @@ import {
   FREE_AI_QUOTA_EVENT,
   FREE_TRIAL_PROVIDER_ID,
   getCachedFreeAiQuota,
+  hasUsedGuestAiTrial,
   refreshFreeAiQuota,
 } from '../mobile-ai-runtime';
 import { plannerApi } from '../planner-api';
@@ -981,7 +982,9 @@ export function PlannerAiStatusBar({
               {isFreeTrial ? (
                 <span className="ai-dock-meta-item">
                   {!freeQuotaState.loggedIn
-                    ? '登录周游账号即可免费体验'
+                    ? (hasUsedGuestAiTrial()
+                      ? '游客 1 次免费规划已用完 · 登录享每日 5万 tokens 免费额度'
+                      : '游客可免费完整规划 1 次 · 登录后享每日 5万 tokens 免费额度')
                     : freeQuotaState.quota && !freeQuotaState.quota.enabled
                       ? '免费通道待启用 · 可先用外部 AI 导入'
                       : freeQuotaState.quota?.svip

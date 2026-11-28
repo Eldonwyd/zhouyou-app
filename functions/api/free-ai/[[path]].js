@@ -1,6 +1,7 @@
 import {
   checkRateLimit,
   errorResponse,
+  getClientIp,
   getDb,
   jsonResponse,
   nowIso,
@@ -141,6 +142,17 @@ async function ensureQuotaTables(db) {
             requests_count INTEGER NOT NULL DEFAULT 0,
             updated_at TEXT NOT NULL,
             PRIMARY KEY (user_id, month_key)
+          )
+        `)
+        .run();
+      await db
+        .prepare(`
+          CREATE TABLE IF NOT EXISTS free_ai_guest_trials (
+            guest_key TEXT NOT NULL PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            calls_count INTEGER NOT NULL DEFAULT 0,
+            tokens_used INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL
           )
         `)
         .run();
@@ -442,9 +454,11 @@ export const onRequest = withApiHandler(async (context) => {
     return jsonResponse(request, 200, { ok: true, quota });
   }
 
-  // POST /api/free-ai/chat — 平台托管免费体验 AI 代理（严格鉴权 + 单人日/月 Token 额度 + 全站日熔断）
+  // POST /api/free-ai/chat — 平台托管免费体验 AI 代理（登录用户享日/月额度；未登录游客开放 1 次完整行程规划体验）
   if (method === 'POST' && segments[0] === 'chat' && segments.length === 1) {
-    const auth = await requireAuth(db, request);
+    const authHeader = String(request.headers.get('Authorization') || '').trim();
+    const isGuestRequest = !authHeader;
+
     if (!config.enabled) {
       return errorResponse(
         request,
@@ -453,6 +467,165 @@ export const onRequest = withApiHandler(async (context) => {
         'FREE_AI_NOT_CONFIGURED',
       );
     }
+
+    if (isGuestRequest) {
+      const { dayKey } = getBeijingPeriodKeys();
+      const rawGuestId = String(request.headers.get('X-Guest-Trial-Id') || '').trim().slice(0, 64);
+      const clientIp = getClientIp(request) || 'unknown';
+      const guestKey = `guest:${clientIp}:${rawGuestId || 'anon'}`;
+      const ipKey = `guest_ip:${clientIp}`;
+
+      const burst = await checkRateLimit(db, `free_ai_guest_burst:${clientIp}`, 6, 60);
+      if (!burst.allowed) {
+        return errorResponse(
+          request,
+          429,
+          `请求过于频繁，请 ${burst.retryAfter} 秒后重试`,
+          'FREE_AI_RATE_LIMITED',
+        );
+      }
+
+      const siteDailyRow = await db
+        .prepare('SELECT tokens_used FROM free_ai_usage_daily WHERE user_id = ? AND day_key = ?')
+        .bind(SITE_BUCKET_ID, dayKey)
+        .first();
+      const siteUsed = Number(siteDailyRow?.tokens_used || 0);
+      if (siteUsed >= config.siteDailyLimit) {
+        return errorResponse(
+          request,
+          429,
+          '今日全站免费体验额度已用完，明日 0 点刷新；登录账号或使用「借用外部免费 AI 导入」可继续规划',
+          'FREE_AI_SITE_LIMIT',
+        );
+      }
+
+      const body = await readJsonBody(request, 512 * 1024);
+      const guestSessionId = String(body.guestSessionId || '').trim().slice(0, 64);
+      const guestAction = String(body.guestAction || '').trim();
+      const exhaustedMsg = '游客免费体验次数（1 次完整行程规划）已用完！登录周游账号即可享受每日 5 万 / 每月 12 万 tokens 免费 AI 额度，还支持多端同步保存攻略。';
+
+      if (guestAction && guestAction !== 'generate') {
+        return errorResponse(request, 401, exhaustedMsg, 'GUEST_TRIAL_EXHAUSTED');
+      }
+
+      const existing = await db
+        .prepare('SELECT session_id, calls_count, tokens_used FROM free_ai_guest_trials WHERE guest_key = ?')
+        .bind(guestKey)
+        .first();
+      const existingByIp = !existing && clientIp !== 'unknown'
+        ? await db
+            .prepare('SELECT session_id, calls_count, tokens_used FROM free_ai_guest_trials WHERE guest_key = ?')
+            .bind(ipKey)
+            .first()
+        : null;
+      const prior = existing || existingByIp;
+
+      if (prior) {
+        const sameSession = Boolean(guestSessionId && prior.session_id === guestSessionId);
+        const withinSessionCap = Number(prior.calls_count || 0) < 3 && Number(prior.tokens_used || 0) < 30000;
+        if (!sameSession || !withinSessionCap) {
+          return errorResponse(request, 401, exhaustedMsg, 'GUEST_TRIAL_EXHAUSTED');
+        }
+      }
+
+      const { messages, totalChars } = sanitizeMessages(body.messages);
+      const upstreamPayload = buildUpstreamPayload(config, messages, {
+        maxTokens: body.maxTokens,
+        jsonMode: Boolean(body.jsonMode),
+      });
+
+      const startedAt = Date.now();
+      let result;
+      try {
+        result = await callUpstreamWithRetry(config, upstreamPayload);
+      } catch (err) {
+        const latencyMs = Date.now() - startedAt;
+        const errStatus = Number(err?.status) || 502;
+        const errCode = String(err?.code || 'UPSTREAM_ERROR');
+        logFreeAiRequest(context, {
+          userId: guestKey,
+          model: config.model,
+          status: errStatus,
+          latencyMs,
+          errorCode: errCode,
+        });
+        trackDailyMetric(context, 'free_ai_status', String(errStatus), 1, latencyMs);
+        throw err;
+      }
+
+      const latencyMs = Date.now() - startedAt;
+      const promptTokens = result.promptTokens || Math.ceil(totalChars / 2.2);
+      const completionTokens = result.completionTokens || Math.ceil(result.content.length / 2.2);
+      const totalTokens = result.totalTokens || (promptTokens + completionTokens);
+      const sessionToSave = guestSessionId || `g-${Date.now()}`;
+      const now = nowIso();
+
+      const writes = [
+        db
+          .prepare(`
+            INSERT INTO free_ai_guest_trials (guest_key, session_id, calls_count, tokens_used, updated_at)
+            VALUES (?, ?, 1, ?, ?)
+            ON CONFLICT(guest_key) DO UPDATE SET
+              calls_count = calls_count + 1,
+              tokens_used = tokens_used + excluded.tokens_used,
+              updated_at = excluded.updated_at
+          `)
+          .bind(guestKey, sessionToSave, totalTokens, now)
+          .run(),
+        db
+          .prepare(`
+            INSERT INTO free_ai_usage_daily (user_id, day_key, tokens_used, requests_count, updated_at)
+            VALUES (?, ?, ?, 1, ?)
+            ON CONFLICT(user_id, day_key) DO UPDATE SET
+              tokens_used = tokens_used + excluded.tokens_used,
+              requests_count = requests_count + 1,
+              updated_at = excluded.updated_at
+          `)
+          .bind(SITE_BUCKET_ID, dayKey, totalTokens, now)
+          .run(),
+      ];
+      if (clientIp !== 'unknown') {
+        writes.push(
+          db
+            .prepare(`
+              INSERT INTO free_ai_guest_trials (guest_key, session_id, calls_count, tokens_used, updated_at)
+              VALUES (?, ?, 1, ?, ?)
+              ON CONFLICT(guest_key) DO UPDATE SET
+                calls_count = calls_count + 1,
+                tokens_used = tokens_used + excluded.tokens_used,
+                updated_at = excluded.updated_at
+            `)
+            .bind(ipKey, sessionToSave, totalTokens, now)
+            .run(),
+        );
+      }
+      await Promise.all(writes);
+      logFreeAiRequest(context, {
+        userId: guestKey,
+        model: config.model,
+        status: 200,
+        latencyMs,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+      });
+      trackDailyMetric(context, 'free_ai_status', '200', 1, latencyMs);
+
+      return jsonResponse(request, 200, {
+        ok: true,
+        guestTrial: true,
+        content: result.content,
+        model: config.model,
+        label: '周游免费体验 AI（游客体验）',
+        usage: {
+          promptTokens,
+          completionTokens,
+          totalTokens,
+        },
+      });
+    }
+
+    const auth = await requireAuth(db, request);
 
     // 轻量突发限流：每分钟最多 12 次，防止并发脚本瞬间击穿额度
     const burst = await checkRateLimit(db, `free_ai_burst:${auth.user.id}`, 12, 60);

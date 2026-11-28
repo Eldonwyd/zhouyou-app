@@ -222,6 +222,45 @@ export const FREE_TRIAL_PROVIDER_ID = 'free-trial';
 export const FREE_AI_QUOTA_EVENT = 'zhouyou-free-ai-quota-change';
 const FREE_AI_QUOTA_CACHE_KEY = 'zhouyou-free-ai-quota-cache-v1';
 const DESKTOP_FREE_TRIAL_KEY = 'zhouyou-desktop-free-trial';
+const GUEST_TRIAL_ID_KEY = 'zhouyou-guest-trial-id-v1';
+const GUEST_TRIAL_USED_KEY = 'zhouyou-guest-ai-plan-used-v1';
+export const GUEST_TRIAL_EXHAUSTED_ERROR_TAG = '[GUEST_TRIAL_EXHAUSTED]';
+
+let activeGuestGenerationSessionId: string | null = null;
+
+export function getGuestTrialId(): string {
+  try {
+    let id = localStorage.getItem(GUEST_TRIAL_ID_KEY);
+    if (!id) {
+      id = `g_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem(GUEST_TRIAL_ID_KEY, id);
+    }
+    return id;
+  } catch {
+    return 'g_ephemeral';
+  }
+}
+
+export function hasUsedGuestAiTrial(): boolean {
+  try {
+    return localStorage.getItem(GUEST_TRIAL_USED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function markGuestAiTrialUsed(): void {
+  try {
+    localStorage.setItem(GUEST_TRIAL_USED_KEY, '1');
+  } catch {
+    // ignore
+  }
+  try {
+    window.dispatchEvent(new CustomEvent(FREE_AI_QUOTA_EVENT, { detail: null }));
+  } catch {
+    // ignore
+  }
+}
 
 let memoryFreeAiQuota: FreeAiQuotaSnapshot | null = null;
 
@@ -1564,21 +1603,32 @@ async function callMobileModel(
 
   if (isFreeTrial) {
     const cloudToken = getCloudToken();
-    if (!cloudToken) {
-      throw new Error('请先登录周游账号即可使用免费体验 AI（每日 5 万 / 每月 12 万 tokens），或点击「借用外部免费 AI 导入」零门槛生成');
+    const isGuest = !cloudToken;
+    if (isGuest) {
+      if (hasUsedGuestAiTrial() || !activeGuestGenerationSessionId) {
+        throw new Error(
+          `${GUEST_TRIAL_EXHAUSTED_ERROR_TAG} 你的 1 次免费游客 AI 规划体验已用完（或当前操作需要登录）。登录周游账号即可享受每日 5 万 / 每月 12 万 tokens 免费 AI 额度，还支持多端同步保存攻略！`,
+        );
+      }
     }
     const cloudOrigin = getCloudOrigin();
     const freeUrl = `${cloudOrigin}/api/free-ai/chat`;
-    const freeHeaders = {
-      Authorization: `Bearer ${cloudToken}`,
-      'Content-Type': 'application/json',
-    };
+    const freeHeaders: Record<string, string> = isGuest
+      ? {
+          'Content-Type': 'application/json',
+          'X-Guest-Trial-Id': getGuestTrialId(),
+        }
+      : {
+          Authorization: `Bearer ${cloudToken}`,
+          'Content-Type': 'application/json',
+        };
     const freeBody = JSON.stringify({
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
       maxTokens,
+      ...(isGuest ? { guestSessionId: activeGuestGenerationSessionId, guestAction: 'generate' } : {}),
     });
     const nativeBridge = getNativeBridge();
     let statusCode = 0;
@@ -1626,6 +1676,7 @@ async function callMobileModel(
     }
     let data: {
       ok?: boolean;
+      code?: string;
       content?: string;
       error?: string;
       model?: string;
@@ -1641,6 +1692,10 @@ async function callMobileModel(
       setCachedFreeAiQuota(data.quota);
     }
     if (statusCode < 200 || statusCode >= 300 || !data.ok) {
+      if (data.code === 'GUEST_TRIAL_EXHAUSTED') {
+        markGuestAiTrialUsed();
+        throw new Error(`${GUEST_TRIAL_EXHAUSTED_ERROR_TAG} ${data.error || '免费游客 AI 规划次数已用完，请登录账号享每日大量免费额度！'}`);
+      }
       throw new Error(data.error || `免费体验 AI 请求失败（HTTP ${statusCode || 502}）`);
     }
     text = String(data.content || '');
@@ -3287,11 +3342,22 @@ async function locateSingleMobilePlace(place: { key: string; name: string; city?
       transitRule,
       '注意：非交通卡省略 distanceKm 与 transferOptions；最后一天 lodging 必须为 null；所有金额为人民币整数分（如 60 元填 6000）；kind 仅取 sight/food/transport/rest；period 仅取 morning/noon/afternoon/evening。',
     ].join('\n');
-    const res = await callMobileModel(sys, `旅行需求：\n${JSON.stringify(req, null, 2)}`, { maxTokens: 8000 });
-    onProgress('整理路线与预算…');
-    const raw = extractJsonObject<Record<string, unknown>>(res.text);
-    const content = normalizeMobilePlanContent(raw, req);
-    return { content } as unknown as T;
+    const isGuestGen = !getCloudToken();
+    if (isGuestGen) {
+      activeGuestGenerationSessionId = `gs_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    }
+    try {
+      const res = await callMobileModel(sys, `旅行需求：\n${JSON.stringify(req, null, 2)}`, { maxTokens: 8000 });
+      onProgress('整理路线与预算…');
+      const raw = extractJsonObject<Record<string, unknown>>(res.text);
+      const content = normalizeMobilePlanContent(raw, req);
+      if (isGuestGen && res.provider === FREE_TRIAL_PROVIDER_ID) {
+        markGuestAiTrialUsed();
+      }
+      return { content } as unknown as T;
+    } finally {
+      if (isGuestGen) activeGuestGenerationSessionId = null;
+    }
   }
 
   if (endpoint === 'chat') {

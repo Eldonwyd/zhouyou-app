@@ -19,6 +19,19 @@
   box-shadow: 0 4px 12px rgba(60, 46, 42, 0.08);
 }
 
+.cloud-pill-btn.is-guest-login {
+  background: var(--coral, #e07a5f);
+  border-color: var(--coral, #e07a5f);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--coral, #e07a5f) 30%, transparent);
+}
+
+.cloud-pill-btn.is-guest-login:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--coral, #e07a5f) 38%, transparent);
+}
+
 /* 登录 / 注册弹窗（现代极简专业风格） */
 .auth-dialog.auth-modern {
   width: min(420px, 92vw);
