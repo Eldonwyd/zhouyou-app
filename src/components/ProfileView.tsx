@@ -777,8 +777,9 @@ export default function ProfileView({
         </div>
       </div>
 
-      {/* 旅人护照横幅 + 内联装扮面板（统一展示，不再堆叠多余的云同步大卡片） */}
-      <section className="warm-profile-banner">
+      {/* 旅人护照横幅：未登录时不展示个人信息与统计，仅展示未登录状态与登录入口 */}
+      {cloudUser ? (
+        <section className="warm-profile-banner">
         <span className="washi-tape tape-top-left" aria-hidden="true" />
         <CuteSticker kind="plane" className="profile-float-plane" />
         <CuteSticker kind="sparkle" className="profile-float-sparkle" />
@@ -971,72 +972,115 @@ export default function ProfileView({
           </div>
         )}
       </section>
+      ) : (
+        <section className="warm-profile-banner is-guest-banner">
+          <div className="profile-banner-main">
+            <div
+              className="warm-profile-avatar"
+              aria-hidden="true"
+              style={{
+                display: 'grid',
+                placeItems: 'center',
+                borderRadius: '50%',
+                background: 'var(--surface-2, #f1ebe3)',
+                color: 'var(--muted, #8c7e72)',
+                fontSize: '28px',
+                border: '2px dashed var(--line-strong, rgba(110, 88, 66, 0.25))',
+              }}
+            >
+              👤
+            </div>
+            <div className="profile-banner-info">
+              <div className="profile-name-row">
+                <h2>{t('未登录', 'Not Signed In')}</h2>
+                <span className="profile-local-tag">{t('游客体验中', 'Guest Mode')}</span>
+              </div>
+              <p className="profile-motto">
+                {t('登录周游账号后，即可同步地图足迹与手账、解锁旅途成就与好友功能，并享每日 5 万 tokens 免费 AI 额度。', 'Sign in to sync footprints & journal, unlock travel achievements & friends, and get 50k daily free AI tokens.')}
+              </p>
+            </div>
+            {onOpenAuth && (
+              <button
+                type="button"
+                className="primary profile-edit-toggle"
+                onClick={() => onOpenAuth('login')}
+              >
+                {t('立即登录', 'Sign In')}
+              </button>
+            )}
+          </div>
+        </section>
+      )}
 
-      {/* 旅途成就入口卡片：从底部导航收进个人中心，点击打开完整成就与徽章墙 */}
-      <section className="card profile-achievements-entry-card" aria-label={t('旅途成就与徽章', 'Travel Achievements & Badges')}>
-        <button type="button" className="profile-achievements-entry-btn" onClick={() => openSubView('achievements')}>
-          <span className="profile-ach-icon" aria-hidden="true">
-            <TravelIcon name="achievements" />
-          </span>
-          <span className="profile-ach-body">
-            <span className="profile-ach-title-row">
-              <strong>{t('旅途成就与徽章', 'Travel Achievements & Badges')}</strong>
-              <span className="profile-ach-pill">Lv.{levelInfo.level} · {levelInfo.title}</span>
+      {/* 旅途成就入口卡片：仅登录后展示已解锁等级与成就；未登录时不解锁成就 */}
+      {cloudUser && (
+        <section className="card profile-achievements-entry-card" aria-label={t('旅途成就与徽章', 'Travel Achievements & Badges')}>
+          <button type="button" className="profile-achievements-entry-btn" onClick={() => openSubView('achievements')}>
+            <span className="profile-ach-icon" aria-hidden="true">
+              <TravelIcon name="achievements" />
             </span>
-            <small>
-              {levelInfo.nextTarget
-                ? t(
-                  `已点亮 ${visitedCityCount} 座城市 · 再去 ${levelInfo.remainingCities} 城升级「${levelInfo.nextTitle}」 · 已收藏 ${snapshot.badges.length} 枚定制徽章`,
-                  `${visitedCityCount} cities · ${levelInfo.remainingCities} more to ${levelInfo.nextTitle} · ${snapshot.badges.length} custom badges`,
-                )
-                : t(`已满级！已点亮 ${visitedCityCount} 座城市 · 已收藏 ${snapshot.badges.length} 枚定制徽章`, `Max Level! ${visitedCityCount} cities · ${snapshot.badges.length} custom badges`)}
-            </small>
-            <span className="profile-ach-bar" aria-hidden="true">
-              <span style={{ width: `${Math.max(8, levelInfo.progressPct)}%` }} />
+            <span className="profile-ach-body">
+              <span className="profile-ach-title-row">
+                <strong>{t('旅途成就与徽章', 'Travel Achievements & Badges')}</strong>
+                <span className="profile-ach-pill">Lv.{levelInfo.level} · {levelInfo.title}</span>
+              </span>
+              <small>
+                {levelInfo.nextTarget
+                  ? t(
+                    `已点亮 ${visitedCityCount} 座城市 · 再去 ${levelInfo.remainingCities} 城升级「${levelInfo.nextTitle}」 · 已收藏 ${snapshot.badges.length} 枚定制徽章`,
+                    `${visitedCityCount} cities · ${levelInfo.remainingCities} more to ${levelInfo.nextTitle} · ${snapshot.badges.length} custom badges`,
+                  )
+                  : t(`已满级！已点亮 ${visitedCityCount} 座城市 · 已收藏 ${snapshot.badges.length} 枚定制徽章`, `Max Level! ${visitedCityCount} cities · ${snapshot.badges.length} custom badges`)}
+              </small>
+              <span className="profile-ach-bar" aria-hidden="true">
+                <span style={{ width: `${Math.max(8, levelInfo.progressPct)}%` }} />
+              </span>
             </span>
-          </span>
-          <span className="settings-entry-chevron" aria-hidden="true">›</span>
-        </button>
-      </section>
+            <span className="settings-entry-chevron" aria-hidden="true">›</span>
+          </button>
+        </section>
+      )}
 
       {/* 页面风格与明暗直接放在个人中心外面，方便随时换肤 */}
       <AppearanceSettings />
 
-      {/* 双栏 Bento：回忆收藏 + 存储空间 */}
+      {/* 双栏 Bento：回忆收藏（仅登录后展示） + 存储空间 */}
       <div className="profile-grid profile-home-grid">
-        <section className="card warm-profile-info">
-          <div className="card-heading">
-            <h2>{t('我的回忆小收藏', 'My Travel Collection')}</h2>
-            <span>{t('全量保存在本机', 'Stored locally')}</span>
-          </div>
-          <div className="profile-bento-stats">
-            <div className="bento-stat-tile tile-sage">
-              <small>{t('已去城市', 'Cities')}</small>
-              <strong>{visitedCityCount}</strong>
+        {cloudUser && (
+          <section className="card warm-profile-info">
+            <div className="card-heading">
+              <h2>{t('我的回忆小收藏', 'My Travel Collection')}</h2>
+              <span>{t('全量保存在本机', 'Stored locally')}</span>
             </div>
-            <div className="bento-stat-tile tile-peach">
-              <small>{t('记录旅程', 'Trips')}</small>
-              <strong>{snapshot.trips.length}</strong>
+            <div className="profile-bento-stats">
+              <div className="bento-stat-tile tile-sage">
+                <small>{t('已去城市', 'Cities')}</small>
+                <strong>{visitedCityCount}</strong>
+              </div>
+              <div className="bento-stat-tile tile-peach">
+                <small>{t('记录旅程', 'Trips')}</small>
+                <strong>{snapshot.trips.length}</strong>
+              </div>
+              <div className="bento-stat-tile tile-blue">
+                <small>{t('打卡地点', 'Places')}</small>
+                <strong>{snapshot.places.length}</strong>
+              </div>
+              <div className="bento-stat-tile tile-honey">
+                <small>{t('珍藏照片', 'Photos')}</small>
+                <strong>{photoCount}</strong>
+              </div>
+              <div className="bento-stat-tile tile-lilac">
+                <small>{t('视频 & 语音', 'Video & Audio')}</small>
+                <strong>{videoCount + audioCount}</strong>
+              </div>
+              <div className="bento-stat-tile tile-mint">
+                <small>{t('专属徽章', 'Badges')}</small>
+                <strong>{snapshot.badges.length}</strong>
+              </div>
             </div>
-            <div className="bento-stat-tile tile-blue">
-              <small>{t('打卡地点', 'Places')}</small>
-              <strong>{snapshot.places.length}</strong>
-            </div>
-            <div className="bento-stat-tile tile-honey">
-              <small>{t('珍藏照片', 'Photos')}</small>
-              <strong>{photoCount}</strong>
-            </div>
-            <div className="bento-stat-tile tile-lilac">
-              <small>{t('视频 & 语音', 'Video & Audio')}</small>
-              <strong>{videoCount + audioCount}</strong>
-            </div>
-            <div className="bento-stat-tile tile-mint">
-              <small>{t('专属徽章', 'Badges')}</small>
-              <strong>{snapshot.badges.length}</strong>
-            </div>
-          </div>
-          <p className="muted profile-privacy-note">{t('照片、视频与语音始终安全保存在本机；登录周游账号后可额外同步文字攻略与城市足迹。', 'Photos, videos, and audio stay safely on your device; sign in to sync itineraries and footprints across devices.')}</p>
-        </section>
+            <p className="muted profile-privacy-note">{t('照片、视频与语音始终安全保存在本机；登录周游账号后可额外同步文字攻略与城市足迹。', 'Photos, videos, and audio stay safely on your device; sign in to sync itineraries and footprints across devices.')}</p>
+          </section>
+        )}
 
         <section className="card warm-storage">
           <div className="card-heading">

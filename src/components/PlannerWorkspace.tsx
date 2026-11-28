@@ -1084,6 +1084,26 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
   }, [props.targetPlanId, props.aiPlans]);
   const [financeKey, setFinanceKey] = useState<string | null>(null);
   const [creating, setCreating] = useState(props.aiPlans.length === 0);
+  const creatingBeforeTourRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    const onTourPlanner = (event: Event) => {
+      const detail = (event as CustomEvent<{ mode?: 'create' | 'restore' }>).detail;
+      if (detail?.mode === 'create') {
+        if (creatingBeforeTourRef.current === null) {
+          creatingBeforeTourRef.current = creating;
+        }
+        setTab('itineraries');
+        setCreating(true);
+      } else if (detail?.mode === 'restore') {
+        if (creatingBeforeTourRef.current !== null) {
+          setCreating(creatingBeforeTourRef.current);
+          creatingBeforeTourRef.current = null;
+        }
+      }
+    };
+    window.addEventListener('zhouyou-onboarding-planner', onTourPlanner);
+    return () => window.removeEventListener('zhouyou-onboarding-planner', onTourPlanner);
+  }, [creating]);
   const [request, setRequest] = useState(() =>
     freshPlannerRequest('', props.preferences?.base ?? ''),
   );

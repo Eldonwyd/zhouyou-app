@@ -1203,18 +1203,20 @@ export default function App() {
               onClick={() => openAuthModal('login')}
               title={t('登录或注册：多端同步保存、解锁每日免费 AI 额度与好友功能', 'Sign in to sync across devices, unlock daily free AI quota & companions')}
             >
-              {t('👤 登录 / 注册', '👤 Sign In')}
+              {t('登录', 'Sign In')}
             </button>
           )}
-          <button
-            type="button"
-            className="topbar-avatar-btn"
-            aria-label={avatarNickname}
-            title={t('打开个人中心', 'Open Personal Center')}
-            onClick={() => openPage('profile')}
-          >
-            <TravelAvatar avatarId={activeProfile?.avatar || cloudUser?.avatar} nickname={avatarNickname} className="avatar" />
-          </button>
+          {cloudUser && (
+            <button
+              type="button"
+              className="topbar-avatar-btn"
+              aria-label={avatarNickname}
+              title={t('打开个人中心', 'Open Personal Center')}
+              onClick={() => openPage('profile')}
+            >
+              <TravelAvatar avatarId={activeProfile?.avatar || cloudUser?.avatar} nickname={avatarNickname} className="avatar" />
+            </button>
+          )}
         </div>
       </header>
       {ready && tourMode && !embeddedTour && (

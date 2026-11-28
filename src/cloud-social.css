@@ -19,17 +19,32 @@
   box-shadow: 0 4px 12px rgba(60, 46, 42, 0.08);
 }
 
-.cloud-pill-btn.is-guest-login {
+.topbar .cloud-pill-btn.is-guest-login {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 14px;
+  white-space: nowrap;
   background: var(--coral, #e07a5f);
   border-color: var(--coral, #e07a5f);
   color: #fff;
+  font-size: 13px;
   font-weight: 700;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--coral, #e07a5f) 30%, transparent);
 }
 
-.cloud-pill-btn.is-guest-login:hover {
+.topbar .cloud-pill-btn.is-guest-login:hover {
   filter: brightness(1.05);
   box-shadow: 0 6px 16px color-mix(in srgb, var(--coral, #e07a5f) 38%, transparent);
+}
+
+@media (max-width: 850px) {
+  .topbar .cloud-pill-btn.is-guest-login {
+    height: 34px;
+    padding: 0 12px;
+    font-size: 12.5px;
+  }
 }
 
 /* 登录 / 注册弹窗（现代极简专业风格） */

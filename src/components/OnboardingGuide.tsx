@@ -66,7 +66,7 @@ const STEPS: OnboardingStep[] = [
   {
     id: 'planner-ai-bar',
     page: 'plan',
-    selectors: ['#planner-ai-tools', '.planner-service-toggle', '.planner-tabs'],
+    selectors: ['.planner-service-toggle', '.ai-dock-bar', '.tour-planner-notice', '.planner-tabs'],
     tagZh: 'AI 规划 · 关键键 1',
     tagEn: 'AI Planner · Key 1',
     titleZh: '点这里看免费 AI 额度或切换模型',
@@ -237,7 +237,21 @@ export default function OnboardingGuide({
     }
   }, [open, step.page, currentPage, onNavigatePage]);
 
+  // 进入 AI 规划表单演示步骤时，通知 PlannerWorkspace 展开新建表单，保证高亮框 100% 精准对应
+  useEffect(() => {
+    if (!open) return;
+    const needsCreateForm = step.id === 'planner-inputs' || step.id === 'planner-imports' || step.id === 'planner-submit';
+    if (needsCreateForm) {
+      const fire = () => window.dispatchEvent(new CustomEvent('zhouyou-onboarding-planner', { detail: { mode: 'create' } }));
+      fire();
+      const t1 = window.setTimeout(fire, 140);
+      return () => window.clearTimeout(t1);
+    }
+    return undefined;
+  }, [open, step.id, currentPage]);
+
   const finish = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('zhouyou-onboarding-planner', { detail: { mode: 'restore' } }));
     markOnboardingCompleted();
     onClose();
   }, [onClose]);
@@ -356,6 +370,7 @@ export default function OnboardingGuide({
       role="dialog"
       aria-modal="true"
       aria-label={t('新手指引', 'Interactive Onboarding Guide')}
+      onClick={goNext}
     >
       <svg className="zy-onboarding-backdrop" width={viewport.w} height={viewport.h} aria-hidden="true">
         <defs>
@@ -400,13 +415,17 @@ export default function OnboardingGuide({
         </div>
       )}
 
-      {/* 紧凑平稳停靠栏：固定居中，不再满屏乱跳 */}
+      {/* 紧凑平稳停靠栏：固定居中，轻点屏幕任意处即可跳到下一步 */}
       <div className={`zy-onboarding-dock${dockAtTop ? ' is-top' : ''}`}>
         <div className="zy-onboarding-dock-top">
           <span className="zy-onboarding-badge">
             {isEn ? step.tagEn : step.tagZh} · {stepIndex + 1}/{STEPS.length}
           </span>
-          <button type="button" className="zy-onboarding-skip" onClick={finish}>
+          <button
+            type="button"
+            className="zy-onboarding-skip"
+            onClick={(e) => { e.stopPropagation(); finish(); }}
+          >
             {t('跳过', 'Skip')}
           </button>
         </div>
@@ -424,18 +443,26 @@ export default function OnboardingGuide({
                 aria-selected={idx === stepIndex}
                 aria-label={t(`第 ${idx + 1} 步`, `Step ${idx + 1}`)}
                 className={`zy-onboarding-dot${idx === stepIndex ? ' is-active' : idx < stepIndex ? ' is-done' : ''}`}
-                onClick={() => setStepIndex(idx)}
+                onClick={(e) => { e.stopPropagation(); setStepIndex(idx); }}
               />
             ))}
           </div>
 
           <div className="zy-onboarding-actions">
             {!isFirst && (
-              <button type="button" className="secondary zy-onboarding-btn-prev" onClick={goPrev}>
+              <button
+                type="button"
+                className="secondary zy-onboarding-btn-prev"
+                onClick={(e) => { e.stopPropagation(); goPrev(); }}
+              >
                 {t('上一步', 'Back')}
               </button>
             )}
-            <button type="button" className="primary zy-onboarding-btn-next" onClick={goNext}>
+            <button
+              type="button"
+              className="primary zy-onboarding-btn-next"
+              onClick={(e) => { e.stopPropagation(); goNext(); }}
+            >
               {isLast ? t('开始体验 ✓', 'Done ✓') : t('下一步 →', 'Next →')}
             </button>
           </div>
