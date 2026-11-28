@@ -43,6 +43,7 @@ interface ProfileViewProps {
   onSaveBadge: (badge: Badge) => Promise<void>;
   onOpenEntry: (entry: DayEntry) => void;
   onTestNotification?: () => void;
+  onStartOnboarding?: () => void;
   onImported: (snapshot: AppSnapshot) => void;
   onError: (message: string) => void;
   onNotice: (message: string) => void;
@@ -79,6 +80,7 @@ export default function ProfileView({
   onSaveBadge,
   onOpenEntry,
   onTestNotification,
+  onStartOnboarding,
   onImported,
   onError,
   onNotice,
@@ -1095,6 +1097,21 @@ export default function ProfileView({
           </span>
           <span className="settings-entry-chevron" aria-hidden="true">›</span>
         </button>
+        {onStartOnboarding && (
+          <button
+            type="button"
+            className="settings-entry-row settings-entry-divider"
+            onClick={onStartOnboarding}
+          >
+            <span className="settings-entry-icon is-guide" aria-hidden="true">🧭</span>
+            <span className="settings-entry-copy">
+              <strong>{t('新手指引与玩法教程', 'Interactive Guide & Walkthrough')}</strong>
+              <small>{t('一步步高亮演示地图点亮、AI 规划、同行旅伴与手账怎么点', 'Step-by-step spotlight walkthrough of maps, AI planner, companions & journal')}</small>
+            </span>
+            <span className="settings-entry-value">{t('立即重看', 'Replay')}</span>
+            <span className="settings-entry-chevron" aria-hidden="true">›</span>
+          </button>
+        )}
         <button type="button" className="settings-entry-row" onClick={() => openSettings()}>
           <span className="settings-entry-icon is-server"><TravelIcon name="settings" /></span>
           <span className="settings-entry-copy">

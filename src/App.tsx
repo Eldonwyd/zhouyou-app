@@ -58,6 +58,7 @@ import {
 import MapView from './components/MapView';
 import AuthModal from './components/AuthModal';
 import ShareReceiveModal from './components/ShareReceiveModal';
+import OnboardingGuide, { hasCompletedOnboarding } from './components/OnboardingGuide';
 
 const DEMO_ACTIVE_KEY = 'zhouyou-demo-active';
 const AUTH_DISMISSED_KEY = 'zhouyou-auth-dismissed';
@@ -146,6 +147,8 @@ export default function App() {
   const [lastSyncError, setLastSyncError] = useState<string>('');
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const onboardingAutoShownRef = useRef(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [intimacyBonds, setIntimacyBonds] = useState<IntimacyBond[]>([]);
   const [pendingShareCode, setPendingShareCode] = useState<string | null>(null);
@@ -674,6 +677,26 @@ export default function App() {
     }
   }, [ready, tourMode, runCloudSync, refreshSocialBadges]);
 
+  const startOnboarding = useCallback(() => {
+    setActiveProvinceCode(null);
+    setPage('map');
+    setOnboardingOpen(true);
+  }, []);
+
+  // 首次使用自动弹出交互式新手指引（可随时跳过；等登录弹窗关闭后再弹出，避免遮挡）
+  useEffect(() => {
+    if (!ready || embeddedTour || authModalOpen || onboardingAutoShownRef.current) return;
+    if (hasCompletedOnboarding()) {
+      onboardingAutoShownRef.current = true;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      onboardingAutoShownRef.current = true;
+      setOnboardingOpen(true);
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [ready, embeddedTour, authModalOpen]);
+
   // 处理网页 URL 参数与自定义协议深链（?share=CODE / ?addFriend=ZY-XXXX / ?joinGroup=CODE）
   const handleIncomingUrl = useCallback((urlStr: string) => {
     const parsed = extractZhouyouActionFromUrl(urlStr);
@@ -1125,6 +1148,20 @@ export default function App() {
             </svg>
             <span className="topbar-ext-label">GitHub</span>
           </a>
+          <button
+            type="button"
+            className="topbar-ext-btn is-guide"
+            onClick={startOnboarding}
+            aria-label={t('新手指引', 'Quick Guide')}
+            title={t('重新查看新手指引与按钮说明', 'Replay interactive onboarding guide')}
+          >
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+              <path d="M12 17h.01" />
+            </svg>
+            <span className="topbar-ext-label">{t('指引', 'Guide')}</span>
+          </button>
           <ThemeSwitch />
           {tourMode ? (
             <button
@@ -1285,6 +1322,7 @@ export default function App() {
                 type: 'share',
                 targetRef: {},
               }, true)}
+              onStartOnboarding={startOnboarding}
               webTourMode={tourMode}
               onRequireClient={requestClientForTour}
               onImported={(data) => {
@@ -1393,6 +1431,12 @@ export default function App() {
         void runCloudSync(true);
       }}
       onClose={() => setPendingShareCode(null)}
+    />
+    <OnboardingGuide
+      open={onboardingOpen}
+      currentPage={page}
+      onNavigatePage={openPage}
+      onClose={() => setOnboardingOpen(false)}
     />
     {activePopup && (
       <div className="inapp-notif-banner" role="alert" aria-live="polite">

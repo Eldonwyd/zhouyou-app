@@ -1,0 +1,320 @@
+/* ==========================================================================
+   周游地图 · 交互式聚光灯新手指引 (Onboarding Spotlight Coach-Marks)
+   ========================================================================== */
+
+.zy-onboarding-root {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  pointer-events: auto;
+  animation: zyOnboardFadeIn 0.22s ease-out;
+}
+
+.zy-onboarding-backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  pointer-events: auto;
+}
+
+.zy-onboarding-backdrop rect {
+  transition: x 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    y 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.zy-onboarding-spotlight-ring {
+  position: fixed;
+  pointer-events: none;
+  border: 2.5px solid var(--coral, #e07a5f);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--coral, #e07a5f) 24%, transparent),
+    0 12px 34px rgba(0, 0, 0, 0.28);
+  transition: top 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    left 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 0.28s ease;
+  animation: zySpotlightPulse 1.8s ease-in-out infinite;
+}
+
+.zy-onboarding-tap-beacon {
+  position: fixed;
+  pointer-events: none;
+  z-index: 2002;
+  transform: translate(-50%, -50%);
+  transition: top 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    left 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.zy-onboarding-ripple {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 2.5px solid #ffd166;
+  background: rgba(255, 209, 102, 0.24);
+  transform: translate(-50%, -50%) scale(0.6);
+  animation: zyTapRipple 1.6s ease-out infinite;
+}
+
+.zy-onboarding-finger {
+  position: relative;
+  display: inline-block;
+  font-size: 26px;
+  line-height: 1;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
+  animation: zyFingerTap 1.6s ease-in-out infinite;
+}
+
+/* 浮动指引卡片 */
+.zy-onboarding-card {
+  position: fixed;
+  z-index: 2005;
+  width: min(388px, calc(100vw - 28px));
+  background: var(--surface, #fffdf9);
+  color: var(--ink, #2b241d);
+  border: 1px solid var(--line-strong, rgba(110, 88, 66, 0.2));
+  border-radius: 20px;
+  padding: 20px 20px 18px;
+  box-shadow:
+    0 22px 54px rgba(15, 22, 28, 0.32),
+    0 4px 14px rgba(15, 22, 28, 0.12);
+  transition: top 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+    left 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.zy-onboarding-card.is-centered {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(432px, calc(100vw - 28px));
+  padding: 24px 24px 20px;
+}
+
+.zy-onboarding-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.zy-onboarding-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--warm-green, #3a6b4c);
+  background: color-mix(in srgb, var(--warm-green, #4b7a57) 12%, var(--surface-2, #f6f1ea));
+  border: 1px solid color-mix(in srgb, var(--warm-green, #4b7a57) 24%, transparent);
+}
+
+.zy-onboarding-skip {
+  border: 0;
+  background: transparent;
+  color: var(--muted, #766a5e);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.zy-onboarding-skip:hover {
+  background: var(--surface-2, rgba(120, 100, 80, 0.1));
+  color: var(--ink, #2b241d);
+}
+
+.zy-onboarding-title {
+  margin: 0 0 8px;
+  font-size: 19px;
+  line-height: 1.35;
+  font-weight: 800;
+  color: var(--ink, #2b241d);
+}
+
+.zy-onboarding-desc {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--muted, #5c5146);
+}
+
+.zy-onboarding-chips {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.zy-onboarding-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink, #2b241d);
+  background: var(--surface-2, #f7f2eb);
+  border: 1px solid var(--line, rgba(110, 88, 66, 0.14));
+}
+
+.zy-onboarding-chip i {
+  font-style: normal;
+  font-size: 15px;
+}
+
+.zy-onboarding-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--coral, #c8573b);
+  background: color-mix(in srgb, var(--coral, #e07a5f) 10%, var(--surface-2, #fff6f2));
+  border: 1px dashed color-mix(in srgb, var(--coral, #e07a5f) 34%, transparent);
+}
+
+.zy-onboarding-hint-dot {
+  flex: none;
+  font-size: 14px;
+}
+
+.zy-onboarding-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line, rgba(110, 88, 66, 0.14));
+}
+
+.zy-onboarding-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.zy-onboarding-dot {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--line-strong, rgba(110, 88, 66, 0.25));
+  cursor: pointer;
+  transition: width 0.2s ease, background-color 0.2s ease;
+}
+
+.zy-onboarding-dot.is-done {
+  background: color-mix(in srgb, var(--warm-green, #4b7a57) 55%, transparent);
+}
+
+.zy-onboarding-dot.is-active {
+  width: 20px;
+  background: var(--coral, #e07a5f);
+}
+
+.zy-onboarding-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zy-onboarding-btn-prev,
+.zy-onboarding-btn-next {
+  height: 36px;
+  padding: 0 15px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 顶栏「指引」按钮微调 */
+.topbar .topbar-ext-btn.is-guide {
+  background: color-mix(in srgb, var(--coral, #e07a5f) 9%, var(--surface, #fff));
+  border-color: color-mix(in srgb, var(--coral, #e07a5f) 26%, var(--line, #e4d6c8));
+  color: var(--coral, #c8573b);
+}
+
+/* 个人中心「新手指引」入口图标色 */
+.settings-entry-icon.is-guide {
+  background: color-mix(in srgb, var(--coral, #e07a5f) 14%, var(--surface-2, #fff5f0));
+  color: var(--coral, #c8573b);
+}
+
+@keyframes zyOnboardFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes zySpotlightPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--coral, #e07a5f) 22%, transparent),
+      0 12px 34px rgba(0, 0, 0, 0.28);
+  }
+  50% {
+    box-shadow:
+      0 0 0 8px color-mix(in srgb, var(--coral, #e07a5f) 34%, transparent),
+      0 14px 40px rgba(0, 0, 0, 0.34);
+  }
+}
+
+@keyframes zyTapRipple {
+  0% {
+    transform: translate(-50%, -50%) scale(0.55);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.9);
+    opacity: 0;
+  }
+}
+
+@keyframes zyFingerTap {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  45% {
+    transform: translate(-2px, -6px) scale(0.92);
+  }
+  60% {
+    transform: translate(0, 0) scale(1.04);
+  }
+}
+
+@media (max-width: 560px) {
+  .zy-onboarding-card {
+    padding: 17px 16px 15px;
+    border-radius: 18px;
+  }
+  .zy-onboarding-title {
+    font-size: 17px;
+  }
+  .zy-onboarding-desc {
+    font-size: 13px;
+  }
+  .zy-onboarding-btn-prev,
+  .zy-onboarding-btn-next {
+    height: 34px;
+    padding: 0 13px;
+    font-size: 12.5px;
+  }
+}

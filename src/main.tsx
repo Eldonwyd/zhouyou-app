@@ -11,6 +11,7 @@ import './appearance.css';
 import './phone.css';
 import './planner-ai-neo.css';
 import './cloud-social.css';
+import './onboarding.css';
 
 class AppErrorBoundary extends React.Component<
   { children: React.ReactNode },
