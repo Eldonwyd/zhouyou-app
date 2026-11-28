@@ -19,6 +19,7 @@ import { CuteTransportIcon, DirectTransferBridge, GapTransferConnector, Transfer
 import PlannerXhsImporter from './PlannerXhsImporter';
 import PlannerExternalAiImporter from './PlannerExternalAiImporter';
 import CityGuideLinks from './CityGuideLinks';
+import ThemedDatePicker from './ThemedDatePicker';
 import { exportOfflineRoadbook } from '../planner-html-export';
 import {
   DEFAULT_XHS_REFERENCE_MODE,
@@ -2556,20 +2557,20 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
               </label>
               <label>
                 {t('开始日期', 'Start Date')}
-                <input
-                  type="date"
+                <ThemedDatePicker
                   required
+                  title={t('开始日期', 'Start Date')}
                   value={discover.startDate}
-                  onChange={(event) => setDiscover({ ...discover, startDate: event.target.value })}
+                  onChange={(val) => setDiscover({ ...discover, startDate: val })}
                 />
               </label>
               <label>
                 {t('结束日期（可选）', 'End Date (optional)')}
-                <input
-                  type="date"
+                <ThemedDatePicker
                   min={discover.startDate}
+                  title={t('结束日期', 'End Date')}
                   value={discover.endDate}
-                  onChange={(event) => setDiscover({ ...discover, endDate: event.target.value })}
+                  onChange={(val) => setDiscover({ ...discover, endDate: val })}
                 />
               </label>
               <label>
@@ -3335,14 +3336,14 @@ export default function PlannerWorkspace(props: PlannerWorkspaceProps) {
                                   {(!item.saleDate || Boolean(reminder?.customSaleDate)) && (
                                     <label className="planner-ticket-time-input">
                                       <span>开售日</span>
-                                      <input
-                                        type="date"
+                                      <ThemedDatePicker
                                         disabled={busy}
+                                        title="开售日"
                                         value={reminder?.customSaleDate ?? schedule.dateStr}
-                                        onChange={(e) => void saveTicketReminder(item.activityId, {
+                                        onChange={(val) => void saveTicketReminder(item.activityId, {
                                           enabled,
                                           leadMinutes,
-                                          customSaleDate: e.target.value,
+                                          customSaleDate: val,
                                         })}
                                       />
                                     </label>

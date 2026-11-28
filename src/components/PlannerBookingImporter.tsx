@@ -12,6 +12,7 @@ import {
 } from '../planner-booking';
 import { EXPENSE_LABELS, bookingExpenseCategory, bookingLedgerDates } from '../finance';
 import { currency } from '../utils';
+import ThemedDatePicker from './ThemedDatePicker';
 
 const BOOKING_KINDS: BookingKind[] = ['train', 'flight', 'hotel', 'ticket', 'other'];
 
@@ -478,11 +479,11 @@ export function PlannerBookingDialog({ plan, defaultDate = plan?.content.days[0]
               </label>
               <label>
                 入住日期
-                <input type="date" value={draft.date} onChange={(event) => updateDraft({ date: event.target.value })} />
+                <ThemedDatePicker value={draft.date} title="入住日期" onChange={(val) => updateDraft({ date: val })} />
               </label>
               <label>
                 离店日期（单晚可留空）
-                <input type="date" min={draft.date} value={draft.endDate} onChange={(event) => updateDraft({ endDate: event.target.value })} />
+                <ThemedDatePicker min={draft.date} value={draft.endDate} title="离店日期" onChange={(val) => updateDraft({ endDate: val })} />
               </label>
               <label>
                 入住时间
@@ -545,7 +546,7 @@ export function PlannerBookingDialog({ plan, defaultDate = plan?.content.days[0]
               </label>
               <label>
                 日期
-                <input type="date" value={draft.date} onChange={(event) => updateDraft({ date: event.target.value })} />
+                <ThemedDatePicker value={draft.date} title="订单日期" onChange={(val) => updateDraft({ date: val })} />
               </label>
               <label>
                 所属城市
@@ -594,7 +595,7 @@ export function PlannerBookingDialog({ plan, defaultDate = plan?.content.days[0]
 
         {transport && <div className="booking-form-grid">
           <label>到达日期（跨日可填）
-            <input type="date" min={draft.date} value={draft.endDate} onChange={(event) => updateDraft({ endDate: event.target.value })} />
+            <ThemedDatePicker min={draft.date} value={draft.endDate} title="到达日期" onChange={(val) => updateDraft({ endDate: val })} />
           </label>
           {draft.kind === 'flight' && <label className="booking-check">
             <input type="checkbox" checked={Boolean(draft.internationalFlight)}

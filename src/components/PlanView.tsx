@@ -10,6 +10,7 @@ import MobileDisclosure from './MobileDisclosure';
 import { CuteSticker } from './CuteArt';
 import { TravelIcon } from './TravelArt';
 import { seedAiExpenses } from '../finance';
+import ThemedDatePicker from './ThemedDatePicker';
 
 interface PlanViewProps {
   aiPlans?: AiTravelPlan[];
@@ -195,7 +196,7 @@ export default function PlanView({ city, marks, trips, plans, aiPlans, selectedF
         {matchingMoveTargets.length > 0 ? <div className="legacy-move-controls"><select aria-label={t('选择归入的旅行', 'Choose target trip')} value={moveTargetTripId} onChange={(event) => setMoveTargetTripId(event.target.value)}><option value="">{t('选择旅行', 'Select trip')}</option>{matchingMoveTargets.map((trip) => <option key={trip.id} value={trip.id}>{trip.title} · {trip.startDate}</option>)}</select><button className="secondary" disabled={!moveTargetTripId} onClick={() => void moveLegacy()}>{t('归入旅行', 'Merge into Trip')}</button></div>
           : <p className="muted">{t('先新建一段包含这座城市的旅行，之后即可归档。旧账单仍可编辑。', 'Create a trip with this city first to archive it. You can still edit this ledger.')}</p>}</section>}
       <div className="planner-grid"><section className="card planner-main"><h2>{activeItem.title}</h2>
-        <div className="entry-form">{activeJourney ? <div className="journey-finance-dates">{t(`旅行时间：${activeJourney.startDate} — ${activeJourney.endDate}`, `Dates: ${activeJourney.startDate} — ${activeJourney.endDate}`)}<small>{t('修改日期请前往旅行手账编辑这次旅行。', 'Edit dates from Travel Journal.')}</small></div> : <><label>{t('出发日期', 'Start Date')}<input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} /></label><label>{t('结束日期', 'End Date')}<input type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} /></label></>}
+        <div className="entry-form">{activeJourney ? <div className="journey-finance-dates">{t(`旅行时间：${activeJourney.startDate} — ${activeJourney.endDate}`, `Dates: ${activeJourney.startDate} — ${activeJourney.endDate}`)}<small>{t('修改日期请前往旅行手账编辑这次旅行。', 'Edit dates from Travel Journal.')}</small></div> : <><label>{t('出发日期', 'Start Date')}<ThemedDatePicker value={draft.startDate} title={t('出发日期', 'Start Date')} onChange={(val) => setDraft({ ...draft, startDate: val })} /></label><label>{t('结束日期', 'End Date')}<ThemedDatePicker min={draft.startDate} value={draft.endDate} title={t('结束日期', 'End Date')} onChange={(val) => setDraft({ ...draft, endDate: val })} /></label></>}
           <label>{t('同行人数', 'Travelers')}<input type="number" min="1" step="1" value={draft.people} onChange={(event) => setDraft({ ...draft, people: Math.max(1, Math.floor(Number(event.target.value) || 1)) })} /></label></div>
         <AmountFields title={t('分类预算', 'Category Budget')} amounts={draft.budget} onChange={(budget) => setDraft({ ...draft, budget })} />
         {(() => {

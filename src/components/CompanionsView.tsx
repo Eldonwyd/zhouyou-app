@@ -21,6 +21,7 @@ import QrCodeBox from './QrCodeBox';
 import FriendFootprintModal from './FriendFootprintModal';
 import ChatRoomView from './ChatRoomView';
 import ThemedSelect from './ThemedSelect';
+import ThemedDatePicker from './ThemedDatePicker';
 
 interface CompanionsViewProps {
   cloudUser: CloudSelfUser | null;
@@ -1508,7 +1509,7 @@ export default function CompanionsView({
               <div className="aa-form-grid">
                 <input type="text" placeholder="消费项目（如：晚餐烤肉）" value={expTitle} onChange={(e) => setExpTitle(e.target.value)} />
                 <input type="number" step="0.01" min="0" placeholder="金额（元）" value={expAmount} onChange={(e) => setExpAmount(e.target.value)} />
-                <input type="date" value={expDate} onChange={(e) => setExpDate(e.target.value)} />
+                <ThemedDatePicker value={expDate} title="选择消费日期" onChange={setExpDate} />
                 <ThemedSelect
                   value={expCategory}
                   title="选择消费分类"
@@ -1915,7 +1916,7 @@ export default function CompanionsView({
             </label>
             <label className="auth-field" style={{ marginTop: 8 }}>
               <span>纪念日（可选）</span>
-              <input type="date" value={intimacyDate} onChange={(e) => setIntimacyDate(e.target.value)} />
+              <ThemedDatePicker value={intimacyDate} title="选择纪念日" onChange={setIntimacyDate} />
             </label>
             <div className="dialog-actions">
               <button type="button" className="primary" onClick={() => void handleSubmitIntimacy()}>发送绑定邀请</button>
@@ -1965,7 +1966,7 @@ export default function CompanionsView({
             </label>
             <label className="auth-field" style={{ marginTop: 8 }}>
               <span>纪念日（可选）</span>
-              <input type="date" value={editBondDate} onChange={(e) => setEditBondDate(e.target.value)} />
+              <ThemedDatePicker value={editBondDate} title="选择纪念日" onChange={setEditBondDate} />
             </label>
             <div className="dialog-actions">
               <button type="button" className="primary" onClick={() => void handleSaveEditBond()}>保存</button>

@@ -23,6 +23,8 @@ import JournalCover, { findJournalPlannerPhotos } from './JournalCover';
 import type { AiTravelPlan } from '../planner-types';
 import { provinceDisplayName, useI18n } from '../i18n';
 import type { TourRestrictedFeature } from '../web-tour';
+import ThemedDatePicker from './ThemedDatePicker';
+import TicketWalletView from './TicketWalletView';
 
 interface DetailViewProps {
   city: CityMark | null;
@@ -400,8 +402,8 @@ function JourneyEditor({ initial, initialCity, onSave, onCancel, onError, locked
     <div className="card-heading"><h2>{initial ? t('编辑旅行', 'Edit Trip') : t('新建一次旅行', 'New Trip')}</h2><button className="text-button" onClick={onCancel}>{t('取消', 'Cancel')}</button></div>
     <div className="entry-form">
       <label>{t('旅行名称', 'Trip Title')}<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t('例如：贵州的夏天', 'e.g. Summer in Guizhou')} maxLength={40} /></label>
-      <label>{t('开始日期', 'Start Date')}<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} required /></label>
-      <label>{t('结束日期', 'End Date')}<input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} required /></label>
+      <label>{t('开始日期', 'Start Date')}<ThemedDatePicker value={startDate} onChange={setStartDate} title={t('开始日期', 'Start Date')} required /></label>
+      <label>{t('结束日期', 'End Date')}<ThemedDatePicker value={endDate} min={startDate} onChange={setEndDate} title={t('结束日期', 'End Date')} required /></label>
       <label>{t('同行者（可选）', 'Companions (optional)')}<input value={companions} onChange={(event) => setCompanions(event.target.value)} placeholder={t('用顿号分隔姓名', 'Separate names with commas')} /></label>
       <label>{t('旅行状态', 'Status')}<select value={status} onChange={(event) => setStatus(event.target.value as NonNullable<Journey['status']>)}><option value="visited">{t('已去过', 'Visited')}</option><option value="planned">{t('计划中', 'Planned')}</option></select></label>
     </div>
@@ -429,6 +431,8 @@ export default function DetailView(props: DetailViewProps) {
     onSaveEntry, onSaveMedia, onSaveMediaGroup, onUpdateMedia, onDeleteMedia,
     onUpdateMark, onSaveCityMark, onOpenMap, onError, onNotice, webTourMode = false, onRequireClient } = props;
   const [showAll, setShowAll] = useState(false);
+  const [journalTab, setJournalTab] = useState<'journal' | 'tickets'>('journal');
+  const [walletTripId, setWalletTripId] = useState<string | null>(null);
   const [recordQuery, setRecordQuery] = useState('');
   const [recordYear, setRecordYear] = useState('all');
   const [cityProvinceFilter, setCityProvinceFilter] = useState('all');
@@ -1042,17 +1046,52 @@ export default function DetailView(props: DetailViewProps) {
         <p>{t('一段旅程、几座城市，把每个地点的照片和故事收在一起。', 'One journey, many cities—keep photos and stories from every stop together.')}</p>
       </div>
       <div className="heading-actions">
-        <button type="button" className="secondary" onClick={() => { setCityBrowserOpen(!cityBrowserOpen); setSelectedTripId(null); setSelectedPlaceId(null); }}>
-          {cityBrowserOpen ? t('收起城市选择', 'Hide City Browser') : t('按省份选择城市', 'Browse by Province')}
-        </button>
-        {onOpenMap && (
-          <button type="button" className="secondary" onClick={onOpenMap}>
-            {t('去地图选择城市', 'Pick on Map')}
+        <div className="journal-mode-tabs" role="tablist" aria-label={t('手账与票夹切换', 'Journal and Ticket Wallet')}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={journalTab === 'journal'}
+            className={journalTab === 'journal' ? 'is-active' : ''}
+            onClick={() => setJournalTab('journal')}
+          >
+            📖 {t('旅行手账', 'Journal')}
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={journalTab === 'tickets'}
+            className={journalTab === 'tickets' ? 'is-active' : ''}
+            onClick={() => {
+              setWalletTripId(selectedTrip?.id ?? null);
+              setJournalTab('tickets');
+            }}
+          >
+            🎫 {t('出行票夹', 'Ticket Wallet')}
+          </button>
+        </div>
+        {journalTab === 'journal' && (
+          <>
+            <button type="button" className="secondary" onClick={() => { setCityBrowserOpen(!cityBrowserOpen); setSelectedTripId(null); setSelectedPlaceId(null); }}>
+              {cityBrowserOpen ? t('收起城市选择', 'Hide City Browser') : t('按省份选择城市', 'Browse by Province')}
+            </button>
+            {onOpenMap && (
+              <button type="button" className="secondary" onClick={onOpenMap}>
+                {t('去地图选择城市', 'Pick on Map')}
+              </button>
+            )}
+            <button type="button" className="primary" onClick={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }}>{t('＋ 新建旅行', '+ New Trip')}</button>
+          </>
         )}
-        <button type="button" className="primary" onClick={() => { setEditingTrip('new'); setSelectedTripId(null); setSelectedPlaceId(null); }}>{t('＋ 新建旅行', '+ New Trip')}</button>
       </div>
     </div>
+    {journalTab === 'tickets' ? (
+      <TicketWalletView
+        trips={trips}
+        initialTripId={walletTripId}
+        onNotice={onNotice}
+        onError={onError}
+      />
+    ) : <>
     {cityBrowserOpen && !selectedTrip && !editingTrip && <TravelCityBrowser trips={trips} places={places} marks={marks} selectedCityCode={scopeCityCode} onSelectCity={(pickedCity) => { setBrowseCity(pickedCity); setShowAll(false); setSelectedTripId(null); }} onShowAll={() => { setShowAll(true); setBrowseCity(null); setCityBrowserOpen(false); setSelectedTripId(null); }} onOpenMap={onOpenMap} onError={onError} />}
     {city && !browseCity && !showAll && !selectedTrip && <div className="card status-card"><div><strong>{t(`${city.name}的城市状态`, `${city.name} Status`)}</strong><p>{trips.some((trip) => trip.cities.some((item) => item.code === city.id && trip.status !== 'planned')) ? t('这座城市已包含在去过的旅行中，地图会保持点亮。', 'This city is part of a visited trip and stays lit on the map.') : t('确认去过的城市会点亮地图，也可以在这里取消手动标记。', 'Marked cities light up the map. You can toggle manual marks here.')}</p></div><label className="checkbox"><input type="checkbox" checked={city.visited} disabled={trips.some((trip) => trip.status !== 'planned' && trip.cities.some((item) => item.code === city.id))} onChange={(event) => void onUpdateMark(event.target.checked)} />{t('已去过', 'Visited')}</label></div>}
     {editingTrip && <JourneyEditor key={editingTrip === 'new' ? 'new' : editingTrip.id} initial={editingTrip === 'new' ? null : editingTrip} initialCity={scopeCityMark} lockedCityCodes={editingTrip === 'new' ? [] : places.filter((place) => place.tripId === editingTrip.id).map((place) => place.cityCode)} onSave={saveTrip} onCancel={() => setEditingTrip(null)} onError={onError} />}
@@ -1100,7 +1139,7 @@ export default function DetailView(props: DetailViewProps) {
             : <input value={scopeCity?.name ?? ''} readOnly />}</label>
           <label>{t('已有地点（可选）', 'Existing Place (optional)')}<select value={uploadPlaceId} onChange={(event) => setUploadPlaceId(event.target.value)}><option value="">{t(`整个${uploadCityName}（不选具体地点）`, `All of ${uploadCityName}`)}</option>{uploadPlaces.map((place) => <option key={place.id} value={place.id}>{place.name}</option>)}</select></label>
           <label>{t('或新建地点', 'Or New Place')}<input value={newPlaceName} onChange={(event) => setNewPlaceName(event.target.value)} placeholder={t('例如：黄果树瀑布', 'e.g. Erhai Lake')} /></label>
-          {!selectedTrip && <label>{t('地点记录日期', 'Visit Date')}<input type="date" value={placeVisitDate} onChange={(event) => setPlaceVisitDate(event.target.value)} /></label>}
+          {!selectedTrip && <label>{t('地点记录日期', 'Visit Date')}<ThemedDatePicker value={placeVisitDate} onChange={setPlaceVisitDate} title={t('地点记录日期', 'Visit Date')} /></label>}
           <button className="secondary" onClick={() => void createPlace()} disabled={!newPlaceName.trim()}>{t('创建地点', 'Create Place')}</button>
         </div>
         <div className="heading-actions">
@@ -1265,6 +1304,7 @@ export default function DetailView(props: DetailViewProps) {
         if (entry) void onSaveEntry({ ...entry, highlight: event.target.checked });
       }} />{t('设为高光时刻', 'Mark as Highlight')}</label>}
     </section></div>}
-    {selectedMedia && selectedPlace && <div className="lightbox-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedMediaIndex(null); }}><div className="lightbox" role="dialog" aria-modal="true" aria-label={t('照片详情', 'Photo details')} onTouchStart={(event) => { touchStartRef.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={(event) => { if (touchStartRef.current === null) return; const delta = event.changedTouches[0].clientX - touchStartRef.current; if (Math.abs(delta) > 50) setSelectedMediaIndex(Math.max(0, Math.min(placeMedia.length - 1, (selectedMediaIndex ?? 0) + (delta < 0 ? 1 : -1)))); touchStartRef.current = null; }}><div className="lightbox-top"><span>{(selectedMediaIndex ?? 0) + 1} / {placeMedia.length}</span><button aria-label={t('关闭照片详情', 'Close photo details')} onClick={() => setSelectedMediaIndex(null)}>×</button></div><div className="lightbox-stage"><button aria-label={t('上一张', 'Previous')} onClick={() => setSelectedMediaIndex(Math.max(0, (selectedMediaIndex ?? 0) - 1))}>‹</button>{fullMediaUrl && (selectedMedia.kind === 'video' ? <video key={selectedMedia.id} src={fullMediaUrl} controls preload="metadata" /> : <LivePhotoStage item={selectedMedia} imageUrl={fullMediaUrl} liveVideoUrl={liveMediaUrl} />)}<button aria-label={t('下一张', 'Next')} onClick={() => setSelectedMediaIndex(Math.min(placeMedia.length - 1, (selectedMediaIndex ?? 0) + 1))}>›</button></div><div className="lightbox-caption"><h3>{selectedPlace.name}</h3><div className="lightbox-meta-row"><small>{selectedMedia.fileName}</small><span className="lightbox-lossless-badge">{isLivePhotoMedia(selectedMedia) ? t('实况原图无损', 'Lossless Live Photo') : isAnimatedImageMedia(selectedMedia) ? t('动态原图无损', 'Lossless GIF') : t('原图无损', 'Lossless Original')}{formatFileSize(selectedMedia.fileSize) ? ` · ${formatFileSize(selectedMedia.fileSize)}` : ''}</span></div><div className="entry-form"><label>{t('拍摄日期', 'Capture Date')}<input type="date" value={selectedMedia.capturedAt.slice(0, 10)} onChange={(event) => void changeMediaDate(selectedMedia, event.target.value)} /></label><label>{t('移动到地点', 'Move to Place')}<select value={selectedMedia.placeId} onChange={(event) => { const place = tripPlaces.find((item) => item.id === event.target.value); if (place) { void onUpdateMedia({ ...selectedMedia, placeId: place.id, cityCode: place.cityCode, placeName: place.name, entryId: null }); setSelectedMediaIndex(null); } }}>{tripPlaces.map((place) => <option key={place.id} value={place.id}>{place.name}</option>)}</select></label></div><div className="lightbox-actions-row"><button type="button" className="secondary" onClick={() => void downloadOriginalMedia(selectedMedia)}>{t('下载原图', 'Download Original')}</button><button className="text-button" onClick={() => { if (window.confirm(t('删除这份媒体文件？', 'Delete this media file?'))) { void onDeleteMedia(selectedMedia.id); setSelectedMediaIndex(null); } }}>{t('删除这张照片', 'Delete Photo')}</button></div></div></div></div>}
+    {selectedMedia && selectedPlace && <div className="lightbox-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedMediaIndex(null); }}><div className="lightbox" role="dialog" aria-modal="true" aria-label={t('照片详情', 'Photo details')} onTouchStart={(event) => { touchStartRef.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={(event) => { if (touchStartRef.current === null) return; const delta = event.changedTouches[0].clientX - touchStartRef.current; if (Math.abs(delta) > 50) setSelectedMediaIndex(Math.max(0, Math.min(placeMedia.length - 1, (selectedMediaIndex ?? 0) + (delta < 0 ? 1 : -1)))); touchStartRef.current = null; }}><div className="lightbox-top"><span>{(selectedMediaIndex ?? 0) + 1} / {placeMedia.length}</span><button aria-label={t('关闭照片详情', 'Close photo details')} onClick={() => setSelectedMediaIndex(null)}>×</button></div><div className="lightbox-stage"><button aria-label={t('上一张', 'Previous')} onClick={() => setSelectedMediaIndex(Math.max(0, (selectedMediaIndex ?? 0) - 1))}>‹</button>{fullMediaUrl && (selectedMedia.kind === 'video' ? <video key={selectedMedia.id} src={fullMediaUrl} controls preload="metadata" /> : <LivePhotoStage item={selectedMedia} imageUrl={fullMediaUrl} liveVideoUrl={liveMediaUrl} />)}<button aria-label={t('下一张', 'Next')} onClick={() => setSelectedMediaIndex(Math.min(placeMedia.length - 1, (selectedMediaIndex ?? 0) + 1))}>›</button></div><div className="lightbox-caption"><h3>{selectedPlace.name}</h3><div className="lightbox-meta-row"><small>{selectedMedia.fileName}</small><span className="lightbox-lossless-badge">{isLivePhotoMedia(selectedMedia) ? t('实况原图无损', 'Lossless Live Photo') : isAnimatedImageMedia(selectedMedia) ? t('动态原图无损', 'Lossless GIF') : t('原图无损', 'Lossless Original')}{formatFileSize(selectedMedia.fileSize) ? ` · ${formatFileSize(selectedMedia.fileSize)}` : ''}</span></div><div className="entry-form"><label>{t('拍摄日期', 'Capture Date')}<ThemedDatePicker value={selectedMedia.capturedAt.slice(0, 10)} title={t('拍摄日期', 'Capture Date')} onChange={(val) => void changeMediaDate(selectedMedia, val)} /></label><label>{t('移动到地点', 'Move to Place')}<select value={selectedMedia.placeId} onChange={(event) => { const place = tripPlaces.find((item) => item.id === event.target.value); if (place) { void onUpdateMedia({ ...selectedMedia, placeId: place.id, cityCode: place.cityCode, placeName: place.name, entryId: null }); setSelectedMediaIndex(null); } }}>{tripPlaces.map((place) => <option key={place.id} value={place.id}>{place.name}</option>)}</select></label></div><div className="lightbox-actions-row"><button type="button" className="secondary" onClick={() => void downloadOriginalMedia(selectedMedia)}>{t('下载原图', 'Download Original')}</button><button className="text-button" onClick={() => { if (window.confirm(t('删除这份媒体文件？', 'Delete this media file?'))) { void onDeleteMedia(selectedMedia.id); setSelectedMediaIndex(null); } }}>{t('删除这张照片', 'Delete Photo')}</button></div></div></div></div>}
+    </>}
   </div>;
 }

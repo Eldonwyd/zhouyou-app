@@ -581,12 +581,48 @@
     });
   });
 
+  let activeMirror = 'edge';
+  try {
+    const savedMirror = localStorage.getItem('zhouyou-dl-mirror');
+    if (['edge', 'ghproxy', 'ghfast', 'direct'].includes(savedMirror)) activeMirror = savedMirror;
+  } catch {}
+  let latestReleasesCache = [];
+
   function buildAssetDownloadUrl(release, asset) {
+    const rawDirect = asset && asset.browser_download_url ? asset.browser_download_url : '';
+    if (activeMirror === 'ghproxy' && rawDirect) return `https://gh-proxy.org/${rawDirect}`;
+    if (activeMirror === 'ghfast' && rawDirect) return `https://ghfast.top/${rawDirect}`;
+    if (activeMirror === 'direct' && rawDirect) return rawDirect;
     if (useEdgeProxy && release && release.tag_name && asset && asset.name) {
       return `./api/download?tag=${encodeURIComponent(release.tag_name)}&file=${encodeURIComponent(asset.name)}`;
     }
-    return asset.browser_download_url;
+    return rawDirect;
   }
+
+  const mirrorBtns = document.querySelectorAll('.mirror-btn[data-mirror]');
+  function syncMirrorUi() {
+    mirrorBtns.forEach((btn) => btn.classList.toggle('is-active', btn.dataset.mirror === activeMirror));
+  }
+  syncMirrorUi();
+  mirrorBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const next = btn.dataset.mirror;
+      if (!next || next === activeMirror) return;
+      activeMirror = next;
+      try { localStorage.setItem('zhouyou-dl-mirror', next); } catch {}
+      syncMirrorUi();
+      if (latestReleasesCache.length > 0) {
+        applyReleases(latestReleasesCache);
+      } else if (useEdgeProxy) {
+        for (const [assetKey, route] of Object.entries(INSTALL_ROUTE_BY_ASSET)) {
+          const link = document.querySelector(`a[data-asset="${assetKey}"]`);
+          if (link) {
+            link.href = activeMirror === 'edge' ? route : `${route}?mirror=${encodeURIComponent(activeMirror)}`;
+          }
+        }
+      }
+    });
+  });
 
   function bindAssets(release, matchers) {
     if (!release || !Array.isArray(release.assets)) return;
@@ -643,6 +679,7 @@
       return Date.parse(b.published_at || '0') - Date.parse(a.published_at || '0');
     });
     if (!list.length) return false;
+    latestReleasesCache = list;
     const desktopRelease =
       list.find((r) => /^desktop-v/i.test(r.tag_name || '') && (r.assets || []).length > 0) ||
       list.find((r) => /^desktop-v/i.test(r.tag_name || '')) ||

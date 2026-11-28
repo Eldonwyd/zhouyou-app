@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import type { PlannerLuggageMode, PlannerRequest } from '../planner-types';
 import { PLANNER_LOCAL_TRANSPORT_OPTIONS, plannerLocalTransport, plannerPartyText, updatePlannerDates } from '../planner-domain';
 import { useI18n } from '../i18n';
+import ThemedDatePicker from './ThemedDatePicker';
 
 /** 新建和修改条件共用选择器，旧计划打开时也会显示实际使用的默认值。 */
 export function PlannerLuggageField({ value, onChange }: {
@@ -200,22 +201,23 @@ export default function PlannerRequestFields({
         </div>
         <label>
           {t('开始日期', 'Start Date')}
-          <input
-            type="date"
+          <ThemedDatePicker
             required
+            title={t('开始日期', 'Start Date')}
             value={value.startDate}
-            onChange={(event) =>
-              onChange(updatePlannerDates(value, { startDate: event.target.value }))
+            onChange={(val) =>
+              onChange(updatePlannerDates(value, { startDate: val }))
             }
           />
         </label>
         <label>
           {t('结束日期', 'End Date')}
-          <input
-            type="date"
+          <ThemedDatePicker
+            min={value.startDate}
+            title={t('结束日期', 'End Date')}
             value={value.endDate}
-            onChange={(event) =>
-              onChange(updatePlannerDates(value, { endDate: event.target.value }))
+            onChange={(val) =>
+              onChange(updatePlannerDates(value, { endDate: val }))
             }
           />
         </label>

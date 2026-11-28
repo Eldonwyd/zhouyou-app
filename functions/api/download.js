@@ -21,16 +21,35 @@ export async function streamReleaseAsset(request, tag, file, context = null) {
   }
 
   const targetUrl = `https://github.com/${REPO}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(file)}`;
+  const reqUrl = new URL(request.url);
+  const mirror = (reqUrl.searchParams.get('mirror') || '').trim().toLowerCase();
+
+  // 支持按线路参数直接 302 跳转至国内高速镜像或 GitHub 官方源，避免单一回源限速
+  if (mirror === 'ghproxy' || mirror === 'ghfast' || mirror === 'direct') {
+    const redirectTarget =
+      mirror === 'ghproxy'
+        ? `https://gh-proxy.org/${targetUrl}`
+        : mirror === 'ghfast'
+          ? `https://ghfast.top/${targetUrl}`
+          : targetUrl;
+    return Response.redirect(redirectTarget, 302);
+  }
+
   const reqHeaders = new Headers({
     'User-Agent': 'zhouyou-online-pages',
   });
   const range = request.headers.get('Range');
   if (range) reqHeaders.set('Range', range);
 
+  // 开启 Cloudflare 边缘缓存（cacheEverything + 24h TTL），减少每次下载回源 GitHub 导致的掉速与卡顿
   const upstream = await fetch(targetUrl, {
     method: request.method === 'HEAD' ? 'HEAD' : 'GET',
     headers: reqHeaders,
     redirect: 'follow',
+    cf: {
+      cacheEverything: true,
+      cacheTtlByStatus: { '200-299': 86400, '404': 60 },
+    },
   });
 
   if (!upstream.ok && upstream.status !== 206) {
@@ -51,7 +70,8 @@ export async function streamReleaseAsset(request, tag, file, context = null) {
   if (!isJson && !isTxt) {
     resHeaders.set('Content-Disposition', `attachment; filename="${file}"`);
   }
-  resHeaders.set('Cache-Control', 'public, max-age=3600');
+  resHeaders.set('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+  resHeaders.set('Accept-Ranges', upstream.headers.get('Accept-Ranges') || 'bytes');
 
   for (const key of ['Content-Length', 'Content-Range', 'Accept-Ranges', 'ETag', 'Last-Modified']) {
     const val = upstream.headers.get(key);

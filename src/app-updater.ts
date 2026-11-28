@@ -434,6 +434,14 @@ function buildEdgeDownloadUrl(tag: string, fileName: string): string {
   return `https://zhouyou.online/api/download?tag=${encodeURIComponent(tag)}&file=${encodeURIComponent(fileName)}`;
 }
 
+function buildMirrorDownloadUrls(directUrl: string): string[] {
+  if (!directUrl || !/^https:\/\/github\.com\//i.test(directUrl)) return [];
+  return [
+    `https://gh-proxy.org/${directUrl}`,
+    `https://ghfast.top/${directUrl}`,
+  ];
+}
+
 async function fetchHotUpdateManifest(
   latest: ReleaseEntry,
   signal?: AbortSignal,
@@ -536,8 +544,9 @@ export async function checkForAppUpdate(signal?: AbortSignal): Promise<AppUpdate
 
   const edgeDownloadUrl = asset?.name ? buildEdgeDownloadUrl(latest.tag_name, asset.name) : '';
   const directDownloadUrl = asset?.browser_download_url || '';
-  const primaryDownloadUrl = edgeDownloadUrl || directDownloadUrl || latest.html_url || DOWNLOAD_PORTAL_URL;
-  const fallbackDownloadUrls = [directDownloadUrl].filter((u) => Boolean(u) && u !== primaryDownloadUrl);
+  const mirrorDownloadUrls = buildMirrorDownloadUrls(directDownloadUrl);
+  const primaryDownloadUrl = edgeDownloadUrl || mirrorDownloadUrls[0] || directDownloadUrl || latest.html_url || DOWNLOAD_PORTAL_URL;
+  const fallbackDownloadUrls = [...mirrorDownloadUrls, directDownloadUrl].filter((u) => Boolean(u) && u !== primaryDownloadUrl);
 
   const sha256Url = shaSumsAsset?.name ? buildEdgeDownloadUrl(latest.tag_name, shaSumsAsset.name) : '';
   const sha256FallbackUrls = shaSumsAsset?.browser_download_url ? [shaSumsAsset.browser_download_url] : [];
@@ -563,11 +572,12 @@ export async function checkForAppUpdate(signal?: AbortSignal): Promise<AppUpdate
       if (localCompat && remoteCompat && localCompat === remoteCompat) {
         const hotEdgeUrl = buildEdgeDownloadUrl(latest.tag_name, remoteHot.zipAsset.name);
         const hotDirectUrl = remoteHot.zipAsset.browser_download_url || '';
-        const hotPrimaryUrl = hotEdgeUrl || hotDirectUrl;
+        const hotMirrorUrls = buildMirrorDownloadUrls(hotDirectUrl);
+        const hotPrimaryUrl = hotEdgeUrl || hotMirrorUrls[0] || hotDirectUrl;
         if (hotPrimaryUrl) {
           hotUpdate = {
             url: hotPrimaryUrl,
-            fallbackUrls: [hotDirectUrl].filter((u) => Boolean(u) && u !== hotPrimaryUrl),
+            fallbackUrls: [...hotMirrorUrls, hotDirectUrl].filter((u) => Boolean(u) && u !== hotPrimaryUrl),
             fileName: remoteHot.zipAsset.name,
             sha256: String(remoteHot.manifest.bundleSha256 || '').trim().toLowerCase(),
             size: Number(remoteHot.manifest.bundleSize || remoteHot.zipAsset.size || 0),
